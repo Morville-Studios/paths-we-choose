@@ -1,0 +1,22 @@
+{
+  "name": "paths-we-choose",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The Paths We Choose - A tabletop-inspired dungeon-crawl and path-building card game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run docs:check && tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "docs:sync": "node scripts/sync-doc-catalogs.cjs",
+    "docs:check": "node scripts/sync-doc-catalogs.cjs --check"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.5",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}

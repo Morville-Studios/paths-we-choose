@@ -1,0 +1,4 @@
+# Revalidate fixed-URL artwork/audio as well as the entry page and release manifest.
+# Cached bytes can still be reused when the server returns 304 Not Modified.
+/*
+  Cache-Control: public, max-age=0, must-revalidate
