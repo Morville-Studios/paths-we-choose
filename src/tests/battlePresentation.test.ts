@@ -36,7 +36,7 @@ describe('battle hand and creature presentation', () => {
     expect(footer).not.toContain('data-creature-stat="def"');
     expect(footer).not.toContain('data-creature-stat="mdef"');
     expect(footer).toContain('aria-label="ACC: 1"');
-    expect(footer).toContain('aria-label="EVA: 1"');
+    expect(footer).toContain('aria-label="EVA: 2"');
     expect(html).not.toContain('creature-stats-row');
   });
   it('retains positive MDEF and DEF in the unified stat footer', () => {

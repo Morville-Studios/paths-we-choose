@@ -32,6 +32,7 @@ import {
   unequipItem,
   useConsumable,
 } from '../core/engine';
+import { getTrainRemovalCost, getTrainingSkillCost } from '../core/village';
 import {
   canUpgradeBaseStat,
   upgradeBaseStat,
@@ -59,11 +60,12 @@ import {
   evaluateAttackRoll,
   computeHitProbability,
   getMonsterIntent,
+  BASE_HIT_THRESHOLD,
 } from '../core/combat';
 import { roll2D6 } from '../core/rng';
 import { drawEncounterMonsters, drawMonsterCardWithReshuffle, buildStage2AdventureDeck } from '../core/deck';
 import { MONSTER_TEMPLATES, createBossMonstersForMission } from '../data/monsters';
-import { STAGE_2_MISSION_NAME } from '../data/stages';
+import { ADVENTURE_CARD_CATALOG, STAGE_2_MISSION_NAME } from '../data/stages';
 import { COMBAT_CARD_CATALOG } from '../data/combatCards';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
 import { AdventureCard, CombatCardDef, CombatMonster, MonsterCard, RunState } from '../core/types';
@@ -167,6 +169,15 @@ describe('card scaling', () => {
 });
 
 describe('board setup', () => {
+  it('defines exactly one encounter tier for each currently available terrain', () => {
+    const encounterLevels = Object.values(ADVENTURE_CARD_CATALOG)
+      .filter((card) => card.hasHostile)
+      .map((card) => `${card.terrain}:${card.level}`)
+      .sort();
+
+    expect(encounterLevels).toEqual(['forest:3', 'grasslands:2', 'swamp:4']);
+  });
+
   it('deals 2 choices + 3 lookahead cards and is deterministic', () => {
     const a = start('fighter', 'abc');
     const b = start('fighter', 'abc');
@@ -191,18 +202,15 @@ describe('board setup', () => {
     }
 
     expect(counts['advgrs-00']).toBe(3);
-    expect(counts['advgrs-01']).toBe(5);
-    expect(counts['advgrs-02']).toBe(3);
+    expect(counts['advgrs-01']).toBe(8);
     expect(counts['advgrs-03']).toBe(3);
     expect(counts['advgrs-04']).toBe(3);
     expect(counts['advfrs-00']).toBe(2);
-    expect(counts['advfrs-01']).toBe(3);
-    expect(counts['advfrs-02']).toBe(2);
+    expect(counts['advfrs-01']).toBe(5);
     expect(counts['advfrs-03']).toBe(2);
     expect(counts['advfrs-04']).toBe(2);
     expect(counts['advsmp-00']).toBe(1);
     expect(counts['advsmp-01']).toBe(1);
-    expect(counts['advsmp-02'] ?? 0).toBe(0);
     expect(counts['advsmp-03'] ?? 0).toBe(0);
     expect(counts['advsmp-04'] ?? 0).toBe(0);
   });
@@ -335,19 +343,19 @@ describe('village', () => {
     return s;
   }
 
-  it('rest restores full HP and ends the visit if affordable', () => {
+  it('rest restores the selected amount and keeps the village visit open', () => {
     let s = inVillage();
-    // Missing 15 HP (18 - 3) costs 5 + floor(15/10) = 6 gold
+    // A full rest of 13 missing HP takes 7 two-HP ticks and costs 7 Gold.
     s = { ...s, playerResources: { ...s.playerResources!, hp: 3, gold: 10 } };
     s = villageDoRest(s);
     expect(s.playerResources?.hp).toBe(s.playerResources?.maxHp);
-    expect(s.playerResources?.gold).toBe(4);
-    expect(s.activeHook.type).toBe('NONE');
+    expect(s.playerResources?.gold).toBe(3);
+    expect(s.activeHook.type).toBe('VILLAGE');
   });
 
   it('rest is prevented if player does not have enough gold', () => {
     let s = inVillage();
-    s = { ...s, playerResources: { ...s.playerResources!, hp: 3, gold: 5 } }; // needs 6g
+    s = { ...s, playerResources: { ...s.playerResources!, hp: 3, gold: 5 } }; // needs 7g
     const notRested = villageDoRest(s);
     expect(notRested.playerResources?.hp).toBe(3);
     expect(notRested.playerResources?.gold).toBe(5);
@@ -367,7 +375,7 @@ describe('village', () => {
     expect(notRested.activeHook.type).toBe('VILLAGE');
   });
 
-  it('rest is allowed on full health if player has negative status ailments, cleansing them', () => {
+  it('rest is disabled at full health even when the hero has an ailment', () => {
     let s = inVillage();
     s = {
       ...s,
@@ -376,15 +384,14 @@ describe('village', () => {
     };
     const rested = villageDoRest(s);
     expect(rested.playerResources?.hp).toBe(s.playerResources!.maxHp);
-    expect(rested.playerResources?.gold).toBe(15); // 20 - 5 = 15
-    expect(rested.statusEffects).toEqual([]);
-    expect(rested.activeHook.type).toBe('NONE');
-    expect(rested.bannerMessage).toContain('cleanse all negative ailments');
+    expect(rested.playerResources?.gold).toBe(20);
+    expect(rested.statusEffects).toEqual(['poison']);
+    expect(rested.activeHook.type).toBe('VILLAGE');
   });
 
-  it('rest cleanses negative status ailments and restores HP when both missing HP and afflicted', () => {
+  it('rest heals HP but does not cleanse status ailments', () => {
     let s = inVillage();
-    // 15 missing HP costs 5 + floor(15/10) = 6 gold
+    // 13 missing HP costs 7 one-Gold ticks.
     s = {
       ...s,
       statusEffects: ['poison', 'crippled'],
@@ -392,19 +399,17 @@ describe('village', () => {
     };
     const rested = villageDoRest(s);
     expect(rested.playerResources?.hp).toBe(s.playerResources!.maxHp);
-    expect(rested.playerResources?.gold).toBe(14); // 20 - 6 = 14
-    expect(rested.statusEffects).toEqual([]);
-    expect(rested.activeHook.type).toBe('NONE');
-    expect(rested.bannerMessage).toContain('cleanse all ailments');
+    expect(rested.playerResources?.gold).toBe(13);
+    expect(rested.statusEffects).toEqual(['poison', 'crippled']);
+    expect(rested.activeHook.type).toBe('VILLAGE');
   });
 
-  it('can navigate from shop back to menu if no action taken, but locked once an item is bought', () => {
+  it('can return from shop to the menu after purchases without changing its prepared stock', () => {
     let s = inVillage();
     s = { ...s, playerResources: { ...s.playerResources!, gold: 20 } };
     s = villageChooseShop(s);
     if (s.activeHook.type !== 'VILLAGE') throw new Error('expected village');
     expect(s.activeHook.village.subView).toBe('shop');
-    expect(s.activeHook.village.actionTaken).toBe(false);
 
     // Can go back to menu before purchasing
     s = villageGoBack(s);
@@ -417,12 +422,11 @@ describe('village', () => {
     const stocked = s.activeHook.village.shopStock.find(item => item.buyPrice <= 20)!;
     s = buyItem(s, stocked.instanceId);
     if (s.activeHook.type !== 'VILLAGE') throw new Error('expected village');
-    expect(s.activeHook.village.actionTaken).toBe(true);
-
-    // Cannot go back to menu anymore
-    const triedBack = villageGoBack(s);
-    if (triedBack.activeHook.type !== 'VILLAGE') throw new Error('expected village');
-    expect(triedBack.activeHook.village.subView).toBe('shop');
+    const stockAfterPurchase = s.activeHook.village.shopStock;
+    const backAfterPurchase = villageGoBack(s);
+    if (backAfterPurchase.activeHook.type !== 'VILLAGE') throw new Error('expected village');
+    expect(backAfterPurchase.activeHook.village.subView).toBe('main');
+    expect(backAfterPurchase.activeHook.village.shopStock).toEqual(stockAfterPurchase);
   });
 
   it('previewGearChange correctly calculates stat deltas and maxHp changes', () => {
@@ -442,18 +446,28 @@ describe('village', () => {
     expect(preview.maxHpAfter).toBe(18);
   });
 
-  it('train removes a card (min deck size 5) or drafts 1 of 3', () => {
+  it('training has published costs, consumes prepared offers, and remains reversible', () => {
     let s = inVillage();
+    s = { ...s, playerResources: { ...s.playerResources!, gold: 100, statPoints: 100 } };
     s = villageChooseTrain(s);
     expect(s.activeHook.type === 'VILLAGE' && s.activeHook.village.trainOptions.length).toBe(3);
     if (s.activeHook.type !== 'VILLAGE') throw new Error('expected village');
     const offer = s.activeHook.village.trainOptions[0];
+    const skillCost = getTrainingSkillCost(offer);
     const drafted = villageDoTrainDraft(s, offer.instanceId);
     expect(drafted.playerMasterDeck.length).toBe(11);
-    expect(drafted.activeHook.type).toBe('NONE');
+    expect(drafted.activeHook.type).toBe('VILLAGE');
+    expect(drafted.playerResources?.gold).toBe(100 - skillCost.gold);
+    expect(drafted.playerResources?.statPoints).toBe(100 - skillCost.statPoints);
+    if (drafted.activeHook.type !== 'VILLAGE') throw new Error('expected village');
+    expect(drafted.activeHook.village.trainOptions).toHaveLength(2);
 
-    const removed = villageDoTrainRemove(s, s.playerMasterDeck[0].instanceId);
-    expect(removed.playerMasterDeck.length).toBe(9);
+    const removalCost = getTrainRemovalCost(drafted);
+    const removed = villageDoTrainRemove(drafted, drafted.playerMasterDeck[0].instanceId);
+    expect(removed.playerMasterDeck.length).toBe(10);
+    expect(removed.playerResources?.gold).toBe(100 - skillCost.gold - removalCost);
+    expect(removed.trainRemovalCount).toBe(1);
+    expect(getTrainRemovalCost(removed)).toBe(removalCost + 1);
   });
 });
 
@@ -718,12 +732,12 @@ describe('shrine', () => {
 });
 
 describe('rest cost formula', () => {
-  it('calculates 5 gold + 1 for every 10 HP missing rounded down', () => {
-    expect(calculateRestCost({ hp: 18, maxHp: 18, statPoints: 0, gold: 0 })).toBe(5);
-    expect(calculateRestCost({ hp: 10, maxHp: 18, statPoints: 0, gold: 0 })).toBe(5); // 8 missing -> 5 + 0 = 5
-    expect(calculateRestCost({ hp: 8, maxHp: 18, statPoints: 0, gold: 0 })).toBe(6);  // 10 missing -> 5 + 1 = 6
-    expect(calculateRestCost({ hp: 1, maxHp: 20, statPoints: 0, gold: 0 })).toBe(6);  // 19 missing -> 5 + 1 = 6
-    expect(calculateRestCost({ hp: 0, maxHp: 20, statPoints: 0, gold: 0 })).toBe(7);  // 20 missing -> 5 + 2 = 7
+  it('charges one Gold per two HP restoration tick, rounding the final tick up', () => {
+    expect(calculateRestCost({ hp: 18, maxHp: 18, statPoints: 0, gold: 0 })).toBe(0);
+    expect(calculateRestCost({ hp: 10, maxHp: 18, statPoints: 0, gold: 0 })).toBe(4);
+    expect(calculateRestCost({ hp: 8, maxHp: 18, statPoints: 0, gold: 0 })).toBe(5);
+    expect(calculateRestCost({ hp: 1, maxHp: 20, statPoints: 0, gold: 0 })).toBe(10);
+    expect(calculateRestCost({ hp: 0, maxHp: 20, statPoints: 0, gold: 0 })).toBe(10);
   });
 });
 
@@ -1198,7 +1212,7 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
   });
 
   it('evaluates attack rolls with ACC vs EVA, snake eyes miss and boxcars critical', () => {
-    // 3 ACC vs 2 EVA -> net ACC = +1, needs 6+ on 2d6 to hit
+    // 3 ACC vs 2 EVA -> net ACC = +1, needs 4+ on 2d6 to hit
     // Search for a roll that gives total = 6
     let s = 1;
     let found6 = false;
@@ -1229,11 +1243,11 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
       }
 
       if (total === 6 && die1 !== die2) {
-        // 3 ACC vs 2 EVA (+1 net ACC): total 6 + 1 = 7 >= 7 -> HIT!
+        // 3 ACC vs 2 EVA (+1 net ACC): total 6 + 1 = 7 >= 5 -> HIT!
         const evalHit = evaluateAttackRoll(currentState, 3, 2);
         expect(evalHit.total).toBe(6);
         expect(evalHit.netAcc).toBe(1);
-        expect(evalHit.neededRoll).toBe(6);
+        expect(evalHit.neededRoll).toBe(4);
         expect(evalHit.isHit).toBe(true);
         found6 = true;
       }
@@ -1387,9 +1401,9 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
       expect(combat.lastAttackRoll?.die1).toBeLessThanOrEqual(6);
       expect(combat.lastAttackRoll?.die2).toBeGreaterThanOrEqual(1);
       expect(combat.lastAttackRoll?.die2).toBeLessThanOrEqual(6);
-      // Net ACC = 2 ACC (Hero DEX 2 gives 1 ACC + Melee ATK +1 ACC) - 1 EVA (Goblin) = 1 -> Needed roll = 7 - 1 = 6
+      // Net ACC = 2 ACC (Hero DEX 2 gives 1 ACC + Melee ATK +1 ACC) - 1 EVA (Goblin) = 1 -> Needed roll = 5 - 1 = 4
       expect(combat.lastAttackRoll?.netAcc).toBe(1);
-      expect(combat.lastAttackRoll?.neededRoll).toBe(6);
+      expect(combat.lastAttackRoll?.neededRoll).toBe(4);
 
       if (combat.lastAttackRoll?.isHit) {
         expect(combat.monsters[0].hp).toBeLessThan(8);
@@ -1408,20 +1422,16 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
     const eff = computeCardEffect({ ...melee, instanceId: 'm1' }, effStats);
     expect(eff.accBonus).toBe(1);
 
-    // Standard baseline (needed roll 7): 21/36 = 58.3%
-    const p7 = computeHitProbability(7);
-    expect(p7.hitCombos).toBe(21);
-    expect(p7.hitPercent).toBe(58.3);
-
-    // Needed roll 6: 26/36 = 72.2%
-    const p6 = computeHitProbability(6);
-    expect(p6.hitCombos).toBe(26);
-    expect(p6.hitPercent).toBe(72.2);
-
-    // Needed roll 5: 30/36 = 83.3%
+    // Standard baseline (needed roll 5): 30/36 = 83.3%
+    expect(BASE_HIT_THRESHOLD).toBe(5);
     const p5 = computeHitProbability(5);
     expect(p5.hitCombos).toBe(30);
     expect(p5.hitPercent).toBe(83.3);
+
+    // Needed roll 4: 33/36 = 91.7%
+    const p4 = computeHitProbability(4);
+    expect(p4.hitCombos).toBe(33);
+    expect(p4.hitPercent).toBe(91.7);
 
     // Snake eyes (1,1) always misses even on needed 2
     const p2 = computeHitProbability(2);
@@ -1511,8 +1521,8 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     expect(wizard.playerResources?.gold).toBe(20);
   });
 
-  it('shop catalog contains all 14 items (10 level 1 + 4 level 2) with clean names without LVL prefix', () => {
-    expect(SHOP_ITEM_CATALOG).toHaveLength(14);
+  it('shop catalog contains all 21 items with clean names, correct levels, prices, and bonuses', () => {
+    expect(SHOP_ITEM_CATALOG).toHaveLength(21);
     expect(SHOP_ITEM_CATALOG.every((i) => !i.name.startsWith('LVL'))).toBe(true);
     const ids = SHOP_ITEM_CATALOG.map((i) => i.id);
     expect(ids).toEqual([
@@ -1520,16 +1530,23 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
       'lvl1_iron_sword',
       'lvl1_apprentice_staff',
       'lvl1_robe',
-      'lvl1_leather_clothes',
+      'lvl1_leather_gear',
       'lvl1_chainmail',
-      'lvl1_book_of_spells',
-      'lvl1_ring_of_beasts',
-      'lvl1_sandals_of_swiftness',
-      'lvl1_lucky_charm',
+      'lvl2_spellbinder',
+      'lvl2_beast_ring',
+      'lvl2_hermes_gear',
+      'lvl2_goldstar',
       'lvl2_iron_sword_plus',
       'lvl2_chainmail_plus',
       'lvl2_robe_plus',
       'lvl2_apprentice_staff_plus',
+      'lvl2_leather_gear_plus',
+      'lvl2_health_potion_plus',
+      'lvl3_health_potion_plus_plus',
+      'lvl4_health_potion_plus_plus_plus',
+      'lvl1_dagger',
+      'lvl2_dagger_plus',
+      'lvl2_focus_ring',
     ]);
 
     const potion = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_health_potion')!;
@@ -1543,6 +1560,7 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     const swordPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_iron_sword_plus')!;
     expect(swordPlus.buyPrice).toBe(30);
     expect(swordPlus.gearBonus?.atk).toBe(2);
+    expect(swordPlus.gearBonus?.acc).toBe(1);
 
     const staff = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_apprentice_staff')!;
     expect(staff.buyPrice).toBe(15);
@@ -1552,6 +1570,7 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     const staffPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_apprentice_staff_plus')!;
     expect(staffPlus.buyPrice).toBe(45);
     expect(staffPlus.gearBonus?.matk).toBe(2);
+    expect(staffPlus.gearBonus?.atk).toBe(1);
 
     const robe = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_robe')!;
     expect(robe.buyPrice).toBe(15);
@@ -1560,6 +1579,7 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     const robePlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_robe_plus')!;
     expect(robePlus.buyPrice).toBe(45);
     expect(robePlus.gearBonus?.mdef).toBe(2);
+    expect(robePlus.gearBonus?.def).toBe(1);
 
     const chainmail = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_chainmail')!;
     expect(chainmail.buyPrice).toBe(15);
@@ -1568,10 +1588,31 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     const chainmailPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_chainmail_plus')!;
     expect(chainmailPlus.buyPrice).toBe(45);
     expect(chainmailPlus.gearBonus?.def).toBe(2);
+    expect(chainmailPlus.gearBonus?.eva).toBe(1);
 
-    const charm = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_lucky_charm')!;
-    expect(charm.buyPrice).toBe(20);
-    expect(charm.luckyCharmGoldBonus).toBe(true);
+    const leather = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_leather_gear')!;
+    const leatherPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_leather_gear_plus')!;
+    expect(leather.name).toBe('Leather Gear');
+    expect(leatherPlus.gearBonus).toMatchObject({ eva: 2, def: 1 });
+
+    const consumables = SHOP_ITEM_CATALOG.filter((i) => i.category === 'consumable');
+    expect(consumables.map((i) => [i.name, i.level, i.healAmount, i.buyPrice])).toEqual([
+      ['Health Potion', 1, 10, 6],
+      ['Health Potion +', 2, 18, 14],
+      ['Health Potion ++', 3, 24, 24],
+      ['Health Potion +++', 4, 28, 36],
+    ]);
+
+    const dagger = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_dagger')!;
+    const daggerPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_dagger_plus')!;
+    expect(dagger).toMatchObject({ buyPrice: 10, level: 1, gearBonus: { pen: 1 } });
+    expect(daggerPlus).toMatchObject({ buyPrice: 30, level: 2, gearBonus: { pen: 2, atk: 1 } });
+
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_spellbinder')).toMatchObject({ name: 'Spellbinder', level: 2, buyPrice: 20, statBonus: { int: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_beast_ring')).toMatchObject({ name: 'Beast Ring', level: 2, buyPrice: 20, statBonus: { str: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_goldstar')).toMatchObject({ name: 'Goldstar', level: 2, buyPrice: 20, luckyCharmGoldBonus: true });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_hermes_gear')).toMatchObject({ name: 'Hermes Gear', level: 2, buyPrice: 20, statBonus: { agi: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_focus_ring')).toMatchObject({ level: 2, buyPrice: 20, statBonus: { dex: 1 } });
   });
 
   it('Hero DEF increases by 1 for every 5 STR, by 1 for every 3 AGI, and from gear, reducing physical damage intake', () => {
@@ -1666,7 +1707,7 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 5, cha: 1, luk: 1 }, 2)).toBe(3); // +2 gear
   });
 
-  it('Lucky Charm grants an additional (1d6 - 1) Gold upon winning battle', () => {
+  it('Goldstar grants an additional (1d6 - 1) Gold upon winning battle', () => {
     let s = start('fighter', 'seed-combat');
     s = {
       ...s,
@@ -1674,9 +1715,9 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
       equippedGear: {
         ...s.equippedGear,
         accessory: {
-          id: 'lvl1_lucky_charm',
+          id: 'lvl2_goldstar',
           instanceId: 'inst_charm',
-          name: 'Lucky Charm',
+          name: 'Goldstar',
           description: 'Bonus gold',
           category: 'accessory',
           buyPrice: 20,
@@ -1741,7 +1782,7 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     const gold = victory.playerResources?.gold ?? 0;
     expect(gold).toBeGreaterThanOrEqual(15);
     expect(gold).toBeLessThanOrEqual(20);
-    expect(victory.bannerMessage).toContain('Lucky Charm');
+    expect(victory.bannerMessage).toContain('Goldstar');
   });
 
   it('monster with empty pattern skips its turn like a rock and logs did nothing', () => {
@@ -1798,7 +1839,7 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     let s = start('fighter');
     // Give player an iron sword equipped and a ring in backpack
     const sword = { ...SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_iron_sword')!, instanceId: 'test_sword' };
-    const ring = { ...SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_ring_of_beasts')!, instanceId: 'test_ring' };
+    const ring = { ...SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_beast_ring')!, instanceId: 'test_ring' };
 
     s = {
       ...s,
@@ -1808,7 +1849,7 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
 
     expect(s.equippedGear.weapon?.name).toBe('Iron Sword');
     expect(s.backpack).toHaveLength(1);
-    expect(s.backpack[0].name).toBe('Ring of Beasts');
+    expect(s.backpack[0].name).toBe('Beast Ring');
 
     // Unequip weapon by slot key 'weapon'
     s = unequipItem(s, 'weapon');
@@ -1818,7 +1859,7 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
 
     // Equip ring from backpack
     s = equipItem(s, 'test_ring');
-    expect(s.equippedGear.accessory?.name).toBe('Ring of Beasts');
+    expect(s.equippedGear.accessory?.name).toBe('Beast Ring');
     expect(s.backpack).toHaveLength(1);
     // Ring gives +1 STR, which increases Max HP (STR 3 -> 4, Max HP 16 -> 18)
     expect(s.playerResources?.maxHp).toBe(18);
@@ -1834,7 +1875,7 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
   it('prevents equipping and unequipping during combat', () => {
     let s = start('fighter');
     const sword = { ...SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_iron_sword')!, instanceId: 'test_sword' };
-    const ring = { ...SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_ring_of_beasts')!, instanceId: 'test_ring' };
+    const ring = { ...SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_beast_ring')!, instanceId: 'test_ring' };
 
     s = {
       ...s,
@@ -2030,21 +2071,70 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     expect(swordPlus.buyPrice).toBe(30);
     expect(swordPlus.sellPrice).toBe(15);
     expect(swordPlus.gearBonus?.atk).toBe(2);
+    expect(swordPlus.gearBonus?.acc).toBe(1);
 
     const chainPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_chainmail_plus')!;
     expect(chainPlus.buyPrice).toBe(45);
     expect(chainPlus.sellPrice).toBe(22);
     expect(chainPlus.gearBonus?.def).toBe(2);
+    expect(chainPlus.gearBonus?.eva).toBe(1);
 
     const robePlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_robe_plus')!;
     expect(robePlus.buyPrice).toBe(45);
     expect(robePlus.sellPrice).toBe(22);
     expect(robePlus.gearBonus?.mdef).toBe(2);
+    expect(robePlus.gearBonus?.def).toBe(1);
 
     const staffPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_apprentice_staff_plus')!;
     expect(staffPlus.buyPrice).toBe(45);
     expect(staffPlus.sellPrice).toBe(22);
     expect(staffPlus.gearBonus?.matk).toBe(2);
+    expect(staffPlus.gearBonus?.atk).toBe(1);
+
+    const combatGear = computeCombatGearBonuses({
+      weapon: { ...swordPlus, instanceId: 'iron-sword-plus-test' },
+      armor: { ...chainPlus, instanceId: 'chainmail-plus-test' },
+      accessory: null,
+    });
+    expect(combatGear).toMatchObject({ acc: 1, atk: 2, def: 2, eva: 1 });
+    expect(getPlayerAcc(getEffectiveStatsFromState(start('fighter')), combatGear.acc)).toBe(2);
+  });
+
+  it('Dagger PEN bypasses natural monster DEF for physical attacks before Block', () => {
+    const daggerPlus = { ...SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_dagger_plus')!, instanceId: 'dagger-plus-test' };
+    const melee = { ...COMBAT_CARD_CATALOG.melee_atk, instanceId: 'penetrating-melee' };
+    const seed = Array.from({ length: 1000 }, (_, i) => i + 1).find((candidate) => {
+      const roll = evaluateAttackRoll(candidate, 20, 0, 12);
+      return roll.isHit && !roll.isCrit;
+    })!;
+    let state = startAdventure('fighter', 'penetration-test');
+    state = {
+      ...state,
+      rngState: seed,
+      equippedGear: { weapon: daggerPlus, armor: null, accessory: null },
+      activeHook: {
+        type: 'COMBAT',
+        combat: {
+          monsters: [{ monster: { ...MONSTER_TEMPLATES.goblin, id: 'armored-goblin', def: 2, maxHp: 5 }, hp: 5, block: 1, patternIndex: 0 }],
+          combatTurn: 1,
+          playerAp: 3,
+          playerMaxAp: 3,
+          playerBlock: 0,
+          playerEvasionMod: 0,
+          drawPile: [],
+          hand: [melee],
+          discardPile: [],
+          combatLog: [],
+        },
+      },
+    };
+
+    const next = playCard(state, melee.instanceId, 0);
+    if (next.activeHook.type !== 'COMBAT') throw new Error('Expected battle to continue');
+    const roll = next.activeHook.combat.lastAttackRoll!;
+    expect(roll).toMatchObject({ damagePenetrated: 2, damageDefReduced: 0, damageBlocked: 1, damageDealt: 3 });
+    expect(next.activeHook.combat.monsters[0].hp).toBe(2);
+    expect(next.activeHook.combat.combatLog.join(' ')).toContain('2 Goblin DEF bypassed by PEN');
   });
 
   it('monster attack with Hero DEF states "absorbed by Hero DEF" in combat log', () => {
@@ -2140,18 +2230,15 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       }
 
       expect(counts['advgrs-00'] ?? 0).toBe(0);
-      expect(counts['advgrs-01'] ?? 0).toBe(0);
-      expect(counts['advgrs-02']).toBe(2);
+      expect(counts['advgrs-01']).toBe(2);
       expect(counts['advgrs-03'] ?? 0).toBe(0);
       expect(counts['advgrs-04'] ?? 0).toBe(0);
       expect(counts['advfrs-00']).toBe(2);
-      expect(counts['advfrs-01']).toBe(6);
-      expect(counts['advfrs-02']).toBe(3);
+      expect(counts['advfrs-01']).toBe(9);
       expect(counts['advfrs-03']).toBe(3);
       expect(counts['advfrs-04']).toBe(3);
       expect(counts['advsmp-00']).toBe(1);
-      expect(counts['advsmp-01']).toBe(4);
-      expect(counts['advsmp-02']).toBe(2);
+      expect(counts['advsmp-01']).toBe(6);
       expect(counts['advsmp-03']).toBe(2);
       expect(counts['advsmp-04']).toBe(2);
     });
@@ -2168,6 +2255,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       expect(nextState.playerResources!.hp).toBe(nextState.playerResources!.maxHp);
       expect(nextState.activeHook.type).toBe('NONE');
       expect(Object.keys(nextState.board).length).toBe(6); // 1 start + 2 available + 3 lookahead
+      expect(nextState.playerPosition).toEqual({ col: 0, row: 0 });
       expect(nextState.adventureDeck.length).toBe(25); // 30 - 5 = 25
       expect(nextState.bannerMessage).toContain('Cult of Trolls');
     });

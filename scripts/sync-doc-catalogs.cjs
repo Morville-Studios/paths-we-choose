@@ -40,8 +40,10 @@ text += table(['Collector ID','Name','Terrain','Level','Stage 1 copies','Stage 2
 text += '\n\n## Shop and Treasure\n\nTreasure deck: two copies per item, '+(SHOP_ITEM_CATALOG.length*2)+' cards total. Prices below are before Charisma discount.\n\n';
 text += table(['Item','ID','Slot/type','Level','Buy Gold','Sell Gold','Effects'],SHOP_ITEM_CATALOG.map(i=>[i.name,i.id,i.category,i.level??1,i.buyPrice,i.sellPrice,i.description]));
 text += '\n\n## Combat Cards\n\nFields below are base data, not complete effective damage. STR damage also adds floor(DEX/3), weapon ATK and Berzerk; INT damage adds weapon MATK. Gear DEF/MDEF do not directly increase card Block. EVA effects use the multiplier as a flat amount. See MECHANICS_AND_DATA.md for formulas.\n\n';
-text += table(['Card','ID','AP','Damage base','Damage scaling','Block base','Block scaling','Round EVA','Card ACC'],Object.values(COMBAT_CARD_CATALOG).map(c=>[c.name,c.id,c.apCost,c.baseDamage,c.damageScalingStat?`${c.damageScalingStat}/${c.damageScalingDivisor??2}`:'None',c.baseBlock,c.blockScalingStat?`${c.blockScalingStat}/${c.blockScalingDivisor??2}`:'None',c.evasionScalingStat?(c.evasionMultiplier??1):0,c.accBonus??0]));
+text += table(['Card','ID','AP','Damage base','Damage scaling','Block base','Block scaling','Round EVA','Card ACC','Zone','Upgrades'],Object.values(COMBAT_CARD_CATALOG).map(c=>[c.name,c.id,c.apCost,c.baseDamage,c.damageScalingStat?`${c.damageScalingStat}/${c.damageScalingDivisor??2}`:'None',c.baseBlock,c.blockScalingStat?`${c.blockScalingStat}/${c.blockScalingDivisor??2}`:'None',c.evasionScalingStat?(c.evasionMultiplier??1):0,c.accBonus??0,c.isSkillUpgrade?'Void':'Starter / New Skills',c.upgradeOf??'None']));
+const voidCards = Object.values(COMBAT_CARD_CATALOG).filter(c=>c.isSkillUpgrade);
 text += '\n\nTrain pools: '+Object.entries(CLASS_TRAIN_POOLS).map(([c,pool])=>`${c}: ${pool.join(', ')}`).join('; ')+'.\n';
+text += '\nVoid cards: '+voidCards.map(c=>`${c.name} (upgrades ${COMBAT_CARD_CATALOG[c.upgradeOf]?.name??c.upgradeOf})`).join('; ')+'. Void cards are not trainable or physically counted in New Skills decks.\n';
 const dest = path.join(root,'docs/CATALOGS.md');
 if (process.argv.includes('--check')) {
   if (!fs.existsSync(dest) || fs.readFileSync(dest,'utf8').replaceAll('\r\n','\n') !== text) {

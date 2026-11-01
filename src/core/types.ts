@@ -33,20 +33,23 @@ export interface CharacterClassDef {
 export type EquipmentSlot = 'weapon' | 'armor' | 'accessory';
 
 export interface CombatGearBonuses {
+  acc?: number;   // Direct ACC bonus
   atk?: number;   // Physical ATK bonus
   def?: number;   // Physical DEF bonus
   matk?: number;  // Magical ATK bonus
   mdef?: number;  // Magical DEF bonus
   eva?: number;   // Direct EVA bonus
+  pen?: number;   // Physical penetration; bypasses enemy natural DEF
 }
 
 export interface DerivedCombatStats {
-  acc: number;    // floor(DEX / 2)
+  acc: number;    // floor(DEX / 2) + gear.acc
   eva: number;    // floor(AGI / 2) + gear.eva
   atk: number;    // floor(STR / 2) + floor(DEX / 3) + gear.atk
   def: number;    // floor(STR / 5) + floor(AGI / 3) + gear.def
   matk: number;   // floor(INT / 2) + gear.matk
   mdef: number;   // floor(INT / 5) + gear.mdef
+  pen: number;    // Gear-only physical DEF penetration
   act: number;    // 3 + floor(INT / 5) (Max Action Points in battle)
   critThreshold?: number; // 12 - floor(LUK / 10) (Minimum 2d6 roll for critical hit)
   berzerkBonus?: number; // Fighter [Berzerk] ATK bonus
@@ -82,8 +85,11 @@ export interface PlayerResources {
   gold: number;
 }
 
-export type CombatCardType = 'attack' | 'defense';
+export type CombatCardType = 'attack' | 'defense' | 'skill' | 'enchantment';
 export type ScalingStat = 'str' | 'dex' | 'agi' | 'int' | 'cha' | 'luk';
+export type CombatScalingStat = ScalingStat | 'atk' | 'def';
+export type CombatTargetMode = 'single_enemy' | 'all_enemies' | 'self';
+export type CardDiscardMode = 'none' | 'exact' | 'any';
 
 export interface CombatCardDef {
   id: string;
@@ -93,14 +99,28 @@ export interface CombatCardDef {
   cardType: CombatCardType;
   apCost: number;
   baseDamage: number;
-  damageScalingStat?: ScalingStat;
+  damageScalingStat?: CombatScalingStat;
   damageScalingDivisor?: number; // 2 for +1 per 2 stat; 1 for +1 per 1 stat
+  damageScalingMultiplier?: number;
   baseBlock: number;
-  blockScalingStat?: ScalingStat;
+  blockScalingStat?: CombatScalingStat;
   blockScalingDivisor?: number;
+  blockScalingMultiplier?: number;
   evasionScalingStat?: ScalingStat;
   evasionMultiplier?: number;    // 1 for -1 per 1 AGI; 2 for -2 per 1 AGI
   accBonus?: number;             // Bonus to attacker ACC when playing this card
+  targetMode?: CombatTargetMode;
+  discardMode?: CardDiscardMode;
+  discardCount?: number;
+  damagePerDiscard?: number;
+  drawCards?: number;
+  gainAp?: number;
+  staysInPlay?: boolean;
+  drawOnApGain?: boolean;
+  /** This card is an upgrade template stored in the Void, not a learnable card. */
+  isSkillUpgrade?: boolean;
+  /** Template ID of the owned card this Void card replaces at a Shrine. */
+  upgradeOf?: string;
   cardNumber?: string;
   flavorText?: string;
 }
@@ -201,6 +221,8 @@ export interface CombatAttackRollSummary {
   damageBlocked: number;
   defenseType?: 'DEF' | 'MDEF';
   damageDefReduced?: number;
+  /** Natural target DEF actually bypassed by the hero's physical PEN. */
+  damagePenetrated?: number;
   damageProtReduced?: number;
 }
 
@@ -216,8 +238,9 @@ export interface ActiveCombatState {
   playerAccMod?: number;      // Temporary round ACC modifier (e.g. from Hexer)
   playerVulnerableMod?: number; // Temporary round damage intake increase (e.g. from Hexer)
   drawPile: CombatCardDef[];
-  hand: CombatCardDef[];      // Drawn up to 5 per turn
+  hand: CombatCardDef[];      // Five cards are drawn at the start of each turn (recycling discard as needed)
   discardPile: CombatCardDef[];
+  inPlay?: CombatCardDef[];      // Battle-long enchantments; destroyed cards move to discardPile
   combatLog: string[];
   lastAttackRoll?: CombatAttackRollSummary;
   lastFleeRoll?: {
@@ -260,7 +283,8 @@ export interface ActiveVillageState {
   trainOptions: CombatCardDef[];
   shopStock: ShopItemDef[];
   shopStockDrawn?: boolean; // Even empty/exhausted stock is generated only once per visit.
-  actionTaken: boolean;
+  /** @deprecated Village services are repeatable; retained for save compatibility. */
+  actionTaken?: boolean;
 }
 
 export interface ActiveShrineState {
@@ -318,7 +342,9 @@ export type ExplorationOutcome = 'combat' | 'treasure' | 'safe';
 export interface ActiveExplorationState {
   coord: GridCoord;
   card: AdventureCard;
-  roll: number;
+  roll: number;                 // Natural 1d6 result
+  luckBonus?: number;           // floor(effective LUK / 5)
+  effectiveRoll?: number;       // Natural roll + luckBonus; 6+ finds treasure
   outcome: ExplorationOutcome;
   foundItem?: ShopItemDef | null;
   discardedOverLevelCount?: number;
@@ -369,6 +395,11 @@ export interface RunState {
   equippedGear: EquippedGear;
   backpack: ShopItemDef[];
   playerMasterDeck: CombatCardDef[];
+  /** Learnable, non-starter skill cards waiting to be offered at Villages. */
+  newSkillsDeck: CombatCardDef[];
+  /** Unlearned Village skill offers, recycled into the New Skills Deck when needed. */
+  newSkillsDiscard: CombatCardDef[];
+  newSkillsReshuffleCount: number;
   playerPosition: GridCoord;
   adventureDeck: AdventureCard[];
   adventureDiscard: AdventureCard[];
@@ -377,6 +408,8 @@ export interface RunState {
   treasureDeck: ShopItemDef[];
   treasureDiscard: ShopItemDef[];
   treasureReshuffleCount: number;
+  /** Number of cards removed through village training during this run. */
+  trainRemovalCount: number;
   board: Record<string, PlacedCardNode>;
   pathHistory: GridCoord[];
   activeHook: ActiveHook;

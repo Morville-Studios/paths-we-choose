@@ -38,6 +38,70 @@ html, body {
 button { font: inherit; color: inherit; cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: 0.45; }
 
+/* Friendly how-to-play guide */
+.guide-start-btn { display: block; margin: 10px auto 0; }
+.hud-guide-btn { margin-left: auto; white-space: nowrap; }
+.guide-backdrop { z-index: 90; padding: 12px; }
+/* The start screen's glass card uses backdrop-filter, which would otherwise become
+   the containing block for a nested fixed dialog. Keep the guide as its sibling. */
+.screen.welcome > .guide-backdrop { position: fixed; inset: 0; }
+.guide-modal { width: min(760px, 100%); max-height: min(88dvh, 820px); padding: 0; overflow: auto; border-color: #d6a72e; background: #172235; }
+.guide-header { display: flex; justify-content: space-between; gap: 16px; padding: 22px 24px 16px; border-bottom: 1px solid #40516e; background: linear-gradient(135deg, #263a58, #172235); }
+.guide-header h2 { margin: 3px 0; color: #fde68a; }
+.guide-header p { margin: 0; color: #d6e1ef; max-width: 52ch; }
+.guide-kicker { color: #f8cf62; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
+.guide-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 16px 24px 8px; }
+.guide-step { position: relative; padding: 12px 12px 12px 43px; border: 1px solid #40516e; border-radius: 10px; background: #202d41; }
+.guide-step.featured { border-color: #d6a72e; background: #2d291c; }
+.guide-step h3 { margin: 0 0 5px; color: #f8cf62; font-size: 0.95rem; }
+.guide-step p { margin: 0; color: #d7e1ef; font-size: 0.86rem; line-height: 1.45; }
+.guide-number { position: absolute; top: 12px; left: 12px; display: grid; width: 23px; height: 23px; place-items: center; border-radius: 50%; color: #1b1405; background: #f8cf62; font-weight: 900; }
+.guide-topic { margin: 10px 24px; border: 1px solid #40516e; border-radius: 9px; background: #1c2738; }
+.guide-topic summary { padding: 11px 13px; color: #f8cf62; cursor: pointer; font-weight: 800; }
+.guide-topic p, .guide-topic ul { margin: 0; padding: 0 18px 14px 35px; color: #dce6f2; line-height: 1.55; }
+.guide-topic p { padding-left: 18px; }
+.guide-topic li + li { margin-top: 5px; }
+.guide-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 16px 24px; border-top: 1px solid #40516e; color: #aab8ca; font-size: 0.84rem; }
+@media (max-width: 620px) { .guide-grid { grid-template-columns: 1fr; padding: 12px; } .guide-topic { margin: 8px 12px; } .guide-header, .guide-footer { padding: 16px; } .guide-footer { align-items: stretch; flex-direction: column; } }
+
+.combat-discard-choice {
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid #475569;
+  border-radius: 10px;
+  background: #172235;
+}
+.combat-discard-choice h3 { margin: 0 0 4px; font-size: 0.95rem; }
+.combat-discard-choice p { margin: 0 0 8px; font-size: 0.8rem; }
+.combat-discard-choice-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.discard-choice-card {
+  display: grid;
+  grid-template-columns: 48px minmax(82px, 1fr) 20px;
+  align-items: center;
+  gap: 8px;
+  min-width: 160px;
+  min-height: 58px;
+  padding: 4px 8px 4px 4px;
+  overflow: hidden;
+  color: #e2e8f0;
+  text-align: left;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #263449;
+}
+.discard-choice-card:hover:not(:disabled) { border-color: #7dd3fc; background: #2d4058; }
+.discard-choice-card.is-selected { border-color: #f8cf62; background: #443a1e; box-shadow: 0 0 0 1px rgba(248, 207, 98, .35); }
+.discard-choice-art { width: 48px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(148, 163, 184, .45); }
+.discard-choice-details { display: grid; gap: 3px; min-width: 0; }
+.discard-choice-details b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }
+.discard-choice-details small { color: #a9b9cd; font-size: .67rem; text-transform: capitalize; }
+.discard-choice-mark { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; color: #172235; background: #f8cf62; font-weight: 900; }
+.discard-choice-card:not(.is-selected) .discard-choice-mark { background: transparent; border: 1px solid #64748b; }
+.discard-choice-count { margin-top: 8px; font-size: 0.84rem; color: #f8cf62; }
+.combat-in-play { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.combat-in-play-label { color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.combat-in-play-card { border: 1px solid #d6a72e; border-radius: 999px; background: #49340b; color: #fde68a; padding: 4px 9px; font-size: 0.84rem; font-weight: 700; }
+
 .screen { max-width: 640px; margin: 0 auto; padding: 12px; }
 
 /* Welcome & Class Select Screens (Full Screen, Height & Width Maximized) */
@@ -2404,7 +2468,7 @@ h1.small { font-size: 1.6rem; text-align: center; }
 .player-line { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin: 10px 0; font-size: 0.82rem; }
 .hand { display: flex; gap: 8px; justify-content: center; }
 .hand.wrap { flex-wrap: wrap; }
-.combat-actions { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; }
+.combat-actions { display: flex; justify-content: flex-end; align-items: center; margin: 10px 0; }
 .pile { font-size: 0.75rem; color: var(--muted); }
 .log { list-style: none; padding: 0; margin: 0; font-size: 0.75rem; color: var(--muted); }
 .log li { padding: 2px 0; border-top: 1px solid var(--line); }
@@ -2892,6 +2956,19 @@ h1.small { font-size: 1.6rem; text-align: center; }
   overflow: hidden;
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
 }
+
+/* Reuses the map deck-panel component, configured here for the battle-only Action piles. */
+.combat-action-piles {
+  flex: 0 0 auto;
+  margin-bottom: 12px;
+  padding: 10px;
+  gap: 8px;
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(56, 189, 248, 0.42);
+  box-shadow: none;
+}
+.combat-action-piles .piles-header h3 { font-size: 0.84rem; }
+.combat-action-piles .pile-card { padding: 8px 5px; }
 
 .combat-log-header {
   display: flex;
@@ -3449,7 +3526,29 @@ h1.small { font-size: 1.6rem; text-align: center; }
 }
 
 /* Village & Shop */
+.modal.village-modal { width: min(740px, 96vw); }
+.village-location-header { position: relative; min-height: 112px; margin: -2px -2px 14px; overflow: hidden; border: 1px solid rgba(74, 222, 128, .55); border-radius: 10px; background: #082513; box-shadow: inset 0 0 0 2px rgba(8, 20, 12, .7); }
+.village-location-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .62; }
+.village-location-header::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(3, 12, 7, .92), rgba(3, 12, 7, .38)); }
+.village-location-copy { position: relative; z-index: 1; display: flex; min-height: 112px; flex-direction: column; justify-content: center; align-items: flex-start; padding: 14px 18px; text-shadow: 0 2px 5px #000; }
+.village-location-copy h2 { margin: 2px 0; color: #f8fafc; font-size: 1.5rem; }
+.village-location-type, .village-location-level { font-size: .68rem; font-weight: 800; letter-spacing: .08em; color: #bbf7d0; text-transform: uppercase; }
+.village-location-level { padding: 2px 7px; border: 1px solid #fde047; border-radius: 4px; background: rgba(69, 56, 6, .84); color: #fef08a; }
+.village-intro { color: #cbd5e1; margin: 0 0 10px; }
 .village-actions { display: grid; gap: 8px; margin: 10px 0; }
+.village-service { padding: 12px; border: 1px solid rgba(148, 163, 184, .3); border-radius: 9px; background: rgba(30, 41, 59, .6); }
+.village-service-heading { display: flex; justify-content: space-between; gap: 10px; color: #fef3c7; }
+.village-service-note { margin: 7px 0; color: #cbd5e1; font-size: .78rem; }
+.village-rest-slider { display: block; width: 100%; margin: 10px 0 3px; accent-color: #f59e0b; }
+.village-rest-ticks { display: flex; justify-content: space-between; gap: 4px; color: #94a3b8; font-size: .66rem; }
+.village-rest-ticks span:last-child { color: #fde047; font-weight: 800; }
+.train-section { margin: 10px 0 16px; }
+.train-section h3 { margin: 0 0 4px; color: #fef3c7; }
+.train-section h3 small { color: #94a3b8; font-size: .72rem; }
+.train-section > .muted { margin: 0 0 8px; font-size: .75rem; }
+.train-card-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.train-card-offer { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #fde68a; font-size: .72rem; font-weight: 700; }
+.train-card-offer .tcg-card { flex: 0 0 auto; }
 .shop-layout { display: flex; flex-direction: column; gap: 12px; }
 .shop-sidebar { min-width: 0; }
 .shop-main { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -3696,6 +3795,29 @@ h1.small { font-size: 1.6rem; text-align: center; }
 .pray-tag { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: var(--accent); margin-top: 4px; }
 .shrine-section { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
 .shrine-section h3 { margin: 0; font-size: 0.92rem; }
+.void-upgrade-heading { display: flex; align-items: start; justify-content: space-between; gap: 10px; }
+.void-upgrade-heading p { margin: 4px 0 0; font-size: 0.78rem; }
+.void-inspect-link { flex: 0 0 auto; border: 1px solid #a855f7; border-radius: 6px; background: rgba(126, 34, 206, 0.18); color: #e9d5ff; padding: 5px 7px; font-size: 0.72rem; font-weight: 700; cursor: pointer; }
+.void-upgrade-rule { margin: 8px 0; color: #d8b4fe; font-size: 0.78rem; line-height: 1.35; }
+.void-upgrade-empty { margin: 8px 0 0; font-size: 0.8rem; }
+.void-upgrade-option { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(130px, 1fr) auto; gap: 9px; align-items: center; border: 1px solid rgba(168, 85, 247, 0.45); border-radius: 8px; padding: 8px; margin-top: 8px; background: rgba(76, 29, 149, 0.12); }
+.void-upgrade-cards { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; }
+.void-upgrade-card-source, .void-upgrade-card-target { width: 72px; flex: 0 1 72px; }
+.void-upgrade-card-source .tcg-card, .void-upgrade-card-target .tcg-card { width: 72px; min-height: 101px; }
+.void-upgrade-arrow { color: #d8b4fe; font-size: 1.2rem; font-weight: 900; }
+.void-upgrade-details { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 0.75rem; }
+.void-upgrade-details b { color: #f3e8ff; }
+.void-upgrade-details span { color: #c4b5fd; }
+.void-upgrade-btn { white-space: nowrap; font-size: 0.72rem; padding: 7px 9px; }
+.skill-upgrade-tag { font-size: 0.48rem; font-weight: 900; letter-spacing: 0.04em; color: #f3e8ff; background: #7e22ce; border: 1px solid #d8b4fe; border-radius: 3px; padding: 1px 3px; white-space: nowrap; }
+.tcg-adventurer-card { background: linear-gradient(155deg, #1e3a5f, #101827 58%, #0f172a); border-color: #60a5fa; box-shadow: 0 0 0 2px #1d4ed8, 0 5px 14px rgba(30, 64, 175, 0.38); }
+.tcg-adventurer-card .tcg-art-window { border-bottom-color: #60a5fa; }
+.void-hero-tag { font-size: 0.5rem; font-weight: 900; color: #dbeafe; background: #1d4ed8; border: 1px solid #93c5fd; border-radius: 3px; padding: 1px 3px; }
+
+@media (max-width: 560px) {
+  .void-upgrade-option { grid-template-columns: 1fr; }
+  .void-upgrade-btn { width: 100%; }
+}
 
 /* Play area layout */
 .play-layout { display: flex; flex-direction: column; }
@@ -3789,7 +3911,7 @@ h1.small { font-size: 1.6rem; text-align: center; }
     width: 100%;
     max-width: 100%;
     flex: 0 0 auto;
-    max-height: 240px;
+    max-height: 390px;
   }
   .combat-sidebar-log {
     max-height: 180px;
@@ -4260,6 +4382,7 @@ h1.small { font-size: 1.6rem; text-align: center; }
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+.pile-buttons-row.is-single-pile { grid-template-columns: 1fr; }
 .pile-card {
   position: relative;
   background: var(--panel);
@@ -4348,6 +4471,15 @@ h1.small { font-size: 1.6rem; text-align: center; }
 }
 .pile-card.treasure-discard:hover {
   border-color: #a855f7;
+}
+
+.pile-card.void-deck {
+  border-color: #a855f7;
+  background: linear-gradient(145deg, rgba(126, 34, 206, 0.28), rgba(15, 23, 42, 0.92));
+}
+.pile-card.void-deck:hover {
+  border-color: #d8b4fe;
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.45);
 }
 
 .pile-card-content {
@@ -4998,6 +5130,12 @@ h1.small { font-size: 1.6rem; text-align: center; }
   border-color: rgba(245, 158, 11, 0.45);
   color: #fde68a;
 }
+.derived-chip.pen {
+  background: rgba(244, 114, 182, 0.14);
+  border-color: rgba(244, 114, 182, 0.48);
+}
+.pen-symbol { color: #f9a8d4; font-size: 0.68em; font-weight: 900; letter-spacing: 0.03em; }
+.pen-line { color: #f9a8d4; }
 
 /* Shop Discount Indicator */
 .shop-discount {
@@ -5239,6 +5377,15 @@ h1.small { font-size: 1.6rem; text-align: center; }
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.exploration-item-card {
+  width: min(150px, 42vw);
+  margin: 10px auto 12px;
+}
+
+.exploration-item-card .tcg-card {
+  width: 100%;
 }
 
 .exploration-item-header {
@@ -5706,3 +5853,46 @@ h1.small { font-size: 1.6rem; text-align: center; }
 .creature-footer-stat .game-icon { width: 16px; height: 16px; }
 .creature-stat-footer .is-buffed-flashing { background: transparent; box-shadow: none; }
 .creature-header-top .tcg-type-sub { flex: 1 1 auto; overflow-wrap: anywhere; white-space: normal; line-height: 1.15; }
+
+/* Desktop-first guide: override the compact generic modal used by game prompts. */
+.guide-backdrop { z-index: 100; padding: 24px; }
+.guide-backdrop .guide-modal {
+  width: min(1180px, calc(100vw - 48px));
+  max-width: none;
+  max-height: calc(100dvh - 48px);
+  border: 1px solid #5c7192;
+  border-radius: 18px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(248, 207, 98, 0.16);
+}
+.guide-header { padding: 30px 36px 24px; }
+.guide-header h2 { font-size: clamp(2rem, 3.4vw, 2.9rem); line-height: 1; }
+.guide-header p { font-size: 1.08rem; line-height: 1.45; }
+.guide-kicker { font-size: 0.86rem; }
+.guide-grid { gap: 16px; padding: 24px 36px 16px; }
+.guide-step { min-height: 168px; padding: 22px 20px 20px 64px; border-radius: 14px; }
+.guide-step h3 { font-size: 1.15rem; }
+.guide-step p { font-size: 1rem; line-height: 1.55; }
+.guide-number { top: 20px; left: 20px; width: 30px; height: 30px; font-size: 1rem; }
+.guide-topic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 0 36px 22px; }
+.guide-topic-grid .guide-topic { margin: 0; min-height: 0; border-radius: 12px; }
+.guide-topic-grid .guide-battle-topic,
+.guide-topic-grid .guide-topic:last-child { grid-column: 1 / -1; }
+.guide-topic summary { padding: 15px 18px; font-size: 1.06rem; }
+.guide-topic p, .guide-topic ul { padding: 0 24px 18px 44px; font-size: 0.98rem; line-height: 1.65; }
+.guide-topic p { padding-left: 24px; }
+.guide-footer { margin-top: 0; padding: 20px 36px; font-size: 0.94rem; }
+
+@media (max-width: 760px) {
+  .guide-backdrop { padding: 10px; }
+  .guide-backdrop .guide-modal { width: min(680px, calc(100vw - 20px)); max-height: calc(100dvh - 20px); border-radius: 13px; }
+  .guide-header { padding: 20px 20px 16px; }
+  .guide-header h2 { font-size: 1.85rem; }
+  .guide-grid, .guide-topic-grid { grid-template-columns: 1fr; padding-left: 16px; padding-right: 16px; }
+  .guide-grid { gap: 10px; padding-top: 16px; }
+  .guide-step { min-height: 0; padding: 16px 15px 16px 55px; }
+  .guide-number { top: 15px; left: 15px; }
+  .guide-topic-grid { gap: 9px; padding-bottom: 16px; }
+  .guide-topic-grid .guide-battle-topic,
+  .guide-topic-grid .guide-topic:last-child { grid-column: auto; }
+  .guide-footer { padding: 16px 20px; }
+}

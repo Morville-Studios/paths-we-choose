@@ -114,6 +114,17 @@ describe('ability searches and recycling game mechanics', () => {
     expect(html).not.toContain('Claim Treasure');
   });
 
+  it('shows the already-awarded treasure card and only offers a return to the map', () => {
+    const html = explorationModal({ coord: { col: 0, row: 1 }, roll: 6, outcome: 'treasure', foundItem: low,
+      card: { id: 'land', name: 'Undiscovered Grassland', terrain: 'grasslands', level: 1, hasHostile: false, hasVillage: false, hasShrine: false, revealed: true } });
+    expect(html).toContain('Congratulations! Treasure Chest Found!');
+    expect(html).toContain('exploration-item-card');
+    expect(html).toContain('/cards/items/');
+    expect(html).toContain('Added directly to your Backpack');
+    expect(html).toContain('Return to Map View');
+    expect(html).not.toContain('Claim Treasure');
+  });
+
   function encounterState(maxTurns = 2): { state: RunState; coord: { col: number; row: number } } {
     const state = startAdventure('fighter', 'fizzle');
     state.welcomePreparing = false;

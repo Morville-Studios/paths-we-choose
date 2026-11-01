@@ -6,6 +6,7 @@ import {
   getFighterBerzerkBonus,
   getFleeThreshold,
   getPlayerAcc,
+  getPlayerAtk,
   getPlayerAct,
   getPlayerCritThreshold,
   getPlayerDef,
@@ -27,7 +28,7 @@ import {
 export const PLAYER_MAX_AP = 3;
 export const PLAYER_HAND_SIZE = 5;
 export const FLEE_AP_COST = 2; // Permanent FLEE action: never drawn, discarded, or shuffled
-export const BASE_HIT_THRESHOLD = 7; // Standard 2d6 hit target (7 and above is a hit)
+export const BASE_HIT_THRESHOLD = 5; // Standard 2d6 hit target (5 and above is a hit)
 export const MONSTER_BASE_HIT_THRESHOLD = BASE_HIT_THRESHOLD;
 
 export function getHeroStatDebuffMods(combat: Pick<ActiveCombatState, 'heroStatDebuffs'>) {
@@ -54,25 +55,33 @@ export function computeCardEffect(
   card: CombatCardDef,
   effectiveStats: CharacterStats,
   gearCombatBonuses?: CombatGearBonuses,
-  extraAtkBonus = 0
+  extraAtkBonus = 0,
+  discardedCardCount = 0
 ): ComputedCardEffect {
   let damage = card.baseDamage;
   if (card.damageScalingStat && card.baseDamage > 0) {
-    const statVal = effectiveStats[card.damageScalingStat];
     const divisor = card.damageScalingDivisor ?? 2;
-    damage += Math.floor(statVal / divisor);
+    const multiplier = card.damageScalingMultiplier ?? 1;
+    const statVal = card.damageScalingStat === 'atk'
+      ? getPlayerAtk(effectiveStats, gearCombatBonuses?.atk ?? 0) + extraAtkBonus
+      : effectiveStats[card.damageScalingStat as keyof CharacterStats];
+    damage += Math.floor(statVal / divisor) * multiplier;
     if (card.damageScalingStat === 'str') {
       damage += Math.floor(effectiveStats.dex / 3) + (gearCombatBonuses?.atk ?? 0) + extraAtkBonus;
     } else if (card.damageScalingStat === 'int') {
       damage += gearCombatBonuses?.matk ?? 0;
     }
   }
+  damage += (card.damagePerDiscard ?? 0) * discardedCardCount;
 
   let block = card.baseBlock;
   if (card.blockScalingStat && card.baseBlock > 0) {
-    const statVal = effectiveStats[card.blockScalingStat];
     const divisor = card.blockScalingDivisor ?? 2;
-    block += Math.floor(statVal / divisor);
+    const multiplier = card.blockScalingMultiplier ?? 1;
+    const statVal = card.blockScalingStat === 'def'
+      ? getPlayerDef(effectiveStats, gearCombatBonuses?.def ?? 0)
+      : effectiveStats[card.blockScalingStat as keyof CharacterStats];
+    block += Math.floor(statVal / divisor) * multiplier;
   }
 
   let evasionBonus = 0;
@@ -147,10 +156,10 @@ export interface CombatAttackRoll {
 /**
  * Evaluates an attack using 2x 1d6 (2d6).
  * - Total range: 2 - 12 (geared towards 7).
- * - Rolls of 7 and above hit; 6 and below miss.
+ * - Rolls of 5 and above hit; 4 and below miss.
  * - Snake eyes (1+1=2) is an automatic total miss regardless of modifiers.
  * - Rolls >= critThreshold (default 12) are critical hits applying +50% bonus ATK damage.
- * - Net accuracy = Attacker ACC - Target EVA. Modifiers adjust required roll: roll + netAcc >= 7.
+ * - Net accuracy = Attacker ACC - Target EVA. Modifiers adjust required roll: roll + netAcc >= 5.
  */
 export function evaluateAttackRoll(
   rngState: number,
@@ -272,6 +281,7 @@ export function createCombatSession(
     playerMaxAp: playerMaxAp,
     playerBlock: 0,
     playerEvasionMod: 0,
+    inPlay: [],
     drawPile: initialDraw.drawPile,
     hand: initialDraw.drawn,
     discardPile: initialDraw.discardPile,
@@ -300,7 +310,8 @@ export function playCombatCardFromHand(
       luckyCharmGold: number;
       hasLuckyCharm?: boolean;
     }
-  ) => RunState
+  ) => RunState,
+  discardedCardInstanceIds: string[] = []
 ): RunState {
   if (state.activeHook.type !== 'COMBAT' || !state.playerResources) {
     return state;
@@ -315,6 +326,14 @@ export function playCombatCardFromHand(
     return state;
   }
 
+  const selectedDiscardIds = [...new Set(discardedCardInstanceIds)];
+  const selectedDiscards = combat.hand.filter((candidate, index) =>
+    index !== cardIndex && selectedDiscardIds.includes(candidate.instanceId)
+  );
+  if (selectedDiscards.length !== selectedDiscardIds.length) return state;
+  if (card.discardMode === 'none' && selectedDiscards.length > 0) return state;
+  if (card.discardMode === 'exact' && selectedDiscards.length !== (card.discardCount ?? 0)) return state;
+
   const effectiveStats = getEffectiveStatsFromState(state);
   const gearCombat = computeCombatGearBonuses(state.equippedGear);
   const berzerkBonus = getFighterBerzerkBonus(
@@ -322,7 +341,7 @@ export function playCombatCardFromHand(
     state.playerResources?.hp,
     state.playerResources?.maxHp
   );
-  const effect = computeCardEffect(card, effectiveStats, gearCombat, berzerkBonus);
+  const effect = computeCardEffect(card, effectiveStats, gearCombat, berzerkBonus, selectedDiscards.length);
   const logEntries: string[] = [];
 
   let nextRng = state.rngState;
@@ -333,16 +352,20 @@ export function playCombatCardFromHand(
   const isAttackAction = card.cardType === 'attack' || effect.damage > 0;
 
   if (isAttackAction) {
-    const target =
+    const targets = card.targetMode === 'all_enemies'
+      ? monsters.map((monster, index) => monster.hp > 0 ? index : -1).filter((index) => index >= 0)
+      : [
       monsters[targetIndex] && monsters[targetIndex].hp > 0
         ? targetIndex
-        : firstLivingMonsterIndex(combat);
+        : firstLivingMonsterIndex(combat)
+      ];
 
+    for (const target of targets) {
     if (target >= 0 && monsters[target]) {
       const t = monsters[target];
       const cardAccBonus = card.accBonus ?? 0;
       const playerAccMod = (combat.playerAccMod ?? 0) + getHeroStatDebuffMods(combat).acc;
-      const playerAcc = getPlayerAcc(effectiveStats) + cardAccBonus + playerAccMod;
+      const playerAcc = getPlayerAcc(effectiveStats, gearCombat.acc) + cardAccBonus + playerAccMod;
       const monsterEva = (t.monster.eva ?? 0) + (t.evaBonus ?? 0);
       const playerCritThreshold = getPlayerCritThreshold(effectiveStats);
       const attackRoll = evaluateAttackRoll(nextRng, playerAcc, monsterEva, playerCritThreshold);
@@ -359,6 +382,7 @@ export function playCombatCardFromHand(
       let damageDealt = 0;
       let damageBlocked = 0;
       let damageDefReduced = 0;
+      let damagePenetrated = 0;
 
       let accBonusNote = '';
       if (cardAccBonus > 0 && playerAccMod !== 0) {
@@ -373,8 +397,13 @@ export function playCombatCardFromHand(
       if (attackRoll.isHit) {
         const baseDmg = effect.damage;
         const finalDmg = attackRoll.isCrit ? Math.floor(baseDmg * 1.5) : baseDmg;
-        // Monster natural DEF absorbs damage first, then temporary Block.
-        const monsterDef = card.damageScalingStat === 'int' ? (t.monster.mdef ?? 0) : (t.monster.def ?? 0);
+        // Physical PEN bypasses natural monster DEF before temporary Block. Magical
+        // attacks always resolve against MDEF and do not receive physical PEN.
+        const isMagicalAttack = card.damageScalingStat === 'int';
+        const naturalMonsterDef = isMagicalAttack ? (t.monster.mdef ?? 0) : (t.monster.def ?? 0);
+        const penetration = isMagicalAttack ? 0 : Math.min(gearCombat.pen, naturalMonsterDef);
+        const monsterDef = Math.max(0, naturalMonsterDef - penetration);
+        damagePenetrated = Math.min(penetration, finalDmg);
         damageDefReduced = Math.min(monsterDef, finalDmg);
         const afterDef = finalDmg - damageDefReduced;
         damageBlocked = Math.min(t.block, afterDef);
@@ -393,7 +422,8 @@ export function playCombatCardFromHand(
         const critText = attackRoll.isCrit ? ` [${critLabel}! +50% ATK DMG]` : '';
         const netSign = attackRoll.netAcc >= 0 ? '+' : '';
         const absorbParts: string[] = [];
-        if (damageDefReduced > 0) absorbParts.push(`${damageDefReduced} absorbed by ${t.monster.name} ${card.damageScalingStat === 'int' ? 'MDEF' : 'DEF'}`);
+        if (damagePenetrated > 0) absorbParts.push(`${damagePenetrated} ${t.monster.name} DEF bypassed by PEN`);
+        if (damageDefReduced > 0) absorbParts.push(`${damageDefReduced} absorbed by ${t.monster.name} ${isMagicalAttack ? 'MDEF' : 'DEF'}`);
         if (damageBlocked > 0) absorbParts.push(`${damageBlocked} blocked`);
         logEntries.push(
           `[${createTimestamp(state.logTimestamp)}] ⚔️ Played ${card.name} on ${t.monster.name}: rolled 2d6 = [${attackRoll.die1}, ${attackRoll.die2}] = ${attackRoll.total} (${netSign}${attackRoll.netAcc} net ACC${accBonusNote} vs ${monsterEva} EVA -> needed ${attackRoll.neededRoll}+)${critText} -> 🎯 HIT! ${finalDmg} DMG${berzerkNote}${
@@ -442,7 +472,9 @@ export function playCombatCardFromHand(
         damageBlocked,
         defenseType: card.damageScalingStat === 'int' ? 'MDEF' : 'DEF',
         damageDefReduced,
+        damagePenetrated,
       };
+    }
     }
   }
 
@@ -454,14 +486,52 @@ export function playCombatCardFromHand(
     );
   }
 
+  const cardsMovedFromHand = [
+    ...selectedDiscards,
+    ...(card.staysInPlay ? [] : [card]),
+  ];
+  const inPlay = [...(combat.inPlay ?? []), ...(card.staysInPlay ? [card] : [])];
+  const apGained = card.id === 'adrenalin' ? selectedDiscards.length : (card.gainAp ?? 0);
+  const flagDraws = apGained > 0 ? inPlay.filter((inPlayCard) => inPlayCard.drawOnApGain).length : 0;
+  const drawCount = (card.drawCards ?? 0) + flagDraws;
+  const drawn = drawCount > 0
+    ? drawCombatCards(combat.drawPile, [...combat.discardPile, ...cardsMovedFromHand], drawCount, nextRng)
+    : {
+      drawn: [],
+      drawPile: combat.drawPile,
+      // Played cards and cards selected as a cost remain physical cards.  They
+      // must enter the discard even when this action does not draw anything.
+      discardPile: [...combat.discardPile, ...cardsMovedFromHand],
+      nextState: nextRng,
+    };
+  nextRng = drawn.nextState;
+
+  if (selectedDiscards.length > 0) {
+    logEntries.push(`[${createTimestamp(state.logTimestamp)}] 🗑️ ${card.name}: discarded ${selectedDiscards.map((discarded) => discarded.name).join(', ')}.`);
+  }
+  if (apGained > 0) {
+    logEntries.push(`[${createTimestamp(state.logTimestamp)}] ⚡ ${card.name}: regained +${apGained} AP.`);
+  }
+  if (flagDraws > 0) {
+    logEntries.push(`[${createTimestamp(state.logTimestamp)}] 🚩 Battle Flag: drew ${flagDraws} card${flagDraws === 1 ? '' : 's'} from AP gain.`);
+  }
+  if (drawn.drawn.length > 0) {
+    logEntries.push(`[${createTimestamp(state.logTimestamp)}] 🃏 ${card.name}: drew ${drawn.drawn.length} card${drawn.drawn.length === 1 ? '' : 's'}.`);
+  }
+  if (card.staysInPlay) {
+    logEntries.push(`[${createTimestamp(state.logTimestamp)}] 🚩 ${card.name} enters play for this battle.`);
+  }
+
   const updatedCombat: ActiveCombatState = {
     ...combat,
     monsters,
-    playerAp: combat.playerAp - card.apCost,
+    playerAp: combat.playerAp - card.apCost + apGained,
     playerBlock: combat.playerBlock + effect.block,
     playerEvasionMod: combat.playerEvasionMod + effect.evasionBonus,
-    hand: combat.hand.filter((_, idx) => idx !== cardIndex),
-    discardPile: [...combat.discardPile, card],
+    hand: combat.hand.filter((candidate, idx) => idx !== cardIndex && !selectedDiscardIds.includes(candidate.instanceId)).concat(drawn.drawn),
+    drawPile: drawn.drawPile,
+    discardPile: drawn.discardPile,
+    inPlay,
     combatLog: [...combat.combatLog, ...logEntries],
     lastAttackRoll: lastAttackRoll ?? combat.lastAttackRoll,
     lastFleeRoll: undefined,
@@ -480,7 +550,7 @@ export function playCombatCardFromHand(
     }
     const luckBonusGold = Math.floor(effectiveStats.luk / 2);
     const totalGold = baseGold + luckBonusGold + luckyCharmGold;
-    const luckyText = hasLuckyCharm ? ` (incl. +${luckyCharmGold} Gold from Lucky Charm)` : '';
+    const luckyText = hasLuckyCharm ? ` (incl. +${luckyCharmGold} Gold from Goldstar)` : '';
 
     const stateAfterRewards: RunState = {
       ...state,

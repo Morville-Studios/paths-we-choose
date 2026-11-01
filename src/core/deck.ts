@@ -1,5 +1,5 @@
 import { CLASS_CATALOG } from '../data/classes';
-import { createCombatCardInstance } from '../data/combatCards';
+import { CLASS_TRAIN_POOLS, COMBAT_CARD_CATALOG, createCombatCardInstance } from '../data/combatCards';
 import { MONSTER_TEMPLATES, STAGE_1_MONSTER_DECK_COMPOSITION } from '../data/monsters';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
 import {
@@ -223,8 +223,128 @@ export function buildStarterCombatDeck(classId: ClassId): CombatCardDef[] {
 }
 
 /**
+ * Each class has a separate, finite New Skills deck. Starter cards are never
+ * included: the starter deck contains its eight attacks and two defenses.
+ * Every other class-eligible skill has exactly two physical copies.
+ */
+export function buildNewSkillsDeck(classId: ClassId, rngState: number): {
+  deck: CombatCardDef[];
+  nextState: number;
+} {
+  const starters = new Set(CLASS_CATALOG[classId].starterCardIds);
+  const unshuffled = CLASS_TRAIN_POOLS[classId]
+    .filter((templateId) => !starters.has(templateId))
+    .flatMap((templateId) => [
+      createCombatCardInstance(templateId, `new_skill_${classId}_1`),
+      createCombatCardInstance(templateId, `new_skill_${classId}_2`),
+    ]);
+  const { shuffled, nextState } = shuffleArray(unshuffled, rngState);
+  return { deck: shuffled, nextState };
+}
+
+/**
+ * Restores the two-copy learnable-skill invariant for an adventure that began
+ * before new card content was released.  Cards already in the deck, discard,
+ * active Village offers, or the player's master deck count toward their two
+ * copies, so this only adds genuinely missing physical cards.
+ */
+export function reconcileNewSkillsDeck(
+  classId: ClassId,
+  deck: CombatCardDef[],
+  discard: CombatCardDef[],
+  playerMasterDeck: CombatCardDef[],
+  activeTrainOptions: CombatCardDef[],
+  rngState: number
+) {
+  const starterIds = new Set(CLASS_CATALOG[classId].starterCardIds);
+  const learnableIds = CLASS_TRAIN_POOLS[classId].filter((templateId) => !starterIds.has(templateId));
+  const voidUpgradeIds = new Set(
+    Object.values(COMBAT_CARD_CATALOG)
+      .filter((card) => card.isSkillUpgrade)
+      .map((card) => card.id)
+  );
+  const reconciledDeck = deck.filter((card) => !voidUpgradeIds.has(card.id));
+  const reconciledDiscard = discard.filter((card) => !voidUpgradeIds.has(card.id));
+  const reconciledTrainOptions = activeTrainOptions.filter((card) => !voidUpgradeIds.has(card.id));
+  const removed = deck.length + discard.length + activeTrainOptions.length
+    - reconciledDeck.length - reconciledDiscard.length - reconciledTrainOptions.length;
+  const allExisting = [...reconciledDeck, ...reconciledDiscard, ...playerMasterDeck, ...reconciledTrainOptions];
+  const usedInstanceIds = new Set(allExisting.map((card) => card.instanceId));
+  const additions: CombatCardDef[] = [];
+
+  for (const templateId of learnableIds) {
+    let copies = allExisting.filter((card) => card.id === templateId).length;
+    while (copies < 2) {
+      let suffix = copies + 1;
+      let instanceId = `${templateId}_new_skill_${classId}_content_${suffix}`;
+      while (usedInstanceIds.has(instanceId)) {
+        suffix += 1;
+        instanceId = `${templateId}_new_skill_${classId}_content_${suffix}`;
+      }
+      additions.push(createCombatCardInstance(templateId, `new_skill_${classId}_content_${suffix}`));
+      usedInstanceIds.add(instanceId);
+      copies += 1;
+    }
+  }
+
+  if (additions.length === 0) {
+    return {
+      deck: reconciledDeck,
+      discard: reconciledDiscard,
+      activeTrainOptions: reconciledTrainOptions,
+      nextState: rngState,
+      added: additions,
+      removed,
+    };
+  }
+
+  const { shuffled, nextState } = shuffleArray([...reconciledDeck, ...additions], rngState);
+  return {
+    deck: shuffled,
+    discard: reconciledDiscard,
+    activeTrainOptions: reconciledTrainOptions,
+    nextState,
+    added: additions,
+    removed,
+  };
+}
+
+/** Draw learnable skills, recycling only unlearned offers once the deck is empty. */
+export function drawNewSkillsWithReshuffle(
+  deck: CombatCardDef[],
+  discard: CombatCardDef[],
+  count: number,
+  rngState: number,
+  reshuffleCount: number
+): {
+  drawn: CombatCardDef[];
+  deck: CombatCardDef[];
+  discard: CombatCardDef[];
+  nextState: number;
+  reshuffleCount: number;
+} {
+  let currentDeck = [...deck];
+  let currentDiscard = [...discard];
+  let rng = rngState;
+  let reshuffles = reshuffleCount;
+  const drawn: CombatCardDef[] = [];
+  while (drawn.length < count) {
+    if (currentDeck.length === 0) {
+      if (currentDiscard.length === 0) break;
+      const shuffled = shuffleArray(currentDiscard, rng);
+      currentDeck = shuffled.shuffled;
+      currentDiscard = [];
+      rng = shuffled.nextState;
+      reshuffles += 1;
+    }
+    drawn.push(currentDeck.shift()!);
+  }
+  return { drawn, deck: currentDeck, discard: currentDiscard, nextState: rng, reshuffleCount: reshuffles };
+}
+
+/**
  * Builds the Stage 1 Treasure Deck.
- * Composed of two copies of each of the 14 catalog items = 28 cards total.
+ * Composed of two copies of each of the 21 catalog items = 42 cards total.
  */
 export function buildStage1TreasureDeck(rngState: number): {
   deck: ShopItemDef[];

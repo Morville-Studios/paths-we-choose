@@ -1,13 +1,28 @@
 import { shuffleArray } from './rng';
 import { syncVitals } from './stats';
+import { coordToKey } from './grid';
+import { createCombatCardInstance, getVoidCards } from '../data/combatCards';
 import {
   ActiveShrineState,
+  CombatCardDef,
   GridCoord,
   RunState,
   ShrinePrayerOption,
   ShrinePrayerOptionId,
   StatKey,
 } from './types';
+
+export const SKILL_UPGRADE_1_AP_GOLD_COST = 10;
+export const SKILL_UPGRADE_1_AP_SP_COST = 2;
+export const SKILL_UPGRADE_2_AP_GOLD_COST = 30;
+export const SKILL_UPGRADE_2_AP_SP_COST = 6;
+
+export interface ShrineSkillUpgradeOption {
+  source: CombatCardDef;
+  upgrade: CombatCardDef;
+  goldCost: number;
+  statPointCost: number;
+}
 
 export const PRAYER_OPTION_CATALOG: Record<ShrinePrayerOptionId, ShrinePrayerOption> = {
   cleanse: {
@@ -70,6 +85,73 @@ export function createShrineState(
     replacedBoonName,
     prayed: Boolean(grantedBoon),
     chosenOptionId: grantedBoon?.id,
+  };
+}
+
+export function getShrineLevel(state: RunState): number {
+  if (state.activeHook.type !== 'SHRINE') return 0;
+  const shrineCard = state.board[coordToKey(state.activeHook.shrine.coord)]?.card;
+  return shrineCard?.level ?? 0;
+}
+
+/**
+ * Finds exact owned-card → Void-card upgrade pairs available at this shrine.
+ * Level 2+ shrines permit 1 AP → 2 AP upgrades; Level 3+ also permit the
+ * intentionally stronger 2 AP → 3 AP upgrade path.
+ */
+export function getShrineSkillUpgradeOptions(state: RunState): ShrineSkillUpgradeOption[] {
+  if (state.activeHook.type !== 'SHRINE' || !state.playerResources) return [];
+  const shrineLevel = getShrineLevel(state);
+  if (shrineLevel < 2) return [];
+  const voidByBaseId = new Map(getVoidCards().map((card) => [card.upgradeOf, card]));
+
+  return state.playerMasterDeck.flatMap((source) => {
+    const upgrade = voidByBaseId.get(source.id);
+    if (!upgrade) return [];
+    if (source.apCost === 1 && upgrade.apCost === 2) {
+      return [{
+        source,
+        upgrade,
+        goldCost: SKILL_UPGRADE_1_AP_GOLD_COST,
+        statPointCost: SKILL_UPGRADE_1_AP_SP_COST,
+      }];
+    }
+    if (shrineLevel >= 3 && source.apCost === 2 && upgrade.apCost === 3) {
+      return [{
+        source,
+        upgrade,
+        goldCost: SKILL_UPGRADE_2_AP_GOLD_COST,
+        statPointCost: SKILL_UPGRADE_2_AP_SP_COST,
+      }];
+    }
+    return [];
+  });
+}
+
+/** Replace one owned action card with its matching Void upgrade. */
+export function upgradeShrineSkill(state: RunState, sourceInstanceId: string): RunState {
+  if (state.activeHook.type !== 'SHRINE' || !state.playerResources) return state;
+  const option = getShrineSkillUpgradeOptions(state)
+    .find((candidate) => candidate.source.instanceId === sourceInstanceId);
+  if (!option) return state;
+  const resources = state.playerResources;
+  if (resources.gold < option.goldCost || resources.statPoints < option.statPointCost) return state;
+
+  const upgradedCard = createCombatCardInstance(
+    option.upgrade.id,
+    `void_upgrade_${option.source.instanceId}`
+  );
+  return {
+    ...state,
+    playerResources: {
+      ...resources,
+      gold: resources.gold - option.goldCost,
+      statPoints: resources.statPoints - option.statPointCost,
+    },
+    playerMasterDeck: state.playerMasterDeck.map((card) =>
+      card.instanceId === sourceInstanceId ? upgradedCard : card
+    ),
+    bannerMessage: `${option.source.name} was upgraded into ${upgradedCard.name} by the Void (${option.goldCost} Gold, ${option.statPointCost} SP).`,
   };
 }
 

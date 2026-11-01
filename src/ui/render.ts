@@ -1,20 +1,23 @@
 import { CLASS_CATALOG } from '../data/classes';
+import { MONSTER_TEMPLATES } from '../data/monsters';
 import { ShopItemTemplate } from '../data/shopItems';
 import { ADVENTURE_CARD_ORDER } from '../data/stages';
-import { PRAYER_OPTION_CATALOG } from '../core/shrine';
+import { getShrineLevel, getShrineSkillUpgradeOptions, PRAYER_OPTION_CATALOG } from '../core/shrine';
 import {
   computeCardEffect,
   getMonsterIntent,
   getHeroStatDebuffMods,
   firstLivingMonsterIndex,
   computeHitProbability,
+  BASE_HIT_THRESHOLD,
   FLEE_AP_COST,
 } from '../core/combat';
-import { createFleeCard } from '../data/combatCards';
+import { createFleeCard, getVoidCards } from '../data/combatCards';
 import { coordToKey } from '../core/grid';
 import {
   getMonsterIllustration,
   getActionCardIllustration,
+  getActionRasterArtPath,
   getAdventureRasterArtPath,
   getItemRasterArtPath,
   getAdventurerRasterArtPath,
@@ -42,7 +45,13 @@ import {
   calculateGoodsPrice,
   GearPreview,
 } from '../core/stats';
-import { MIN_DECK_SIZE, checkRestEligibility } from '../core/village';
+import {
+  MIN_DECK_SIZE,
+  checkRestEligibility,
+  getTrainRemovalCost,
+  getTrainingSkillCost,
+  getVillageRestOption,
+} from '../core/village';
 import {
   ActiveCombatState,
   ActiveExplorationState,
@@ -72,12 +81,16 @@ export type PileType =
   | 'monster_discard'
   | 'player_deck'
   | 'player_discard'
+  | 'new_skills_deck'
+  | 'new_skills_discard'
+  | 'void_deck'
   | 'treasure_deck'
   | 'treasure_discard';
 
 export interface PendingCardPlay {
   cardInstanceId: string;
   targetIndex: number;
+  discardedCardInstanceIds?: string[];
 }
 
 export interface UiState {
@@ -91,13 +104,15 @@ export interface UiState {
   pendingCardPlay?: PendingCardPlay | null;
   pendingFlee?: boolean;
   inspectedStat?: StatKey | null;
+  villageRestTicks?: number;
+  showGuide?: boolean;
 }
 
 // ---------------------------------------------------------------------------
 // Screens
 // ---------------------------------------------------------------------------
 
-export function renderWelcome(): string {
+export function renderWelcome(showGuide = false): string {
   return `
   <main class="screen welcome">
     <div class="welcome-card">
@@ -105,9 +120,76 @@ export function renderWelcome(): string {
       <h1>The Paths<br/>We Choose</h1>
       <p class="tagline">A game about choices we take that create risks and opportunities.</p>
       <button class="btn primary big" data-action="start">Start Adventure</button>
+      <button class="btn guide-start-btn" data-action="open-guide">📖 How to Play</button>
       <p class="version">v0.1 &middot; Stage 1: Grasslands</p>
     </div>
+    ${showGuide ? renderGuideModal(false) : ''}
   </main>`;
+}
+
+/** A short, plain-language guide available before and during every adventure. */
+export function renderGuideModal(inGame: boolean): string {
+  return `
+  <div class="modal-backdrop guide-backdrop" data-action="close-guide-backdrop">
+    <section class="modal guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+      <header class="guide-header">
+        <div>
+          <span class="guide-kicker">📖 Quick guide</span>
+          <h2 id="guide-title">How to Play</h2>
+          <p>Choose a path, grow your hero, and defeat the boss at the end of the map.</p>
+        </div>
+        <button class="modal-close-btn" data-action="close-guide" aria-label="Close guide">&times;</button>
+      </header>
+
+      <div class="guide-grid">
+        <article class="guide-step featured"><span class="guide-number">1</span><h3>Pick a path</h3><p>Tap a Land card in front of your hero. Each choice moves you forward and reveals more of the map.</p></article>
+        <article class="guide-step"><span class="guide-number">2</span><h3>Handle the Land</h3><p><b>Encounters</b> start battles. <b>Villages</b> heal, shop, and train. <b>Shrines</b> spend Stat Points. <b>Undiscovered</b> Lands can be safe, dangerous, or hide treasure.</p></article>
+        <article class="guide-step"><span class="guide-number">3</span><h3>Win the battle</h3><p>Play cards from your hand until you run out of AP, then press <b>End Turn</b>. Defeat every creature to earn Gold and Stat Points.</p></article>
+      </div>
+
+      <div class="guide-topic-grid">
+      <details class="guide-topic guide-battle-topic" open>
+        <summary>⚔️ Battles in one minute</summary>
+        <ul>
+          <li>Each turn, your remaining hand is discarded, then you draw <b>5 cards</b>. If the draw deck empties, shuffle its discard pile and keep drawing. You usually have <b>3 AP</b> to spend.</li>
+          <li>Choose a monster, then choose an attack card. The target badge tells you the roll needed and your chance to hit.</li>
+          <li>Attacks roll <b>2 dice</b>. A basic hit is 5 or more after ACC and EVA. Snake eyes always miss; double sixes are a critical hit.</li>
+          <li><b>Block</b> absorbs damage for this round. <b>DEF</b> reduces physical damage, while <b>MDEF</b> reduces magical damage.</li>
+          <li>If a card asks you to discard cards, choose them in the confirmation window before you press Confirm.</li>
+        </ul>
+      </details>
+
+      <details class="guide-topic">
+        <summary>🌟 Improve your hero</summary>
+        <ul>
+          <li>Monsters award <b>Gold</b> and <b>Stat Points (SP)</b>.</li>
+          <li>At a Shrine, spend SP to raise a base stat. The cost grows as the stat gets higher.</li>
+          <li>STR helps HP and ATK; DEX helps ACC; AGI helps EVA; INT helps magic and AP; CHA lowers shop prices.</li>
+          <li><b>LUK</b> improves critical hits, victory Gold, and Undiscovered Lands: every 5 LUK adds +1 to the exploration roll.</li>
+        </ul>
+      </details>
+
+      <details class="guide-topic">
+        <summary>🎒 Villages, treasure, and decks</summary>
+        <ul>
+          <li>Villages let you rest, buy or sell items, and learn skills. You can go back to the village menu while visiting.</li>
+          <li>On an Undiscovered Land, a modified exploration roll of <b>6 or more</b> finds treasure. A low result can cause an ambush; other results are safe.</li>
+          <li>The right sidebar lets you inspect Adventure, Monster, Treasure, Combat, and New Skills decks. Decks reshuffle their public discard pile when they need more cards.</li>
+        </ul>
+      </details>
+
+      <details class="guide-topic">
+        <summary>🏁 How do I win?</summary>
+        <p>Keep moving forward. On Turn 15, the stage boss appears. Defeat it to complete the stage and unlock the next mission.</p>
+      </details>
+      </div>
+
+      <footer class="guide-footer">
+        <span>${inGame ? 'You can reopen this guide anytime from the Guide button.' : 'You can open this guide again anytime during your adventure.'}</span>
+        <button class="btn primary" data-action="close-guide">${inGame ? 'Back to Game' : 'Ready to Begin'}</button>
+      </footer>
+    </section>
+  </div>`;
 }
 
 export function getPlayerClassName(playerClass?: ClassId | null): string {
@@ -117,6 +199,20 @@ export function getPlayerClassName(playerClass?: ClassId | null): string {
 }
 
 export const CLASS_CAROUSEL_ORDER: ClassId[] = ['fighter', 'wizard', 'rogue'];
+
+function voidBossCards(): MonsterCard[] {
+  return Object.values(MONSTER_TEMPLATES)
+    .filter((monster) => monster.isBoss)
+    .map((monster) => ({ ...monster, id: `void_${monster.templateId}` }));
+}
+
+function voidHeroClassIds(playerClass: ClassId | null): ClassId[] {
+  return CLASS_CAROUSEL_ORDER.filter((classId) => classId !== playerClass);
+}
+
+function voidCardCount(playerClass: ClassId | null): number {
+  return getVoidCards().length + voidBossCards().length + voidHeroClassIds(playerClass).length;
+}
 
 export function classDetailPanelContentHtml(id: ClassId): string {
   const c = CLASS_CATALOG[id];
@@ -325,8 +421,6 @@ function adventureCardHtml(node: PlacedCardNode, state: RunState): string {
   const cardName = getAdventureCardName(card);
   const minimizedTypeLine = card.terrain === 'start'
     ? 'Start Tile'
-    : (!card.hasHostile && !card.hasVillage && !card.hasShrine)
-    ? 'Basic Land'
     : 'Land';
 
   const terrainIcon = card.terrain === 'forest' ? '🌲' : card.terrain === 'swamp' ? '🪷' : card.terrain === 'grasslands' ? '🌿' : '✦';
@@ -414,6 +508,7 @@ function statPanelHtml(state: RunState): string {
       <span class="derived-chip def" title="Physical Defense: floor(STR / 5) + floor(AGI / 3) + Gear DEF">${getDerivedStatIcon('def')} DEF <b>${derived.def}</b></span>
       <span class="derived-chip matk" title="Magical Attack: floor(INT / 2) + Gear MATK">${getDerivedStatIcon('matk')} MATK <b>${derived.matk}</b></span>
       <span class="derived-chip mdef" title="Magical Defense: floor(INT / 5) + Gear MDEF">${getDerivedStatIcon('mdef')} MDEF <b>${derived.mdef}</b></span>
+      ${derived.pen > 0 ? `<span class="derived-chip pen" title="Physical Penetration: physical attacks ignore this much enemy natural DEF"><span class="pen-symbol">PEN</span> PEN <b>${derived.pen}</b></span>` : ''}
       <span class="derived-chip act" title="Max Action Points: Base 3 + floor(INT / 5)">${getDerivedStatIcon('act')} ACT <b>${derived.act}</b></span>
       <span class="derived-chip crit" title="Critical Hit Range: 12 - floor(LUK / 10)">🎲 CRIT <b>${derived.critThreshold ?? 12}+</b></span>
       <span class="derived-chip cha" title="Charisma: -5% shop prices per CHA">${getStatIcon('cha')} DISC <b>-${eff.cha * 5}%</b></span>
@@ -488,126 +583,91 @@ function gearHtml(state: RunState): string {
   </div>`;
 }
 
-export function rightSidebarHtml(state: RunState): string {
+type DeckPileGroupId = 'adventure' | 'monster' | 'player' | 'treasure' | 'newSkills' | 'void';
+
+interface DeckPanelConfig {
+  visibleGroups: readonly DeckPileGroupId[];
+  heading?: string;
+  ariaLabel?: string;
+  className?: string;
+  showFooter?: boolean;
+  groupLabels?: Partial<Record<DeckPileGroupId, string>>;
+}
+
+interface DeckPileGroupDetails {
+  icon: string;
+  title: string;
+  deckLabel: string;
+  deckCount: number;
+  discardCount: number;
+  deckPile: PileType;
+  discardPile: PileType;
+  cssPrefix: string;
+  showDiscard?: boolean;
+}
+
+function deckPileGroupDetails(state: RunState, group: DeckPileGroupId): DeckPileGroupDetails {
   const combat = state.activeHook.type === 'COMBAT' ? state.activeHook.combat : null;
-  const playerDeckCount = combat ? combat.drawPile.length : state.playerMasterDeck.length;
-  const playerDiscardCount = combat ? combat.discardPile.length : 0;
-  const playerDeckLabel = combat ? 'Draw' : 'Deck';
+  switch (group) {
+    case 'adventure':
+      return { icon: '🌿', title: 'Adventure Cards', deckLabel: 'Deck', deckCount: state.adventureDeck.length, discardCount: state.adventureDiscard.length, deckPile: 'adventure_deck', discardPile: 'adventure_discard', cssPrefix: 'adventure' };
+    case 'monster':
+      return { icon: '👹', title: 'Monster Cards', deckLabel: 'Deck', deckCount: state.monsterDeck.length, discardCount: state.monsterDiscard.length, deckPile: 'monster_deck', discardPile: 'monster_discard', cssPrefix: 'monster' };
+    case 'player':
+      return { icon: '⚔️', title: 'Player Combat Deck', deckLabel: combat ? 'Draw' : 'Deck', deckCount: combat ? combat.drawPile.length : state.playerMasterDeck.length, discardCount: combat ? combat.discardPile.length : 0, deckPile: 'player_deck', discardPile: 'player_discard', cssPrefix: 'player' };
+    case 'treasure':
+      return { icon: '💎', title: 'Treasure Cards', deckLabel: 'Deck', deckCount: state.treasureDeck.length, discardCount: state.treasureDiscard.length, deckPile: 'treasure_deck', discardPile: 'treasure_discard', cssPrefix: 'treasure' };
+    case 'newSkills':
+      return { icon: '📚', title: 'New Skills', deckLabel: 'Deck', deckCount: state.newSkillsDeck.length, discardCount: state.newSkillsDiscard.length, deckPile: 'new_skills_deck', discardPile: 'new_skills_discard', cssPrefix: 'new-skills' };
+    case 'void':
+      return { icon: '🌀', title: 'The Void', deckLabel: 'Void', deckCount: voidCardCount(state.playerClass), discardCount: 0, deckPile: 'void_deck', discardPile: 'void_deck', cssPrefix: 'void', showDiscard: false };
+  }
+}
+
+function deckPileGroupHtml(state: RunState, group: DeckPileGroupId, label?: string): string {
+  const details = deckPileGroupDetails(state, group);
+  const title = label ?? details.title;
+  const pileButton = (kind: 'deck' | 'discard', count: number, pile: PileType) => `
+    <button class="pile-card ${details.cssPrefix}-${kind}" data-action="open-pile" data-pile="${pile}" title="View ${title} ${kind === 'deck' ? details.deckLabel : 'Discard'} (Left or Right Click)">
+      <div class="pile-stack-effect"></div>
+      <div class="pile-card-content">
+        <span class="pile-card-title">${kind === 'deck' ? details.deckLabel : 'Discard'}</span>
+        <span class="pile-card-count">${count}</span>
+        <span class="pile-card-unit">cards</span>
+      </div>
+    </button>`;
 
   return `
-  <div class="deck-piles-panel" aria-label="Decks and Discard Piles">
-    <div class="piles-header">
-      <h3>Decks &amp; Discards</h3>
-    </div>
-
-    <!-- Adventure Piles -->
-    <div class="pile-group">
-      <div class="pile-group-title">
-        <span class="pile-icon">🌿</span> Adventure Cards
+    <div class="pile-group" data-pile-group="${group}">
+      <div class="pile-group-title"><span class="pile-icon">${details.icon}</span> ${title}</div>
+      <div class="pile-buttons-row ${details.showDiscard === false ? 'is-single-pile' : ''}">
+        ${pileButton('deck', details.deckCount, details.deckPile)}
+        ${details.showDiscard === false ? '' : pileButton('discard', details.discardCount, details.discardPile)}
       </div>
-      <div class="pile-buttons-row">
-        <button class="pile-card adventure-deck" data-action="open-pile" data-pile="adventure_deck" title="View Adventure Deck (Left or Right Click)">
-          <div class="pile-stack-effect"></div>
-          <div class="pile-card-content">
-            <span class="pile-card-title">Deck</span>
-            <span class="pile-card-count">${state.adventureDeck.length}</span>
-            <span class="pile-card-unit">cards</span>
-          </div>
-        </button>
+    </div>`;
+}
 
-        <button class="pile-card adventure-discard" data-action="open-pile" data-pile="adventure_discard" title="View Adventure Discard Pile (Left or Right Click)">
-          <div class="pile-stack-effect"></div>
-          <div class="pile-card-content">
-            <span class="pile-card-title">Discard</span>
-            <span class="pile-card-count">${state.adventureDiscard.length}</span>
-            <span class="pile-card-unit">cards</span>
-          </div>
-        </button>
-      </div>
-    </div>
+/** Reusable deck/discard panel. Call sites choose which pile groups they expose. */
+export function deckPilesPanelHtml(state: RunState, config: DeckPanelConfig): string {
+  const heading = config.heading ?? 'Decks &amp; Discards';
+  const className = config.className ? ` ${config.className}` : '';
+  const showFooter = config.showFooter ?? true;
+  const defaultPile = config.visibleGroups.length === 1
+    ? deckPileGroupDetails(state, config.visibleGroups[0]).deckPile
+    : undefined;
+  return `
+  <section class="deck-piles-panel${className}" aria-label="${config.ariaLabel ?? heading}"${defaultPile ? ` data-pile-default="${defaultPile}"` : ''}>
+    <div class="piles-header"><h3>${heading}</h3></div>
+    ${config.visibleGroups.map((group) => deckPileGroupHtml(state, group, config.groupLabels?.[group])).join('')}
+    ${showFooter ? '<div class="piles-footer-note"><small class="muted">&#9432; Click or right-click any pile to view cards &amp; multipliers.</small></div>' : ''}
+  </section>`;
+}
 
-    <!-- Monster Piles -->
-    <div class="pile-group">
-      <div class="pile-group-title">
-        <span class="pile-icon">👹</span> Monster Cards
-      </div>
-      <div class="pile-buttons-row">
-        <button class="pile-card monster-deck" data-action="open-pile" data-pile="monster_deck" title="View Monster Deck (Left or Right Click)">
-          <div class="pile-stack-effect"></div>
-          <div class="pile-card-content">
-            <span class="pile-card-title">Deck</span>
-            <span class="pile-card-count">${state.monsterDeck.length}</span>
-            <span class="pile-card-unit">cards</span>
-          </div>
-        </button>
-
-        <button class="pile-card monster-discard" data-action="open-pile" data-pile="monster_discard" title="View Monster Discard Pile (Left or Right Click)">
-          <div class="pile-stack-effect"></div>
-          <div class="pile-card-content">
-            <span class="pile-card-title">Discard</span>
-            <span class="pile-card-count">${state.monsterDiscard.length}</span>
-            <span class="pile-card-unit">cards</span>
-          </div>
-        </button>
-      </div>
-    </div>
-
-    <!-- Player Combat Piles -->
-    <div class="pile-group">
-      <div class="pile-group-title">
-        <span class="pile-icon">⚔️</span> Player Combat Deck
-      </div>
-      <div class="pile-buttons-row">
-        <button class="pile-card player-deck" data-action="open-pile" data-pile="player_deck" title="View Player Combat Deck (Left or Right Click)">
-          <div class="pile-stack-effect"></div>
-          <div class="pile-card-content">
-            <span class="pile-card-title">${playerDeckLabel}</span>
-            <span class="pile-card-count">${playerDeckCount}</span>
-            <span class="pile-card-unit">cards</span>
-          </div>
-        </button>
-
-        <button class="pile-card player-discard" data-action="open-pile" data-pile="player_discard" title="View Player Discard Pile (Left or Right Click)">
-          <div class="pile-stack-effect"></div>
-          <div class="pile-card-content">
-            <span class="pile-card-title">Discard</span>
-            <span class="pile-card-count">${playerDiscardCount}</span>
-            <span class="pile-card-unit">cards</span>
-          </div>
-        </button>
-      </div>
-    </div>
-
-    <!-- Treasure Piles -->
-    <div class="pile-group">
-      <div class="pile-group-title">
-        <span class="pile-icon">💎</span> Treasure Cards
-      </div>
-      <div class="pile-buttons-row">
-        <button class="pile-card treasure-deck" data-action="open-pile" data-pile="treasure_deck" title="View Treasure Deck (Left or Right Click)">
-          <div class="pile-stack-effect"></div>
-          <div class="pile-card-content">
-            <span class="pile-card-title">Deck</span>
-            <span class="pile-card-count">${state.treasureDeck.length}</span>
-            <span class="pile-card-unit">cards</span>
-          </div>
-        </button>
-
-        <button class="pile-card treasure-discard" data-action="open-pile" data-pile="treasure_discard" title="View Treasure Discard Pile (Left or Right Click)">
-          <div class="pile-stack-effect"></div>
-          <div class="pile-card-content">
-            <span class="pile-card-title">Discard</span>
-            <span class="pile-card-count">${state.treasureDiscard.length}</span>
-            <span class="pile-card-unit">cards</span>
-          </div>
-        </button>
-      </div>
-    </div>
-
-    <div class="piles-footer-note">
-      <small class="muted">&#9432; Click or right-click any pile to view cards &amp; multipliers.</small>
-    </div>
-  </div>`;
+export function rightSidebarHtml(state: RunState): string {
+  return deckPilesPanelHtml(state, {
+    visibleGroups: ['adventure', 'monster', 'player', 'treasure', 'newSkills', 'void'],
+    heading: 'Decks &amp; Discards',
+  });
 }
 
 function adventurePileCardItem(card: AdventureCard, count: number, totalCards: number): string {
@@ -624,8 +684,6 @@ function adventurePileCardItem(card: AdventureCard, count: number, totalCards: n
     : 'tcg-template-grassland';
   const minimizedTypeLine = card.terrain === 'start'
     ? 'Start Tile'
-    : (!card.hasHostile && !card.hasVillage && !card.hasShrine)
-    ? 'Basic Land'
     : 'Land';
 
   return `
@@ -710,7 +768,9 @@ function monsterPileCardItem(m: MonsterCard, count: number, totalCards: number):
 }
 
 function combatPileCardItem(card: CombatCardDef, count: number, totalCards: number, stats: CharacterStats, state: RunState): string {
-  const cardHtml = combatCardHtml(card, stats, false, 'play-card', true, state);
+  // Pile cards are for reference only: they must look like real cards without
+  // becoming actionable combat controls.
+  const cardHtml = combatCardHtml(card, stats, false, 'play-card', true, state, true);
   return `
   <div class="deck-pile-card-item pile-card-wrapper" data-inspect-kind="action" data-card-id="${card.id}" title="${card.name} (×${count} in pile)">
     <div class="deck-pile-card-frame">
@@ -718,6 +778,36 @@ function combatPileCardItem(card: CombatCardDef, count: number, totalCards: numb
       <div class="pile-multiplier-badge-bottom">&times;${count}</div>
     </div>
     <div class="card-count-label pile-card-count-label"><b>${count}</b> of ${totalCards} (${Math.round((count / totalCards) * 100)}%)</div>
+  </div>`;
+}
+
+function voidHeroPileCardItem(classId: ClassId, totalCards: number): string {
+  const hero = CLASS_CATALOG[classId];
+  return `
+  <div class="deck-pile-card-item pile-card-wrapper void-hero-card" title="${hero.name} hero card (in the Void)">
+    <div class="deck-pile-card-frame">
+      <div class="tcg-card tcg-adventurer-card is-mini">
+        <div class="tcg-inner-frame">
+          <div class="tcg-art-window action-window">
+            <img src="${getAdventurerRasterArtPath(classId)}" alt="${hero.name}" class="tcg-art-raster" loading="lazy" />
+          </div>
+          <header class="tcg-header">
+            <div class="tcg-header-meta">
+              <div class="tcg-type-stacked">
+                <span class="tcg-type-main">ADVENTURER</span>
+                <span class="tcg-type-sub">Unselected Hero</span>
+              </div>
+              <span class="void-hero-tag">VOID</span>
+            </div>
+            <div class="tcg-header-title"><span class="tcg-name action-name">${hero.name}</span></div>
+          </header>
+          <div class="tcg-art-spacer"></div>
+          <div class="tcg-textbox action-text"><div class="tcg-action-effect"><b>${hero.title}</b><br/>${hero.passive.name}</div></div>
+        </div>
+      </div>
+      <div class="pile-multiplier-badge-bottom">×1</div>
+    </div>
+    <div class="card-count-label pile-card-count-label"><b>1</b> of ${totalCards} (${Math.round(100 / totalCards)}%)</div>
   </div>`;
 }
 
@@ -827,7 +917,25 @@ export function pileModal(pileType: PileType, state: RunState): string {
 
   const inCombat = state.activeHook.type === 'COMBAT';
 
-  if (pileType === 'adventure_deck' || pileType === 'adventure_discard') {
+  if (pileType === 'void_deck') {
+    const upgradeCards = getVoidCards();
+    const bosses = voidBossCards();
+    const heroes = voidHeroClassIds(state.playerClass);
+    icon = '🌀';
+    title = 'The Void';
+    desc = 'Public not-in-play cards. The Void is inexhaustible: eligible Shrines pull matching skill upgrades, while Boss cards and every hero not chosen by the current player remain available to inspect.';
+    totalCards = upgradeCards.length + bosses.length + heroes.length;
+    uniqueCount = totalCards;
+    cardsHtml = [
+      ...upgradeCards
+        .sort((a, b) => (a.cardNumber ?? a.name).localeCompare(b.cardNumber ?? b.name))
+        .map((card) => combatPileCardItem(card, 1, totalCards, stats, state)),
+      ...bosses
+        .sort((a, b) => (a.cardNumber ?? a.name).localeCompare(b.cardNumber ?? b.name))
+        .map((monster) => monsterPileCardItem(monster, 1, totalCards)),
+      ...heroes.map((classId) => voidHeroPileCardItem(classId, totalCards)),
+    ].join('');
+  } else if (pileType === 'adventure_deck' || pileType === 'adventure_discard') {
     const isDeck = pileType === 'adventure_deck';
     const cards = isDeck ? state.adventureDeck : state.adventureDiscard;
     icon = isDeck ? '🌿' : '🍂';
@@ -911,17 +1019,25 @@ export function pileModal(pileType: PileType, state: RunState): string {
       .map(({ item, count }) => treasurePileCardItem(item, count, totalCards))
       .join('');
   } else {
-    // player_deck or player_discard
-    const isDeck = pileType === 'player_deck';
+    const isNewSkills = pileType === 'new_skills_deck' || pileType === 'new_skills_discard';
+    const isDeck = pileType === 'player_deck' || pileType === 'new_skills_deck';
     const combat = state.activeHook.type === 'COMBAT' ? state.activeHook.combat : null;
-    const cards = combat
+    const cards = isNewSkills
+      ? (isDeck ? state.newSkillsDeck : state.newSkillsDiscard)
+      : combat
       ? (isDeck ? combat.drawPile : combat.discardPile)
       : (isDeck ? state.playerMasterDeck : []);
-    icon = isDeck ? '⚔️' : '🛡️';
-    title = inCombat
+    icon = isNewSkills ? (isDeck ? '📚' : '📖') : (isDeck ? '⚔️' : '🛡️');
+    title = isNewSkills
+      ? (isDeck ? 'New Skills Deck' : 'New Skills Discard Pile')
+      : inCombat
       ? (isDeck ? 'Player Combat Draw Deck' : 'Player Combat Discard Pile')
       : (isDeck ? 'Player Combat Master Deck' : 'Player Combat Discard Pile');
-    desc = inCombat
+    desc = isNewSkills
+      ? (isDeck
+          ? 'Learnable non-starter skills. Each listed skill has two physical copies; Village training draws from this deck.'
+          : 'Unlearned Village skill offers. They are reshuffled into the New Skills Deck only when it runs empty.')
+      : inCombat
       ? (isDeck
           ? 'Action cards remaining in your draw pile for this combat. Reshuffled from discard when empty.'
           : 'Action cards played or discarded during this battle.')
@@ -996,6 +1112,7 @@ export function renderPlayArea(state: RunState, ui: UiState): string {
         <div class="who">${classDef ? classDef.name : ''}</div>
         <div class="gold">${getResourceIcon('gold', 'chip-icon')} ${res.gold} Gold</div>
         <div class="sp">${getResourceIcon('sp', 'chip-icon')} ${res.statPoints} SP</div>
+        <button class="btn mini hud-guide-btn" data-action="open-guide" title="Open the How to Play guide">📖 Guide</button>
         ${state.divineProtection > 0 ? `<div class="hud-badge prot">&#10022; Prot -${state.divineProtection}</div>` : ''}
         ${state.statusEffects && state.statusEffects.length > 0 ? `<div class="hud-badge status">${state.statusEffects.join(', ')}</div>` : ''}
       </div>
@@ -1036,6 +1153,7 @@ export function renderPlayArea(state: RunState, ui: UiState): string {
     ${renderHook(state, ui)}
     ${ui.inspectedCard ? cardInspectModal(ui.inspectedCard, state) : ''}
     ${ui.inspectedStat ? statInspectModal(ui.inspectedStat, state) : ''}
+    ${ui.showGuide ? renderGuideModal(true) : ''}
   </main>`;
 }
 
@@ -1051,10 +1169,14 @@ function cardText(card: CombatCardDef, stats: CharacterStats, state?: RunState):
   }
   const e = currentCardEffect(card, stats, state);
   const parts: string[] = [];
-  if (e.damage > 0) parts.push(`Deal <b>${e.damage}</b> DMG`);
-  if (card.accBonus) parts.push(`+<b>${card.accBonus}</b> ACC on rolls`);
+  if (e.damage > 0) parts.push(`Deal <b>${e.damage}</b> DMG${card.targetMode === 'all_enemies' ? ' to all enemies' : ''}`);
+  if (card.accBonus) parts.push(`${card.accBonus > 0 ? '+' : ''}<b>${card.accBonus}</b> ACC on rolls`);
   if (e.block > 0) parts.push(`Gain <b>${e.block}</b> Block`);
   if (e.evasionBonus > 0) parts.push(`+<b>${e.evasionBonus}</b> EVA this round`);
+  if (card.discardMode === 'exact') parts.push(`Discard <b>${card.discardCount ?? 0}</b>, draw <b>${card.drawCards ?? 0}</b>`);
+  if (card.discardMode === 'any') parts.push(`Discard <b>X</b>${card.damagePerDiscard ? `: +${card.damagePerDiscard} DMG each` : ': +1 AP each'}`);
+  if (card.gainAp && card.id !== 'adrenalin') parts.push(`Regain <b>${card.gainAp}</b> AP`);
+  if (card.staysInPlay) parts.push(`<b>Stays in play</b>`);
   return parts.join('<br/>');
 }
 
@@ -1064,16 +1186,27 @@ function combatCardHtml(
   playable: boolean,
   action = 'play-card',
   isMini = false,
-  state?: RunState
+  state?: RunState,
+  viewOnly = false
 ): string {
   const illustration = getActionCardIllustration(card.id, card.cardType);
   const isAtk = card.cardType === 'attack';
+  const cardKind = card.cardType === 'enchantment'
+    ? 'Enchantment 🚩'
+    : card.cardType === 'skill'
+    ? 'Skill ✨'
+    : isAtk
+    ? `Attack ${getDerivedStatIcon('atk', 'header-icon')}`
+    : `Defense ${getDerivedStatIcon('def', 'header-icon')}`;
   const templateClass = isAtk ? 'is-attack tcg-template-attack' : 'is-defense tcg-template-defense';
+  const tag = viewOnly ? 'div' : 'button';
+  const actionAttributes = viewOnly ? '' : `data-action="${action}" data-id="${card.instanceId}"`;
+  const disabledAttribute = !viewOnly && !playable ? 'disabled' : '';
   return `
-  <button class="tcg-card tcg-action ${templateClass} ${card.classId} ${isMini ? 'is-mini' : ''}"
-    data-action="${action}" data-id="${card.instanceId}"
+  <${tag} class="tcg-card tcg-action ${templateClass} ${card.classId} ${isMini ? 'is-mini' : ''}"
+    ${actionAttributes}
     data-inspect-kind="action" data-card-id="${card.id}" data-card-instance="${card.instanceId}"
-    ${playable ? '' : 'disabled'}>
+    ${disabledAttribute}>
     <div class="tcg-inner-frame">
       <div class="tcg-art-window action-window">
         ${illustration}
@@ -1082,8 +1215,9 @@ function combatCardHtml(
         <div class="tcg-header-meta">
           <div class="tcg-type-stacked">
             <span class="tcg-type-main">ACTION</span>
-            <span class="tcg-type-sub">${card.id === 'action_flee' ? 'Escape 🏃' : isAtk ? `Attack ${getDerivedStatIcon('atk', 'header-icon')}` : `Defense ${getDerivedStatIcon('def', 'header-icon')}`}</span>
+            <span class="tcg-type-sub">${card.id === 'action_flee' ? 'Escape 🏃' : cardKind}</span>
           </div>
+          ${card.isSkillUpgrade ? '<span class="skill-upgrade-tag">VOID UPGRADE</span>' : ''}
           <span class="tcg-ap-bubble">${card.apCost} AP</span>
         </div>
         <div class="tcg-header-title">
@@ -1103,7 +1237,7 @@ function combatCardHtml(
           : ''
       }
     </div>
-  </button>`;
+  </${tag}>`;
 }
 
 export function deckModal(deck: CombatCardDef[], state: RunState): string {
@@ -1112,7 +1246,7 @@ export function deckModal(deck: CombatCardDef[], state: RunState): string {
   <div class="modal-backdrop">
     <div class="modal">
       <h2>Your combat deck (${deck.length})</h2>
-      <div class="hand wrap">${deck.map((c) => combatCardHtml(c, stats, false, 'play-card', false, state)).join('')}</div>
+      <div class="hand wrap">${deck.map((c) => combatCardHtml(c, stats, false, 'play-card', false, state, true)).join('')}</div>
       <button class="btn" data-action="toggle-deck">Close</button>
     </div>
   </div>`;
@@ -1193,7 +1327,8 @@ export function updateMonsterCarouselDom(
   container: HTMLElement,
   combat: ActiveCombatState,
   targetIndex: number,
-  playerAcc: number
+  playerAcc: number,
+  playerCritThreshold = 12,
 ): boolean {
   const track = container.querySelector<HTMLElement>('.monster-carousel-track');
   if (!track) return false;
@@ -1227,8 +1362,10 @@ export function updateMonsterCarouselDom(
 
     const header = unit.querySelector<HTMLElement>('.combat-target-header');
     if (header) {
-      const neededRoll = playerAcc !== undefined ? Math.max(2, Math.min(12, 7 - (playerAcc - ((cm.monster.eva ?? 0) + (cm.evaBonus ?? 0))))) : null;
-      const targetText = neededRoll !== null ? `🎯 TARGET (Roll ${neededRoll}+)` : '🎯 TARGET';
+      const neededRoll = playerAcc !== undefined ? Math.max(2, Math.min(12, BASE_HIT_THRESHOLD - (playerAcc - ((cm.monster.eva ?? 0) + (cm.evaBonus ?? 0))))) : null;
+      const targetText = neededRoll !== null
+        ? `🎯 TARGET (Roll ${neededRoll}+ · ${computeHitProbability(neededRoll, playerCritThreshold).hitPercent}%)`
+        : '🎯 TARGET';
       const badgeHtml = isSelected
         ? `<div class="combat-target-badge-top">${targetText}</div>`
         : '<div class="combat-target-spacer"></div>';
@@ -1265,12 +1402,114 @@ function creatureFooterHtml(monster: MonsterCard, accBonus = 0, evaBonus = 0): s
   </footer>`;
 }
 
+interface FullCreatureCardOptions {
+  monster: MonsterCard;
+  attackBonus?: number;
+  accBonus?: number;
+  evaBonus?: number;
+  className?: string;
+  artWindowClassName?: string;
+  artOverlayHtml?: string;
+  attributes?: string;
+}
+
+/**
+ * The canonical full-size creature card face. Battle and card inspection use
+ * this same markup; callers supply only live combat presentation differences.
+ */
+function fullCreatureCardHtml({
+  monster,
+  attackBonus = 0,
+  accBonus = 0,
+  evaBonus = 0,
+  className = '',
+  artWindowClassName = '',
+  artOverlayHtml = '',
+  attributes = '',
+}: FullCreatureCardOptions): string {
+  const templateClass = monster.isBoss ? 'is-boss tcg-template-boss' : 'tcg-template-grassland';
+  const illustration = getMonsterIllustration(monster.templateId);
+  const pattern = monster.pattern?.length ? monster.pattern : [{ label: 'Idle', damage: 0, block: 0 }];
+
+  return `
+    <div class="tcg-card tcg-creature ${templateClass} ${className}" ${attributes}>
+      <div class="tcg-inner-frame">
+        <div class="tcg-art-window ${artWindowClassName}">
+          ${illustration}
+          ${artOverlayHtml}
+        </div>
+        ${creatureHeaderHtml(monster)}
+        <div class="tcg-art-spacer">
+          <div class="tcg-art-rewards">
+            <div class="tcg-art-reward-badge gold" title="Reward: +${monster.goldReward} Gold">
+              ${getResourceIcon('gold', 'chip-icon')} <span>+${monster.goldReward}</span>
+            </div>
+            <div class="tcg-art-reward-badge sp" title="Reward: +${monster.statPointReward} SP">
+              ${getResourceIcon('sp', 'chip-icon')} <span>+${monster.statPointReward}</span>
+            </div>
+          </div>
+        </div>
+        <div class="tcg-textbox tcg-creature-textbox">
+          ${monster.abilities?.length ? `<div class="tcg-ability-line">${monster.abilities.join(' &middot; ')}</div>` : ''}
+          ${
+            attackBonus > 0
+              ? `<div class="tcg-active-boon-badge is-buffed-flashing" title="Charge Momentum active">🔥 Boon: +${attackBonus} ATK</div>`
+              : ''
+          }
+          <div class="tcg-pattern-table">
+            ${pattern.map((p, index) => {
+              const effectiveDamage = p.damage > 0 ? p.damage + attackBonus : 0;
+              const isBuffed = p.damage > 0 && attackBonus > 0;
+              const hasPriorEffect = effectiveDamage > 0 || (p.heal ?? 0) > 0 || p.block > 0 || (p.evaBonus ?? 0) > 0 || (p.accBonus ?? 0) > 0;
+              return `
+                <div class="tcg-pattern-row ${isBuffed ? 'is-buffed-row' : ''}">
+                  <span class="p-turn">Turn ${index + 1}</span>
+                  <span class="p-label">${p.label}</span>
+                  ${p.poisonOnHit ? '<span>Poison on hit</span>' : ''}
+                  ${p.ignoreDef ? `<span>Ignore ${p.ignoreDef} DEF</span>` : ''}
+                  <span class="p-val">${
+                    effectiveDamage > 0
+                      ? `<span class="${isBuffed ? 'is-buffed-flashing' : ''}" title="${isBuffed ? `Base ${p.damage} + ${attackBonus} Boon` : ''}"><b>${effectiveDamage}</b> ${p.damageType === 'magical' ? 'MATK' : 'DMG'}</span>`
+                      : ''
+                  }${
+                    p.heal && p.heal > 0
+                      ? (effectiveDamage > 0 ? ' &middot; ' : '') + `+<b>${p.heal}</b> HP`
+                      : ''
+                  }${
+                    p.block > 0
+                      ? (effectiveDamage > 0 || (p.heal && p.heal > 0) ? ' &middot; ' : '') + `+<b>${p.block}</b> Blk`
+                      : ''
+                  }${
+                    p.evaBonus && p.evaBonus > 0
+                      ? (effectiveDamage > 0 || (p.heal && p.heal > 0) || p.block > 0 ? ' &middot; ' : '') + `+<b>${p.evaBonus}</b> EVA`
+                      : ''
+                  }${
+                    p.accBonus && p.accBonus > 0
+                      ? (effectiveDamage > 0 || (p.heal && p.heal > 0) || p.block > 0 || (p.evaBonus && p.evaBonus > 0) ? ' &middot; ' : '') + `+<b>${p.accBonus}</b> ACC`
+                      : ''
+                  }${
+                    p.heroStatDebuff ? heroHexIntentHtml(p) : p.heroEvaDebuff && p.heroEvaDebuff > 0
+                      ? (hasPriorEffect ? ' &middot; ' : '') + `-<b>${p.heroEvaDebuff}</b> Hero EVA (${p.heroEvaDebuffDuration ?? 2}t)`
+                      : ''
+                  }${
+                    !p.heroStatDebuff && !p.poisonOnHit && !hasPriorEffect && (!p.heroEvaDebuff || p.heroEvaDebuff === 0) ? 'Idle' : ''
+                  }</span>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>
+        ${creatureFooterHtml(monster, accBonus, evaBonus)}
+      </div>
+    </div>`;
+}
+
 function monsterCardHtml(
   cm: CombatMonster,
   index: number,
   selected: boolean,
   canTarget: boolean,
   playerAcc?: number,
+  playerCritThreshold = 12,
   carouselClass: string = ''
 ): string {
   const m = cm.monster;
@@ -1280,105 +1519,26 @@ function monsterCardHtml(
   const intent = getMonsterIntent(cm);
   const actionAttr = canTarget && !dead ? `data-action="target"` : '';
 
-  const illustration = getMonsterIllustration(m.templateId);
-  const templateClass = m.isBoss ? 'is-boss tcg-template-boss' : 'tcg-template-grassland';
-
-  const neededRoll = playerAcc !== undefined ? Math.max(2, Math.min(12, 7 - (playerAcc - ((m.eva ?? 0) + (cm.evaBonus ?? 0))))) : null;
-  const targetText = neededRoll !== null ? `🎯 TARGET (Roll ${neededRoll}+)` : '🎯 TARGET';
+  const neededRoll = playerAcc !== undefined ? Math.max(2, Math.min(12, BASE_HIT_THRESHOLD - (playerAcc - ((m.eva ?? 0) + (cm.evaBonus ?? 0))))) : null;
+  const targetText = neededRoll !== null
+    ? `🎯 TARGET (Roll ${neededRoll}+ · ${computeHitProbability(neededRoll, playerCritThreshold).hitPercent}%)`
+    : '🎯 TARGET';
 
   return `
   <div class="combat-monster-unit ${carouselClass} ${selected && !dead ? 'is-selected-unit selected' : ''} ${dead ? 'is-dead-unit' : ''}" data-id="${index}" ${actionAttr}>
     <div class="combat-target-header">
       ${selected && !dead ? `<div class="combat-target-badge-top">${targetText}</div>` : '<div class="combat-target-spacer"></div>'}
-      <button type="button" class="combat-monster-info-btn" data-action="inspect-monster" data-monster-index="${index}" title="Inspect ${m.name} boons & stats">&#9432;</button>
+      <button type="button" class="combat-monster-info-btn" data-action="inspect-monster" data-inspect-kind="monster" data-monster-id="${m.templateId}" data-monster-index="${index}" title="Inspect ${m.name} boons & stats">&#9432;</button>
     </div>
-    <div class="tcg-card tcg-creature ${templateClass} ${dead ? 'is-dead' : ''} ${
-      selected && !dead ? 'is-targeted' : ''
-    }" aria-label="${m.name} Card"
-      data-inspect-kind="monster" data-monster-id="${m.templateId}" data-monster-index="${index}">
-      <div class="tcg-inner-frame">
-        <!-- Full-Art Raster Art Window loaded across the card -->
-        <div class="tcg-art-window">
-          ${illustration}
-          ${cm.block > 0 && !dead ? `<div class="tcg-shield-overlay">&#128737; ${cm.block} Block</div>` : ''}
-          ${dead ? '<div class="tcg-dead-banner">DEFEATED</div>' : ''}
-        </div>
-
-        <!-- Shared compact creature header -->
-        ${creatureHeaderHtml(m)}
-
-        <!-- Open Artwork Showcase Spacer with Floating Inscribed Reward Badges on Upper-Left -->
-        <div class="tcg-art-spacer">
-          <div class="tcg-art-rewards">
-            <div class="tcg-art-reward-badge gold" title="Reward: +${m.goldReward} Gold">
-              ${getResourceIcon('gold', 'chip-icon')} <span>+${m.goldReward}</span>
-            </div>
-            <div class="tcg-art-reward-badge sp" title="Reward: +${m.statPointReward} SP">
-              ${getResourceIcon('sp', 'chip-icon')} <span>+${m.statPointReward}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Abilities and patterns only; combat stats belong to the bottom dock -->
-        <div class="tcg-textbox tcg-creature-textbox">
-          ${m.abilities && m.abilities.length ? `<div class="tcg-ability-line">${m.abilities.join(' &middot; ')}</div>` : ''}
-          ${
-            (cm.attackBonus ?? 0) > 0
-              ? `<div class="tcg-active-boon-badge is-buffed-flashing" title="Charge Momentum active">
-                  🔥 Boon: +${cm.attackBonus} ATK
-                </div>`
-              : ''
-          }
-          <div class="tcg-pattern-table">
-            ${(m.pattern && m.pattern.length ? m.pattern : [{ label: 'Idle', damage: 0, block: 0 }]).map((p, i) => {
-              const bonus = cm.attackBonus ?? 0;
-              const effDmg = p.damage > 0 ? p.damage + bonus : 0;
-              const isBuffed = p.damage > 0 && bonus > 0;
-              return `
-              <div class="tcg-pattern-row ${isBuffed ? 'is-buffed-row' : ''}">
-                <span class="p-turn">Turn ${i + 1}</span>
-                <span class="p-label">${p.label}</span>
-                ${p.poisonOnHit ? '<span>Poison on hit</span>' : ''}
-                ${p.ignoreDef ? `<span>Ignore ${p.ignoreDef} DEF</span>` : ''}
-                <span class="p-val">${
-                  effDmg > 0
-                    ? `<span class="${isBuffed ? 'is-buffed-flashing' : ''}" title="${isBuffed ? `Base ${p.damage} + ${bonus} Boon` : ''}"><b>${effDmg}</b> ${p.damageType === 'magical' ? 'MATK' : 'DMG'}</span>`
-                    : ''
-                }${
-                  p.heal && p.heal > 0
-                    ? (effDmg > 0 ? ' &middot; ' : '') + `+<b>${p.heal}</b> HP`
-                    : ''
-                }${
-                  p.block > 0
-                    ? (effDmg > 0 || (p.heal && p.heal > 0) ? ' &middot; ' : '') + `+<b>${p.block}</b> Blk`
-                    : ''
-                }${
-                  p.evaBonus && p.evaBonus > 0
-                    ? (effDmg > 0 || (p.heal && p.heal > 0) || p.block > 0 ? ' &middot; ' : '') + `+<b>${p.evaBonus}</b> EVA`
-                    : ''
-                }${
-                  p.accBonus && p.accBonus > 0
-                    ? (effDmg > 0 || (p.heal && p.heal > 0) || p.block > 0 || (p.evaBonus && p.evaBonus > 0) ? ' &middot; ' : '') + `+<b>${p.accBonus}</b> ACC`
-                    : ''
-                }${
-                  p.heroStatDebuff ? heroHexIntentHtml(p) : p.heroEvaDebuff && p.heroEvaDebuff > 0
-                    ? (effDmg > 0 || (p.heal && p.heal > 0) || p.block > 0 || (p.evaBonus && p.evaBonus > 0) || (p.accBonus && p.accBonus > 0) ? ' &middot; ' : '') + `-<b>${p.heroEvaDebuff}</b> Hero EVA (${p.heroEvaDebuffDuration ?? 2}t)`
-                    : ''
-                }${
-                  !p.heroStatDebuff && !p.poisonOnHit && effDmg === 0 && p.block === 0 && (!p.heal || p.heal === 0) && (!p.evaBonus || p.evaBonus === 0) && (!p.accBonus || p.accBonus === 0) && (!p.heroEvaDebuff || p.heroEvaDebuff === 0) ? 'Idle' : ''
-                }</span>
-              </div>`;
-            }).join('')}
-          </div>
-
-          
-
-        </div>
-
-        <!-- Consolidated HP and positive combat stats -->
-        ${creatureFooterHtml(m, cm.accBonus ?? 0, cm.evaBonus ?? 0)}
-      </div>
-    </div>
+    ${fullCreatureCardHtml({
+      monster: m,
+      attackBonus: cm.attackBonus ?? 0,
+      accBonus: cm.accBonus ?? 0,
+      evaBonus: cm.evaBonus ?? 0,
+      className: `${dead ? 'is-dead' : ''} ${selected && !dead ? 'is-targeted' : ''}`,
+      artOverlayHtml: `${cm.block > 0 && !dead ? `<div class="tcg-shield-overlay">&#128737; ${cm.block} Block</div>` : ''}${dead ? '<div class="tcg-dead-banner">DEFEATED</div>' : ''}`,
+      attributes: `aria-label="${m.name} Card" data-inspect-kind="monster" data-monster-id="${m.templateId}" data-monster-index="${index}"`,
+    })}
 
     <!-- Interactive Combat Status Dock Below Card: NEXT Intent & Live HP Bar -->
     <div class="creature-combat-dock ${dead ? 'is-dead' : ''}">
@@ -1522,7 +1682,7 @@ function combatHeroSidebarHtml(state: RunState, combat: ActiveCombatState, stats
   const heroDef = Math.max(0, getPlayerDef(stats, gearCombat.def) + getHeroStatDebuffMods(combat).def);
   const heroAtk = getPlayerAtk(stats, gearCombat.atk);
   const playerAccMod = (combat.playerAccMod ?? 0) + getHeroStatDebuffMods(combat).acc;
-  const playerAcc = getPlayerAcc(stats) + playerAccMod;
+  const playerAcc = getPlayerAcc(stats, gearCombat.acc) + playerAccMod;
   const playerEva = getPlayerEva(stats, combat.playerEvasionMod + getHeroStatDebuffMods(combat).eva, gearCombat.eva);
   const className = getPlayerClassName(state.playerClass);
   const heroArt = getAdventurerRasterArtPath(state.playerClass);
@@ -1604,6 +1764,11 @@ function combatHeroSidebarHtml(state: RunState, combat: ActiveCombatState, stats
           <span class="d-label">EVA</span>
           <b class="d-val">${playerEva}</b>
         </div>
+        ${gearCombat.pen > 0 ? `<div class="derived-chip pen" title="Physical Penetration: physical attacks ignore ${gearCombat.pen} enemy natural DEF">
+          <span class="chip-icon pen-symbol">PEN</span>
+          <span class="d-label">PEN</span>
+          <b class="d-val">${gearCombat.pen}</b>
+        </div>` : ''}
         <div class="derived-chip" title="Active Block (Absorbs damage this round): ${combat.playerBlock}">
           <span class="chip-icon">&#128737;</span>
           <span class="d-label">BLK</span>
@@ -1701,13 +1866,14 @@ function combatHandCarousel(state: RunState, combat: ActiveCombatState, ui: UiSt
       <button type="button" class="hand-carousel-nav next" data-action="next-hand-card" aria-label="Next action card" ${count < 2 ? 'disabled' : ''}>›</button>
     </div>
     <div class="hand-carousel-dots" aria-label="Choose a card">${combat.hand.map((card, i) => `<button type="button" data-hand-dot data-action="select-hand-card" data-id="${i}" aria-label="${card.name}, ${card.apCost} AP, card ${i + 1}" aria-pressed="${i === selected}">${i + 1}</button>`).join('')}</div>
-    <p class="hand-carousel-hint">Browse with Q / E or swipe. Tap the center card to use it.</p>
+    <p class="hand-carousel-hint">Click a side card, use Q / E, or swipe to browse. With one enemy, A / D and LEFT / RIGHT also browse your hand. Tap the center card to use it.</p>
   </section>`;
 }
 
 function combatModal(state: RunState, combat: ActiveCombatState, ui: UiState): string {
   const stats = getEffectiveStatsFromState(state);
-  const playerAcc = getPlayerAcc(stats) + (combat.playerAccMod ?? 0) + getHeroStatDebuffMods(combat).acc;
+  const playerAcc = getPlayerAcc(stats, computeCombatGearBonuses(state.equippedGear).acc) + (combat.playerAccMod ?? 0) + getHeroStatDebuffMods(combat).acc;
+  const playerCritThreshold = getPlayerCritThreshold(stats);
   const res = state.playerResources!;
   const living = combat.monsters.filter((m) => m.hp > 0).length;
   const target =
@@ -1726,7 +1892,7 @@ function combatModal(state: RunState, combat: ActiveCombatState, ui: UiState): s
             ${combat.monsters
               .map((cm, i) => {
                 const posClass = getMonsterCarouselClass(i, target, totalMonsters);
-                return monsterCardHtml(cm, i, i === target, living > 1, playerAcc, posClass);
+                return monsterCardHtml(cm, i, i === target, living > 1, playerAcc, playerCritThreshold, posClass);
               })
               .join('')}
           </div>
@@ -1754,6 +1920,7 @@ function combatModal(state: RunState, combat: ActiveCombatState, ui: UiState): s
           <span>${getDerivedStatIcon('def', 'chip-icon')} Block <b>${combat.playerBlock}</b></span>
           <span>${getDerivedStatIcon('acc', 'chip-icon')} ACC <b>${playerAcc}</b></span>
           <span>${getDerivedStatIcon('eva', 'chip-icon')} EVA <b>${getPlayerEva(stats, combat.playerEvasionMod + getHeroStatDebuffMods(combat).eva, computeCombatGearBonuses(state.equippedGear).eva)}</b></span>
+          ${computeCombatGearBonuses(state.equippedGear).pen > 0 ? `<span class="pen-line" title="Physical attacks ignore enemy natural DEF">PEN <b>${computeCombatGearBonuses(state.equippedGear).pen}</b></span>` : ''}
           <span class="ap">AP <b>${combat.playerAp}</b>/${combat.playerMaxAp}</span>
         </div>
         ${
@@ -1781,6 +1948,10 @@ function combatModal(state: RunState, combat: ActiveCombatState, ui: UiState): s
                 ? '🐍 SNAKE EYES (TOTAL MISS)!'
                 : combat.lastAttackRoll.isHit
                 ? `🎯 HIT! (${combat.lastAttackRoll.damageDealt} DMG${
+                    (combat.lastAttackRoll.damagePenetrated ?? 0) > 0
+                      ? `, ${combat.lastAttackRoll.damagePenetrated} DEF bypassed by PEN`
+                      : ''
+                  }${
                     (combat.lastAttackRoll.damageDefReduced ?? 0) > 0
                       ? `, ${combat.lastAttackRoll.damageDefReduced} absorbed by ${
                           combat.lastAttackRoll.attackerName === 'Hero' ? combat.lastAttackRoll.targetName : 'Hero'
@@ -1811,12 +1982,24 @@ function combatModal(state: RunState, combat: ActiveCombatState, ui: UiState): s
             }</span>
           </div>
         </div>
+        ${(combat.inPlay?.length ?? 0) > 0 ? `
+        <section class="combat-in-play" aria-label="Cards in play">
+          <span class="combat-in-play-label">In play</span>
+          ${combat.inPlay!.map((card) => `<span class="combat-in-play-card" title="${card.flavorText ?? card.name}">🚩 ${card.name}</span>`).join('')}
+        </section>` : ''}
         <div class="combat-actions">
-          <span class="pile">Draw ${combat.drawPile.length} &middot; Discard ${combat.discardPile.length}</span>
           <button class="btn primary" data-action="end-turn">End Turn</button>
         </div>
       </div>
       <aside class="combat-log-sidebar" aria-label="Battle Log">
+        ${deckPilesPanelHtml(state, {
+          visibleGroups: ['player'],
+          heading: 'Action Deck',
+          ariaLabel: 'Action draw and discard piles',
+          className: 'combat-action-piles',
+          showFooter: false,
+          groupLabels: { player: 'Action Cards' },
+        })}
         <div class="combat-log-header">
           <span class="combat-log-header-title">📜 Battle Log</span>
           <span class="combat-log-count">${combat.combatLog.length}</span>
@@ -1885,7 +2068,7 @@ function heroTargetCardHtml(state: RunState, combat: ActiveCombatState, stats: C
   const className = getPlayerClassName(state.playerClass);
   const res = state.playerResources!;
   const effEva = getPlayerEva(stats, combat.playerEvasionMod + getHeroStatDebuffMods(combat).eva, computeCombatGearBonuses(state.equippedGear).eva);
-  const effAcc = getPlayerAcc(stats) + (combat.playerAccMod ?? 0) + getHeroStatDebuffMods(combat).acc;
+  const effAcc = getPlayerAcc(stats, computeCombatGearBonuses(state.equippedGear).acc) + (combat.playerAccMod ?? 0) + getHeroStatDebuffMods(combat).acc;
   const illustration = getAdventurerRasterArtPath(state.playerClass);
 
   return `
@@ -1937,8 +2120,18 @@ export function combatConfirmModal(
   const card = combat.hand.find((c) => c.instanceId === pending.cardInstanceId);
   if (!card) return '';
 
-  const effect = currentCardEffect(card, stats, state);
+  const selectedDiscardIds = pending.discardedCardInstanceIds ?? [];
+  const effect = computeCardEffect(
+    card,
+    stats,
+    computeCombatGearBonuses(state.equippedGear),
+    getFighterBerzerkBonus(state.playerClass, state.playerResources?.hp, state.playerResources?.maxHp),
+    selectedDiscardIds.length
+  );
   const isAttack = card.cardType === 'attack' || effect.damage > 0;
+  const discardCandidates = combat.hand.filter((candidate) => candidate.instanceId !== card.instanceId);
+  const requiredDiscards = card.discardMode === 'exact' ? (card.discardCount ?? 0) : null;
+  const canConfirmDiscard = requiredDiscards === null || selectedDiscardIds.length === requiredDiscards;
 
   const livingMonsters = combat.monsters
     .map((m, idx) => ({ m, idx }))
@@ -1950,17 +2143,20 @@ export function combatConfirmModal(
       : (livingMonsters[0]?.idx ?? 0);
 
   const targetMonster = combat.monsters[targetIdx];
-  const targetName = isAttack
+  const targetName = card.targetMode === 'all_enemies'
+    ? 'All Living Enemies'
+    : isAttack
     ? (targetMonster ? targetMonster.monster.name : 'Target')
     : `${getPlayerClassName(state.playerClass)} (Hero)`;
 
   const cardAccBonus = card.accBonus ?? 0;
+  const cardAccText = cardAccBonus === 0 ? '' : `${cardAccBonus > 0 ? '+' : ''}${cardAccBonus} card`;
   const playerAccMod = (combat.playerAccMod ?? 0) + getHeroStatDebuffMods(combat).acc;
-  const baseAcc = getPlayerAcc(stats);
+  const baseAcc = getPlayerAcc(stats, computeCombatGearBonuses(state.equippedGear).acc);
   const totalAcc = baseAcc + cardAccBonus + playerAccMod;
   const targetEva = (targetMonster?.monster.eva ?? 0) + (targetMonster?.evaBonus ?? 0);
   const netAcc = totalAcc - targetEva;
-  const neededRoll = Math.max(2, Math.min(12, 7 - netAcc));
+  const neededRoll = Math.max(2, Math.min(12, BASE_HIT_THRESHOLD - netAcc));
   const critThreshold = getPlayerCritThreshold(stats);
   const prob = computeHitProbability(neededRoll, critThreshold);
   const critLabel =
@@ -1969,7 +2165,7 @@ export function combatConfirmModal(
       : `Critical Hit (Rolls ${critThreshold}+ = +50% ATK DMG)`;
 
   const targetCardHtml = isAttack && targetMonster
-    ? monsterCardHtml(targetMonster, targetIdx, true, false, totalAcc)
+    ? monsterCardHtml(targetMonster, targetIdx, true, false, totalAcc, critThreshold)
     : heroTargetCardHtml(state, combat, stats);
 
   return `
@@ -1981,7 +2177,7 @@ export function combatConfirmModal(
       </header>
 
       ${
-        isAttack && livingMonsters.length > 1
+        isAttack && card.targetMode !== 'all_enemies' && livingMonsters.length > 1
           ? `
       <div class="confirm-target-picker">
         <span class="picker-label">Target:</span>
@@ -2022,6 +2218,29 @@ export function combatConfirmModal(
       </div>
 
       ${
+        card.discardMode && card.discardMode !== 'none'
+          ? `
+      <section class="combat-discard-choice">
+        <h3>${requiredDiscards === null ? 'Choose cards to discard (X)' : `Choose exactly ${requiredDiscards} cards to discard`}</h3>
+        <p class="muted">The card being played cannot be selected.</p>
+        <div class="combat-discard-choice-list">
+          ${discardCandidates.map((candidate) => {
+            const chosen = selectedDiscardIds.includes(candidate.instanceId);
+            const wouldExceed = !chosen && requiredDiscards !== null && selectedDiscardIds.length >= requiredDiscards;
+            const art = getActionRasterArtPath(candidate.id, candidate.cardType);
+            return `<button class="discard-choice-card ${chosen ? 'is-selected' : ''}" data-action="toggle-card-discard" data-id="${candidate.instanceId}" ${wouldExceed ? 'disabled' : ''}>
+              <img src="${art}" alt="" class="discard-choice-art" loading="lazy" />
+              <span class="discard-choice-details"><b>${candidate.name}</b><small>${candidate.apCost} AP · ${candidate.cardType}</small></span>
+              <span class="discard-choice-mark" aria-hidden="true">${chosen ? '✓' : ''}</span>
+            </button>`;
+          }).join('') || '<span class="muted">No other cards are available to discard.</span>'}
+        </div>
+        <div class="discard-choice-count">Selected: <b>${selectedDiscardIds.length}</b>${requiredDiscards === null ? '' : ` / ${requiredDiscards}`}</div>
+      </section>`
+          : ''
+      }
+
+      ${
         isAttack
           ? `
       <div class="confirm-calc-section">
@@ -2029,7 +2248,7 @@ export function combatConfirmModal(
           <div class="confirm-chip acc">
             <span class="chip-label">Hero ACC</span>
             <span class="chip-value">${getDerivedStatIcon('acc', 'chip-icon')} <b>${totalAcc}</b></span>
-            <span class="chip-sub">&lfloor;DEX / 2&rfloor; ${cardAccBonus > 0 ? `+ ${cardAccBonus} card` : ''}</span>
+            <span class="chip-sub">&lfloor;DEX / 2&rfloor; ${cardAccText}</span>
           </div>
           <span class="chip-operator">&minus;</span>
           <div class="confirm-chip eva">
@@ -2090,7 +2309,7 @@ export function combatConfirmModal(
       }
 
       <footer class="confirm-modal-footer">
-        <button class="btn primary big confirm-action-btn" data-action="confirm-play-card">
+        <button class="btn primary big confirm-action-btn" data-action="confirm-play-card" ${canConfirmDiscard ? '' : 'disabled'}>
           Confirm Use (${card.apCost} AP)
         </button>
         <button class="btn secondary cancel-action-btn" data-action="cancel-play-card">
@@ -2136,6 +2355,49 @@ function shrinePrayerSection(shrine: ActiveShrineState): string {
       </div>
     </div>
   </div>`;
+}
+
+function shrineSkillUpgradeSection(state: RunState): string {
+  const shrineLevel = getShrineLevel(state);
+  if (shrineLevel < 2 || !state.playerResources) return '';
+  const options = getShrineSkillUpgradeOptions(state);
+  const stats = getEffectiveStatsFromState(state);
+  const upgradeCards = options.map((option) => {
+    const canAfford = state.playerResources!.gold >= option.goldCost
+      && state.playerResources!.statPoints >= option.statPointCost;
+    return `
+      <article class="void-upgrade-option">
+        <div class="void-upgrade-cards">
+          <div class="void-upgrade-card-source">${combatCardHtml(option.source, stats, false, 'play-card', true, state, true)}</div>
+          <span class="void-upgrade-arrow" aria-hidden="true">→</span>
+          <div class="void-upgrade-card-target">${combatCardHtml(option.upgrade, stats, false, 'play-card', true, state, true)}</div>
+        </div>
+        <div class="void-upgrade-details">
+          <b>${option.source.name} → ${option.upgrade.name}</b>
+          <span>Pull from the Void · ${option.source.apCost} AP → ${option.upgrade.apCost} AP</span>
+        </div>
+        <button class="btn primary void-upgrade-btn" data-action="shrine-upgrade-skill" data-id="${option.source.instanceId}" ${canAfford ? '' : 'disabled'}>
+          Upgrade (${option.goldCost} Gold · ${option.statPointCost} SP)
+        </button>
+      </article>`;
+  }).join('');
+
+  return `
+    <section class="shrine-section void-upgrade-section">
+      <div class="void-upgrade-heading">
+        <div>
+          <h3>🌀 Void Skill Upgrades</h3>
+          <p class="muted">This Level ${shrineLevel} Shrine can pull matching upgrade cards from the Void.</p>
+        </div>
+        <button class="void-inspect-link" data-action="open-pile" data-pile="void_deck">Inspect Void (${getVoidCards().length})</button>
+      </div>
+      <p class="void-upgrade-rule">
+        ${shrineLevel >= 3
+          ? 'Upgrade 1 AP → 2 AP for 10 Gold + 2 SP, or 2 AP → 3 AP for 30 Gold + 6 SP.'
+          : 'Upgrade an owned 1 AP card to its 2 AP Void version for 10 Gold + 2 SP.'}
+      </p>
+      ${upgradeCards || '<p class="muted void-upgrade-empty">You do not currently own a card with an eligible Void upgrade.</p>'}
+    </section>`;
 }
 
 export function statUpgradeWidgetHtml(state: RunState, action = 'shrine-upgrade'): string {
@@ -2221,6 +2483,11 @@ export function explorationModal(
     card.terrain === 'forest' ? 'Forest' : card.terrain === 'swamp' ? 'Swamp' : 'Grasslands';
 
   const roll = exploration.roll;
+  const luckBonus = exploration.luckBonus ?? 0;
+  const effectiveRoll = exploration.effectiveRoll ?? roll + luckBonus;
+  const rollBreakdown = luckBonus > 0
+    ? `Natural ${roll} + LUK ${luckBonus} = ${effectiveRoll}`
+    : `Natural ${roll}`;
   const outcome = exploration.outcome;
 
   return `
@@ -2238,17 +2505,17 @@ export function explorationModal(
       <div class="exploration-dice-section">
         <div class="exploration-dice-badge">
           <span class="dice-icon">🎲</span>
-          <span class="dice-number">${roll}</span>
+          <span class="dice-number">${effectiveRoll}</span>
         </div>
         <div class="exploration-dice-details">
-          <div class="dice-label">1d6 Exploration Roll</div>
+          <div class="dice-label">1d6 Exploration Roll &middot; ${rollBreakdown}</div>
           <div class="dice-criteria ${outcome}">
             ${
               outcome === 'combat'
-                ? `Rolled ${roll} &le; Card Level ${card.level} &middot; Enemy Encountered!`
+                ? `${rollBreakdown} &le; Card Level ${card.level} &middot; Enemy Encountered!`
                 : outcome === 'treasure'
-                ? (exploration.foundItem ? `Rolled 6 &middot; Natural Six &middot; Treasure Found!` : `Rolled 6 &middot; No eligible treasure available`)
-                : `Rolled ${roll} &middot; Calm &amp; Safe Passage`
+                ? (exploration.foundItem ? `${rollBreakdown} &middot; Treasure Found!` : `${rollBreakdown} &middot; No eligible treasure available`)
+                : `${rollBreakdown} &middot; Calm &amp; Safe Passage`
             }
           </div>
         </div>
@@ -2277,7 +2544,7 @@ export function explorationModal(
             ? `
             <div class="outcome-header treasure">
               <span class="outcome-icon">💎</span>
-              <h3>${exploration.foundItem ? 'Secret Treasure Discovered!' : 'No Treasure Available'}</h3>
+              <h3>${exploration.foundItem ? 'Congratulations! Treasure Chest Found!' : 'No Treasure Available'}</h3>
             </div>
             <p class="outcome-msg">
               Fortune favors you! A natural 6 unearths a hidden treasure cache buried in the <b>${card.name}</b>.
@@ -2286,6 +2553,9 @@ export function explorationModal(
               exploration.foundItem
                 ? `
                 <div class="exploration-item-box">
+                  <div class="exploration-item-card">
+                    ${renderTcgItemCard(exploration.foundItem, { isMini: true })}
+                  </div>
                   <div class="exploration-item-header">
                     <span class="item-name">${exploration.foundItem.name}</span>
                     <span class="item-level-tag">Level ${exploration.foundItem.level ?? 1}</span>
@@ -2297,7 +2567,7 @@ export function explorationModal(
                 : `<p class="outcome-msg">No eligible treasure remains in the deck or graveyard.</p>`
             }
             <div class="exploration-actions">
-              <button class="btn primary big exploration-btn" data-action="confirm-exploration-safe">${exploration.foundItem ? '🎒 Claim Treasure &amp; Continue' : 'Continue Journey &rarr;'}</button>
+              <button class="btn primary big exploration-btn" data-action="confirm-exploration-safe">${exploration.foundItem ? 'Return to Map View &rarr;' : 'Continue Journey &rarr;'}</button>
             </div>
             `
             : `
@@ -2388,7 +2658,7 @@ export function victoryModal(
               ${
                 hasBonuses
                   ? `Base: +${victory.baseGold}g${luckBonus > 0 ? ` &middot; Luck: +${luckBonus}g` : ''}${
-                      luckyCharmBonus > 0 ? ` &middot; Lucky Charm: +${luckyCharmBonus}g` : ''
+                      luckyCharmBonus > 0 ? ` &middot; Goldstar: +${luckyCharmBonus}g` : ''
                     }`
                   : 'Added directly to your treasury'
               }
@@ -2421,6 +2691,8 @@ function shrineModal(state: RunState): string {
 
       ${statUpgradeWidgetHtml(state, 'shrine-upgrade')}
 
+      ${shrineSkillUpgradeSection(state)}
+
       <div class="modal-actions">
         <button class="btn primary big" data-action="leave-shrine">Leave Shrine &rarr;</button>
       </div>
@@ -2449,7 +2721,7 @@ function deltaChips(p: GearPreview): string {
     );
   }
   if (p.combatBefore && p.combatAfter) {
-    const combatKeys = ['atk', 'def', 'matk', 'mdef', 'eva', 'acc', 'act'] as const;
+    const combatKeys = ['atk', 'def', 'matk', 'mdef', 'eva', 'acc', 'pen', 'act'] as const;
     for (const k of combatKeys) {
       const beforeVal = p.combatBefore[k];
       const afterVal = p.combatAfter[k];
@@ -2638,38 +2910,49 @@ function shopSellRow(state: RunState, item: ShopItemDef): string {
 
 function villageModal(state: RunState, village: ActiveVillageState, ui: UiState): string {
   const res = state.playerResources!;
+  const villageCard = state.board[coordToKey(village.coord)]?.card;
+  const villageName = villageCard?.name ?? 'Village';
+  const villageLevel = villageCard?.level ?? 1;
+  const villageArt = villageCard ? getAdventureRasterArtPath(villageCard) : '/cards/adventure/grassland_village.jpg';
+  const locationHeader = `
+    <header class="village-location-header">
+      <img src="${villageArt}" alt="${villageName}" class="village-location-art" loading="eager" />
+      <div class="village-location-copy">
+        <span class="village-location-type">VILLAGE</span>
+        <h2>${villageName}</h2>
+        <span class="village-location-level">Lvl ${villageLevel}</span>
+      </div>
+    </header>`;
   let body = '';
   if (village.subView === 'main') {
-    const eligibility = checkRestEligibility(state);
-    const restCost = eligibility.cost;
-    const canRest = eligibility.canRest;
-
-    let subtext = '';
-    if (eligibility.reason === 'full_health_no_ailments') {
-      subtext = 'Already at full health (no ailments to cure)';
-    } else if (eligibility.reason === 'insufficient_gold') {
-      subtext = `Needs ${restCost} gold (You have ${res.gold}g)`;
-    } else {
-      const hasAilments = (state.statusEffects?.length ?? 0) > 0;
-      const isMissingHp = res.hp < res.maxHp;
-      if (hasAilments && isMissingHp) {
-        subtext = `Restore full HP & cleanse ailments (${restCost}g)`;
-      } else if (hasAilments) {
-        subtext = `Cleanse all negative ailments (${restCost}g)`;
-      } else {
-        subtext = `Restore full HP (${restCost}g: 5g base + 1g per 10 missing HP)`;
-      }
-    }
+    const restOption = getVillageRestOption(res, ui.villageRestTicks);
+    const eligibility = checkRestEligibility(state, restOption.ticks);
+    const restLabels = Array.from({ length: restOption.maxTicks }, (_, index) => {
+      const ticks = index + 1;
+      const option = getVillageRestOption(res, ticks);
+      return `<span>${option.isFullRest ? 'Full' : `${option.hpRestored} HP`}</span>`;
+    }).join('');
+    const restMessage = eligibility.reason === 'full_health'
+      ? 'Already at full HP.'
+      : eligibility.reason === 'insufficient_gold'
+      ? `Need ${restOption.cost} Gold; you have ${res.gold}.`
+      : `${restOption.isFullRest ? 'Full rest' : `Restore ${restOption.hpRestored} HP`} for ${restOption.cost} Gold.`;
 
     body = `
-    <p>Choose <b>one</b> action for this visit.</p>
+    <p class="village-intro">Use any service while you visit. Your shop stock and training offers are reserved when you arrive.</p>
     <div class="village-actions">
-      <button class="btn big" data-action="village-rest" ${canRest ? '' : 'disabled'}>
-        Rest (${restCost}g)
-        <small>${subtext}</small>
-      </button>
+      <section class="village-service village-rest-service">
+        <div class="village-service-heading"><b>Rest</b><span>${res.hp} / ${res.maxHp} HP</span></div>
+        ${restOption.maxTicks > 0 ? `
+          <input class="village-rest-slider" type="range" min="1" max="${restOption.maxTicks}" step="1" value="${restOption.ticks}" data-action="set-village-rest-ticks" aria-label="Rest duration: ${restOption.isFullRest ? 'Full' : `${restOption.hpRestored} HP`}" />
+          <div class="village-rest-ticks" aria-hidden="true">${restLabels}</div>` : ''}
+        <p class="village-service-note">${restMessage} Each tick restores up to 2 HP and costs 1 Gold.</p>
+        <button class="btn primary" data-action="village-rest" ${eligibility.canRest ? '' : 'disabled'}>
+          Rest ${restOption.isFullRest ? 'to Full' : `+${restOption.hpRestored} HP`} (${restOption.cost}g)
+        </button>
+      </section>
       <button class="btn big" data-action="village-shop">Shop<small>Buy &amp; sell gear</small></button>
-      <button class="btn big" data-action="village-train">Train<small>Remove a card or draft one</small></button>
+      <button class="btn big" data-action="village-train">Training<small>Learn skills or remove cards</small></button>
     </div>
     <button class="btn" data-action="village-leave">Leave village</button>`;
   } else if (village.subView === 'shop') {
@@ -2705,11 +2988,7 @@ function villageModal(state: RunState, village: ActiveVillageState, ui: UiState)
         </div>
         <div class="shop-list">${list}</div>
         <div class="modal-actions">
-          ${
-            village.actionTaken
-              ? '<small class="muted">You made a transaction, so you can no longer go back to the menu.</small>'
-              : '<button class="btn" data-action="village-back">&larr; Back to menu</button>'
-          }
+          <button class="btn" data-action="village-back">&larr; Village options</button>
           <button class="btn primary" data-action="village-leave">Done shopping</button>
         </div>
       </section>
@@ -2717,21 +2996,33 @@ function villageModal(state: RunState, village: ActiveVillageState, ui: UiState)
   } else {
     const stats = getEffectiveStatsFromState(state);
     const canRemove = state.playerMasterDeck.length > MIN_DECK_SIZE;
+    const removalCost = getTrainRemovalCost(state);
+    const canAffordRemoval = res.gold >= removalCost;
     body = `
-    <h3>Draft 1 of 3 cards</h3>
-    <div class="hand wrap">${village.trainOptions
-      .map((c) => combatCardHtml(c, stats, true, 'train-draft', false, state))
-      .join('')}</div>
-    <h3>&hellip;or remove 1 card ${canRemove ? '' : '<small>(deck at minimum size)</small>'}</h3>
-    <div class="hand wrap">${state.playerMasterDeck
-      .map((c) => combatCardHtml(c, stats, canRemove, 'train-remove', false, state))
-      .join('')}</div>
-    <div class="modal-actions"><button class="btn" data-action="village-back">&larr; Back to menu</button></div>`;
+    <section class="train-section">
+      <h3>Learn a skill</h3>
+      <p class="muted">1 AP: 5 Gold + 1 SP · 2 AP: 10 Gold + 2 SP · 3 AP: 20 Gold + 4 SP</p>
+      <div class="train-card-grid">${village.trainOptions.length
+        ? village.trainOptions.map((c) => {
+          const cost = getTrainingSkillCost(c);
+          const canLearn = res.gold >= cost.gold && res.statPoints >= cost.statPoints;
+          return `<div class="train-card-offer">${combatCardHtml(c, stats, canLearn, 'train-draft', false, state)}<span>${cost.gold} Gold · ${cost.statPoints} SP</span></div>`;
+        }).join('')
+        : '<p class="muted">All pre-drawn training offers have been learned.</p>'}</div>
+    </section>
+    <section class="train-section">
+      <h3>Remove a card <small>${canRemove ? `(${removalCost} Gold)` : '(deck at minimum size)'}</small></h3>
+      <p class="muted">Each removal increases the next removal price by 1 Gold for this adventure.</p>
+      <div class="train-card-grid">${state.playerMasterDeck
+        .map((c) => `<div class="train-card-offer">${combatCardHtml(c, stats, canRemove && canAffordRemoval, 'train-remove', false, state)}<span>${removalCost} Gold</span></div>`)
+        .join('')}</div>
+    </section>
+    <div class="modal-actions"><button class="btn" data-action="village-back">&larr; Village options</button><button class="btn primary" data-action="village-leave">Leave village</button></div>`;
   }
   return `
   <div class="modal-backdrop">
     <div class="modal village-modal ${village.subView === 'shop' ? 'is-shop' : ''}">
-      <h2>Village</h2>
+      ${locationHeader}
       ${body}
     </div>
   </div>`;
@@ -2761,16 +3052,24 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
     const scalingRows: string[] = [];
     if (card.damageScalingStat && card.baseDamage > 0) {
       const s = card.damageScalingStat.toUpperCase();
+      const statLabel = card.damageScalingStat === 'atk' || card.damageScalingStat === 'def' ? s : `Effective ${s}`;
       const div = card.damageScalingDivisor ?? 2;
-      const sVal = stats[card.damageScalingStat];
-      const bonus = Math.floor(sVal / div);
+      const multiplier = card.damageScalingMultiplier ?? 1;
+      const sVal = card.damageScalingStat === 'atk'
+        ? getPlayerAtk(stats, state ? computeCombatGearBonuses(state.equippedGear).atk : 0)
+        : card.damageScalingStat === 'def'
+        ? getPlayerDef(stats, state ? computeCombatGearBonuses(state.equippedGear).def : 0)
+        : stats[card.damageScalingStat];
+      const bonus = Math.floor(sVal / div) * multiplier;
       const additional = eff.damage - card.baseDamage - bonus;
       const additionalText = additional ? ` + ${additional} (DEX, gear and passive bonuses)` : '';
+      const formulaStat = div === 1 ? statLabel : `&lfloor;${statLabel} / ${div}&rfloor;`;
+      const calculationStat = div === 1 ? `${sVal}` : `&lfloor;${sVal} / ${div}&rfloor;`;
       scalingRows.push(`
         <div class="inspect-formula-row">
           <span class="formula-label">Damage Formula (Tabletop Rule)</span>
-          <span class="formula-math">${card.baseDamage} Base DMG + &lfloor;Effective ${s} / ${div}&rfloor;${additionalText}</span>
-          <span class="formula-calc">Hero Calculation: ${card.baseDamage} + &lfloor;${sVal} / ${div}&rfloor; = ${card.baseDamage} + ${bonus}${additionalText} = <b>${eff.damage} DMG</b></span>
+          <span class="formula-math">${card.baseDamage} Base DMG + ${multiplier === 1 ? '' : `${multiplier} × `}${formulaStat}${additionalText}</span>
+          <span class="formula-calc">Hero Calculation: ${card.baseDamage} + ${multiplier === 1 ? '' : `${multiplier} × `}${calculationStat} = ${card.baseDamage} + ${bonus}${additionalText} = <b>${eff.damage} DMG</b></span>
         </div>
       `);
     } else if (card.baseDamage > 0) {
@@ -2784,14 +3083,22 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
 
     if (card.blockScalingStat && card.baseBlock > 0) {
       const s = card.blockScalingStat.toUpperCase();
+      const statLabel = card.blockScalingStat === 'atk' || card.blockScalingStat === 'def' ? s : `Effective ${s}`;
       const div = card.blockScalingDivisor ?? 2;
-      const sVal = stats[card.blockScalingStat];
-      const bonus = Math.floor(sVal / div);
+      const multiplier = card.blockScalingMultiplier ?? 1;
+      const sVal = card.blockScalingStat === 'def'
+        ? getPlayerDef(stats, state ? computeCombatGearBonuses(state.equippedGear).def : 0)
+        : card.blockScalingStat === 'atk'
+        ? getPlayerAtk(stats, state ? computeCombatGearBonuses(state.equippedGear).atk : 0)
+        : stats[card.blockScalingStat];
+      const bonus = Math.floor(sVal / div) * multiplier;
+      const formulaStat = div === 1 ? statLabel : `&lfloor;${statLabel} / ${div}&rfloor;`;
+      const calculationStat = div === 1 ? `${sVal}` : `&lfloor;${sVal} / ${div}&rfloor;`;
       scalingRows.push(`
         <div class="inspect-formula-row">
           <span class="formula-label">Block Formula (Tabletop Rule)</span>
-          <span class="formula-math">${card.baseBlock} Base Block + &lfloor;Effective ${s} / ${div}&rfloor;</span>
-          <span class="formula-calc">Hero Calculation: ${card.baseBlock} + &lfloor;${sVal} / ${div}&rfloor; = ${card.baseBlock} + ${bonus} = <b>${eff.block} Block</b></span>
+          <span class="formula-math">${card.baseBlock} Base Block + ${multiplier === 1 ? '' : `${multiplier} × `}${formulaStat}</span>
+          <span class="formula-calc">Hero Calculation: ${card.baseBlock} + ${multiplier === 1 ? '' : `${multiplier} × `}${calculationStat} = ${card.baseBlock} + ${bonus} = <b>${eff.block} Block</b></span>
         </div>
       `);
     } else if (card.baseBlock > 0) {
@@ -2818,8 +3125,8 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
       scalingRows.push(`
         <div class="inspect-formula-row">
           <span class="formula-label">Attack Accuracy Bonus (Tabletop Rule)</span>
-          <span class="formula-math">+${card.accBonus} ACC on attack rolls</span>
-          <span class="formula-calc">Hero Calculation: ${getPlayerAcc(stats)} Hero ACC + ${card.accBonus} Card ACC = <b>${getPlayerAcc(stats) + card.accBonus} Total ACC</b></span>
+          <span class="formula-math">${card.accBonus > 0 ? '+' : ''}${card.accBonus} ACC on attack rolls</span>
+          <span class="formula-calc">Hero Calculation: ${getPlayerAcc(stats, state ? computeCombatGearBonuses(state.equippedGear).acc : 0)} Hero ACC ${card.accBonus > 0 ? '+' : ''}${card.accBonus} Card ACC = <b>${getPlayerAcc(stats, state ? computeCombatGearBonuses(state.equippedGear).acc : 0) + card.accBonus} Total ACC</b></span>
         </div>
       `);
     }
@@ -2881,15 +3188,12 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
           ${card.damageScalingStat ? `<li><b>Damage Scaling:</b> Scaled directly by <b>Effective ${card.damageScalingStat.toUpperCase()}</b>. Upgrading base stats at Shrines increases this damage permanently.</li>` : ''}
           ${card.blockScalingStat ? `<li><b>Block Absorption:</b> Block absorbs incoming monster damage first before any HP is deducted. Unused block expires at the end of the round.</li>` : ''}
           ${card.evasionScalingStat ? `<li><b>2d6 Combat Evasion:</b> Grants temporary EVA against incoming 2d6 monster attack rolls for the current combat round.</li>` : ''}
-          ${card.accBonus ? `<li><b>Attack Accuracy:</b> Grants <b>+${card.accBonus} ACC</b> on attack rolls, lowering the required roll to hit by ${card.accBonus}.</li>` : ''}
+          ${card.accBonus ? `<li><b>Attack Accuracy:</b> Applies <b>${card.accBonus > 0 ? '+' : ''}${card.accBonus} ACC</b> on attack rolls, changing the required roll by ${Math.abs(card.accBonus)}.</li>` : ''}
         </ul>
       </div>
     </div>`;
   } else if (inspected.kind === 'monster') {
     const m = inspected.monster;
-    const isBoss = !!m.isBoss;
-    const templateClass = isBoss ? 'is-boss tcg-template-boss' : 'tcg-template-grassland';
-    const illustration = getMonsterIllustration(m.templateId);
     title = `${m.name} (Monster Card Reference)`;
     const attackBonus = inspected.attackBonus ?? 0;
 
@@ -2937,79 +3241,12 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
       </div>`;
     }).join('');
 
-    cardHtml = `
-    <div class="tcg-card tcg-creature ${templateClass} tcg-inspect-card">
-      <div class="tcg-inner-frame">
-        <div class="tcg-art-window full-inspect-art">
-          ${illustration}
-        </div>
-        ${creatureHeaderHtml(m)}
-        <div class="tcg-art-spacer">
-          <div class="tcg-art-rewards">
-            <div class="tcg-art-reward-badge gold" title="Reward: +${m.goldReward} Gold">
-              ${getResourceIcon('gold', 'chip-icon')} <span>+${m.goldReward}</span>
-            </div>
-            <div class="tcg-art-reward-badge sp" title="Reward: +${m.statPointReward} SP">
-              ${getResourceIcon('sp', 'chip-icon')} <span>+${m.statPointReward}</span>
-            </div>
-          </div>
-        </div>
-        <div class="tcg-textbox tcg-creature-textbox">
-          ${m.abilities.length ? `<div class="tcg-ability-line">${m.abilities.join(' &middot; ')}</div>` : ''}
-          ${
-            attackBonus > 0
-              ? `<div class="tcg-active-boon-badge is-buffed-flashing" title="Charge Momentum active">
-                  🔥 Boon: +${attackBonus} ATK
-                </div>`
-              : ''
-          }
-          <div class="tcg-pattern-table">
-            ${(m.pattern && m.pattern.length ? m.pattern : [{ label: 'Idle', damage: 0, block: 0 }]).map((p, i) => {
-              const effDmg = p.damage > 0 ? p.damage + attackBonus : 0;
-              const isBuffed = p.damage > 0 && attackBonus > 0;
-              return `
-              <div class="tcg-pattern-row ${isBuffed ? 'is-buffed-row' : ''}">
-                <span class="p-turn">Turn ${i + 1}</span>
-                <span class="p-label">${p.label}</span>
-                ${p.poisonOnHit ? '<span>Poison on hit</span>' : ''}
-                ${p.ignoreDef ? `<span>Ignore ${p.ignoreDef} DEF</span>` : ''}
-                <span class="p-val">${
-                  effDmg > 0
-                    ? `<span class="${isBuffed ? 'is-buffed-flashing' : ''}"><b>${effDmg}</b> ${p.damageType === 'magical' ? 'MATK' : 'DMG'}</span>`
-                    : ''
-                }${
-                  p.heal && p.heal > 0
-                    ? (effDmg > 0 ? ' &middot; ' : '') + `+<b>${p.heal}</b> HP`
-                    : ''
-                }${
-                  p.block > 0
-                    ? (effDmg > 0 || (p.heal && p.heal > 0) ? ' &middot; ' : '') + `+<b>${p.block}</b> Blk`
-                    : ''
-                }${
-                  p.evaBonus && p.evaBonus > 0
-                    ? (effDmg > 0 || (p.heal && p.heal > 0) || p.block > 0 ? ' &middot; ' : '') + `+<b>${p.evaBonus}</b> EVA`
-                    : ''
-                }${
-                  p.accBonus && p.accBonus > 0
-                    ? (effDmg > 0 || (p.heal && p.heal > 0) || p.block > 0 || (p.evaBonus && p.evaBonus > 0) ? ' &middot; ' : '') + `+<b>${p.accBonus}</b> ACC`
-                    : ''
-                }${
-                  p.heroStatDebuff ? heroHexIntentHtml(p) : p.heroEvaDebuff && p.heroEvaDebuff > 0
-                    ? (effDmg > 0 || (p.heal && p.heal > 0) || p.block > 0 || (p.evaBonus && p.evaBonus > 0) || (p.accBonus && p.accBonus > 0) ? ' &middot; ' : '') + `-<b>${p.heroEvaDebuff}</b> Hero EVA (${p.heroEvaDebuffDuration ?? 2}t)`
-                    : ''
-                }${
-                  !p.heroStatDebuff && !p.poisonOnHit && effDmg === 0 && p.block === 0 && (!p.heal || p.heal === 0) && (!p.evaBonus || p.evaBonus === 0) && (!p.accBonus || p.accBonus === 0) && (!p.heroEvaDebuff || p.heroEvaDebuff === 0) ? 'Idle' : ''
-                }</span>
-              </div>`;
-            }).join('')}
-          </div>
-
-          
-
-        </div>
-        ${creatureFooterHtml(m)}
-      </div>
-    </div>`;
+    cardHtml = fullCreatureCardHtml({
+      monster: m,
+      attackBonus,
+      className: 'tcg-inspect-card',
+      artWindowClassName: 'full-inspect-art',
+    });
 
     detailHtml = `
     <div class="inspect-detail-content">
@@ -3081,8 +3318,6 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
       : 'tcg-template-grassland';
     const typeLine = card.terrain === 'start'
       ? 'Land — Starting Crossroads'
-      : (!card.hasHostile && !card.hasVillage && !card.hasShrine)
-      ? `Basic Land — ${cardName}`
       : `Land — ${cardName}`;
 
     cardHtml = `
@@ -3186,9 +3421,11 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
         <p class="muted">Live character calculations &amp; physical rules:</p>
         <ul class="inspect-bullet-list">
           ${item.gearBonus?.atk ? `<li><b>Physical ATK (+${item.gearBonus.atk}):</b> Adds +${item.gearBonus.atk} damage to all physical attacks. (Hero ATK = &lfloor;STR / 2&rfloor; + Weapon ATK).</li>` : ''}
+          ${item.gearBonus?.acc ? `<li><b>Accuracy (+${item.gearBonus.acc} ACC):</b> Adds +${item.gearBonus.acc} to hero attack rolls.</li>` : ''}
           ${item.gearBonus?.def ? `<li><b>Physical DEF (+${item.gearBonus.def}):</b> Reduces incoming physical damage by ${item.gearBonus.def} per hit. (Hero DEF = &lfloor;STR / 5&rfloor; + &lfloor;AGI / 3&rfloor; + Armor DEF).</li>` : ''}
           ${item.gearBonus?.matk ? `<li><b>Magical ATK &amp; DEF (+${item.gearBonus.matk} MATK, +${item.gearBonus.mdef} MDEF):</b> Boosts spell scaling and magic defense. (Hero MATK = &lfloor;INT / 2&rfloor; + Weapon, Hero MDEF = &lfloor;INT / 5&rfloor; + Armor MDEF).</li>` : ''}
           ${item.gearBonus?.eva ? `<li><b>Evasion (+${item.gearBonus.eva}):</b> Adds +${item.gearBonus.eva} EVA to evade incoming 2d6 attack rolls.</li>` : ''}
+          ${item.gearBonus?.pen ? `<li><b>Penetration (+${item.gearBonus.pen} PEN):</b> Physical hero attacks ignore up to ${item.gearBonus.pen} of an enemy's natural DEF before temporary Block applies. Magical attacks still use MDEF and do not gain PEN.</li>` : ''}
           ${item.statBonus?.str ? `<li><b>Strength (+${item.statBonus.str} STR):</b> Increases Effective STR by ${item.statBonus.str}, granting +${item.statBonus.str * 2} Max HP and melee damage scaling.</li>` : ''}
           ${item.statBonus?.int ? `<li><b>Intellect (+${item.statBonus.int} INT):</b> Increases Effective INT by ${item.statBonus.int}, boosting spell damage, MATK, and MDEF.</li>` : ''}
           ${item.statBonus?.agi ? `<li><b>Agility (+${item.statBonus.agi} AGI):</b> Increases Effective AGI by ${item.statBonus.agi}, boosting baseline Evasion.</li>` : ''}
@@ -3261,7 +3498,7 @@ const STAT_DESCRIPTIONS: Record<
     derivedRules: (eff, derived) => [
       `<b>Combat Accuracy (ACC):</b> Grants <b>1 ACC for every 2 Effective DEX</b> (<code>&lfloor;DEX / 2&rfloor;</code>). Current: <b>${derived.acc} ACC</b> (<code>&lfloor;${eff} / 2&rfloor; = ${Math.floor(eff / 2)}</code>).`,
       `<b>Physical Attack Contribution:</b> Increases Physical ATK by <b>+1 for every 3 Effective DEX</b> (<code>&lfloor;DEX / 3&rfloor;</code>). Current DEX ATK bonus: <b>+${Math.floor(eff / 3)} ATK</b>.`,
-      `<b>Tabletop 2d6 Attack Rolls:</b> Determines roll threshold against target Evasion (<code>Net ACC = Attacker ACC - Target EVA</code>; Needed Roll = <code>7 - Net ACC</code>). Each +1 Net ACC lowers the required 2d6 roll to hit by 1 (e.g. +2 Net ACC hits on 5+).`,
+      `<b>Tabletop 2d6 Attack Rolls:</b> Determines roll threshold against target Evasion (<code>Net ACC = Attacker ACC - Target EVA</code>; Needed Roll = <code>5 - Net ACC</code>). Each +1 Net ACC lowers the required 2d6 roll to hit by 1 (e.g. +2 Net ACC hits on 3+).`,
     ],
   },
   agi: {
@@ -3270,7 +3507,7 @@ const STAT_DESCRIPTIONS: Record<
     derivedRules: (eff, derived) => [
       `<b>Combat Evasion (EVA):</b> Grants <b>1 EVA for every 2 Effective AGI</b> (<code>&lfloor;AGI / 2&rfloor; + Gear EVA</code>). Current: <b>${derived.eva} EVA</b> (Base <code>&lfloor;${eff} / 2&rfloor; = ${Math.floor(eff / 2)}</code> + Gear).`,
       `<b>Physical Defense Contribution:</b> Adds <b>+1 Physical DEF for every 3 Effective AGI</b> (<code>&lfloor;AGI / 3&rfloor;</code>). Current AGI DEF bonus: <b>+${Math.floor(eff / 3)} DEF</b>.`,
-      `<b>Tabletop 2d6 Monster Attack Dodge:</b> Each point of EVA directly forces attacking creatures to roll higher on their 2d6 attack rolls to hit you (e.g. facing a 2 ACC monster with 2 EVA = 0 Net ACC, monster needs 7+ to hit; with 3 EVA, monster needs 8+).`,
+      `<b>Tabletop 2d6 Monster Attack Dodge:</b> Each point of EVA directly forces attacking creatures to roll higher on their 2d6 attack rolls to hit you (e.g. facing a 2 ACC monster with 2 EVA = 0 Net ACC, monster needs 5+ to hit; with 3 EVA, monster needs 6+).`,
     ],
   },
   int: {
@@ -3297,7 +3534,8 @@ const STAT_DESCRIPTIONS: Record<
     derivedRules: (eff, derived) => [
       `<b>Critical Hit Range:</b> Improves critical hit threshold by <b>1 for every 10 Effective LUK</b> (<code>12 - &lfloor;LUK / 10&rfloor;</code>). Base threshold is 12 (Boxcars [6, 6] = 2.8%). At 10 LUK: rolls of 11+ crit (8.3%). At 20 LUK: rolls of 10+ crit (16.7%). Current critical threshold: <b>Rolls ${derived.critThreshold ?? 12}+</b>. Critical hits deal +50% ATK damage!`,
       `<b>Victory Gold Spoils:</b> Grants an additional <code>&lfloor;LUK / 2&rfloor; Gold</code> upon winning every battle. Current bonus: <b>+${Math.floor(eff / 2)} Gold</b> per victorious encounter.`,
-      `<b>Fortune Accessories:</b> Directly synergizes with items like the <i>Lucky Charm</i> (produces 1d6 - 1 bonus gold per victory) and special event fortune checks.`,
+      `<b>Undiscovered Terrain:</b> Each <b>5 Effective LUK</b> adds <code>+1</code> to the 1d6 exploration result before resolving outcomes. Current exploration bonus: <b>+${Math.floor(eff / 5)}</b>. A modified result of <b>6 or more</b> finds Treasure; otherwise a result at or below terrain level is an Ambush.`,
+      `<b>Fortune Accessories:</b> Directly synergizes with items like the <i>Goldstar</i> (produces 1d6 - 1 bonus gold per victory) and special event fortune checks.`,
     ],
   },
 };

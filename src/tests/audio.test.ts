@@ -219,7 +219,7 @@ describe('Audio Scene & Music State Tracking', () => {
     expect(leftVillage.currentMusic).toBe('map-area');
     expect(leftVillage.audioScene).toBe('map');
 
-    // Test villageDoRest also leaves village and returns to map scene
+    // Rest stays in the village so other services remain available.
     const inVillage2 = chooseCard(s, avail.coord);
     // Give player enough gold and damage to rest
     if (inVillage2.playerResources) {
@@ -227,9 +227,9 @@ describe('Audio Scene & Music State Tracking', () => {
       inVillage2.playerResources.gold = 50;
     }
     const afterRest = villageDoRest(inVillage2);
-    expect(afterRest.activeHook.type).toBe('NONE');
-    expect(afterRest.currentMusic).toBe('map-area');
-    expect(afterRest.audioScene).toBe('map');
+    expect(afterRest.activeHook.type).toBe('VILLAGE');
+    expect(afterRest.currentMusic).toBeNull();
+    expect(afterRest.audioScene).toBe('none');
   });
 
   it('moving to shrine stops map music, leaving shrine resumes map music', () => {

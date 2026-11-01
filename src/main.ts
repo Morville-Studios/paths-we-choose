@@ -18,6 +18,7 @@ import {
   shrineDoChoosePrayer,
   shrinePray,
   shrineUpgradeStat,
+  shrineUpgradeSkill,
   startAdventure,
   startNextMission,
   villageChooseShop,
@@ -36,8 +37,9 @@ import { SHOP_ITEM_CATALOG } from './data/shopItems';
 import { ADVENTURE_CARD_CATALOG } from './data/stages';
 import { toGridKey } from './core/grid';
 import { firstLivingMonsterIndex } from './core/combat';
-import { getEffectiveStatsFromState, getPlayerAcc } from './core/stats';
+import { computeCombatGearBonuses, getEffectiveStatsFromState, getPlayerAcc, getPlayerCritThreshold } from './core/stats';
 import { Store } from './state/store';
+import { reconcileRunNewSkills } from './core/newSkills';
 import { audioManager } from './audio/audioManager';
 import {
   CLASS_CAROUSEL_ORDER,
@@ -83,8 +85,8 @@ function setCombatTarget(newTarget: number): void {
   const s = store.get();
   if (s.activeHook?.type === 'COMBAT' && !ui.inspectedCard && !ui.inspectedPile && !ui.showDeck) {
     const stats = getEffectiveStatsFromState(s);
-    const playerAcc = getPlayerAcc(stats);
-    const updated = updateMonsterCarouselDom(root, s.activeHook.combat, ui.targetIndex, playerAcc);
+    const playerAcc = getPlayerAcc(stats, computeCombatGearBonuses(s.equippedGear).acc);
+    const updated = updateMonsterCarouselDom(root, s.activeHook.combat, ui.targetIndex, playerAcc, getPlayerCritThreshold(stats));
     if (!updated) {
       render();
     }
@@ -160,7 +162,7 @@ function render(): void {
   const audioBtnHtml = `<button class="audio-btn ${isMuted ? 'muted' : ''}" data-action="toggle-audio" title="${isMuted ? 'Unmute Music' : 'Mute Music'}" aria-label="Toggle Music">${isMuted ? '🔇' : '🔊'}</button>`;
 
   if (s.screen === 'welcome') {
-    root.innerHTML = renderWelcome() + audioBtnHtml;
+    root.innerHTML = renderWelcome(Boolean(ui.showGuide)) + audioBtnHtml;
   } else if (s.screen === 'class_select') {
     if (!ui.selectedClass) ui.selectedClass = 'fighter';
     const updated = updateClassCarouselDom(root, ui.selectedClass);
@@ -210,13 +212,17 @@ function findInspectedCard(cardEl: HTMLElement): InspectedCardInfo | null {
     const fromDeck = s.playerMasterDeck.find((c) => c.instanceId === cardInstance);
     if (fromDeck) return { kind: 'action', card: fromDeck };
 
-    // 3. Look up in village train options
+    // 3. Look up in learnable Skills piles.
+    const fromNewSkills = [...s.newSkillsDeck, ...s.newSkillsDiscard].find((c) => c.instanceId === cardInstance);
+    if (fromNewSkills) return { kind: 'action', card: fromNewSkills };
+
+    // 4. Look up in village train options
     if (s.activeHook.type === 'VILLAGE') {
       const fromTrain = s.activeHook.village.trainOptions.find((c) => c.instanceId === cardInstance);
       if (fromTrain) return { kind: 'action', card: fromTrain };
     }
 
-    // 4. Fallback to catalog instance
+    // 5. Fallback to catalog instance
     if (cardId === FLEE_CARD_ID) {
       return { kind: 'action', card: createFleeCard(s.playerClass ?? 'fighter') };
     }
@@ -383,11 +389,11 @@ root.addEventListener('contextmenu', (ev) => {
   }
 
   // 2. Right-click on a deck or discard pile
-  const pileEl = target.closest<HTMLElement>('[data-pile]');
+  const pileEl = target.closest<HTMLElement>('[data-pile], [data-pile-default]');
   if (pileEl) {
     ev.preventDefault();
     ev.stopPropagation();
-    const pile = pileEl.dataset.pile as PileType;
+    const pile = (pileEl.dataset.pile ?? pileEl.dataset.pileDefault) as PileType;
     if (pile) {
       ui.inspectedPile = pile;
       render();
@@ -432,10 +438,19 @@ function clearTransientUiForNewAdventure() {
   ui.inspectedStat = null;
   ui.showDeck = false;
   ui.pendingCardPlay = null;
-  ui.pendingFlee = null;
+  ui.pendingFlee = false;
+  ui.showGuide = false;
   ui.handIndex = 0;
   ui.targetIndex = 0;
+  ui.villageRestTicks = undefined;
 }
+
+root.addEventListener('input', (ev) => {
+  const target = ev.target as HTMLInputElement;
+  if (target.dataset.action !== 'set-village-rest-ticks') return;
+  ui.villageRestTicks = Number(target.value);
+  render();
+});
 
 root.addEventListener('pointerdown', (ev) => {
   if (ev.button !== 0 && ev.pointerType === 'mouse') return;
@@ -548,13 +563,19 @@ window.addEventListener('keydown', (ev) => {
     if (!ui.inspectedCard && !ui.inspectedPile && !ui.showDeck) {
       if (ev.key === 'a' || ev.key === 'A' || ev.key === 'ArrowLeft') {
         ev.preventDefault();
-        navigateCombatTarget(-1);
+        // With one target, target traversal has no effect. Reuse the familiar
+        // left controls for the hand carousel instead.
+        const livingTargets = s.activeHook.combat.monsters.filter((monster) => monster.hp > 0).length;
+        if (livingTargets <= 1) navigateHand(-1);
+        else navigateCombatTarget(-1);
         return;
       }
 
       if (ev.key === 'd' || ev.key === 'D' || ev.key === 'ArrowRight') {
         ev.preventDefault();
-        navigateCombatTarget(1);
+        const livingTargets = s.activeHook.combat.monsters.filter((monster) => monster.hp > 0).length;
+        if (livingTargets <= 1) navigateHand(1);
+        else navigateCombatTarget(1);
         return;
       }
     }
@@ -591,6 +612,14 @@ root.addEventListener('click', (ev) => {
     return;
   }
 
+  // Side cards are previews, never actions. Handle their whole surface before
+  // generic action delegation so their card artwork cannot steal the click.
+  const handPreview = (ev.target as HTMLElement).closest<HTMLElement>('.hand-carousel-unit:not(.is-center)');
+  if (handPreview?.dataset.handIndex !== undefined) {
+    selectHandCard(Number(handPreview.dataset.handIndex));
+    return;
+  }
+
   const target = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]');
   if (!target || (target as HTMLButtonElement).disabled) return;
   const { action, id, stat, col, row, pile } = target.dataset;
@@ -602,6 +631,9 @@ root.addEventListener('click', (ev) => {
   }
 
   if (action === 'open-pile') {
+    if ((pile || id) === 'new_skills_deck' || (pile || id) === 'new_skills_discard') {
+      store.update(reconcileRunNewSkills);
+    }
     ui.inspectedPile = (pile || id) as PileType;
     render();
     return;
@@ -683,6 +715,20 @@ root.addEventListener('click', (ev) => {
       if (!ui.selectedClass) ui.selectedClass = 'fighter';
       store.update(goToClassSelect);
       break;
+    case 'open-guide':
+      ui.showGuide = true;
+      render();
+      break;
+    case 'close-guide':
+      ui.showGuide = false;
+      render();
+      break;
+    case 'close-guide-backdrop':
+      if (ev.target === target) {
+        ui.showGuide = false;
+        render();
+      }
+      break;
     case 'select-class':
       if (id) {
         ui.selectedClass = id as ClassId;
@@ -745,6 +791,7 @@ root.addEventListener('click', (ev) => {
           ui.pendingCardPlay = {
             cardInstanceId: id as string,
             targetIndex: ui.targetIndex,
+            discardedCardInstanceIds: [],
           };
           render();
         }
@@ -753,11 +800,20 @@ root.addEventListener('click', (ev) => {
     }
     case 'confirm-play-card':
       if (ui.pendingCardPlay) {
-        const { cardInstanceId, targetIndex } = ui.pendingCardPlay;
+        const { cardInstanceId, targetIndex, discardedCardInstanceIds = [] } = ui.pendingCardPlay;
         ui.pendingCardPlay = null;
-        store.update((s) => playCard(s, cardInstanceId, targetIndex));
+        store.update((s) => playCard(s, cardInstanceId, targetIndex, discardedCardInstanceIds));
       }
       break;
+    case 'toggle-card-discard': {
+      if (!ui.pendingCardPlay || !id) break;
+      const current = ui.pendingCardPlay.discardedCardInstanceIds ?? [];
+      ui.pendingCardPlay.discardedCardInstanceIds = current.includes(id)
+        ? current.filter((instanceId) => instanceId !== id)
+        : [...current, id];
+      render();
+      break;
+    }
     case 'cancel-play-card':
       ui.pendingCardPlay = null;
       render();
@@ -786,6 +842,9 @@ root.addEventListener('click', (ev) => {
     case 'shrine-upgrade':
       store.update((s) => shrineUpgradeStat(s, stat as StatKey));
       break;
+    case 'shrine-upgrade-skill':
+      if (id) store.update((s) => shrineUpgradeSkill(s, id));
+      break;
     case 'dismiss-welcome-dialog':
       store.update(dismissWelcomePrepare);
       break;
@@ -806,7 +865,7 @@ root.addEventListener('click', (ev) => {
       store.update(endTurn);
       break;
     case 'village-rest':
-      store.update(villageDoRest);
+      store.update((s) => villageDoRest(s, ui.villageRestTicks));
       break;
     case 'village-shop':
       ui.villageTab = 'buy';
@@ -816,6 +875,7 @@ root.addEventListener('click', (ev) => {
       store.update(villageChooseTrain);
       break;
     case 'village-leave':
+      ui.villageRestTicks = undefined;
       store.update(finishVillage);
       break;
     case 'buy':

@@ -28,16 +28,18 @@ export function computeGearBonuses(equippedGear: EquippedGear): CharacterStats {
 }
 
 export function computeCombatGearBonuses(equippedGear: EquippedGear): Required<CombatGearBonuses> {
-  const bonus: Required<CombatGearBonuses> = { atk: 0, def: 0, matk: 0, mdef: 0, eva: 0 };
+  const bonus: Required<CombatGearBonuses> = { acc: 0, atk: 0, def: 0, matk: 0, mdef: 0, eva: 0, pen: 0 };
   const slots: Array<keyof EquippedGear> = ['weapon', 'armor', 'accessory'];
   for (const slot of slots) {
     const item = equippedGear[slot];
     if (item && item.gearBonus) {
+      bonus.acc += item.gearBonus.acc ?? 0;
       bonus.atk += item.gearBonus.atk ?? 0;
       bonus.def += item.gearBonus.def ?? 0;
       bonus.matk += item.gearBonus.matk ?? 0;
       bonus.mdef += item.gearBonus.mdef ?? 0;
       bonus.eva += item.gearBonus.eva ?? 0;
+      bonus.pen += item.gearBonus.pen ?? 0;
     }
   }
   return bonus;
@@ -71,9 +73,9 @@ export function calculateGoodsPrice(basePrice: number, effectiveCha: number): nu
   return Math.max(1, Math.round(basePrice * (1 - discountRate)));
 }
 
-/** 1 ACC is gained for each 2 DEX */
-export function getPlayerAcc(stats: CharacterStats): number {
-  return Math.floor(stats.dex / 2);
+/** 1 ACC is gained for each 2 DEX, plus direct equipment bonuses. */
+export function getPlayerAcc(stats: CharacterStats, gearAcc = 0): number {
+  return Math.floor(stats.dex / 2) + gearAcc;
 }
 
 /** 1 EVA is gained for each 2 AGI (plus any gear and temporary card round EVA bonus) */
@@ -132,12 +134,13 @@ export function getDerivedCombatStats(
 ): DerivedCombatStats {
   const combatGear = computeCombatGearBonuses(gear);
   return {
-    acc: getPlayerAcc(stats),
+    acc: getPlayerAcc(stats, combatGear.acc),
     eva: getPlayerEva(stats, temporaryEva, combatGear.eva),
     atk: getPlayerAtk(stats, combatGear.atk) + extraAtkBonus,
     def: getPlayerDef(stats, combatGear.def),
     matk: getPlayerMatk(stats, combatGear.matk),
     mdef: getPlayerMdef(stats, combatGear.mdef),
+    pen: combatGear.pen,
     act: getPlayerAct(stats),
     critThreshold: getPlayerCritThreshold(stats),
     berzerkBonus: extraAtkBonus > 0 ? extraAtkBonus : undefined,

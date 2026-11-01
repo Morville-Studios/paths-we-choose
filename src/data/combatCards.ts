@@ -35,48 +35,99 @@ export const COMBAT_CARD_CATALOG: Record<string, CombatCardTemplate> = {
   },
   heavy_cleave: {
     id: 'heavy_cleave',
-    name: 'Heavy Cleave',
+    name: 'High Strike',
     classId: 'fighter',
     cardType: 'attack',
     apCost: 2,
-    baseDamage: 5,
-    damageScalingStat: 'str',
+    baseDamage: 3,
+    damageScalingStat: 'atk',
     damageScalingDivisor: 1,
+    damageScalingMultiplier: 2,
     baseBlock: 0,
     cardNumber: 'GRS · #014/021',
-    flavorText: 'Pour every ounce of muscle into an overhead swing that shatters armor and bone alike.',
+    flavorText: 'Drive a precise, punishing strike through the enemy guard. Deals 3 plus twice the hero ATK.',
   },
   iron_parry: {
     id: 'iron_parry',
-    name: 'Iron Parry',
-    classId: 'fighter',
-    cardType: 'defense',
-    apCost: 1,
-    baseDamage: 1,
-    damageScalingStat: 'str',
-    damageScalingDivisor: 2,
-    baseBlock: 3,
-    blockScalingStat: 'str',
-    blockScalingDivisor: 2,
-    evasionScalingStat: 'agi',
-    evasionMultiplier: 1,
-    cardNumber: 'GRS · #015/021',
-    flavorText: 'Deflect the incoming strike and counter in a single fluid, unbroken motion.',
-  },
-  battle_focus: {
-    id: 'battle_focus',
-    name: 'Battle Focus',
+    name: 'Parry',
     classId: 'fighter',
     cardType: 'defense',
     apCost: 1,
     baseDamage: 0,
-    baseBlock: 2,
-    blockScalingStat: 'str',
-    blockScalingDivisor: 2,
+    baseBlock: 5,
     evasionScalingStat: 'agi',
-    evasionMultiplier: 2,
+    evasionMultiplier: 1,
+    cardNumber: 'GRS · #015/021',
+    flavorText: 'Deflect the incoming strike with a clean guard: gain 5 Block and +1 EVA this round.',
+  },
+  battle_focus: {
+    id: 'battle_focus',
+    name: 'Fortify',
+    classId: 'fighter',
+    cardType: 'defense',
+    apCost: 1,
+    baseDamage: 0,
+    baseBlock: 5,
+    blockScalingStat: 'def',
+    blockScalingDivisor: 1,
     cardNumber: 'GRS · #016/021',
-    flavorText: 'Breathe deep, anticipate the enemy footwork, and slip through the chaos unscathed.',
+    flavorText: 'Set a disciplined guard. Gain 5 Block plus 1 Block for each hero DEF.',
+  },
+  high_strike_plus: {
+    id: 'high_strike_plus', name: 'High Strike +', classId: 'fighter', cardType: 'attack', apCost: 3,
+    baseDamage: 5, damageScalingStat: 'atk', damageScalingDivisor: 1, damageScalingMultiplier: 3, baseBlock: 0,
+    isSkillUpgrade: true, upgradeOf: 'heavy_cleave',
+    cardNumber: 'FTR · #017', flavorText: 'A crushing follow-through: 5 damage plus three times the hero ATK.',
+  },
+  parry_plus: {
+    id: 'parry_plus', name: 'Parry +', classId: 'fighter', cardType: 'defense', apCost: 2,
+    baseDamage: 0, baseBlock: 7, evasionScalingStat: 'agi', evasionMultiplier: 2,
+    isSkillUpgrade: true, upgradeOf: 'iron_parry',
+    cardNumber: 'FTR · #018', flavorText: 'An expert guard that grants 7 Block and +2 EVA this round.',
+  },
+  fortify_plus: {
+    id: 'fortify_plus', name: 'Fortify +', classId: 'fighter', cardType: 'defense', apCost: 2,
+    baseDamage: 0, baseBlock: 7, blockScalingStat: 'def', blockScalingDivisor: 1, blockScalingMultiplier: 2,
+    isSkillUpgrade: true, upgradeOf: 'battle_focus',
+    cardNumber: 'FTR · #019', flavorText: 'Gain 7 Block plus twice the hero DEF.',
+  },
+  whirlwind: {
+    id: 'whirlwind', name: 'Whirlwind', classId: 'fighter', cardType: 'attack', apCost: 1,
+    baseDamage: 1, damageScalingStat: 'atk', damageScalingDivisor: 2, baseBlock: 0, accBonus: -1, targetMode: 'all_enemies',
+    cardNumber: 'FTR · #020', flavorText: 'Strike every enemy for 1 plus 1 per 2 hero ATK. Each target rolls separately; -1 ACC.',
+  },
+  whirlwind_plus: {
+    id: 'whirlwind_plus', name: 'Whirlwind +', classId: 'fighter', cardType: 'attack', apCost: 2,
+    baseDamage: 2, damageScalingStat: 'atk', damageScalingDivisor: 1, baseBlock: 0, accBonus: -1, targetMode: 'all_enemies',
+    isSkillUpgrade: true, upgradeOf: 'whirlwind',
+    cardNumber: 'FTR · #021', flavorText: 'Strike every enemy for 2 plus hero ATK. Each target rolls separately; -1 ACC.',
+  },
+  battlecry: {
+    id: 'battlecry', name: 'Battlecry', classId: 'fighter', cardType: 'skill', apCost: 1,
+    baseDamage: 0, baseBlock: 0, discardMode: 'exact', discardCount: 2, drawCards: 3, gainAp: 1,
+    cardNumber: 'FTR · #022', flavorText: 'Discard 2 cards, draw 3, then regain 1 AP.',
+  },
+  battlecry_plus: {
+    id: 'battlecry_plus', name: 'Battlecry +', classId: 'fighter', cardType: 'skill', apCost: 2,
+    baseDamage: 0, baseBlock: 0, discardMode: 'exact', discardCount: 2, drawCards: 4, gainAp: 2,
+    isSkillUpgrade: true, upgradeOf: 'battlecry',
+    cardNumber: 'FTR · #023', flavorText: 'Discard 2 cards, draw 4, then regain 2 AP.',
+  },
+  battle_flag: {
+    id: 'battle_flag', name: 'Battle Flag', classId: 'fighter', cardType: 'enchantment', apCost: 1,
+    baseDamage: 0, baseBlock: 0, staysInPlay: true, gainAp: 1, drawOnApGain: true,
+    cardNumber: 'FTR · #024', flavorText: 'Stays in play for this battle. Whenever a card effect grants AP, draw a card. On play, regain 1 AP.',
+  },
+  adrenalin: {
+    id: 'adrenalin', name: 'Adrenalin', classId: 'fighter', cardType: 'skill', apCost: 1,
+    baseDamage: 0, baseBlock: 0, discardMode: 'any', gainAp: 0,
+    cardNumber: 'FTR · #025', flavorText: 'Discard any number of cards; regain 1 AP for each card discarded.',
+  },
+  final_smash: {
+    id: 'final_smash', name: 'Final Smash', classId: 'fighter', cardType: 'attack', apCost: 3,
+    baseDamage: 6, damageScalingStat: 'atk', damageScalingDivisor: 1, damageScalingMultiplier: 2, baseBlock: 0,
+    discardMode: 'any', damagePerDiscard: 3,
+    cardNumber: 'FTR · #026', flavorText: 'Discard any number of cards. Deal 6 plus twice hero ATK plus 3 per card discarded.',
   },
 
   // Wizard Starter & Trainable Cards
@@ -156,10 +207,21 @@ export const COMBAT_CARD_CATALOG: Record<string, CombatCardTemplate> = {
 };
 
 export const CLASS_TRAIN_POOLS: Record<ClassId, string[]> = {
-  fighter: ['melee_atk', 'shield_def', 'heavy_cleave', 'iron_parry', 'battle_focus'],
+  fighter: ['melee_atk', 'shield_def', 'heavy_cleave', 'iron_parry', 'battle_focus', 'whirlwind', 'battlecry', 'battle_flag', 'adrenalin', 'final_smash'],
   wizard: ['fireball_atk', 'force_field_def', 'arcane_blast', 'frost_nova', 'blink_ward'],
   rogue: ['melee_atk', 'shield_def', 'heavy_cleave', 'iron_parry', 'battle_focus'],
 };
+
+/**
+ * The Void is an inexhaustible, public template zone. Its cards cannot be
+ * trained or drawn; Shrines instantiate an appropriate one when upgrading an
+ * owned base card.
+ */
+export function getVoidCards(): CombatCardDef[] {
+  return Object.values(COMBAT_CARD_CATALOG)
+    .filter((card) => card.isSkillUpgrade)
+    .map((card) => createCombatCardInstance(card.id, 'void'));
+}
 
 export function createCombatCardInstance(templateId: string, instanceSuffix: string): CombatCardDef {
   const tpl = COMBAT_CARD_CATALOG[templateId];

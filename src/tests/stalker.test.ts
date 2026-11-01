@@ -26,7 +26,7 @@ function seedFor(hit: boolean, eva: number): number {
 
 describe('Stalker', () => {
   it('uses the supplied stats, art, terrain and Skittish rule', () => {
-    expect(stalker).toMatchObject({ statPointReward: 2, goldReward: 4, level: 2, cardNumber: 'mon1grs-06', maxHp: 8, def: 0, eva: 1, acc: 1, spawnTerrains: ['grasslands', 'forest'] });
+    expect(stalker).toMatchObject({ statPointReward: 2, goldReward: 4, level: 2, cardNumber: 'mon1grs-06', maxHp: 8, def: 0, eva: 2, acc: 1, spawnTerrains: ['grasslands', 'forest'] });
     const html = cardInspectModal({ kind: 'monster', monster: stalker, currentHp: 8 }, setup());
     for (const value of ['/cards/creatures/stalker.jpg', 'Sprint', 'Pounce', 'Skittish', '2 turns']) expect(html).toContain(value);
   });
@@ -47,24 +47,24 @@ describe('Stalker', () => {
 
   it('gains EVA immediately on each hit and uses it for the next attack and displayed odds', () => {
     const state = setup();
-    state.rngState = seedFor(true, 1);
+    state.rngState = seedFor(true, 2);
     const before = JSON.stringify(state);
     const next = playCard(state, 'test', 0);
     expect(battle(next).monsters[0]).toMatchObject({ evaBonus: 1, skittishEvaBonus: 1 });
     expect(JSON.stringify(state)).toBe(before);
-    expect(renderPlayArea(next, ui)).toContain('TARGET (Roll 8+)');
+    expect(renderPlayArea(next, ui)).toContain('TARGET (Roll 7+ · 58.3%)');
     battle(next).hand = [attack];
-    next.rngState = seedFor(true, 2);
+    next.rngState = seedFor(true, 3);
     const again = playCard(next, 'test', 0);
-    expect(battle(again).lastAttackRoll?.netAcc).toBe(-1);
+    expect(battle(again).lastAttackRoll?.netAcc).toBe(-2);
     expect(battle(again).monsters[0]).toMatchObject({ evaBonus: 2, skittishEvaBonus: 2 });
   });
 
   it('does not trigger on a miss, but does trigger on a hit fully absorbed by Block', () => {
     const state = setup();
-    state.rngState = seedFor(false, 1);
+    state.rngState = seedFor(false, 2);
     expect(battle(playCard(state, 'test', 0)).monsters[0].evaBonus ?? 0).toBe(0);
-    state.rngState = seedFor(true, 1);
+    state.rngState = seedFor(true, 2);
     battle(state).monsters[0].block = 10;
     const next = playCard(state, 'test', 0);
     expect(battle(next).monsters[0]).toMatchObject({ hp: 8, evaBonus: 1 });
@@ -73,7 +73,7 @@ describe('Stalker', () => {
   it('expires Skittish at End Turn while retaining Sprint through Pounce', () => {
     const state = endPlayerCombatTurn(setup());
     battle(state).hand = [attack];
-    state.rngState = seedFor(true, 2);
+    state.rngState = seedFor(true, 3);
     const hit = playCard(state, 'test', 0);
     expect(battle(hit).monsters[0].evaBonus).toBe(2);
     const next = endPlayerCombatTurn(hit);

@@ -12,7 +12,7 @@ This is a current implementation/status map, not a historical milestone archive.
 - Grasslands, Forest and Swamp map cards, undiscovered exploration rolls, treasure finds, three-row lookahead and deck recycling.
 - Stage 1 ordinary Monster Deck of 38 cards; Goblin Chieftain and three-Troll bosses are separate. Creature MDEF, physical/magical damage, poison, DEF piercing, life drain, resurrection, Sprint and Skittish.
 - 2d6 attacks, snake-eyes miss, Luck-adjusted critical threshold, critical damage floor(damage×1.5), five-card hands, INT-based AP and monster targeting carousel.
-- Village Rest/Shop/Train, 14-item shop catalog, 28-card Treasure Deck, Charisma discounts, weapon/armor/accessory slots and consumables. Canonical item names are generated from SHOP_ITEM_CATALOG.
+- Village Rest/Shop/Train, 21-item shop catalog, 42-card Treasure Deck, Charisma discounts, weapon/armor/accessory slots, consumables and physical PEN. Canonical item names are generated from SHOP_ITEM_CATALOG.
 - Victory acknowledgement, reward breakdown, ordinary Flee and Stage 1→2 continuation.
 - Raster card art/icons, inspection, keyboard/touch navigation, safe-area styling, combat logs and hero panels.
 - Intro/map/battle looped soundtracks with mute/volume and autoplay unlock.

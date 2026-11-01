@@ -84,18 +84,12 @@ Visiting a Sacred Shrine automatically bestows a random eligible divine boon upo
 ## 2. Classic RPG Equipment Slots & Village Shop Catalog
 
 ### 2.1 Village Rest Cost Formula & Resting Eligibility
-Resting at the Village inn restores HP to full (`hp = maxHp`) and cleanses all negative status ailments (`statusEffects = []`) at a cost based on missing HP:
-$$\text{Missing HP} = \max(0, \text{maxHp} - \text{hp})$$
-$$\text{Rest Cost} = 5 + \left\lfloor \frac{\text{Missing HP}}{10} \right\rfloor \text{ Gold}$$
+The Village inn uses a slider. Each selected tick restores `2 HP` and costs `1 Gold`; the final tick is always labelled **Full** and restores any remaining odd point.
 
-- **0 - 9 Missing HP**: costs **`5 Gold`**
-- **10 - 19 Missing HP**: costs **`6 Gold`**
-- **20 - 29 Missing HP**: costs **`7 Gold`**
+$$\text{Max Rest Ticks} = \left\lceil \frac{\max(0, \text{maxHp} - \text{hp})}{2} \right\rceil$$
+$$\text{Rest Cost} = \text{selected ticks Gold}$$
 
-#### Resting Eligibility Rules:
-1. **Disabled on Full Health without Ailments**: If `hp >= maxHp` and `statusEffects.length === 0`, resting is disabled.
-2. **Enabled on Full Health with Ailments**: If the player is on full health but has active negative ailments (e.g. poison, blindness, crippled), resting is enabled (for `5 Gold`) to cure those ailments.
-3. **Insufficient Gold**: If `gold < Rest Cost`, resting is disabled.
+Rest does not cleanse status ailments. It is disabled when `hp >= maxHp`, or when the player lacks Gold for the selected ticks. A successful rest stays in the Village so the player can use other services.
 
 ### 2.2 Equipment Slots (`Weapon`, `Armor`, `Accessory`), Permanent Backpack & Map Gear Management
 The player's inventory is structured into:
@@ -120,8 +114,8 @@ To keep the character sidebar uncluttered, stat rows display only essential attr
   3. **Shrine Upgrade Evolution Box**: Target Base level, `(currentBase + 1)²` SP formula, player's current SP balance, and ready/needed status chip. Upgrades are performed at Shrines or during Turn 0 preparation.
 
 ### 2.2 Village Shop Inventory Visibility, Treasure Deck & Live Comparison Preview
-When entering the Village Shop:
-- **Treasure Deck & Stock Draw**: Stores no longer offer the entire item catalog. At game start, a **28-card Treasure Deck** is built from 2 copies of each catalog item and shuffled. Opening a Village Shop draws **`5 + Village Level` item cards** (e.g. 6 cards in a Level 1 Village) from the top of the Treasure Deck into `shopStock`.
+When entering a Village:
+- **Treasure Deck & Stock Draw**: Stores no longer offer the entire item catalog. At game start, a **42-card Treasure Deck** is built from 2 copies of each of the 21 catalog items and shuffled. Village entry draws **`5 + Village Level` item cards** (e.g. 6 cards in a Level 1 Village) from the top of the Treasure Deck into `shopStock`.
 - **Card Art on Options**: Every option in the shop options list displays its standard 5:7 raster card artwork (`/cards/items/*.jpg`), level badge, slot icon, and description.
 - **Unbought Card Discard**: Upon leaving or completing the village visit, remaining unbought cards in `shopStock` are automatically swept into `treasureDiscard`.
 - **Selling Items**: Selling gear moves the sold item card to `treasureDiscard`.
@@ -131,13 +125,13 @@ When entering the Village Shop:
   - Displays which slot the item belongs to.
   - Shows which currently equipped item it will replace.
   - Renders live stat comparison chips: e.g. `STR 4 -> 5 (+1)`, `Max HP 18 -> 20 (+2)`.
-- **Submenu Reversibility**: The player can return from Shop or Train back to the Village Menu via `<- Back to menu` **as long as no action has been finalized**. Once an item is bought or sold, or a card is drafted/removed, the back button is disabled and the player must finish their visit.
+- **Submenu Reversibility**: The player can return from Shop or Train to Village options at any time. The prepared stock and three training offers are retained rather than rerolled. Unbought stock is discarded only when leaving the Village.
 
-### 2.3 Village Shop Catalog (14 Physical TCG Items, Levels 1 and 2)
+### 2.3 Village Shop Catalog (21 Physical TCG Items, Levels 1 through 4)
 
 Adventurers start every adventure with **`20 Gold`**. All items feature dedicated standard 5:7 physical card raster paintings in `/cards/items/*.jpg` and can be inspected via right-click or long-press.
 
-See the generated [Shop and Treasure catalog](CATALOGS.md#shop-and-treasure) for all 14 items, levels, canonical names, prices and bonuses.
+See the generated [Shop and Treasure catalog](CATALOGS.md#shop-and-treasure) for all 21 items, levels, canonical names, prices and bonuses.
 
 ### 2.4 Derived Combat Stat Formulas
 - **Physical ATK**: $\text{Hero ATK} = \lfloor \text{Effective STR} / 2 \rfloor + \lfloor \text{Effective DEX} / 3 \rfloor + \text{gear.atk}$
@@ -145,8 +139,9 @@ See the generated [Shop and Treasure catalog](CATALOGS.md#shop-and-treasure) for
   - When non-magical monster physical attacks hit, damage is reduced by: $\max(0, \text{baseDamage} - \text{Hero DEF} - \text{Divine Protection})$
 - **Magical ATK (MATK)**: $\text{Hero MATK} = \lfloor \text{Effective INT} / 2 \rfloor + \text{gear.matk}$
 - **Magical DEF (MDEF)**: $\text{Hero MDEF} = \lfloor \text{Effective INT} / 5 \rfloor + \text{gear.mdef}$
-- **Hero ACC**: $\text{Hero ACC} = \lfloor \text{Effective DEX} / 2 \rfloor$
+- **Hero ACC**: $\text{Hero ACC} = \lfloor \text{Effective DEX} / 2 \rfloor + \text{gear.acc}$
 - **Hero EVA**: $\text{Hero EVA} = \lfloor \text{Effective AGI} / 2 \rfloor + \text{gear.eva} + \text{temporaryBonusEVA}$
+- **Physical PEN**: `Hero PEN = gear.pen`. On a physical hero attack, PEN bypasses the same amount of the target's natural DEF (minimum 0), before remaining DEF and temporary Block apply. PEN never affects magical attacks or MDEF.
 
 ---
 
@@ -158,27 +153,39 @@ Starting effective stats (before preparation upgrades, gear, or blessings) are `
 
 Base card fields, class train pools and starter lists are in [CATALOGS.md](CATALOGS.md#combat-cards). The data fields are not complete effective damage formulas:
 
-- Damage = baseDamage + floor(effective scaling stat / divisor), if damage is positive and a scaling stat exists. Default divisor is 2.
+- **Combat hand cycle**: A battle opens and each later player turn begins with five cards. At End Turn, every remaining hand card moves to the action discard pile. The engine then draws five cards one at a time; if an individual draw finds the draw pile empty, it deterministically shuffles the action discard pile into a new draw pile and continues. Played cards and cards paid as discard costs likewise go to action discard, while battle-long enchantments remain in `inPlay`. The permanent Flee action is not a physical combat-deck card.
+
+- Village training offers are prepared once per Village entry by drawing up to three cards from the class's **New Skills Deck**. Each starter combat card remains exclusive to the initial 8 attacks / 2 defenses; each non-starter class skill has exactly two physical New Skills copies. Learning transfers its exact card to `playerMasterDeck`; unlearned offers go to `newSkillsDiscard` when leaving and are deterministically reshuffled only after `newSkillsDeck` empties. Learning a 1/2/3 AP card costs respectively `5/10/20 Gold` and `1/2/4 SP`. Removing a card costs `5 + trainRemovalCount` Gold (minimum deck size 5), and increments `trainRemovalCount` for the run.
+- **Content-update reconciliation**: when a release adds learnable skills, an active run is reconciled before Village training and when the New Skills deck is inspected. Existing cards in the deck, discard, active offers, and the master deck count first; only missing copies are added and shuffled into the New Skills Deck. Players therefore keep their run and the invariant remains exactly two copies of every non-starter class skill.
+
+- The Fighter has 8 non-starter skill types (16 physical New Skills cards): **High Strike**, **Parry**, **Fortify**, **Whirlwind**, **Battlecry**, **Battle Flag**, **Adrenalin**, and **Final Smash**. `Heavy Cleave`, `Iron Parry`, and `Battle Focus` are the retained collector IDs for High Strike, Parry, and Fortify respectively. The five `+` cards are **Void upgrades**, never trainable New Skills cards.
+- **The Void and skill upgrades**: The Void is a public, inexhaustible not-in-play card zone shown in the sidebar. It contains **Parry +**, **Fortify +**, **Whirlwind +**, **Battlecry +**, and **High Strike +**, every Boss card, and the two Adventurer cards for classes not selected by the current player. At a Level 2+ Shrine, an owned 1 AP base card may be replaced with its matching 2 AP Void upgrade for **10 Gold + 2 SP**. At a Level 3+ Shrine, an owned 2 AP card may additionally be replaced with its matching 3 AP Void upgrade for **30 Gold + 6 SP**. The base physical card is replaced in the player's master deck; the pulled Void card is not consumed.
+- `ATK` and `DEF` may be card scaling values. `ATK = floor(STR/2) + floor(DEX/3) + gear.atk + applicable Berzerk`; `DEF = floor(STR/5) + floor(AGI/3) + gear.def`. A scaling multiplier is applied after the card's scaling divisor. Thus High Strike is `3 + 2 × ATK`; High Strike + is `5 + 3 × ATK`; Fortify is `5 + DEF`; and Fortify + is `7 + 2 × DEF`.
+- Whirlwind and Whirlwind + attack every living enemy, performing a separate seeded 2d6 hit check, defense reduction, Block reduction, and critical check for each target. Both impose `-1 ACC`. Whirlwind deals `1 + floor(ATK / 2)` and Whirlwind + deals `2 + ATK` before defenses.
+- A card with a discard rule opens a confirmation selection: Battlecry and Battlecry + require exactly two other cards; Adrenalin and Final Smash permit any number of other cards, including zero. Each eligible discard is a compact visual card option with its action art, name, AP cost, and selected marker; the card currently being played is never selectable. Battlecry draws 3 and regains 1 AP; Battlecry + draws 4 and regains 2 AP; Adrenalin regains 1 AP per selected discard; Final Smash deals `6 + 2 × ATK + 3 × selected discards`.
+- Battle Flag is a battle-long enchantment. It enters the battle's `inPlay` zone instead of the action discard pile, regains 1 AP when played, and each active Battle Flag draws one card whenever a card effect grants AP (including its own entry effect). No current monster effect destroys enchantments; if an effect later destroys one, it moves to the action discard pile.
+
+- Damage = baseDamage + scalingMultiplier × floor(scaling value / divisor), if damage is positive and a scaling value exists. Default divisor and multiplier are 2 and 1.
 - STR-scaled damage additionally adds floor(DEX/3), gear.atk and applicable Fighter Berzerk bonus.
-- INT-scaled damage additionally adds gear.matk. Hero INT-scaled attacks use target MDEF; other attacks use target DEF.
-- Block = baseBlock + floor(effective block scaling stat / divisor), when present. Gear DEF/MDEF reduce incoming damage; they do not directly add card Block.
+- INT-scaled damage additionally adds gear.matk. Hero INT-scaled attacks use target MDEF; other attacks use target DEF reduced by the hero's gear PEN (minimum 0).
+- Block = baseBlock + scalingMultiplier × floor(block scaling value / divisor), when present. Gear DEF/MDEF reduce incoming damage; they do not directly add card Block unless a card explicitly scales from derived DEF.
 - EVA card effects grant the flat evasionMultiplier (default 1) when evasionScalingStat is present; they do not multiply by the attribute value.
 - Damage is then multiplied for a critical hit using floor(damage×1.5), then reduced by the appropriate target defense and Block. No minimum +1 critical-damage exception applies.
 
 ### 3.2 Tabletop 2d6 Combat Resolution & Formulas
 Combat uses **2x 1d6 (2d6)** dice rolls rather than 1d20:
-- **Base Hit Threshold**: `7`. Rolling 7 or higher hits; 6 or lower misses.
+- **Base Hit Threshold**: `5`. Rolling 5 or higher hits; 4 or lower misses.
 - **Snake Eyes (`1 + 1 = 2`)**: Total miss (always misses, regardless of accuracy).
 - **Boxcars (`6 + 6 = 12`)**: Critical hit; applies **+50% bonus ATK damage** ($\lfloor \text{damage} \times 1.5 \rfloor$).
 - **ACC & EVA Scaling**:
-  - `Player ACC` = `floor(DEX/2)` + `cardAccBonus` + temporary ACC modifiers (e.g. `Melee ATK` adds `+1 ACC`).
+  - `Player ACC` = `floor(DEX/2)` + `gear.acc` + `cardAccBonus` + temporary ACC modifiers (e.g. Iron Sword + adds `+1 gear ACC`; `Melee ATK` adds `+1 ACC`).
   - `Player EVA` = $\lfloor \text{AGI} / 2 \rfloor + \text{gear.eva} + \text{roundBonusEVA}$.
   - `Net ACC` = $\text{Attacker ACC} - \text{Target EVA}$.
-  - Target roll needed to hit: $\text{neededRoll} = 7 - \text{Net ACC}$. (e.g. 3 ACC vs 2 EVA = +1 Net ACC, hits on 6+).
+  - Target roll needed to hit: $\text{neededRoll} = 5 - \text{Net ACC}$. (e.g. 3 ACC vs 2 EVA = +1 Net ACC, hits on 4+).
 - **Combat Pre-Play Confirmation Modal**:
   - Clicking any playable card from hand opens a confirmation modal before any AP or action is committed:
     - **Source & Target Comparison**: Displays the action card and target (creature or hero) side-by-side with an arrow flow (`Use {card} on {target}`).
-    - **Attack Math Breakdown**: Displays Hero ACC (DEX + card bonus), Target EVA, Net ACC modifier, needed roll on 2d6, and exact hit probability percentage calculated over the 36 combinations (accounting for Snake Eyes auto-miss and Boxcars auto-crit).
+    - **Attack Math Breakdown**: Displays Hero ACC (DEX + gear + card bonus), Target EVA, Net ACC modifier, needed roll on 2d6, and exact hit probability percentage calculated over the 36 combinations (accounting for Snake Eyes auto-miss and Boxcars auto-crit).
     - **Direct Target Switching**: When facing multiple enemies, players can click monster chips inside the popup to switch target and preview live math differences before hitting **Confirm**.
     - **Confirm & Cancel Controls**: AP is only spent upon clicking `Confirm Use (X AP)`; clicking `Cancel`, backdrop, or pressing `Escape` cancels without spending AP.
 
@@ -218,7 +225,7 @@ Every Monster and Combat Action card adheres to standard physical collectible ca
 5. **Card Type Line & Inscribed Rewards**:
    - The compact first header row displays level, type/subtype and spawn terrains.
    - Upper-left of artwork displays floating inscribed rewards (`+X Gold`, `+X SP`) with raster icons.
-   - Above the card frame floats the **Target Pill (`🎯 TARGET (Roll X+)`)** when targeted.
+   - Above the card frame floats the **Target Pill (`🎯 TARGET (Roll X+ · Y%)`)** when targeted, showing the exact 2d6 hit chance.
 6. **Description / Text Area**:
    - Semi-transparent frosted glass text box displaying:
      - **Cyclic Attack Pattern Table**: Turn-by-turn move list (`Turn 1: Slash (3 DMG)`).
@@ -240,20 +247,17 @@ Every Monster and Combat Action card adheres to standard physical collectible ca
 ## 5. Stages, Adventure Decks, Shrines & Encounter Cards
 
 ### 5.1 Card Numbering & Catalog Architecture
-All 15 Adventure Cards follow a strict, standardized collector card numbering scheme starting with `adv`:
+The current 12 Adventure Cards follow a strict, standardized collector card numbering scheme starting with `adv`. Each terrain has one encounter level: Grassland 2, Forest 3, and Swamp 4; future Cave, Underground, and Underworld encounter cards are Levels 5, 6, and 7 respectively.
 - `Undiscovered Grassland` (LVL1) = `advgrs-00`
 - `Grassland Encounter` (LVL2) = `advgrs-01`
-- `Grassland Encounter` (LVL3) = `advgrs-02`
 - `Grassland Village` (LVL1) = `advgrs-03`
 - `Grassland Shrine` (LVL1) = `advgrs-04`
 - `Undiscovered Forest` (LVL2) = `advfrs-00`
 - `Forest Encounter` (LVL3) = `advfrs-01`
-- `Forest Encounter` (LVL4) = `advfrs-02`
 - `Forest Village` (LVL2) = `advfrs-03`
 - `Forest Shrine` (LVL2) = `advfrs-04`
 - `Undiscovered Swamp` (LVL3) = `advsmp-00`
 - `Swamp Encounter` (LVL4) = `advsmp-01`
-- `Swamp Encounter` (LVL5) = `advsmp-02`
 - `Swamp Village` (LVL3) = `advsmp-03`
 - `Swamp Shrine` (LVL3) = `advsmp-04`
 
@@ -261,42 +265,36 @@ All 15 Adventure Cards follow a strict, standardized collector card numbering sc
 
 ### 5.2 Stage 1: "The Goblin King" Deck Composition (30 Land Cards)
 - `advgrs-00` (Undiscovered Grassland LVL1) &times; 3
-- `advgrs-01` (Grassland Encounter LVL2) &times; 5
-- `advgrs-02` (Grassland Encounter LVL3) &times; 3
+- `advgrs-01` (Grassland Encounter LVL2) &times; 8
 - `advgrs-03` (Grassland Village LVL1) &times; 3
 - `advgrs-04` (Grassland Shrine LVL1) &times; 3
 - `advfrs-00` (Undiscovered Forest LVL2) &times; 2
-- `advfrs-01` (Forest Encounter LVL3) &times; 3
-- `advfrs-02` (Forest Encounter LVL4) &times; 2
+- `advfrs-01` (Forest Encounter LVL3) &times; 5
 - `advfrs-03` (Forest Village LVL2) &times; 2
 - `advfrs-04` (Forest Shrine LVL2) &times; 2
 - `advsmp-00` (Undiscovered Swamp LVL3) &times; 1
 - `advsmp-01` (Swamp Encounter LVL4) &times; 1
-- `advsmp-02` (Swamp Encounter LVL5) &times; 0
 - `advsmp-03` (Swamp Village LVL3) &times; 0
 - `advsmp-04` (Swamp Shrine LVL3) &times; 0
 - **Total**: 30 cards. Turn 15 Boss: **Goblin Chieftain**.
 
 ### 5.2.1 Undiscovered Terrains & Exploration Mechanics
-Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, or `advsmp-00`) triggers a `1d6` roll:
-- **Combat (`roll <= card.level`)**: Enemy ambush! Battle starts drawing hostiles matching the card's terrain and level.
-- **Treasure (`roll === 6`)**: Secret cache found! Cards are drawn from the Treasure Deck until an item with `item.level <= card.level` is found (higher level items are discarded to `treasureDiscard`). The found item is added directly to the player's backpack.
-- **Safe (`other rolls`)**: Calm passage through the wilderness without hostiles or loot.
+Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, or `advsmp-00`) triggers a seeded natural `1d6` roll. `luckBonus = floor(effective LUK / 5)` and `effectiveRoll = naturalRoll + luckBonus`; it is not capped at 6. The modal shows both values.
+- **Treasure (`effectiveRoll >= 6`)**: Secret cache found! Treasure takes precedence over an Ambush, including on a Level 6 terrain. Cards are drawn from the Treasure Deck until an item with `item.level <= card.level` is found (higher level items are discarded to `treasureDiscard`). The found item is added directly to the player's backpack.
+- **Combat (`effectiveRoll <= card.level`)**: Enemy ambush! Battle starts drawing hostiles matching the card's terrain and level.
+- **Safe (`other effective results`)**: Calm passage through the wilderness without hostiles or loot.
 
 ### 5.3 Stage 2: "Cult of Trolls" Deck Composition & 3-Boss Encounter (30 Land Cards)
 - `advgrs-00` (Undiscovered Grassland LVL1) &times; 0
-- `advgrs-01` (Grassland Encounter LVL2) &times; 0
-- `advgrs-02` (Grassland Encounter LVL3) &times; 2
+- `advgrs-01` (Grassland Encounter LVL2) &times; 2
 - `advgrs-03` (Grassland Village LVL1) &times; 0
 - `advgrs-04` (Grassland Shrine LVL1) &times; 0
 - `advfrs-00` (Undiscovered Forest LVL2) &times; 2
-- `advfrs-01` (Forest Encounter LVL3) &times; 6
-- `advfrs-02` (Forest Encounter LVL4) &times; 3
+- `advfrs-01` (Forest Encounter LVL3) &times; 9
 - `advfrs-03` (Forest Village LVL2) &times; 3
 - `advfrs-04` (Forest Shrine LVL2) &times; 3
 - `advsmp-00` (Undiscovered Swamp LVL3) &times; 1
-- `advsmp-01` (Swamp Encounter LVL4) &times; 4
-- `advsmp-02` (Swamp Encounter LVL5) &times; 2
+- `advsmp-01` (Swamp Encounter LVL4) &times; 6
 - `advsmp-03` (Swamp Village LVL3) &times; 2
 - `advsmp-04` (Swamp Shrine LVL3) &times; 2
 - **Total**: 30 cards.
@@ -380,7 +378,7 @@ Underground is recognized as a creature spawn tag and visible badge; no Undergro
 
 ## Stalker — mon1grs-06
 
-Level 2; Grasslands and Forest; 8 HP, 0 DEF, 1 EVA, 1 ACC. Artwork: `/cards/creatures/stalker.jpg`. The Goblin King monster deck includes 1 copy; Rewards: 2 SP and 4 Gold.
+Level 2; Grasslands and Forest; 8 HP, 0 DEF, 2 EVA, 1 ACC. Artwork: `/cards/creatures/stalker.jpg`. The Goblin King monster deck includes 1 copy; Rewards: 2 SP and 4 Gold.
 
 Alternates Sprint (+1 EVA and +1 ACC for 2 turns) and Pounce (6 physical damage with a normal 2d6 hit check). Sprint applies during its monster turn and lasts through the next Pounce and the following hero action turn; it expires at the start of the monster turn after that. A new Sprint refreshes the bonuses without stacking. Existing one-turn creature buffs retain their original duration.
 
@@ -407,15 +405,15 @@ Village stock accepts only `item.level === village.level`. Wrong-level items, bo
 
 Undiscovered terrain rewards use `item.level <= terrain.level` as a cap. A Level 2 Forest discovery accepts Level 1 or Level 2 items. If the last card is an invalid Level 3 item, discard it, reshuffle the treasure graveyard into the new deck, and continue drawing until a valid reward appears. This is a game mechanic, not a spell/attack fizzle. Starting with an empty Treasure Deck follows the same reshuffle rule.
 
-Eligible physical copies are conserved; nothing is created to fill stock. If no matching supply exists anywhere in the deck/graveyard (for example no Level 3 items are currently defined, or all matching copies are already owned), stop safely with empty/partial stock or no reward rather than loop forever. This is unavailable supply, not ability failure. A village's stock is generated only once per visit, including empty stock; returning to its menu does not reroll it. The current item catalog has only Levels 1 and 2; Level 3 shops need corresponding content.
+Eligible physical copies are conserved; nothing is created to fill stock. If no matching supply exists anywhere in the deck/graveyard (for example no Level 5 items are currently defined, or all matching copies are already owned), stop safely with empty/partial stock or no reward rather than loop forever. This is unavailable supply, not ability failure. A village's stock is generated only once per visit, including empty stock; returning to its menu does not reroll it. The current item catalog has Levels 1 through 4; a Level 3 or 4 store can offer only the physical copies currently available for that exact level.
 
 ## Battle hand carousel and revised full-size creature template
 
-The battle hand uses one centered, fully readable action card with dimmed flanking previews. Browse using chevrons, numbered selectors, Q/E keys, or horizontal swipes. Browsing updates existing nodes in place and never spends AP. Tapping the center card opens the existing confirmation; Flee occupies its own separate slot. A/D and left/right arrows retain enemy targeting. End Turn resets hand selection; selection clamps safely after playing a card. Empty hands retain End Turn. Inspect/confirmation overlays suspend hand navigation; reduced-motion settings disable transitions.
+The battle hand uses one centered, fully readable action card with dimmed flanking previews. Browse by clicking a side preview, using chevrons, numbered selectors, Q/E keys, or horizontal swipes. Browsing updates existing nodes in place and never spends AP. Tapping the center card opens the existing confirmation; Flee occupies its own separate slot. A/D and left/right arrows target enemies when multiple living targets exist; with one target they browse the hand instead. End Turn resets hand selection; selection clamps safely after playing a card. Empty hands retain End Turn. Inspect/confirmation overlays suspend hand navigation; reduced-motion settings disable transitions.
 
 Full-size creature cards in battle and inspection share one header/footer template: first header line is level at left, CREATURE/BOSS CREATURE and subtype inline, with spawn icons at right. Second line holds the name at left and collector number at right. The rules textbox contains abilities and patterns without a duplicate derived-stat row. The bottom dock shows printed Max HP plus icon/value pairs only for positive DEF, MDEF, ACC and EVA; zero-valued combat stats are omitted. Live battle ACC/EVA include temporary buffs and highlight positive bonuses; HP/Block remain live in the external combat dock. Compact pile cards retain their simplified art-first template.
 
-Stalker base EVA is 1. Sprint adds 1 EVA (total 2); an additional Skittish hit bonus raises that total for the current hero turn. Catalog tables have been regenerated.
+Stalker base EVA is 2. Sprint adds 1 EVA (total 3); an additional Skittish hit bonus raises that total for the current hero turn. Catalog tables have been regenerated.
 
 ## Witch — mon3smp-04
 

@@ -4,6 +4,7 @@ import {
   renderPlayArea,
   renderClassSelect,
   renderWelcome,
+  deckPilesPanelHtml,
   pileModal,
   UiState,
   updateClassCarouselDom,
@@ -17,10 +18,24 @@ import {
 } from '../ui/render';
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
+import { createCombatCardInstance } from '../data/combatCards';
 import { getActionRasterArtPath } from '../ui/cardArt';
 import { AdventureCard, CombatVictoryState, MonsterCard, RunState } from '../core/types';
 
 describe('Render Play Area and Shop Layout', () => {
+  it('offers a friendly How to Play guide from the welcome screen and in-game HUD', () => {
+    expect(renderWelcome()).toContain('data-action="open-guide"');
+    const welcomeGuide = renderWelcome(true);
+    expect(welcomeGuide).toContain('How to Play');
+    expect(welcomeGuide.indexOf('welcome-card')).toBeLessThan(welcomeGuide.indexOf('guide-backdrop'));
+    const state = startAdventure('fighter', 'guide-seed');
+    const ui: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0, showGuide: true };
+    const html = renderPlayArea(state, ui);
+    expect(html).toContain('hud-guide-btn');
+    expect(html).toContain('Battles in one minute');
+    expect(html).toContain('Undiscovered Lands');
+  });
+
   it('renders shop layout with sidebar and main content', () => {
     let state = startAdventure('fighter', 'test-seed');
     state = {
@@ -311,6 +326,11 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('data-action="close-inspect-backdrop"');
     expect(html).not.toContain('event.stopPropagation()');
 
+    const finalSmash = state.newSkillsDeck.find((card) => card.id === 'final_smash')!;
+    const finalSmashHtml = renderPlayArea(state, { ...ui, inspectedCard: { kind: 'action', card: finalSmash } });
+    expect(finalSmashHtml).toContain('6 Base DMG + 2 × ATK');
+    expect(finalSmashHtml).not.toContain('ATK / 1');
+
     // Inspecting a monster card
     const dogCard: MonsterCard = { ...MONSTER_TEMPLATES['wild_dog'], id: 'monster_wild_dog_01' };
     const uiMonster: UiState = {
@@ -512,6 +532,24 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('data-pile="player_discard"');
   });
 
+  it('configures the reusable deck panel with only the requested pile groups', () => {
+    const state = startAdventure('fighter', 'deck-panel-config-seed');
+    const html = deckPilesPanelHtml(state, {
+      visibleGroups: ['player'],
+      heading: 'Action Deck',
+      showFooter: false,
+      groupLabels: { player: 'Action Cards' },
+    });
+
+    expect(html).toContain('Action Deck');
+    expect(html).toContain('Action Cards');
+    expect(html).toContain('data-pile-default="player_deck"');
+    expect(html).toContain('data-pile="player_deck"');
+    expect(html).toContain('data-pile="player_discard"');
+    expect(html).not.toContain('data-pile="adventure_deck"');
+    expect(html).not.toContain('piles-footer-note');
+  });
+
   it('renders adventure deck modal with unique cards and multiplier badges', () => {
     const state = startAdventure('fighter', 'pile-test-seed');
     const ui: UiState = {
@@ -537,17 +575,14 @@ describe('Render Play Area and Shop Layout', () => {
     const expectedOrder = [
       'advgrs-00',
       'advgrs-01',
-      'advgrs-02',
       'advgrs-03',
       'advgrs-04',
       'advfrs-00',
       'advfrs-01',
-      'advfrs-02',
       'advfrs-03',
       'advfrs-04',
       'advsmp-00',
       'advsmp-01',
-      'advsmp-02',
       'advsmp-03',
       'advsmp-04',
     ];
@@ -597,6 +632,9 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('&times;2');
     expect(html).toContain('Melee ATK');
     expect(html).toContain('Shield DEF');
+    // Reference cards should be readable, even though they cannot trigger combat actions.
+    expect(html).not.toMatch(/data-card-id="(?:melee_atk|shield_def)"[^>]*disabled/);
+    expect(html).not.toContain('data-action="play-card"');
   });
 
   it('renders empty pile message when inspecting an empty discard pile', () => {
@@ -689,7 +727,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('dice-total">7');
     expect(html).toContain('(vs 6+ needed)');
     expect(html).toContain('HIT! (4 DMG)');
-    expect(html).toContain('TARGET (Roll 7+)');
+    expect(html).toContain('TARGET (Roll 5+ · 83.3%)');
   });
 
   it('renders card confirmation modal for attack card (Melee ATK on Goblin) with source/target cards, stats, probability and confirm button', () => {
@@ -744,13 +782,13 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Target EVA');
     expect(html).toContain('Net ACC');
     expect(html).toContain('Dice Target');
-    // Fighter has 1 DEX ACC (floor(2/2)) + 1 Melee ATK = 2 Total ACC vs 1 Goblin EVA = +1 Net ACC -> Need 6+
-    expect(html).toContain('🎲 <b>6+</b>');
+    // Fighter has 1 DEX ACC (floor(2/2)) + 1 Melee ATK = 2 Total ACC vs 1 Goblin EVA = +1 Net ACC -> Need 4+
+    expect(html).toContain('🎲 <b>4+</b>');
 
     // Show probability to hit
     expect(html).toContain('Hit Probability');
-    expect(html).toContain('72.2%');
-    expect(html).toContain('26 of 36 combinations');
+    expect(html).toContain('91.7%');
+    expect(html).toContain('33 of 36 combinations');
     expect(html).toContain('Boxcars Critical');
     expect(html).toContain('Snake Eyes Auto-Miss');
 
@@ -808,6 +846,51 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Combat EVA');
     expect(html).toContain('data-action="confirm-play-card"');
     expect(html).toContain('Confirm Use (1 AP)');
+  });
+
+  it('renders visual mini-card choices when Battlecry selects cards to discard', () => {
+    let state = startAdventure('fighter', 'battlecry-selection-seed');
+    const goblinCard = { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
+    const battlecry = createCombatCardInstance('battlecry', 'test');
+    const melee = createCombatCardInstance('melee_atk', 'discard');
+    const shield = createCombatCardInstance('shield_def', 'discard');
+
+    state = {
+      ...state,
+      activeHook: {
+        type: 'COMBAT',
+        combat: {
+          monsters: [{ monster: goblinCard, hp: 8, block: 0, patternIndex: 0 }],
+          combatTurn: 1,
+          playerBlock: 0,
+          playerEvasionMod: 0,
+          hand: [battlecry, melee, shield],
+          drawPile: [],
+          discardPile: [],
+          playerAp: 3,
+          playerMaxAp: 3,
+          combatLog: [],
+        },
+      },
+    };
+
+    const html = renderPlayArea(state, {
+      selectedClass: 'fighter',
+      showDeck: false,
+      villageTab: 'buy',
+      targetIndex: 0,
+      pendingCardPlay: { cardInstanceId: battlecry.instanceId, targetIndex: 0 },
+    });
+
+    expect(html).toContain('Choose exactly 2 cards to discard');
+    expect(html).toContain('class="discard-choice-card');
+    expect(html).toContain('class="discard-choice-art"');
+    expect(html).toContain('/cards/actions/blade.jpg');
+    expect(html).toContain('/cards/actions/shield.jpg');
+    expect(html).toContain('Melee ATK');
+    expect(html).toContain('Shield DEF');
+    const discardChoices = html.match(/<div class="combat-discard-choice-list">([\s\S]*?)<\/div>\s*<div class="discard-choice-count">/)?.[1] ?? '';
+    expect(discardChoices).not.toContain(`data-id="${battlecry.instanceId}"`);
   });
 
   it('renders Class Select screen with Primary/Secondary badges, passives, stat icons, and 6 stats including CHA', () => {
@@ -974,7 +1057,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Hero ATK = &lfloor;STR / 2&rfloor; + Weapon ATK');
   });
 
-  it('village rest button is disabled on full health with no negative ailments', () => {
+  it('village rest is disabled at full health and describes the one-Gold, two-HP ticks', () => {
     let state = startAdventure('fighter', 'test-rest-disabled');
     state = {
       ...state,
@@ -1001,10 +1084,11 @@ describe('Render Play Area and Shop Layout', () => {
 
     const html = renderPlayArea(state, ui);
     expect(html).toContain('data-action="village-rest" disabled');
-    expect(html).toContain('Already at full health (no ailments to cure)');
+    expect(html).toContain('Already at full HP.');
+    expect(html).toContain('Each tick restores up to 2 HP and costs 1 Gold');
   });
 
-  it('village rest button is enabled when on full health but has negative ailments', () => {
+  it('village rest remains disabled at full health even with negative ailments', () => {
     let state = startAdventure('fighter', 'test-rest-ailments');
     state = {
       ...state,
@@ -1032,8 +1116,8 @@ describe('Render Play Area and Shop Layout', () => {
 
     const html = renderPlayArea(state, ui);
     expect(html).toContain('data-action="village-rest"');
-    expect(html).not.toContain('data-action="village-rest" disabled');
-    expect(html).toContain('Cleanse all negative ailments (5g)');
+    expect(html).toContain('data-action="village-rest" disabled');
+    expect(html).toContain('Already at full HP.');
   });
 
   it('action cards have dedicated unique artwork and do not all reuse blade or shield art', () => {
@@ -1046,6 +1130,11 @@ describe('Render Play Area and Shop Layout', () => {
     expect(getActionRasterArtPath('iron_parry', 'defense')).not.toBe('/cards/actions/shield.jpg');
     expect(getActionRasterArtPath('battle_focus', 'defense')).toBe('/cards/actions/battle_focus.jpg');
     expect(getActionRasterArtPath('battle_focus', 'defense')).not.toBe('/cards/actions/shield.jpg');
+    expect(getActionRasterArtPath('whirlwind_plus', 'attack')).toBe('/cards/actions/whirlwind.jpg');
+    expect(getActionRasterArtPath('battlecry_plus', 'skill')).toBe('/cards/actions/battlecry.jpg');
+    expect(getActionRasterArtPath('battle_flag', 'enchantment')).toBe('/cards/actions/battleflag.jpg');
+    expect(getActionRasterArtPath('adrenalin', 'skill')).toBe('/cards/actions/adrenalin.jpg');
+    expect(getActionRasterArtPath('final_smash', 'attack')).toBe('/cards/actions/final_smash.jpg');
 
     // Wizard cards
     expect(getActionRasterArtPath('fireball_atk', 'attack')).toBe('/cards/actions/fireball.jpg');
@@ -1524,6 +1613,9 @@ describe('Render Play Area and Shop Layout', () => {
     // 1. Split layout structure
     expect(html).toContain('combat-main-col');
     expect(html).toContain('combat-log-sidebar');
+    expect(html).toContain('combat-action-piles');
+    expect(html).toContain('Action Deck');
+    expect(html).toContain('Action Cards');
     expect(html).toContain('📜 Battle Log');
     expect(html).toContain('combat-log-count');
 

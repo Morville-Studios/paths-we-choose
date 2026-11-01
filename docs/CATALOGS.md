@@ -23,8 +23,8 @@ Stage 1 copies total: **38**. Runtime instance IDs distinguish physical copies; 
 | mon1grs-03 | fighting_beetle | Pincer | Insect | 3 | 1 | 5 | 1 | 0 | 0 | 0 | 1 | 2 | grasslands, forest | 1. Shell Guard: 2 physical damage; +3 Block<br>2. Horn Charge: 4 physical damage | None |
 | mon1grs-04 | wild_dog | Scavenger | Beast | 3 | 1 | 6 | 0 | 0 | 2 | 2 | 1 | 2 | grasslands, forest | 1. Savage Bite: 4 physical damage<br>2. Lunging Bite: 3 physical damage; +1 ACC for 1 turn(s) | None |
 | mon1grs-05 | ramram | Ramram | Beast | 3 | 1 | 6 | 0 | 0 | 2 | 1 | 1 | 2 | grasslands | 1. Headbutt: 4 physical damage<br>2. Sturdy Horn Guard: 3 physical damage; +2 Block | None |
-| mon1grs-06 | stalker | Stalker | Unspecified | 3 | 2 | 8 | 0 | 0 | 1 | 1 | 2 | 4 | grasslands, forest | 1. Sprint: +1 EVA for 2 turn(s); +1 ACC for 2 turn(s)<br>2. Pounce: 6 physical damage | Skittish: Each hit immediately grants +1 EVA for the rest of the hero turn.; Sprint grants +1 EVA and +1 ACC for 2 turns; refreshing does not stack. |
-| mon2frs-01 | rattler | Rattler | Reptile | 2 | 2 | 6 | 0 | 0 | 3 | 2 | 2 | 4 | forest | 1. Venom Strike: 5 physical damage<br>2. Coil & Strike: 4 physical damage; +2 Block | None |
+| mon1grs-06 | stalker | Stalker | Unspecified | 3 | 2 | 8 | 0 | 0 | 1 | 2 | 2 | 4 | grasslands, forest | 1. Sprint: +1 EVA for 2 turn(s); +1 ACC for 2 turn(s)<br>2. Pounce: 6 physical damage | Skittish: Each hit immediately grants +1 EVA for the rest of the hero turn.; Sprint grants +1 EVA and +1 ACC for 2 turns; refreshing does not stack. |
+| mon2frs-01 | rattler | Rattler | Reptile | 2 | 2 | 6 | 0 | 0 | 3 | 1 | 2 | 4 | forest | 1. Venom Strike: 5 physical damage<br>2. Coil & Strike: 4 physical damage; +2 Block | None |
 | mon2frs-02 | tree_snapper | Basilisk | Reptile | 2 | 2 | 8 | 1 | 0 | 1 | 1 | 2 | 4 | swamp, forest | 1. Stalk: +2 EVA for 1 turn(s)<br>2. Snapping Jaws: 6 physical damage | None |
 | mon2frs-03 | zombie | Zombie | Undead | 4 | 2 | 7 | 1 | 0 | 0 | 0 | 2 | 4 | swamp, cave, forest | 1. Regenerate: +2 HP<br>2. Rotting Claw: 5 physical damage | Lifesteal (Attacks restore HP equal to unblocked damage dealt) |
 | mon2frs-04 | ghoul | Ghoul | Undead | 2 | 2 | 8 | 0 | 0 | 1 | 2 | 2 | 4 | forest, swamp | 1. Growl: -1 Hero EVA for 2 turns<br>2. Mad Dash: 6 physical damage | None |
@@ -52,24 +52,21 @@ Both missions contain 30 land cards. Start Tile is separate.
 | Collector ID | Name | Terrain | Level | Stage 1 copies | Stage 2 copies |
 | --- | --- | --- | --- | --- | --- |
 | advgrs-00 | Undiscovered Grassland | grasslands | 1 | 3 | 0 |
-| advgrs-01 | Grassland Encounter | grasslands | 2 | 5 | 0 |
-| advgrs-02 | Grassland Encounter | grasslands | 3 | 3 | 2 |
+| advgrs-01 | Grassland Encounter | grasslands | 2 | 8 | 2 |
 | advgrs-03 | Grassland Village | grasslands | 1 | 3 | 0 |
 | advgrs-04 | Grassland Shrine | grasslands | 1 | 3 | 0 |
 | advfrs-00 | Undiscovered Forest | forest | 2 | 2 | 2 |
-| advfrs-01 | Forest Encounter | forest | 3 | 3 | 6 |
-| advfrs-02 | Forest Encounter | forest | 4 | 2 | 3 |
+| advfrs-01 | Forest Encounter | forest | 3 | 5 | 9 |
 | advfrs-03 | Forest Village | forest | 2 | 2 | 3 |
 | advfrs-04 | Forest Shrine | forest | 2 | 2 | 3 |
 | advsmp-00 | Undiscovered Swamp | swamp | 3 | 1 | 1 |
-| advsmp-01 | Swamp Encounter | swamp | 4 | 1 | 4 |
-| advsmp-02 | Swamp Encounter | swamp | 5 | 0 | 2 |
+| advsmp-01 | Swamp Encounter | swamp | 4 | 1 | 6 |
 | advsmp-03 | Swamp Village | swamp | 3 | 0 | 2 |
 | advsmp-04 | Swamp Shrine | swamp | 3 | 0 | 2 |
 
 ## Shop and Treasure
 
-Treasure deck: two copies per item, 28 cards total. Prices below are before Charisma discount.
+Treasure deck: two copies per item, 42 cards total. Prices below are before Charisma discount.
 
 | Item | ID | Slot/type | Level | Buy Gold | Sell Gold | Effects |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -77,32 +74,51 @@ Treasure deck: two copies per item, 28 cards total. Prices below are before Char
 | Iron Sword | lvl1_iron_sword | weapon | 1 | 10 | 5 | Weapon Slot: +1 ATK (boosts physical attack card damage). |
 | Apprentice Staff | lvl1_apprentice_staff | weapon | 1 | 15 | 7 | Weapon Slot: +1 MATK (boosts magical spell damage). |
 | Robe | lvl1_robe | armor | 1 | 15 | 7 | Armor Slot: +1 MDEF (reduces incoming magic damage intake). |
-| Leather Clothes | lvl1_leather_clothes | armor | 1 | 12 | 6 | Armor Slot: +1 EVA (increases evasion against all 2d6 attacks). |
+| Leather Gear | lvl1_leather_gear | armor | 1 | 12 | 6 | Armor Slot: +1 EVA (increases evasion against all 2d6 attacks). |
 | Chainmail | lvl1_chainmail | armor | 1 | 15 | 7 | Armor Slot: +1 DEF (reduces incoming physical attack damage). |
-| Book of Spells | lvl1_book_of_spells | accessory | 1 | 15 | 7 | Accessory Slot: +1 INT (boosts spellcraft and intellect). |
-| Ring of Beasts | lvl1_ring_of_beasts | accessory | 1 | 15 | 7 | Accessory Slot: +1 STR (+2 Max HP and melee scaling). |
-| Sandals of Swiftness | lvl1_sandals_of_swiftness | accessory | 1 | 15 | 7 | Accessory Slot: +1 AGI (improves agility and baseline evasion). |
-| Lucky Charm | lvl1_lucky_charm | accessory | 1 | 20 | 10 | Accessory Slot: Produces an additional (1d6 - 1) Gold per victory. |
-| Iron Sword + | lvl2_iron_sword_plus | weapon | 2 | 30 | 15 | Weapon Slot: +2 ATK (boosts physical attack card damage). |
-| Chainmail + | lvl2_chainmail_plus | armor | 2 | 45 | 22 | Armor Slot: +2 DEF (significantly reduces incoming physical attack damage). |
-| Robe + | lvl2_robe_plus | armor | 2 | 45 | 22 | Armor Slot: +2 MDEF (substantially reduces incoming magic damage intake). |
-| Apprentice Staff + | lvl2_apprentice_staff_plus | weapon | 2 | 45 | 22 | Weapon Slot: +2 MATK (significantly amplifies magical spell damage). |
+| Spellbinder | lvl2_spellbinder | accessory | 2 | 20 | 10 | Accessory Slot: +1 INT (boosts spellcraft and intellect). |
+| Beast Ring | lvl2_beast_ring | accessory | 2 | 20 | 10 | Accessory Slot: +1 STR (+2 Max HP and melee scaling). |
+| Hermes Gear | lvl2_hermes_gear | accessory | 2 | 20 | 10 | Accessory Slot: +1 AGI (improves agility and baseline evasion). |
+| Goldstar | lvl2_goldstar | accessory | 2 | 20 | 10 | Accessory Slot: Produces an additional (1d6 - 1) Gold per victory. |
+| Iron Sword + | lvl2_iron_sword_plus | weapon | 2 | 30 | 15 | Weapon Slot: +2 ATK and +1 ACC (boosts physical attack damage and hit rolls). |
+| Chainmail + | lvl2_chainmail_plus | armor | 2 | 45 | 22 | Armor Slot: +2 DEF and +1 EVA (reduces physical damage and improves dodging). |
+| Robe + | lvl2_robe_plus | armor | 2 | 45 | 22 | Armor Slot: +2 MDEF and +1 DEF (reduces magical and physical damage intake). |
+| Apprentice Staff + | lvl2_apprentice_staff_plus | weapon | 2 | 45 | 22 | Weapon Slot: +2 MATK and +1 ATK (amplifies magical and physical attacks). |
+| Leather Gear + | lvl2_leather_gear_plus | armor | 2 | 45 | 22 | Armor Slot: +2 EVA and +1 DEF (improves dodging and reduces physical damage). |
+| Health Potion + | lvl2_health_potion_plus | consumable | 2 | 14 | 7 | Restores 18 HP immediately when used. |
+| Health Potion ++ | lvl3_health_potion_plus_plus | consumable | 3 | 24 | 12 | Restores 24 HP immediately when used. |
+| Health Potion +++ | lvl4_health_potion_plus_plus_plus | consumable | 4 | 36 | 18 | Restores 28 HP immediately when used. |
+| Dagger | lvl1_dagger | weapon | 1 | 10 | 5 | Weapon Slot: +1 PEN (physical attacks ignore 1 enemy DEF). |
+| Dagger + | lvl2_dagger_plus | weapon | 2 | 30 | 15 | Weapon Slot: +2 PEN and +1 ATK (physical attacks ignore 2 enemy DEF). |
+| Focus Ring | lvl2_focus_ring | accessory | 2 | 20 | 10 | Accessory Slot: +1 DEX (improves accuracy and physical attack scaling). |
 
 ## Combat Cards
 
 Fields below are base data, not complete effective damage. STR damage also adds floor(DEX/3), weapon ATK and Berzerk; INT damage adds weapon MATK. Gear DEF/MDEF do not directly increase card Block. EVA effects use the multiplier as a flat amount. See MECHANICS_AND_DATA.md for formulas.
 
-| Card | ID | AP | Damage base | Damage scaling | Block base | Block scaling | Round EVA | Card ACC |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Melee ATK | melee_atk | 1 | 2 | str/2 | 0 | None | 0 | 1 |
-| Shield DEF | shield_def | 1 | 0 | None | 2 | str/2 | 1 | 0 |
-| Heavy Cleave | heavy_cleave | 2 | 5 | str/1 | 0 | None | 0 | 0 |
-| Iron Parry | iron_parry | 1 | 1 | str/2 | 3 | str/2 | 1 | 0 |
-| Battle Focus | battle_focus | 1 | 0 | None | 2 | str/2 | 2 | 0 |
-| Fireball ATK | fireball_atk | 1 | 2 | int/2 | 0 | None | 0 | 0 |
-| Force Field DEF | force_field_def | 1 | 0 | None | 2 | int/2 | 1 | 0 |
-| Arcane Blast | arcane_blast | 2 | 5 | int/1 | 0 | None | 0 | 0 |
-| Frost Nova | frost_nova | 1 | 2 | int/2 | 2 | int/2 | 1 | 0 |
-| Blink Ward | blink_ward | 1 | 0 | None | 2 | int/2 | 2 | 0 |
+| Card | ID | AP | Damage base | Damage scaling | Block base | Block scaling | Round EVA | Card ACC | Zone | Upgrades |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Melee ATK | melee_atk | 1 | 2 | str/2 | 0 | None | 0 | 1 | Starter / New Skills | None |
+| Shield DEF | shield_def | 1 | 0 | None | 2 | str/2 | 1 | 0 | Starter / New Skills | None |
+| High Strike | heavy_cleave | 2 | 3 | atk/1 | 0 | None | 0 | 0 | Starter / New Skills | None |
+| Parry | iron_parry | 1 | 0 | None | 5 | None | 1 | 0 | Starter / New Skills | None |
+| Fortify | battle_focus | 1 | 0 | None | 5 | def/1 | 0 | 0 | Starter / New Skills | None |
+| High Strike + | high_strike_plus | 3 | 5 | atk/1 | 0 | None | 0 | 0 | Void | heavy_cleave |
+| Parry + | parry_plus | 2 | 0 | None | 7 | None | 2 | 0 | Void | iron_parry |
+| Fortify + | fortify_plus | 2 | 0 | None | 7 | def/1 | 0 | 0 | Void | battle_focus |
+| Whirlwind | whirlwind | 1 | 1 | atk/2 | 0 | None | 0 | -1 | Starter / New Skills | None |
+| Whirlwind + | whirlwind_plus | 2 | 2 | atk/1 | 0 | None | 0 | -1 | Void | whirlwind |
+| Battlecry | battlecry | 1 | 0 | None | 0 | None | 0 | 0 | Starter / New Skills | None |
+| Battlecry + | battlecry_plus | 2 | 0 | None | 0 | None | 0 | 0 | Void | battlecry |
+| Battle Flag | battle_flag | 1 | 0 | None | 0 | None | 0 | 0 | Starter / New Skills | None |
+| Adrenalin | adrenalin | 1 | 0 | None | 0 | None | 0 | 0 | Starter / New Skills | None |
+| Final Smash | final_smash | 3 | 6 | atk/1 | 0 | None | 0 | 0 | Starter / New Skills | None |
+| Fireball ATK | fireball_atk | 1 | 2 | int/2 | 0 | None | 0 | 0 | Starter / New Skills | None |
+| Force Field DEF | force_field_def | 1 | 0 | None | 2 | int/2 | 1 | 0 | Starter / New Skills | None |
+| Arcane Blast | arcane_blast | 2 | 5 | int/1 | 0 | None | 0 | 0 | Starter / New Skills | None |
+| Frost Nova | frost_nova | 1 | 2 | int/2 | 2 | int/2 | 1 | 0 | Starter / New Skills | None |
+| Blink Ward | blink_ward | 1 | 0 | None | 2 | int/2 | 2 | 0 | Starter / New Skills | None |
 
-Train pools: fighter: melee_atk, shield_def, heavy_cleave, iron_parry, battle_focus; wizard: fireball_atk, force_field_def, arcane_blast, frost_nova, blink_ward; rogue: melee_atk, shield_def, heavy_cleave, iron_parry, battle_focus.
+Train pools: fighter: melee_atk, shield_def, heavy_cleave, iron_parry, battle_focus, whirlwind, battlecry, battle_flag, adrenalin, final_smash; wizard: fireball_atk, force_field_def, arcane_blast, frost_nova, blink_ward; rogue: melee_atk, shield_def, heavy_cleave, iron_parry, battle_focus.
+
+Void cards: High Strike + (upgrades High Strike); Parry + (upgrades Parry); Fortify + (upgrades Fortify); Whirlwind + (upgrades Whirlwind); Battlecry + (upgrades Battlecry). Void cards are not trainable or physically counted in New Skills decks.

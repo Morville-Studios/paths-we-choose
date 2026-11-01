@@ -184,7 +184,7 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Behavior at audit:** Two copies of each of 14 shop items = 28 cards.
 - **Audit reconciliation target:** Confirm 28 cards and replace the earlier 20-card description.
 - **Accepted decision:** Keep two copies of each of the 14 current shop items.
-- **Resolution / validation:** All Treasure descriptions now say 28 cards and 14 items; updated the stale deck-builder comment too. See batch validation below.
+- **Resolution / validation:** The audit baseline standardized the then-current 28 cards / 14 items. A later approved content expansion supersedes that baseline: the current catalog has 21 items and the Treasure Deck has 42 cards (two copies each). Current descriptions and the deck-builder comment use those values.
 
 <a id="d010"></a>
 ### D010 — Old shop names in roadmap
@@ -194,7 +194,7 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Documentation locations:** docs/ROADMAP.md §Village Shop milestone.
 - **Audit observation (before resolution):** Lists Iron Broadsword, Studded Leather, Chainmail Vest, Sage Amulet and Lucky Coin.
 - **Implementation evidence:** `src/data/shopItems.ts:SHOP_ITEM_CATALOG`.
-- **Behavior at audit:** Catalog uses Iron Sword, Leather Clothes, Chainmail, Book of Spells, Lucky Charm and the other current items.
+- **Behavior at audit:** The catalog then used Iron Sword, Leather Clothes, Chainmail, Book of Spells, Lucky Charm and the other current items. Current canonical names are always supplied by `SHOP_ITEM_CATALOG`.
 - **Audit reconciliation target:** Choose whether the milestone is historical or current; label history explicitly or update the names.
 - **Accepted decision:** Treat roadmap as current status; canonical item names come from SHOP_ITEM_CATALOG.
 - **Resolution / validation:** Replaced historical item names with a generated shop catalog reference. See batch validation below.
@@ -220,10 +220,10 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Documentation locations:** AGENTS.md Derived Combat Stats; docs/GAME_DESIGN.md Hero ACC & EVA; docs/MECHANICS_AND_DATA.md §2.4 and starting-stat examples.
 - **Audit observation (before resolution):** Some text says ACC = DEX, or DEX + gear.acc. Other text says floor(DEX / 2).
 - **Implementation evidence:** `src/core/stats.ts:getPlayerAcc; src/core/types.ts:CombatGearBonuses`.
-- **Behavior at audit:** Base ACC = floor(DEX / 2), plus card and temporary combat modifiers. Direct gear.acc is not a defined gear bonus.
+- **Behavior at audit:** Base ACC = floor(DEX / 2), plus card and temporary combat modifiers. Direct gear.acc was not then a defined gear bonus.
 - **Audit reconciliation target:** Choose one formula and reconcile direct gear accuracy versus stat bonuses.
-- **Accepted decision:** Keep floor(DEX/2) plus card and temporary modifiers, as specified in AGENTS.md.
-- **Resolution / validation:** Reconciled ACC formulas, examples and nonexistent direct gear.acc claims. See batch validation below.
+- **Accepted decision (superseded by equipment update):** Direct gear ACC is valid: Hero ACC is floor(DEX/2) + gear.acc + card and temporary modifiers. Iron Sword + provides +1 gear ACC.
+- **Resolution / validation:** Reconciled formulas and examples with the direct gear ACC schema and hit checks. See batch validation below.
 
 <a id="d013"></a>
 ### D013 — Hero physical attack and action-card formulas

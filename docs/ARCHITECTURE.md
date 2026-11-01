@@ -26,6 +26,10 @@ The application supplies a seed and an optional `RunState.logTimestamp` formatte
 
 All game rules remain in core. Catalog tables are generated with `npm run docs:sync`; production builds run `npm run docs:check` and fail if the tables drift.
 
+## Reusable deck panels
+
+`deckPilesPanelHtml` in `src/ui/render.ts` is the single deck/discard widget for every screen. Its configuration selects `visibleGroups`, heading, labels, footer visibility, and an optional CSS class. The map uses all groups; the combat-log sidebar uses only the live Action Draw and Action Discard piles immediately above the battle log. Both use the same `open-pile` action and `pileModal`, so players can inspect the grouped contents and copy counts from either location. A one-group panel also assigns its whole panel a default draw-pile target for right-click inspection; its Discard card remains a distinct target.
+
 ## State machine
 
 `screen` is welcome, class_select or play_area. `activeHook` controls overlays; preparation uses `welcomePreparing` on play_area.
@@ -42,7 +46,8 @@ stateDiagram-v2
     Exploration --> ResolveTile: Confirm safe or treasure outcome
     Map --> Village: Village tile
     Village --> Village: Shop or Train navigation
-    Village --> ResolveTile: Rest, finish Shop/Train or leave
+    Village --> Village: Rest, Shop/Train actions, or return to Village options
+    Village --> ResolveTile: Leave Village
     Map --> Shrine: Grant one boon automatically
     Shrine --> Shrine: Buy affordable Base Stat upgrades
     Shrine --> ResolveTile: Leave Shrine
@@ -66,14 +71,14 @@ Flee is disabled for bosses. The current public continuation is Stage 1 to Stage
 
 - Effective attribute = Base + Class + Blessing + Equipped Gear.
 - Upgrading Base B to B+1 costs `(B+1)^2` SP, only during initial preparation or at a Shrine. No character level or XP exists.
-- ACC = floor(DEX/2), plus card and temporary accuracy modifiers. There is no direct gear.acc field; DEX equipment affects the base calculation.
+- ACC = floor(DEX/2) + gear ACC, plus card and temporary accuracy modifiers. Iron Sword + currently grants +1 direct ACC; DEX equipment affects the base calculation.
 - EVA = floor(AGI/2) + gear EVA + temporary EVA.
 - ATK = floor(STR/2) + floor(DEX/3) + gear ATK; DEF = floor(STR/5) + floor(AGI/3) + gear DEF.
 - MATK = floor(INT/2) + gear MATK; MDEF = floor(INT/5) + gear MDEF; maximum AP = 3 + floor(INT/5).
 - Critical damage = floor(pre-mitigation damage × 1.5), with no extra minimum damage rule. Snake eyes always misses. Card scaling and passives are specified in MECHANICS_AND_DATA.md.
 - One eligible shrine boon is granted on arrival. A new blessing replaces the old one; map favors clear upon acknowledging boss victory. No manual three-option choice is needed.
-- Village Rest costs `5 + floor(missingHp/10)` Gold, restores HP and cleanses statuses. Full HP with no ailments cannot Rest.
-- Shop/Train navigation can return to the main menu until the visit action is committed. Buying/selling commits Shop; training or Rest resolves the visit.
+- Village Rest uses selectable one-Gold ticks that heal 2 HP (the final **Full** tick heals the remainder). Rest is disabled at full HP and does not cleanse statuses.
+- Village entry pre-draws Shop and Train inventories. Shop/Train always return to the main menu without rerolls; services remain available until the player leaves.
 
 ## Four-deck conservation and ownership
 
@@ -81,8 +86,9 @@ These equations count ownership, not UI references. They apply to nonterminal or
 
 1. Adventure: draw pile + discard + board adventure cards = 30. Exclude the separately created Start Tile. At Turn 0, five adventure cards are on the board, 25 remain in the deck, and discard is empty. Starting the next mission replaces the previous map and deck.
 2. Monsters: draw pile + monsterDiscard + all non-boss cards owned by an active COMBAT encounter = 38. Count both living and defeated participants until encounter resolution; exclude separately spawned bosses. Victory showcase references point to cards already returned to discard, so do not count them twice. Leech moves an existing Zombie from discard to encounter; Creeper revives its own instance without creating a card.
-3. Player Combat: during combat, draw pile + hand + discard = playerMasterDeck length. The master deck is a definition list, not additional owned copies. Village Train can change its length. The permanent Flee action is not in any of these piles.
-4. Treasure: draw pile + treasureDiscard + current village shopStock + backpack items + equipped items = 28 minus consumed item copies. Purchases and sales transfer existing copies; unbought stock is discarded on village exit. Consuming a potion removes its physical copy from circulation. UI previews and exploration found-item references are not additional copies.
+3. Player Combat: during combat, draw pile + hand + discard + `inPlay` = playerMasterDeck length. The master deck is a definition list, not additional owned copies. Battle-long enchantments occupy `inPlay` until destroyed or combat ends; the permanent Flee action is not in any of these piles. Village Train can change master-deck length.
+4. New Skills: `newSkillsDeck` + `newSkillsDiscard` + active Village `trainOptions` + learned non-starter cards in `playerMasterDeck` equals two copies of every trainable non-starter class skill. Starter cards are created only in the initial 8/2 starter deck. Void upgrade templates, Boss cards, and unselected hero cards are explicitly excluded: the Void is a derived, inexhaustible public catalog rather than a physical deck.
+5. Treasure: draw pile + treasureDiscard + current village shopStock + backpack items + equipped items = 42 minus consumed item copies. Purchases and sales transfer existing copies; unbought stock is discarded on village exit. Consuming a potion removes its physical copy from circulation. UI previews and exploration found-item references are not additional copies.
 
 Spell/ability searches use one bounded current-deck pass and return null/fizzled on failure; they recycle only if the search starts empty. Encounter generation instead recycles during the mechanic whenever another draw needs an empty deck and eligible graveyard supply remains. Terrain rejects stay on the bottom and are examined only once per pass; a full pass with only incompatible terrain cards stops without accessing a nonempty deck's graveyard. If the budget cannot be filled, existing draws still fight; an empty encounter resolves without rewards and retains the Turn 15 boss check. This is unavailable eligible supply, not ability fizzle. Ordinary fixed-count draws recycle normally. See MECHANICS_AND_DATA.md for exact search boundaries and public graveyard/hidden deck-order rules.
 
@@ -106,4 +112,4 @@ Village stock accepts only `item.level === village.level`. Wrong-level items, bo
 
 Undiscovered terrain rewards use `item.level <= terrain.level` as a cap. A Level 2 Forest discovery accepts Level 1 or Level 2 items. If the last card is an invalid Level 3 item, discard it, reshuffle the treasure graveyard into the new deck, and continue drawing until a valid reward appears. This is a game mechanic, not a spell/attack fizzle. Starting with an empty Treasure Deck follows the same reshuffle rule.
 
-Eligible physical copies are conserved; nothing is created to fill stock. If no matching supply exists anywhere in the deck/graveyard (for example no Level 3 items are currently defined, or all matching copies are already owned), stop safely with empty/partial stock or no reward rather than loop forever. This is unavailable supply, not ability failure. A village's stock is generated only once per visit, including empty stock; returning to its menu does not reroll it. The current item catalog has only Levels 1 and 2; Level 3 shops need corresponding content.
+Eligible physical copies are conserved; nothing is created to fill stock. If no matching supply exists anywhere in the deck/graveyard (for example no Level 5 items are currently defined, or all matching copies are already owned), stop safely with empty/partial stock or no reward rather than loop forever. This is unavailable supply, not ability failure. A village's stock is generated only once per visit, including empty stock; returning to its menu does not reroll it. The current item catalog has Levels 1–4; Level 3 and 4 stock can be partial when matching physical copies are scarce.

@@ -100,11 +100,11 @@ describe('Assassin poison and piercing attacks', () => {
     expect(battle(endPlayerCombatTurn(state)).lastAttackRoll).toMatchObject({ damageDealt: 4, damageBlocked: 2, damageProtReduced: 1 });
   });
 
-  it('is cured by existing shrine cleanse and village rest', () => {
+  it('is cured by shrine cleanse; village rest only restores HP', () => {
     const state = setup();
     state.statusEffects = ['poison'];
     expect(applySingleShrineBoon(state, 'cleanse').nextState.statusEffects).toEqual([]);
     state.activeHook = { type: 'VILLAGE', village: { coord: { col: 0, row: 1 }, turn: 1, subView: 'main', actionTaken: false, trainOptions: [], shopStock: [] } };
-    expect(villageDoRest(state).statusEffects).toEqual([]);
+    expect(villageDoRest(state).statusEffects).toEqual(['poison']);
   });
 });

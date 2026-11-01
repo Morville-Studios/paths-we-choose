@@ -91,14 +91,29 @@ export function getAdventureRasterArtPath(card: AdventureCard): string {
   return '/cards/adventure/grassland.jpg';
 }
 
-export function getActionRasterArtPath(cardId: string, cardType: 'attack' | 'defense'): string {
-  if (cardId.includes('heavy_cleave')) {
+export function getActionRasterArtPath(cardId: string, cardType: 'attack' | 'defense' | 'skill' | 'enchantment'): string {
+  if (cardId.includes('whirlwind')) {
+    return '/cards/actions/whirlwind.jpg';
+  }
+  if (cardId.includes('battlecry')) {
+    return '/cards/actions/battlecry.jpg';
+  }
+  if (cardId.includes('battle_flag') || cardId.includes('battleflag')) {
+    return '/cards/actions/battleflag.jpg';
+  }
+  if (cardId.includes('adrenalin')) {
+    return '/cards/actions/adrenalin.jpg';
+  }
+  if (cardId.includes('final_smash')) {
+    return '/cards/actions/final_smash.jpg';
+  }
+  if (cardId.includes('heavy_cleave') || cardId.includes('high_strike')) {
     return '/cards/actions/heavy_cleave.jpg';
   }
-  if (cardId.includes('iron_parry')) {
+  if (cardId.includes('iron_parry') || cardId.includes('parry')) {
     return '/cards/actions/iron_parry.jpg';
   }
-  if (cardId.includes('battle_focus')) {
+  if (cardId.includes('battle_focus') || cardId.includes('fortify')) {
     return '/cards/actions/battle_focus.jpg';
   }
   if (cardId.includes('flee')) {
@@ -127,7 +142,7 @@ export function getActionRasterArtPath(cardId: string, cardType: 'attack' | 'def
 
 export function getMonsterIllustration(templateId: string): string {
   const rasterPath = getMonsterRasterArtPath(templateId);
-  return `<img src="${rasterPath}" alt="${templateId}" class="tcg-art-raster" loading="lazy" />`;
+  return `<img src="${rasterPath}" alt="${templateId}" class="tcg-art-raster" loading="eager" />`;
 }
 
 export function getAdventureCardIllustration(card: AdventureCard): string {
@@ -136,9 +151,9 @@ export function getAdventureCardIllustration(card: AdventureCard): string {
   return `<img src="${rasterPath}" alt="${alt}" class="tcg-art-raster adventure-raster" loading="lazy" />`;
 }
 
-export function getActionCardIllustration(cardId: string, cardType: 'attack' | 'defense'): string {
+export function getActionCardIllustration(cardId: string, cardType: 'attack' | 'defense' | 'skill' | 'enchantment'): string {
   const rasterPath = getActionRasterArtPath(cardId, cardType);
-  return `<img src="${rasterPath}" alt="${cardId}" class="tcg-art-raster action-raster" loading="lazy" />`;
+  return `<img src="${rasterPath}" alt="${cardId}" class="tcg-art-raster action-raster" loading="eager" />`;
 }
 
 export function getAdventurerRasterArtPath(classId?: string | null): string {
@@ -160,7 +175,7 @@ export function getAdventurerIllustration(classId?: string | null, name = 'Adven
 
 export function getItemRasterArtPath(itemId?: string): string {
   if (!itemId) return '/cards/items/wooden_sword.jpg';
-  const cleanId = itemId.replace(/^lvl\d+_/, '').replace(/_plus$/, '');
+  const cleanId = itemId.replace(/^lvl\d+_/, '').replace(/(?:_plus)+$/, '');
   switch (cleanId) {
     case 'health_potion':
       return '/cards/items/health_potion.jpg';
@@ -172,17 +187,25 @@ export function getItemRasterArtPath(itemId?: string): string {
     case 'robe':
       return '/cards/items/robe.jpg';
     case 'leather_clothes':
+    case 'leather_gear':
       return '/cards/items/leather_clothes.jpg';
     case 'chainmail':
       return '/cards/items/chainmail.jpg';
     case 'book_of_spells':
+    case 'spellbinder':
       return '/cards/items/book_of_spells.jpg';
     case 'ring_of_beasts':
+    case 'beast_ring':
+    case 'focus_ring':
       return '/cards/items/ring_of_beasts.jpg';
     case 'sandals_of_swiftness':
+    case 'hermes_gear':
       return '/cards/items/sandals_of_swiftness.jpg';
     case 'lucky_charm':
+    case 'goldstar':
       return '/cards/items/lucky_charm.jpg';
+    case 'dagger':
+      return '/cards/items/iron_sword.jpg';
     default:
       return '/cards/items/wooden_sword.jpg';
   }

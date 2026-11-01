@@ -23,9 +23,9 @@ import {
 } from '../ui/render';
 
 describe('Treasure Deck & Village Shop Draw Mechanics', () => {
-  it('buildStage1TreasureDeck creates exactly 28 cards (all 14 catalog items x 2 copies)', () => {
+  it('buildStage1TreasureDeck creates exactly 42 cards (all 21 catalog items x 2 copies)', () => {
     const { deck } = buildStage1TreasureDeck(12345);
-    expect(deck.length).toBe(28);
+    expect(deck.length).toBe(42);
 
     // Verify exactly 2 copies of each catalog item
     for (const tpl of SHOP_ITEM_CATALOG) {
@@ -36,9 +36,9 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     }
   });
 
-  it('new adventure starts with 28 treasure deck cards and 0 discard', () => {
+  it('new adventure starts with 42 treasure deck cards and 0 discard', () => {
     const s = startAdventure('fighter', 'seed-treasure-test');
-    expect(s.treasureDeck.length).toBe(28);
+    expect(s.treasureDeck.length).toBe(42);
     expect(s.treasureDiscard.length).toBe(0);
     expect(s.treasureReshuffleCount).toBe(0);
   });
@@ -70,7 +70,11 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     // Step onto village
     const inVillage = chooseCard(s, avail.coord);
     expect(inVillage.activeHook.type).toBe('VILLAGE');
-    expect(inVillage.treasureDeck.length).toBe(28);
+    if (inVillage.activeHook.type !== 'VILLAGE') return;
+    // Stock is prepared on entry, before Shop is opened.
+    expect(inVillage.activeHook.village.shopStock.length).toBe(6);
+    expect(inVillage.treasureDeck.length + inVillage.treasureDiscard.length).toBe(36);
+    const preparedStock = inVillage.activeHook.village.shopStock;
 
     // Open shop
     const inShop = villageChooseShop(inVillage);
@@ -81,9 +85,10 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     expect(village.subView).toBe('shop');
     // 5 + 1 = 6 items drawn
     expect(village.shopStock.length).toBe(6);
-    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(22);
+    expect(village.shopStock).toEqual(preparedStock);
+    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(36);
     expect(village.shopStock.every(item => (item.level ?? 1) === 1)).toBe(true);
-    expect(inShop.treasureDiscard.every(item => item.level === 2)).toBe(true);
+    expect(inShop.treasureDiscard.every(item => item.level !== 1)).toBe(true);
   });
 
   it('opening a level 2 village store draws 5 + 2 = 7 items', () => {
@@ -114,7 +119,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     if (inShop.activeHook.type !== 'VILLAGE') return;
 
     expect(inShop.activeHook.village.shopStock.length).toBe(7);
-    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(21);
+    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(35);
     expect(inShop.activeHook.village.shopStock.every(item => item.level === 2)).toBe(true);
   });
 
@@ -182,7 +187,8 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     // Remaining stock has 1 less card
     expect(afterBuy.activeHook.village.shopStock.length).toBe(initialStockLen - 1);
     expect(afterBuy.activeHook.village.shopStock.find((i) => i.instanceId === targetItem.instanceId)).toBeUndefined();
-    expect(afterBuy.activeHook.village.actionTaken).toBe(true);
+    const backToMenu = villageGoBack(afterBuy);
+    expect(backToMenu.activeHook.type === 'VILLAGE' && backToMenu.activeHook.village.subView).toBe('main');
     expect(afterBuy.playerResources!.gold).toBeLessThan(initialGold);
 
     // Item is held by player
@@ -269,8 +275,8 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     const s = startAdventure('fighter', 'seed-pile-render');
     const deckModalHtml = pileModal('treasure_deck', s);
     expect(deckModalHtml).toContain('Treasure Deck');
-    expect(deckModalHtml).toContain('28 cards total');
-    expect(deckModalHtml).toContain('<b>14</b> unique card types');
+    expect(deckModalHtml).toContain('42 cards total');
+    expect(deckModalHtml).toContain('<b>21</b> unique card types');
     expect(deckModalHtml).toContain('&times;2'); // 2 copies of each card
 
     const discardModalHtml = pileModal('treasure_discard', s);
@@ -287,7 +293,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
       targetIndex: 0,
     };
     const html = renderPlayArea(s, ui);
-    expect(html).toContain('Treasure 28 / 0 discard');
+    expect(html).toContain('Treasure 42 / 0 discard');
   });
 
   it('renders full-art physical TCG item card according to layout specifications', () => {

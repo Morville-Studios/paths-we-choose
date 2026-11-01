@@ -14,6 +14,7 @@ import {
   buildStage1MonsterDeck,
   buildStage1TreasureDeck,
   buildStarterCombatDeck,
+  buildNewSkillsDeck,
   drawAdventureCardWithReshuffle,
   drawEncounterMonsters,
   drawTreasureUntilLevel,
@@ -37,8 +38,8 @@ import {
 import {
   buyItem as buyItemCore,
   calculateRestCost,
-  createVillageState,
   equipItem,
+  prepareVillage,
   sellItem as sellItemCore,
   unequipItem,
   useConsumable,
@@ -52,6 +53,7 @@ import {
 import {
   clearMapBlessings,
   grantShrineBoonOnEnter,
+  upgradeShrineSkill,
   shrineChoosePrayerOption,
   shrinePray,
 } from './shrine';
@@ -89,6 +91,9 @@ export function createInitialState(seed = 'default'): RunState {
     equippedGear: { weapon: null, armor: null, accessory: null },
     backpack: [],
     playerMasterDeck: [],
+    newSkillsDeck: [],
+    newSkillsDiscard: [],
+    newSkillsReshuffleCount: 0,
     playerPosition: { col: 0, row: 0 },
     adventureDeck: [],
     adventureDiscard: [],
@@ -97,6 +102,7 @@ export function createInitialState(seed = 'default'): RunState {
     treasureDeck: [],
     treasureDiscard: [],
     treasureReshuffleCount: 0,
+    trainRemovalCount: 0,
     board: {},
     pathHistory: [],
     activeHook: { type: 'NONE' },
@@ -136,6 +142,8 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
   rng = mon.nextState;
   const tr = buildStage1TreasureDeck(rng);
   rng = tr.nextState;
+  const skills = buildNewSkillsDeck(classId, rng);
+  rng = skills.nextState;
 
   let deck = adv.deck;
   let discard: AdventureCard[] = [];
@@ -177,6 +185,9 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     missionName: STAGE_1_MISSION_NAME,
     playerResources: { hp: maxHp, maxHp, statPoints: 4, gold: 20 },
     playerMasterDeck: buildStarterCombatDeck(classId),
+    newSkillsDeck: skills.deck,
+    newSkillsDiscard: [],
+    newSkillsReshuffleCount: 0,
     adventureDeck: deck,
     adventureDiscard: discard,
     reshuffleCount: reshuffles,
@@ -217,6 +228,19 @@ export function isUndiscoveredTerrain(card: AdventureCard): boolean {
     card.cardNumber === 'advsmp-00' ||
     (!card.hasHostile && !card.hasVillage && !card.hasShrine && card.terrain !== 'start')
   );
+}
+
+/** Resolve an undiscovered-terrain roll after the +1-per-5-LUK exploration bonus. */
+export function resolveUndiscoveredExploration(roll: number, terrainLevel: number, effectiveLuk: number): {
+  luckBonus: number;
+  effectiveRoll: number;
+  outcome: 'combat' | 'treasure' | 'safe';
+} {
+  const luckBonus = Math.max(0, Math.floor(effectiveLuk / 5));
+  const effectiveRoll = roll + luckBonus;
+  // Treasure takes precedence, including on a Level 6 terrain.
+  const outcome = effectiveRoll >= 6 ? 'treasure' : effectiveRoll <= terrainLevel ? 'combat' : 'safe';
+  return { luckBonus, effectiveRoll, outcome };
 }
 
 export function chooseCard(state: RunState, coord: GridCoord): RunState {
@@ -289,16 +313,19 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
   if (card.hasHostile) {
     next = startMonsterCombat(next, card.level, card.terrain);
   } else if (card.hasVillage) {
-    next = {
+    next = prepareVillage({
       ...next,
-      activeHook: { type: 'VILLAGE', village: createVillageState(chosen.coord, turn) },
-      bannerMessage: 'You arrive at a village. Choose 1 action.',
-    };
+      bannerMessage: `You arrive at ${card.name ?? 'a village'}. Services are available while you visit.`,
+    }, chosen.coord, turn);
   } else if (card.hasShrine) {
     next = grantShrineBoonOnEnter(next, chosen.coord, turn);
   } else if (isUndiscoveredTerrain(card)) {
     const { roll, nextState: rRng } = roll1D6(rng);
-    if (roll <= card.level) {
+    const exploration = resolveUndiscoveredExploration(roll, card.level, getEffectiveStatsFromState(next).luk);
+    const rollLabel = exploration.luckBonus > 0
+      ? `${roll} + ${exploration.luckBonus} LUK = ${exploration.effectiveRoll}`
+      : `${roll}`;
+    if (exploration.outcome === 'combat') {
       next = {
         ...next,
         rngState: rRng,
@@ -308,12 +335,14 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
             coord: chosen.coord,
             card,
             roll,
+            luckBonus: exploration.luckBonus,
+            effectiveRoll: exploration.effectiveRoll,
             outcome: 'combat',
           },
         },
-        bannerMessage: `Explored ${card.name}: Rolled ${roll} (≤ Lvl ${card.level}) — Enemy encountered!`,
+        bannerMessage: `Explored ${card.name}: Rolled ${rollLabel} (≤ Lvl ${card.level}) — Enemy encountered!`,
       };
-    } else if (roll === 6) {
+    } else if (exploration.outcome === 'treasure') {
       const trRes = drawTreasureUntilLevel(
         next.treasureDeck,
         next.treasureDiscard,
@@ -336,13 +365,15 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
             coord: chosen.coord,
             card,
             roll,
+            luckBonus: exploration.luckBonus,
+            effectiveRoll: exploration.effectiveRoll,
             outcome: 'treasure',
             foundItem,
             discardedOverLevelCount: trRes.discardedOverLevel.length,
           },
         },
         bannerMessage: foundItem
-          ? `Explored ${card.name}: Rolled 6! Found treasure: ${foundItem.name}!`
+          ? `Explored ${card.name}: Rolled ${rollLabel}! Found treasure: ${foundItem.name}!`
           : `Explored ${card.name}: No eligible treasure remains in the deck or graveyard.`,
       };
     } else {
@@ -355,10 +386,12 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
             coord: chosen.coord,
             card,
             roll,
+            luckBonus: exploration.luckBonus,
+            effectiveRoll: exploration.effectiveRoll,
             outcome: 'safe',
           },
         },
-        bannerMessage: `Explored ${card.name}: Rolled ${roll}. The wilderness path is peaceful.`,
+        bannerMessage: `Explored ${card.name}: Rolled ${rollLabel}. The wilderness path is peaceful.`,
       };
     }
   } else {
@@ -449,7 +482,7 @@ function handleCombatVictory(
   };
 
   const luckyText = victoryDetails.hasLuckyCharm
-    ? ` (incl. +${victoryDetails.luckyCharmGold} Gold from Lucky Charm)`
+    ? ` (incl. +${victoryDetails.luckyCharmGold} Gold from Goldstar)`
     : '';
 
   return syncAudioState({
@@ -533,6 +566,7 @@ export function startNextMission(state: RunState): RunState {
     turn: 0,
     maxTurns,
     board,
+    playerPosition: startCoord,
     pathHistory: [startCoord],
     adventureDeck: deck,
     adventureDiscard: discard,
@@ -550,8 +584,8 @@ export function startNextMission(state: RunState): RunState {
 // ---------------------------------------------------------------------------
 
 /** targetIndex picks which monster in the battle area an attack hits (falls back to the first living one). */
-export function playCard(state: RunState, instanceId: string, targetIndex = 0): RunState {
-  return playCombatCardFromHand(state, instanceId, targetIndex, handleCombatVictory);
+export function playCard(state: RunState, instanceId: string, targetIndex = 0, discardedCardInstanceIds: string[] = []): RunState {
+  return playCombatCardFromHand(state, instanceId, targetIndex, handleCombatVictory, discardedCardInstanceIds);
 }
 
 export function endTurn(state: RunState): RunState {
@@ -571,6 +605,10 @@ export { getFleeThreshold };
 export function shrineUpgradeStat(state: RunState, stat: StatKey): RunState {
   if (state.activeHook.type !== 'SHRINE' && !state.welcomePreparing) return state;
   return upgradeBaseStat(state, stat);
+}
+
+export function shrineUpgradeSkill(state: RunState, sourceInstanceId: string): RunState {
+  return upgradeShrineSkill(state, sourceInstanceId);
 }
 
 export function welcomeUpgradeStat(state: RunState, stat: StatKey): RunState {
@@ -596,29 +634,23 @@ export function shrineDoChoosePrayer(state: RunState, optionId: ShrinePrayerOpti
 }
 
 // ---------------------------------------------------------------------------
-// Village wrappers (Rest and Train picks end the visit; Shop stays open until you leave)
+// Village wrappers (all services are repeatable until the player leaves)
 // ---------------------------------------------------------------------------
 
 export function finishVillage(state: RunState): RunState {
   if (state.activeHook.type !== 'VILLAGE') return state;
   const village = state.activeHook.village;
-  let next = state;
-  if (village.shopStock && village.shopStock.length > 0) {
-    next = {
-      ...next,
-      treasureDiscard: [...next.treasureDiscard, ...village.shopStock],
-      activeHook: {
-        type: 'VILLAGE',
-        village: { ...village, shopStock: [] },
-      },
-    };
-  }
+  const next: RunState = {
+    ...state,
+    treasureDiscard: [...state.treasureDiscard, ...village.shopStock],
+    newSkillsDiscard: [...state.newSkillsDiscard, ...village.trainOptions],
+    activeHook: { type: 'VILLAGE', village: { ...village, shopStock: [], trainOptions: [] } },
+  };
   return afterTileResolved(next);
 }
 
-export function villageDoRest(state: RunState): RunState {
-  const rested = villageRest(state);
-  return rested === state ? state : finishVillage(rested);
+export function villageDoRest(state: RunState, restTicks?: number): RunState {
+  return villageRest(state, restTicks);
 }
 
 export const villageChooseShop = villageOpenShop;
@@ -629,13 +661,11 @@ export const sellItem = sellItemCore;
 export { equipItem, unequipItem, useConsumable };
 
 export function villageDoTrainRemove(state: RunState, instanceId: string): RunState {
-  const next = villageTrainRemove(state, instanceId);
-  return next === state ? state : finishVillage(next);
+  return villageTrainRemove(state, instanceId);
 }
 
 export function villageDoTrainDraft(state: RunState, offerInstanceId: string): RunState {
-  const next = villageTrainDraft(state, offerInstanceId);
-  return next === state ? state : finishVillage(next);
+  return villageTrainDraft(state, offerInstanceId);
 }
 
 export { toGridKey, determineActiveAudio, syncAudioState };
