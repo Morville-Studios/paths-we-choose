@@ -33,7 +33,7 @@ export const PRAYER_OPTION_CATALOG: Record<ShrinePrayerOptionId, ShrinePrayerOpt
   blessing_str: {
     id: 'blessing_str',
     name: 'Blessing of Strength',
-    description: '+1 STR bonus for this map (+2 Max HP and scales Melee & Shield actions).',
+    description: '+1 STR bonus for this map (boosts melee attack and physical defense scaling).',
   },
   blessing_dex: {
     id: 'blessing_dex',
@@ -55,10 +55,10 @@ export const PRAYER_OPTION_CATALOG: Record<ShrinePrayerOptionId, ShrinePrayerOpt
     name: 'Blessing of Charisma',
     description: '+1 CHA bonus for this map (reduces shop prices by an additional 5%).',
   },
-  blessing_luk: {
-    id: 'blessing_luk',
-    name: 'Blessing of Luck',
-    description: '+1 LUK bonus for this map (increases battle Gold rewards and fortune).',
+  blessing_vit: {
+    id: 'blessing_vit',
+    name: 'Blessing of Vitality',
+    description: '+1 VIT bonus for this map (+2 Max HP and physical defense scaling).',
   },
   divine_protection: {
     id: 'divine_protection',
@@ -177,7 +177,7 @@ export function getEligiblePrayerOptions(state: RunState): ShrinePrayerOption[] 
     PRAYER_OPTION_CATALOG.blessing_agi,
     PRAYER_OPTION_CATALOG.blessing_int,
     PRAYER_OPTION_CATALOG.blessing_cha,
-    PRAYER_OPTION_CATALOG.blessing_luk
+    PRAYER_OPTION_CATALOG.blessing_vit
   );
 
   // 3. Divine Protection (condition: none)
@@ -248,7 +248,7 @@ export function applySingleShrineBoon(
   // 1. Eliminate any previously active shrine blessing
   let nextState: RunState = {
     ...state,
-    playerBlessingBonuses: { str: 0, dex: 0, agi: 0, int: 0, cha: 0, luk: 0 },
+    playerBlessingBonuses: { str: 0, dex: 0, agi: 0, int: 0, cha: 0, vit: 0 },
     divineProtection: 0,
     activeBlessingId: boonId,
   };
@@ -268,7 +268,7 @@ export function applySingleShrineBoon(
     case 'blessing_agi':
     case 'blessing_int':
     case 'blessing_cha':
-    case 'blessing_luk': {
+    case 'blessing_vit': {
       const stat = boonId.replace('blessing_', '') as StatKey;
       nextState = {
         ...nextState,
@@ -377,12 +377,12 @@ export function shrineChoosePrayerOption(
 
 /**
  * Clears temporary divine blessings (stat bonuses and divine protection) that do not carry over to the next map.
- * Recomputes player vitals so temporary Max HP from STR blessings is cleanly reclamped.
+ * Recomputes player vitals so temporary Max HP from VIT blessings is cleanly reclamped.
  */
 export function clearMapBlessings(state: RunState): RunState {
   const next: RunState = {
     ...state,
-    playerBlessingBonuses: { str: 0, dex: 0, agi: 0, int: 0, cha: 0, luk: 0 },
+    playerBlessingBonuses: { str: 0, dex: 0, agi: 0, int: 0, cha: 0, vit: 0 },
     divineProtection: 0,
     activeBlessingId: null,
   };

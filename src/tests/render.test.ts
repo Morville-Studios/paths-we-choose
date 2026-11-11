@@ -49,6 +49,53 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('hud-guide-btn');
     expect(html).toContain('Battles in one minute');
     expect(html).toContain('Undiscovered Lands');
+    expect(welcomeGuide).toContain('Player Combat Deck');
+    expect(welcomeGuide).toContain('Player Combat Discard Pile');
+    expect(welcomeGuide).toContain('one single card at a time');
+    expect(welcomeGuide).toContain('refreshes');
+  });
+
+  it('features a comprehensive Player Class Guide and Understanding Stats section in the How to Play guide', () => {
+    const welcomeGuide = renderWelcome(true);
+    // Stats section
+    expect(welcomeGuide).toContain('Understanding Stats & Attributes');
+    expect(welcomeGuide).toContain('Strength (STR)');
+    expect(welcomeGuide).toContain('Agility (AGI)');
+    expect(welcomeGuide).toContain('Dexterity (DEX)');
+    expect(welcomeGuide).toContain('Intelligence (INT)');
+    expect(welcomeGuide).toContain('Charisma (CHA)');
+    expect(welcomeGuide).toContain('Vitality (VIT)');
+    expect(welcomeGuide).not.toContain('Luck (LUK)');
+    expect(welcomeGuide).toContain('physical resistance to getting hurt');
+
+    // Player Class Guide
+    expect(welcomeGuide).toContain('Player Class Guide');
+    expect(welcomeGuide).toContain('Fighter');
+    expect(welcomeGuide).toContain('[Berzerk]');
+    expect(welcomeGuide).toContain('Wizard');
+    expect(welcomeGuide).toContain('[Conserve]');
+    expect(welcomeGuide).toContain('Rogue');
+    expect(welcomeGuide).toContain('[Steal]');
+  });
+
+  it('renders an AD&D-inspired rulebook with interactive page turning across 5 chapters', () => {
+    const page1Html = renderWelcome(true, 1);
+    expect(page1Html).toContain('guide-book-tome');
+    expect(page1Html).toContain('guide-parchment-spread');
+    expect(page1Html).toContain('guide-ribbon-bar');
+    expect(page1Html).toContain('guide-page-medallion');
+    expect(page1Html).toContain('PAGE 1 OF 5');
+    expect(page1Html).toContain('guide-book-page is-active" data-page="1"');
+    expect(page1Html).toContain('data-action="guide-jump-page" data-page="1"');
+    expect(page1Html).toContain('data-action="guide-jump-page" data-page="5"');
+
+    const page3Html = renderWelcome(true, 3);
+    expect(page3Html).toContain('PAGE 3 OF 5');
+    expect(page3Html).toContain('guide-book-page is-active" data-page="3"');
+
+    const page5Html = renderWelcome(true, 5);
+    expect(page5Html).toContain('PAGE 5 OF 5');
+    expect(page5Html).toContain('guide-book-page is-active" data-page="5"');
   });
 
   it('renders shop layout with sidebar and main content', () => {
@@ -82,7 +129,10 @@ describe('Render Play Area and Shop Layout', () => {
     expect(bodyHtml).toContain('shop-layout');
     expect(bodyHtml).toContain('shop-sidebar');
     expect(bodyHtml).toContain('shop-main');
-    expect(bodyHtml).toContain('Your equipment');
+    expect(bodyHtml).toContain('Character & Gear');
+    expect(bodyHtml).not.toContain('Done shopping');
+    expect(bodyHtml).not.toContain('Current stats');
+    expect(bodyHtml.match(/class="player-info-widget"/g)).toHaveLength(2); // Map + Shop reuse the same component.
     expect(bodyHtml).toContain('Backpack');
 
     // Card art is rendered in the shop options
@@ -971,11 +1021,11 @@ describe('Render Play Area and Shop Layout', () => {
   it('renders Class Select screen with Primary/Secondary badges, passives, stat icons, and 6 stats including CHA', () => {
     const html = renderClassSelect({ selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0 });
     expect(html).toContain('PRIMARY: STR (+2)');
-    expect(html).toContain('SECONDARY: DEX, AGI (+1)');
+    expect(html).toContain('SECONDARY: VIT, DEX (+1)');
     expect(html).toContain('[Berzerk]');
     expect(html).toContain('stat-select-icon');
     expect(html).toContain('CHA');
-    expect(html).toContain('16 Max HP'); // Fighter
+    expect(html).toContain('14 Max HP'); // Fighter
     expect(html).toContain('/cards/adventurers/fighter.jpg');
     expect(html).toContain('/cards/adventurers/wizard.jpg');
     expect(html).toContain('/cards/adventurers/rogue.jpg');
@@ -992,7 +1042,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(htmlRog).toContain('PRIMARY: AGI (+2)');
     expect(htmlRog).toContain('SECONDARY: DEX, STR (+1)');
     expect(htmlRog).toContain('[Steal]');
-    expect(htmlRog).toContain('14 Max HP');
+    expect(htmlRog).toContain('12 Max HP');
   });
 
   it('renders interactive 3-card class selection carousel with instructions and sidebar embark button', () => {
@@ -1345,7 +1395,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Strength (STR) Attribute Profile');
     expect(html).toContain('Effective Stat Value Breakdown');
     expect(html).toContain('Effective STR = Base (1) + Class Bonus (+2)');
-    expect(html).toContain('Max Health (Max HP):');
+    expect(html).toContain('Martial Scaling:');
     expect(html).toContain('Physical Attack (ATK):');
     expect(html).toContain('Physical Defense (DEF):');
     expect(html).toContain('(currentBase + 1)&sup2;');
@@ -1676,7 +1726,7 @@ describe('Render Play Area and Shop Layout', () => {
 
     // 2. Player passive (Steal)
     const stealEntry = parseCombatLogEntry(
-      '[10:25:35] 💰 [Steal] Rolled a pair [3, 3]! Snatched +1 Gold (Total: 21 Gold).'
+      '[10:25:35] 💰 [Steal] Rolled a pair [3, 3]! Snatched +3 Gold (Total: 23 Gold).'
     );
     expect(stealEntry.timestamp).toBe('10:25:35');
     expect(stealEntry.actorType).toBe('hero');
@@ -2303,7 +2353,6 @@ describe('Render Play Area and Shop Layout', () => {
         statPointsEarned: 1,
         goldEarned: 5,
         baseGold: 2,
-        luckBonusGold: 1,
         luckyCharmGold: 2,
         isBoss: false,
         stageNumber: 1,
@@ -2328,7 +2377,6 @@ describe('Render Play Area and Shop Layout', () => {
         statPointsEarned: 10,
         goldEarned: 25,
         baseGold: 25,
-        luckBonusGold: 0,
         luckyCharmGold: 0,
         isBoss: true,
         bossTitle: 'Goblin Chieftain',

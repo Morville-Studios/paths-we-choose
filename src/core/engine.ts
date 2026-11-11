@@ -86,8 +86,8 @@ export function createInitialState(seed = 'default'): RunState {
     reshuffleCount: 0,
     playerClass: null,
     playerBaseStats: { ...STARTING_BASE_STATS },
-    playerClassBonuses: { str: 0, dex: 0, agi: 0, int: 0, cha: 0, luk: 0 },
-    playerBlessingBonuses: { str: 0, dex: 0, agi: 0, int: 0, cha: 0, luk: 0 },
+    playerClassBonuses: { str: 0, dex: 0, agi: 0, int: 0, cha: 0, vit: 0 },
+    playerBlessingBonuses: { str: 0, dex: 0, agi: 0, int: 0, cha: 0, vit: 0 },
     activeBlessingId: null,
     divineProtection: 0,
     statusEffects: [],
@@ -177,7 +177,7 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
 
   const gear = { weapon: null, armor: null, accessory: null };
   const effective = computeEffectiveStats(STARTING_BASE_STATS, classDef.classBonuses, gear);
-  const maxHp = calculateMaxHp(effective.str);
+  const maxHp = calculateMaxHp(effective.vit);
 
   return syncAudioState({
     ...createInitialState(seed),
@@ -238,17 +238,15 @@ export function isUndiscoveredTerrain(card: AdventureCard): boolean {
   );
 }
 
-/** Resolve an undiscovered-terrain roll after the +1-per-5-LUK exploration bonus. */
-export function resolveUndiscoveredExploration(roll: number, terrainLevel: number, effectiveLuk: number): {
-  luckBonus: number;
+/** Resolve a pure 1d6 undiscovered-terrain exploration roll. */
+export function resolveUndiscoveredExploration(roll: number, terrainLevel: number): {
   effectiveRoll: number;
   outcome: 'combat' | 'treasure' | 'safe';
 } {
-  const luckBonus = Math.max(0, Math.floor(effectiveLuk / 5));
-  const effectiveRoll = roll + luckBonus;
+  const effectiveRoll = roll;
   // Treasure takes precedence, including on a Level 6 terrain.
   const outcome = effectiveRoll >= 6 ? 'treasure' : effectiveRoll <= terrainLevel ? 'combat' : 'safe';
-  return { luckBonus, effectiveRoll, outcome };
+  return { effectiveRoll, outcome };
 }
 
 export function chooseCard(state: RunState, coord: GridCoord): RunState {
@@ -329,10 +327,8 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
     next = grantShrineBoonOnEnter(next, chosen.coord, turn);
   } else if (isUndiscoveredTerrain(card)) {
     const { roll, nextState: rRng } = roll1D6(rng);
-    const exploration = resolveUndiscoveredExploration(roll, card.level, getEffectiveStatsFromState(next).luk);
-    const rollLabel = exploration.luckBonus > 0
-      ? `${roll} + ${exploration.luckBonus} LUK = ${exploration.effectiveRoll}`
-      : `${roll}`;
+    const exploration = resolveUndiscoveredExploration(roll, card.level);
+    const rollLabel = `${roll}`;
     if (exploration.outcome === 'combat') {
       next = {
         ...next,
@@ -343,7 +339,6 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
             coord: chosen.coord,
             card,
             roll,
-            luckBonus: exploration.luckBonus,
             effectiveRoll: exploration.effectiveRoll,
             outcome: 'combat',
           },
@@ -373,7 +368,6 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
             coord: chosen.coord,
             card,
             roll,
-            luckBonus: exploration.luckBonus,
             effectiveRoll: exploration.effectiveRoll,
             outcome: 'treasure',
             foundItem,
@@ -394,7 +388,6 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
             coord: chosen.coord,
             card,
             roll,
-            luckBonus: exploration.luckBonus,
             effectiveRoll: exploration.effectiveRoll,
             outcome: 'safe',
           },
@@ -487,7 +480,6 @@ function handleCombatVictory(
     statPointsEarned: number;
     goldEarned: number;
     baseGold: number;
-    luckBonusGold: number;
     luckyCharmGold: number;
     hasLuckyCharm?: boolean;
   }
@@ -501,7 +493,6 @@ function handleCombatVictory(
     statPointsEarned: victoryDetails.statPointsEarned,
     goldEarned: victoryDetails.goldEarned,
     baseGold: victoryDetails.baseGold,
-    luckBonusGold: victoryDetails.luckBonusGold,
     luckyCharmGold: victoryDetails.luckyCharmGold,
     isBoss: Boolean(boss),
     bossTitle,
@@ -586,7 +577,7 @@ export function startNextMission(state: RunState): RunState {
   }
 
   const eff = getEffectiveStatsFromState(state);
-  const maxHp = calculateMaxHp(eff.str);
+  const maxHp = calculateMaxHp(eff.vit);
   const cleaned = clearMapBlessings(state);
 
   return syncAudioState({

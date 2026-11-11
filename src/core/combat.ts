@@ -350,7 +350,6 @@ export function playCombatCardFromHand(
       statPointsEarned: number;
       goldEarned: number;
       baseGold: number;
-      luckBonusGold: number;
       luckyCharmGold: number;
       hasLuckyCharm?: boolean;
     }
@@ -432,11 +431,12 @@ export function playCombatCardFromHand(
       const attackRoll = evaluateAttackRoll(nextRng, playerAcc, monsterEva, playerCritThreshold);
       nextRng = attackRoll.nextState;
 
-      // Rogue: [Steal] passive triggers on ANY pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6)
+      // Rogue: [Steal] passive triggers on ANY pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6), including Snake Eyes, gaining Gold equal to the doubled die face
       if (state.playerClass === 'rogue' && attackRoll.die1 === attackRoll.die2) {
-        nextGold += 1;
+        const stolenGold = attackRoll.die1;
+        nextGold += stolenGold;
         logEntries.push(
-          `[${createTimestamp(state.logTimestamp)}] 💰 [Steal] Rolled a pair [${attackRoll.die1}, ${attackRoll.die2}]! Snatched +1 Gold (Total: ${nextGold} Gold).`
+          `[${createTimestamp(state.logTimestamp)}] 💰 [Steal] Rolled a pair [${attackRoll.die1}, ${attackRoll.die2}]! Snatched +${stolenGold} Gold (Total: ${nextGold} Gold).`
         );
       }
 
@@ -630,8 +630,7 @@ export function playCombatCardFromHand(
       nextRng = luckyRoll.nextState;
       luckyCharmGold = Math.max(0, luckyRoll.roll - 1);
     }
-    const luckBonusGold = Math.floor(effectiveStats.luk / 2);
-    const totalGold = baseGold + luckBonusGold + luckyCharmGold;
+    const totalGold = baseGold + luckyCharmGold;
     const luckyText = hasLuckyCharm ? ` (incl. +${luckyCharmGold} Gold from Goldstar)` : '';
 
     const stateAfterRewards: RunState = {
@@ -653,7 +652,6 @@ export function playCombatCardFromHand(
       statPointsEarned: totalSp,
       goldEarned: totalGold,
       baseGold,
-      luckBonusGold,
       luckyCharmGold,
       hasLuckyCharm,
     };

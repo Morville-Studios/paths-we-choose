@@ -20,7 +20,7 @@ export function getActiveShrineBaseStatCap(state: RunState): number | null {
 }
 
 export function computeGearBonuses(equippedGear: EquippedGear): CharacterStats {
-  const bonus: CharacterStats = { str: 0, dex: 0, agi: 0, int: 0, cha: 0, luk: 0 };
+  const bonus: CharacterStats = { str: 0, dex: 0, agi: 0, int: 0, cha: 0, vit: 0 };
   const slots: Array<keyof EquippedGear> = ['weapon', 'armor', 'accessory'];
   for (const slot of slots) {
     const item = equippedGear[slot];
@@ -30,7 +30,7 @@ export function computeGearBonuses(equippedGear: EquippedGear): CharacterStats {
       bonus.agi += item.statBonus.agi ?? 0;
       bonus.int += item.statBonus.int ?? 0;
       bonus.cha += item.statBonus.cha ?? 0;
-      bonus.luk += item.statBonus.luk ?? 0;
+      bonus.vit += item.statBonus.vit ?? 0;
     }
   }
   return bonus;
@@ -61,14 +61,14 @@ export function computeEffectiveStats(
   blessingBonuses?: CharacterStats
 ): CharacterStats {
   const gear = computeGearBonuses(equippedGear);
-  const blessings = blessingBonuses ?? { str: 0, dex: 0, agi: 0, int: 0, cha: 0, luk: 0 };
+  const blessings = blessingBonuses ?? { str: 0, dex: 0, agi: 0, int: 0, cha: 0, vit: 0 };
   return {
     str: baseStats.str + classBonuses.str + blessings.str + gear.str,
     dex: baseStats.dex + classBonuses.dex + blessings.dex + gear.dex,
     agi: baseStats.agi + classBonuses.agi + blessings.agi + gear.agi,
     int: baseStats.int + classBonuses.int + blessings.int + gear.int,
     cha: baseStats.cha + classBonuses.cha + blessings.cha + gear.cha,
-    luk: baseStats.luk + classBonuses.luk + blessings.luk + gear.luk,
+    vit: baseStats.vit + classBonuses.vit + blessings.vit + gear.vit,
   };
 }
 
@@ -97,9 +97,9 @@ export function getPlayerAtk(stats: CharacterStats, gearAtk = 0): number {
   return Math.floor(stats.str / 2) + Math.floor(stats.dex / 3) + gearAtk;
 }
 
-/** Physical DEF: floor(STR / 5) + floor(AGI / 3) + gear.def */
+/** Physical DEF: floor(STR / 5) + floor(VIT / 5) + floor(AGI / 3) + gear.def */
 export function getPlayerDef(stats: CharacterStats, gearDef = 0): number {
-  return Math.floor(stats.str / 5) + Math.floor(stats.agi / 3) + gearDef;
+  return Math.floor(stats.str / 5) + Math.floor(stats.vit / 5) + Math.floor(stats.agi / 3) + gearDef;
 }
 
 /** Magical ATK: floor(INT / 2) + gear.matk (increases by 1 for every 2 INT) */
@@ -117,9 +117,9 @@ export function getPlayerAct(stats: CharacterStats): number {
   return 3 + Math.floor(stats.int / 5);
 }
 
-/** Critical Hit Threshold: default 12 (Boxcars), improved by 1 for every 10 LUK */
-export function getPlayerCritThreshold(stats: CharacterStats): number {
-  return Math.max(2, 12 - Math.floor(stats.luk / 10));
+/** Critical Hit Threshold: fixed at 12 (Boxcars 6+6) */
+export function getPlayerCritThreshold(_stats?: CharacterStats): number {
+  return 12;
 }
 
 /** Fighter [Berzerk] Passive: +1 ATK when HP <= 50% max HP; +2 ATK instead when HP <= 25% max HP */
@@ -165,17 +165,17 @@ export function getEffectiveStatsFromState(state: RunState): CharacterStats {
   );
 }
 
-export function calculateMaxHp(effectiveStr: number): number {
-  return 10 + effectiveStr * 2;
+export function calculateMaxHp(effectiveVit: number): number {
+  return 10 + effectiveVit * 2;
 }
 
 /**
- * Recomputes maxHp from Effective STR after any stat/blessing/gear change.
+ * Recomputes maxHp from Effective VIT after any stat/blessing/gear change.
  * Gaining max HP also grants the same amount of current HP; losing max HP clamps current HP.
  */
 export function syncVitals(prev: RunState, next: RunState): RunState {
   if (!next.playerResources || !prev.playerResources) return next;
-  const newMax = calculateMaxHp(getEffectiveStatsFromState(next).str);
+  const newMax = calculateMaxHp(getEffectiveStatsFromState(next).vit);
   const delta = newMax - prev.playerResources.maxHp;
   const hp = Math.min(newMax, prev.playerResources.hp + Math.max(0, delta));
   return {
@@ -220,8 +220,8 @@ export function previewGearChange(
     replaced: state.equippedGear[slot],
     before,
     after,
-    maxHpBefore: calculateMaxHp(before.str),
-    maxHpAfter: calculateMaxHp(after.str),
+    maxHpBefore: calculateMaxHp(before.vit),
+    maxHpAfter: calculateMaxHp(after.vit),
     combatBefore: getDerivedCombatStats(before, state.equippedGear),
     combatAfter: getDerivedCombatStats(after, nextGear),
   };
@@ -271,9 +271,9 @@ export function upgradeBaseStat(state: RunState, stat: StatKey): RunState {
     state.playerBlessingBonuses
   );
 
-  const strDelta = nextEffective.str - prevEffective.str;
-  const nextMaxHp = calculateMaxHp(nextEffective.str);
-  const nextHp = Math.min(nextMaxHp, state.playerResources.hp + Math.max(0, strDelta * 2));
+  const vitDelta = nextEffective.vit - prevEffective.vit;
+  const nextMaxHp = calculateMaxHp(nextEffective.vit);
+  const nextHp = Math.min(nextMaxHp, state.playerResources.hp + Math.max(0, vitDelta * 2));
 
   return {
     ...state,
@@ -290,9 +290,9 @@ export function upgradeBaseStat(state: RunState, stat: StatKey): RunState {
 
 /**
  * Calculates the escape roll threshold for fleeing battle:
- * floor((total AGI + total LUK) / 2).
+ * floor(total AGI / 2) (minimum 1).
  * Rolling <= this value on a 1d6 successfully escapes battle.
  */
 export function getFleeThreshold(effectiveStats: CharacterStats): number {
-  return Math.max(1, Math.floor((effectiveStats.agi + effectiveStats.luk) / 2));
+  return Math.max(1, Math.floor(effectiveStats.agi / 2));
 }

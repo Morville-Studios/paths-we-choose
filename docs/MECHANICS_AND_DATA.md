@@ -11,7 +11,7 @@ Ordinary creatures have a finite **76-card physical supply**. Scenario setup pul
 ### 1.1 No Character Levels — Stats Define Evolution
 There is **no character level or XP bar**. Instead, a hero evolves directly by investing **Stat Points (`statPoints`)** into their **Base Stats** at **Shrines** and equipping gear in their **3 RPG Equipment Slots**.
 
-Every attribute (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `LUK`) is composed of four layers:
+Every attribute (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) is composed of four layers:
 $$\text{Effective Stat} = \text{Base Stat} + \text{Class Stat Bonus} + \text{Blessing Bonus} + \text{Equipped Gear Bonus}$$
 
 ### 1.2 Starting Base Stats, Class Stat Bonuses & Hero Artwork
@@ -21,7 +21,7 @@ $$\text{Effective Stat} = \text{Base Stat} + \text{Class Stat Bonus} + \text{Ble
   - `rogue.jpg`: Dual-dagger shadow blade in a vaulted stone cellar.
   - **Screen Integration**: Featured in the Class Selection 3-card carousel, the Character & Gear sidebar portrait, and the Combat Confirmation Target (Self) card.
 - **Starting Base Stats (All Classes)**:
-  $$\text{Base STR} = 1, \quad \text{Base DEX} = 1, \quad \text{Base AGI} = 1, \quad \text{Base INT} = 1, \quad \text{Base CHA} = 1, \quad \text{Base LUK} = 1$$
+  $$\text{Base STR} = 1, \quad \text{Base DEX} = 1, \quad \text{Base AGI} = 1, \quad \text{Base INT} = 1, \quad \text{Base CHA} = 1, \quad \text{Base VIT} = 1$$
 - **Primary & Secondary Archetypes**:
   - Each class features **1 Primary Stat** (`+2` bonus) and **2 Secondary Stats** (`+1` bonus each). All remaining stats receive `+0`.
 - **Class Stat Bonuses & Effective Starting Stats**:
@@ -41,7 +41,7 @@ $$\text{Final Price} = \max\Big(1, \text{round}\big(\text{Base Price} \times (1 
 ### 1.4 Starting 4 Stat Points & Welcome Preparation Dialog
 - Players start every adventure with **4 Stat Points (`statPoints: 4`)**.
 - On game start (Turn 0), players are greeted with a preparation modal dialog welcoming the adventurer and providing the exact same Stat Point converter widget used in Shrines.
-- Players may immediately allocate their 4 SP toward Base Stats (e.g., upgrading Base STR from 1 to 2 costs 4 SP, immediately raising Effective STR and Max HP by +2) before stepping onto the path. Clicking **Begin Journey** closes the dialog.
+- Players may immediately allocate their 4 SP toward Base Stats (e.g., upgrading Base VIT from 1 to 2 costs 4 SP, immediately raising Effective VIT and Max HP by +2) before stepping onto the path. Clicking **Begin Journey** closes the dialog.
 
 ### 1.5 Base Stat Upgrade Cost Formula: `(currentBaseStat + 1)²`
 Players earn **Stat Points (`statPoints`)** inscribed directly on defeated Monster Cards.
@@ -55,7 +55,7 @@ Players earn **Stat Points (`statPoints`)** inscribed directly on defeated Monst
   - `Base 3 -> Base 4`: costs **`16` Stat Points** ($4 \times 4 = 16$)
   - `Base 4 -> Base 5`: costs **`25` Stat Points** ($5 \times 5 = 25$)
   - `Base 5 -> Base 6`: costs **`36` Stat Points** ($6 \times 6 = 36$)
-- *Note on `STR` Upgrades*: Whenever Effective `STR` increases by `+1` (via Base Stat upgrade, Blessing, or equipping a `+STR` item), both `maxHp` and `hp` increase by **`+2 HP`**.
+- *Note on `VIT` Upgrades*: Whenever Effective `VIT` increases by `+1` (via Base Stat upgrade, Blessing, or equipping a `+VIT` item), both `maxHp` and `hp` increase by **`+2 HP`**.
 
 ### 1.6 Automatic Sacred Shrine Boons & Single Blessing Invariant (Map-Temporary)
 Visiting a Sacred Shrine automatically bestows a random eligible divine boon upon the adventurer upon arrival (no manual prayer button required).
@@ -70,12 +70,12 @@ Visiting a Sacred Shrine automatically bestows a random eligible divine boon upo
 | Boon ID | Name | Eligibility Condition | Effect (Current Map Only) |
 | :--- | :--- | :--- | :--- |
 | `cleanse` | **Cleanse** | Player has at least 1 negative status (`statusEffects.length > 0`) | Removes all active negative status effects (`poison`, `blindness`, `crippled`). |
-| `blessing_str` | **Blessing of Strength** | None (always eligible) | `playerBlessingBonuses.str += 1` for this map (`+2 Max HP` & scales Melee/Shield). |
+| `blessing_str` | **Blessing of Strength** | None (always eligible) | `playerBlessingBonuses.str += 1` for this map (scales Melee & Physical Defense). |
 | `blessing_dex` | **Blessing of Dexterity** | None (always eligible) | `playerBlessingBonuses.dex += 1` for this map (ACC increases only when the +1 DEX crosses the next even value). |
 | `blessing_agi` | **Blessing of Agility** | None (always eligible) | `playerBlessingBonuses.agi += 1` for this map (EVA increases only when the +1 AGI crosses the next even value). |
 | `blessing_int` | **Blessing of Intelligence** | None (always eligible) | `playerBlessingBonuses.int += 1` for this map (scales Fireball & Force Field). |
 | `blessing_cha` | **Blessing of Charisma** | None (always eligible) | `playerBlessingBonuses.cha += 1` for this map (additional 5% shop discount). |
-| `blessing_luk` | **Blessing of Luck** | None (always eligible) | `playerBlessingBonuses.luk += 1` for this map (bonus combat Gold rewards). |
+| `blessing_vit` | **Blessing of Vitality** | None (always eligible) | `playerBlessingBonuses.vit += 1` for this map (`+2 Max HP` & physical defense scaling). |
 | `divine_protection` | **Divine Protection** | None (always eligible) | Reduces incoming monster attack damage by `1` for the current map; poison bypasses it. |
 | `revitalize` | **Revitalize** | Current `hp < maxHp` | Restores current HP to `maxHp` immediately. |
 
@@ -103,14 +103,14 @@ The player's inventory is structured into:
    - The character sidebar permanently displays `🎒 Backpack (${backpack.length})`, listing all unequipped gear cards and consumables.
    - Items in the backpack can be equipped (`Equip {item}`) or used (`Use {item}`) anytime while on the map.
    - **Combat Lock**: Equipping and unequipping items is strictly disabled while in active combat (`activeHook.type === 'COMBAT'`).
-   - **Vital Synchronization**: Modifying equipment that affects Base or Effective STR dynamically updates Max HP (`10 + STR * 2`) and clamps current HP.
+   - **Vital Synchronization**: Modifying stats or blessings that affect Effective VIT dynamically updates Max HP (`10 + VIT * 2`) and clamps current HP.
 
 ### 2.3 Stat Panel Streamlining & Right-Click Stat Info Modal
 To keep the character sidebar uncluttered, stat rows display only essential attributes:
 - `Stat Icon`, `STAT`, `Effective Value`, and `(base + class)` breakdown. The `next: X SP` label is removed from the rows.
 - **Dedicated Stat Info Modal**: Right-clicking (or holding for 1s on touch, or clicking `ⓘ`) on any stat row opens the modal displaying:
   1. **Effective Stat Breakdown**: `Effective Stat = Base + Class Archetype Bonus + Shrine Blessing + Equipped Gear`.
-  2. **Derived Bonus Stats & Scaling Rules**: Live player values and exact tabletop formulas (Max HP, ATK, DEF, ACC, EVA, MATK, MDEF, CHA discount, LUK spoils).
+  2. **Derived Bonus Stats & Scaling Rules**: Live player values and exact tabletop formulas (Max HP, ATK, DEF, ACC, EVA, MATK, MDEF, CHA discount).
   3. **Shrine Upgrade Evolution Box**: Target Base level, `(currentBase + 1)²` SP formula, player's current SP balance, and ready/needed status chip. Upgrades are performed at Shrines or during Turn 0 preparation.
 
 ### 2.2 Village Shop Inventory Visibility, Treasure Deck & Live Comparison Preview
@@ -135,7 +135,7 @@ See the generated [Shop and Treasure catalog](CATALOGS.md#shop-and-treasure) for
 
 ### 2.4 Derived Combat Stat Formulas
 - **Physical ATK**: $\text{Hero ATK} = \lfloor \text{Effective STR} / 2 \rfloor + \lfloor \text{Effective DEX} / 3 \rfloor + \text{gear.atk}$
-- **Physical DEF**: $\text{Hero DEF} = \lfloor \text{Effective STR} / 5 \rfloor + \lfloor \text{Effective AGI} / 3 \rfloor + \text{gear.def}$
+- **Physical DEF**: $\text{Hero DEF} = \lfloor \text{Effective STR} / 5 \rfloor + \lfloor \text{Effective VIT} / 5 \rfloor + \lfloor \text{Effective AGI} / 3 \rfloor + \text{gear.def}$
   - When non-magical monster physical attacks hit, damage is reduced by: $\max(0, \text{baseDamage} - \text{Hero DEF} - \text{Divine Protection})$
 - **Magical ATK (MATK)**: $\text{Hero MATK} = \lfloor \text{Effective INT} / 2 \rfloor + \text{gear.matk}$
 - **Magical DEF (MDEF)**: $\text{Hero MDEF} = \lfloor \text{Effective INT} / 5 \rfloor + \text{gear.mdef}$
@@ -148,8 +148,8 @@ See the generated [Shop and Treasure catalog](CATALOGS.md#shop-and-treasure) for
 ## 3. Player Combat Deck & Stat-Scaling Action Cards
 
 ### 3.1 Starter & Village-Trainable Combat Cards
-Every card dynamically scales with the player's **Effective Stats** (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `LUK`).
-Starting effective stats (before preparation upgrades, gear, or blessings) are `Fighter: STR 3, DEX 2, AGI 2, INT 1, CHA 1, LUK 1 -> 1 ACC, 1 EVA`; `Wizard: STR 1, DEX 2, AGI 1, INT 3, CHA 2, LUK 1 -> 1 ACC, 0 EVA`; `Rogue: STR 2, DEX 2, AGI 3, INT 1, CHA 1, LUK 1 -> 1 ACC, 1 EVA`. Each has a 10-card starter deck as listed in section 1.2:
+Every card dynamically scales with the player's **Effective Stats** (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`).
+Starting effective stats (before preparation upgrades, gear, or blessings) are `Fighter: STR 3, DEX 2, AGI 1, INT 1, CHA 1, VIT 2 -> 1 ACC, 0 EVA`; `Wizard: STR 1, DEX 2, AGI 1, INT 3, CHA 2, VIT 1 -> 1 ACC, 0 EVA`; `Rogue: STR 2, DEX 2, AGI 3, INT 1, CHA 1, VIT 1 -> 1 ACC, 1 EVA`. Each has a 10-card starter deck as listed in section 1.2:
 
 Base card fields, class train pools and starter lists are in [CATALOGS.md](CATALOGS.md#combat-cards). The data fields are not complete effective damage formulas:
 
@@ -292,10 +292,10 @@ Adventure Cards follow a strict, standardized collector card numbering scheme st
 - **Total**: 30 cards. Turn 15 Boss: **Grundy**.
 
 ### 5.2.1 Undiscovered Terrains & Exploration Mechanics
-Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, `advsmp-00`, or `advcav-00`) triggers a seeded natural `1d6` roll. `luckBonus = floor(effective LUK / 5)` and `effectiveRoll = naturalRoll + luckBonus`; it is not capped at 6. The modal shows both values.
-- **Treasure (`effectiveRoll >= 6`)**: Secret cache found! Treasure takes precedence over an Ambush, including on a Level 6 terrain. Cards are drawn from the Treasure Deck until an item with `item.level <= card.level` is found (higher level items are discarded to `treasureDiscard`). The found item is added directly to the player's backpack.
-- **Combat (`effectiveRoll <= card.level`)**: Enemy ambush! Battle starts drawing hostiles matching the card's terrain and level.
-- **Safe (`other effective results`)**: Calm passage through the wilderness without hostiles or loot.
+Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, `advsmp-00`, or `advcav-00`) triggers a seeded `1d6` roll.
+- **Treasure (`roll === 6`)**: Secret cache found! Treasure takes precedence over an Ambush, including on a Level 6 terrain. Cards are drawn from the Treasure Deck until an item with `item.level <= card.level` is found (higher level items are discarded to `treasureDiscard`). The found item is added directly to the player's backpack.
+- **Combat (`roll <= card.level`)**: Enemy ambush! Battle starts drawing hostiles matching the card's terrain and level.
+- **Safe (`other results`)**: Calm passage through the wilderness without hostiles or loot.
 
 ### 5.3 Stage 2: "Cult of Trolls" Deck Composition & 3-Boss Encounter (30 Land Cards)
 - `advfrs-00` (Undiscovered Forest LVL2) &times; 3

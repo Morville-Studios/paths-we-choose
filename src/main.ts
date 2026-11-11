@@ -162,10 +162,10 @@ function render(): void {
   root.querySelectorAll<HTMLElement>('.modal, .sheet').forEach((el, i) => scroll.set(String(i), el.scrollTop));
 
   const isMuted = audioManager.isTrackMuted();
-  const audioBtnHtml = `<button class="audio-btn ${isMuted ? 'muted' : ''}" data-action="toggle-audio" title="${isMuted ? 'Unmute Music' : 'Mute Music'}" aria-label="Toggle Music">${isMuted ? '🔇' : '🔊'}</button>`;
+  const audioBtnHtml = ui.showGuide ? '' : `<button class="audio-btn ${isMuted ? 'muted' : ''}" data-action="toggle-audio" title="${isMuted ? 'Unmute Music' : 'Mute Music'}" aria-label="Toggle Music">${isMuted ? '🔇' : '🔊'}</button>`;
 
   if (s.screen === 'welcome') {
-    root.innerHTML = renderWelcome(Boolean(ui.showGuide)) + audioBtnHtml;
+    root.innerHTML = renderWelcome(Boolean(ui.showGuide), ui.guidePage ?? 1) + audioBtnHtml;
   } else if (s.screen === 'class_select') {
     if (!ui.selectedClass) ui.selectedClass = 'fighter';
     const updated = updateClassCarouselDom(root, ui.selectedClass);
@@ -565,6 +565,28 @@ window.addEventListener('keydown', (ev) => {
     return;
   }
 
+  // AD&D Rulebook keyboard page turning
+  if (ui.showGuide) {
+    if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A' || ev.key === 'PageUp') {
+      ev.preventDefault();
+      ui.guidePage = Math.max(1, (ui.guidePage ?? 1) - 1);
+      render();
+      return;
+    }
+    if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D' || ev.key === 'PageDown') {
+      ev.preventDefault();
+      ui.guidePage = Math.min(5, (ui.guidePage ?? 1) + 1);
+      render();
+      return;
+    }
+    if (['1', '2', '3', '4', '5'].includes(ev.key)) {
+      ev.preventDefault();
+      ui.guidePage = parseInt(ev.key, 10);
+      render();
+      return;
+    }
+  }
+
   if (s.screen === 'class_select') {
     if (hasBlockingUiOverlay(ui)) return;
     const current = ui.selectedClass ?? 'fighter';
@@ -743,6 +765,7 @@ root.addEventListener('click', (ev) => {
       break;
     case 'open-guide':
       ui.showGuide = true;
+      if (!ui.guidePage) ui.guidePage = 1;
       render();
       break;
     case 'close-guide':
@@ -755,6 +778,25 @@ root.addEventListener('click', (ev) => {
         render();
       }
       break;
+    case 'guide-prev-page':
+      ui.guidePage = Math.max(1, (ui.guidePage ?? 1) - 1);
+      render();
+      break;
+    case 'guide-next-page':
+      ui.guidePage = Math.min(5, (ui.guidePage ?? 1) + 1);
+      render();
+      break;
+    case 'guide-jump-page': {
+      const pageAttr = target.getAttribute('data-page');
+      if (pageAttr) {
+        const pNum = parseInt(pageAttr, 10);
+        if (pNum >= 1 && pNum <= 5) {
+          ui.guidePage = pNum;
+          render();
+        }
+      }
+      break;
+    }
     case 'select-class':
       if (id) {
         ui.selectedClass = id as ClassId;

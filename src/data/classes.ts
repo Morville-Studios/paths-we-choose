@@ -6,7 +6,7 @@ export const STARTING_BASE_STATS: CharacterStats = {
   agi: 1,
   int: 1,
   cha: 1,
-  luk: 1,
+  vit: 1,
 };
 
 export const CLASS_CATALOG: Record<ClassId, CharacterClassDef> = {
@@ -15,16 +15,16 @@ export const CLASS_CATALOG: Record<ClassId, CharacterClassDef> = {
     name: 'Fighter',
     title: 'Vanguard of Steel',
     description:
-      'A battle-hardened warrior who excels in physical might and shield defense. High STR grants superior vitality and melee power.',
+      'A battle-hardened warrior who excels in physical might and shield defense. High STR and VIT grant superior melee power and vitality.',
     primaryStat: 'str',
-    secondaryStats: ['dex', 'agi'],
+    secondaryStats: ['vit', 'dex'],
     classBonuses: {
       str: 2,
       dex: 1,
-      agi: 1,
+      agi: 0,
       int: 0,
       cha: 0,
-      luk: 0,
+      vit: 1,
     },
     starterCardIds: [
       'melee_atk',
@@ -57,7 +57,7 @@ export const CLASS_CATALOG: Record<ClassId, CharacterClassDef> = {
       agi: 0,
       int: 2,
       cha: 1,
-      luk: 0,
+      vit: 0,
     },
     starterCardIds: [
       'fireball_atk',
@@ -90,7 +90,7 @@ export const CLASS_CATALOG: Record<ClassId, CharacterClassDef> = {
       agi: 2,
       int: 0,
       cha: 0,
-      luk: 0,
+      vit: 0,
     },
     starterCardIds: [
       'melee_atk',
@@ -106,7 +106,7 @@ export const CLASS_CATALOG: Record<ClassId, CharacterClassDef> = {
     ],
     passive: {
       name: '[Steal]',
-      description: 'Whenever you roll a 2d6 to perform an attack hit check and it is a pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6), you immediately gain 1 Gold.',
+      description: 'Whenever you roll a 2d6 to perform an attack hit check and it is a pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6), you immediately gain Gold equal to the doubled number (e.g. 1+1 grants +1 Gold, 5+5 grants +5 Gold, 6+6 grants +6 Gold; even Snake Eyes steals +1 Gold).',
     },
   },
 };

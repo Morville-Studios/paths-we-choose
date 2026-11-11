@@ -8,7 +8,7 @@ Ordinary creatures come from a finite **76-card physical supply** in the public 
 
 ## 1. Vision & Pillars
 
-**The Paths We Choose** blends the tactical node-pathing and deckbuilding combat of *Slay the Spire* with classic tabletop dungeon-crawl mechanics, `2x 1d6` (2d6) probability rolls, equipment slots, and attribute archetypes (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `LUK`).
+**The Paths We Choose** blends the tactical node-pathing and deckbuilding combat of *Slay the Spire* with classic tabletop dungeon-crawl mechanics, `2x 1d6` (2d6) probability rolls, equipment slots, and attribute archetypes (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`).
 
 An in-game **How to Play** guide explains the core loop in short, plain-language sections for players age 10 and above. It is available from the title screen before starting and from the persistent `📖 Guide` control in the game HUD.
 
@@ -19,11 +19,11 @@ An in-game **How to Play** guide explains the core loop in short, plain-language
      2. **Next Choice Row (`Row R + 1`)**: The **2 immediate forward tiles** the player can step onto next (plus 1 unreachable tile on the far side from the previous turn's lookahead).
      3. **Lookahead Row (`Row R + 2`)**: **3 tiles above the next row**—intersecting the leftmost, middle (shared), and rightmost paths of the 2 choices below them.
 2. **Stat-Driven Evolution, Primary/Secondary Archetypes & Shrine Conversion**:
-   - There are **no character levels or XP bars**—your attributes (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `LUK`) directly define your hero's growth!
+   - There are **no character levels or XP bars**—your attributes (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) directly define your hero's growth!
    - Every character begins with **Base `1`** in all 6 stats, plus their **Class Stat Bonuses** (1 Primary stat with `+2`, 2 Secondary stats with `+1` each, and others with `+0`):
-     - **Fighter**: Primary `STR (+2)`, Secondary `DEX (+1), AGI (+1)` -> Starting Effective `STR 3, DEX 2, AGI 2, INT 1, CHA 1, LUK 1` (16 Max HP, 1 ACC, 1 EVA, 1 ATK, 0 DEF, 3 ACT).
-     - **Wizard**: Primary `INT (+2)`, Secondary `DEX (+1), CHA (+1)` -> Starting Effective `STR 1, DEX 2, AGI 1, INT 3, CHA 2, LUK 1` (12 Max HP, 1 ACC, 0 EVA, 1 MATK, 0 MDEF, 3 ACT).
-     - **Rogue**: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)` -> Starting Effective `STR 2, DEX 2, AGI 3, INT 1, CHA 1, LUK 1` (14 Max HP, 1 ACC, 1 EVA, 1 ATK, 1 DEF, 3 ACT).
+     - **Fighter**: Primary `STR (+2)`, Secondary `VIT (+1), DEX (+1)` -> Starting Effective `STR 3, DEX 2, AGI 1, INT 1, CHA 1, VIT 2` (14 Max HP, 1 ACC, 0 EVA, 1 ATK, 0 DEF, 3 ACT).
+     - **Wizard**: Primary `INT (+2)`, Secondary `DEX (+1), CHA (+1)` -> Starting Effective `STR 1, DEX 2, AGI 1, INT 3, CHA 2, VIT 1` (12 Max HP, 1 ACC, 0 EVA, 1 MATK, 0 MDEF, 3 ACT).
+     - **Rogue**: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)` -> Starting Effective `STR 2, DEX 2, AGI 3, INT 1, CHA 1, VIT 1` (12 Max HP, 1 ACC, 1 EVA, 1 ATK, 1 DEF, 3 ACT).
    - **Charisma (`CHA`)**: Each point of Effective CHA reduces the prices of purchaseable goods in Village Shops by **5%** (e.g. 1 CHA = 5% off, 2 CHA = 10% off; minimum 1 Gold).
    - **Starting 4 Stat Points & Welcome Preparation Dialog**: Players start with **4 Stat Points (SP)** and are greeted with a preparation dialog on game start featuring the Shrine stat converter widget, allowing immediate Base Stat upgrades before stepping forward.
    - Defeating Monsters rewards **Stat Points (`SP`)** (inscribed directly on the Monster Card).
@@ -34,12 +34,12 @@ An in-game **How to Play** guide explains the core loop in short, plain-language
    - **Hit Check Math**: Needs a roll of $\text{neededRoll} = 5 - (\text{Attacker ACC} - \text{Target EVA})$ to hit.
    - With no modifiers, rolls of **5 and above hit** (83.33%), while **4 and below miss** (16.67%).
    - **Snake eyes (`1 + 1 = 2`)**: Total miss (automatic miss regardless of accuracy modifiers).
-   - **Critical Hits**: Meeting or exceeding the critical threshold (default `12`, improved by LUK) is an automatic critical hit applying **+50% bonus ATK damage** ($\lfloor \text{damage} \times 1.5 \rfloor$).
+   - **Critical Hits**: Rolling Boxcars (`6 + 6 = 12`, 2.8%) is an automatic critical hit applying **+50% bonus ATK damage** ($\lfloor \text{damage} \times 1.5 \rfloor$).
    - **ACC vs. EVA Formulas**: `1 base ACC` per `2 DEX` plus direct gear ACC ($\lfloor\text{DEX}/2\rfloor + \text{gear.acc}$), `1 EVA` per `2 AGI` plus gear EVA ($\lfloor\text{AGI}/2\rfloor + \text{gear.eva}$). Defense cards can grant temporary round EVA bonuses.
-   - **Physical ATK & DEF Formulas**: Physical ATK = $\lfloor\text{STR}/2\rfloor + \lfloor\text{DEX}/3\rfloor + \text{gear.atk}$; Physical DEF = $\lfloor\text{STR}/5\rfloor + \lfloor\text{AGI}/3\rfloor + \text{gear.def}$.
+   - **Physical ATK & DEF Formulas**: Physical ATK = $\lfloor\text{STR}/2\rfloor + \lfloor\text{DEX}/3\rfloor + \text{gear.atk}$; Physical DEF = $\lfloor\text{STR}/5\rfloor + \lfloor\text{VIT}/5\rfloor + \lfloor\text{AGI}/3\rfloor + \text{gear.def}$.
    - **Magical DEF Formula**: Magical DEF = $\lfloor\text{INT}/5\rfloor + \text{gear.mdef}$.
    - **Battle ACT (Max Action Points)**: Starts at 3 Base AP, increases by $+1$ for every 5 INT ($3 + \lfloor\text{INT}/5\rfloor$).
-   - **Critical Hit Threshold**: $\max(2, 12 - \lfloor\text{LUK}/10\rfloor)$. Base threshold is 12 (Boxcars, 2.8%); 10 LUK lowers threshold to 11+ (8.3%); 20 LUK lowers threshold to 10+ (16.7%).
+   - **Critical Hit Threshold**: Fixed at `12` (Boxcars `6 + 6`, 2.8%).
 4. **Four Interlocking Decks (Adventure, Monster, Player Combat & Treasure)**:
    - **Adventure Deck (30 cards per Stage)**: Generates the 1 -> 2 -> 3 pyramid board with full-art physical raster land cards and a 9-card lagging row discard cycle. There is exactly one encounter level per terrain: Grassland 2, Forest 3, Swamp 4, Cave 5, Underground 6, and Underworld 7. The current catalog contains the first three terrains and is sorted by collector card number in the Deck Viewer.
      - **Stage 1 ("The Goblin King")**: 30 cards composed of Grassland (`advgrs-00` x3, `advgrs-01` x8, `advgrs-03` x3, `advgrs-04` x3), Forest (`advfrs-00` x2, `advfrs-01` x5, `advfrs-03` x2, `advfrs-04` x2), and Swamp (`advsmp-00` x1, `advsmp-01` x1).
@@ -66,24 +66,24 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 - Plays the looping intro soundtrack (`start-screen.mp3`), with fixed audio mute/unmute control.
 
 ### 2.2 Class Selection Screen
-- Every hero starts with **Base Stats `1` across all 6 attributes** (`STR 1, DEX 1, AGI 1, INT 1, CHA 1, LUK 1`) plus their **Class Stat Bonuses** (Primary `+2`, Secondary `+1` each):
+- Every hero starts with **Base Stats `1` across all 6 attributes** (`STR 1, DEX 1, AGI 1, INT 1, CHA 1, VIT 1`) plus their **Class Stat Bonuses** (Primary `+2`, Secondary `+1` each):
   - **Fighter**:
-    - Archetype: Primary `STR (+2)`, Secondary `DEX (+1), AGI (+1)`
-    - Class Stat Bonuses: `STR +2, DEX +1, AGI +1, INT +0, CHA +0, LUK +0`
-    - **Effective Starting Stats**: `STR 3, DEX 2, AGI 2, INT 1, CHA 1, LUK 1` -> **16 Max HP** (`10 + Effective STR * 2`), **1 ACC**, **1 EVA**, **1 ATK**, **0 DEF**, **3 ACT**.
+    - Archetype: Primary `STR (+2)`, Secondary `VIT (+1), DEX (+1)`
+    - Class Stat Bonuses: `STR +2, DEX +1, AGI +0, INT +0, CHA +0, VIT +1`
+    - **Effective Starting Stats**: `STR 3, DEX 2, AGI 1, INT 1, CHA 1, VIT 2` -> **14 Max HP** (`10 + Effective VIT * 2`), **1 ACC**, **0 EVA**, **1 ATK**, **0 DEF**, **3 ACT**.
     - **Class Passive `[Berzerk]`**: Gain `+1 ATK` bonus when HP is 50% or below Max HP; if 25% or below, gain `+2 ATK` bonus instead.
     - Starter Combat Deck (`10 cards`): **8x Slash** + **2x Defend**.
   - **Wizard**:
     - Archetype: Primary `INT (+2)`, Secondary `DEX (+1), CHA (+1)`
-    - Class Stat Bonuses: `STR +0, DEX +1, AGI +0, INT +2, CHA +1, LUK +0`
-    - **Effective Starting Stats**: `STR 1, DEX 2, AGI 1, INT 3, CHA 2, LUK 1` -> **12 Max HP** (`10 + Effective STR * 2`), **1 ACC**, **0 EVA**, **1 MATK**, **0 MDEF**, **3 ACT**.
+    - Class Stat Bonuses: `STR +0, DEX +1, AGI +0, INT +2, CHA +1, VIT +0`
+    - **Effective Starting Stats**: `STR 1, DEX 2, AGI 1, INT 3, CHA 2, VIT 1` -> **12 Max HP** (`10 + Effective VIT * 2`), **1 ACC**, **0 EVA**, **1 MATK**, **0 MDEF**, **3 ACT**.
     - **Class Passive `[Conserve]`**: When ending turn in battle with unused Action Points, those AP carry over to the next battle turn.
     - Starter Combat Deck (`10 cards`): **8x Fireball ATK** + **2x Force Field DEF**.
   - **Rogue**:
     - Archetype: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)`
-    - Class Stat Bonuses: `STR +1, DEX +1, AGI +2, INT +0, CHA +0, LUK +0`
-    - **Effective Starting Stats**: `STR 2, DEX 2, AGI 3, INT 1, CHA 1, LUK 1` -> **14 Max HP** (`10 + Effective STR * 2`), **1 ACC**, **1 EVA**, **1 ATK**, **1 DEF**, **3 ACT**.
-    - **Class Passive `[Steal]`**: Whenever rolling a 2d6 to perform an attack hit check and it is a pair (`1+1, 2+2, 3+3, 4+4, 5+5, 6+6`), immediately gain `+1 Gold`.
+    - Class Stat Bonuses: `STR +1, DEX +1, AGI +2, INT +0, CHA +0, VIT +0`
+    - **Effective Starting Stats**: `STR 2, DEX 2, AGI 3, INT 1, CHA 1, VIT 1` -> **12 Max HP** (`10 + Effective VIT * 2`), **1 ACC**, **1 EVA**, **1 ATK**, **1 DEF**, **3 ACT**.
+    - **Class Passive `[Steal]`**: Whenever rolling a 2d6 to perform an attack hit check and it is a pair (`1+1, 2+2, 3+3, 4+4, 5+5, 6+6`), immediately gain Gold equal to the doubled die number (e.g. `6+6` grants `+6 Gold`, `5+5` grants `+5 Gold`, and even Snake Eyes `1+1` steals `+1 Gold`).
     - Starter Combat Deck (`10 cards`): **8x Slash** + **2x Defend**.
 - **3-Card Smooth Interactive Carousel**:
   - The screen presents an interactive 3D perspective carousel with the 3 classes (`Fighter`, `Wizard`, `Rogue`).
@@ -100,10 +100,10 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
    - **Turn Tracker**: `Turn X / 15` (starts at `Turn 0`; increments by `+1` each move; reaching `Turn 15` triggers the Stage 1 Boss).
    - **Vitality & Currency**: **HP Bar** (`currentHp / maxHp`), **Unspent Stat Points (`SP`)**, and **Gold** (rendered with dedicated `/icons/sp.png` and `/icons/gold.png` raster icons).
    - **Character Sheet Panel & Hero Portrait**:
-     - Features the **Hero Portrait** on the left (`/cards/adventurers/*.jpg`) paired with the 6 core stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `LUK`) stacked cleanly on the right with bold values and `ⓘ` info pills.
+     - Features the **Hero Portrait** on the left (`/cards/adventurers/*.jpg`) paired with the 6 core stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) stacked cleanly on the right with bold values and `ⓘ` info pills.
      - **Stat Info Modal (Right-Click / Long-Press / ⓘ)**: Right-clicking or holding down for 1s (or clicking `ⓘ`) on any stat opens the Stat Info Modal, displaying:
        1. **Effective Computation Breakdown**: `Effective Stat = Base + Class Bonus + Shrine Blessing + Gear`.
-       2. **Derived Bonus Stats & Combat Scaling**: Exact formulas and live numbers (e.g. Max HP $+2 \times \text{STR}$, ATK $\lfloor\text{STR}/2\rfloor$, DEF $\lfloor\text{STR}/5\rfloor$, ACC, EVA, MATK $\lfloor\text{INT}/2\rfloor$, MDEF $\lfloor\text{INT}/5\rfloor$, CHA shop discount, LUK victory spoils).
+       2. **Derived Bonus Stats & Combat Scaling**: Exact formulas and live numbers (e.g. Max HP $+2 \times \text{VIT}$, ATK $\lfloor\text{STR}/2\rfloor$, DEF $\lfloor\text{STR}/5\rfloor + \lfloor\text{VIT}/5\rfloor$, ACC, EVA, MATK $\lfloor\text{INT}/2\rfloor$, MDEF $\lfloor\text{INT}/5\rfloor$, CHA shop discount).
        3. **Next SP Required to Level**: Target Base level, `(currentBase + 1)²` SP formula, live SP balance, ready/needed chip, and reminder that upgrades occur at Shrines or during Turn 0 preparation.
      - Derived combat statistics chips: `ACC` (`acc.png`), `EVA` (`eva.png`), `ATK` (`atk.png`), `DEF` (`def.png`), `MATK` (`matk.png`), `MDEF` (`mdef.png`), and `DISC` (`cha.png`).
      - Notes that Base Stats can only be upgraded at a Shrine or during initial Turn 0 preparation.
@@ -170,7 +170,7 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
    - **Treasure Deck & Village Stock**: 42-card Treasure Deck (2 copies of each of the 21 catalog items). Village entry draws `5 + Village Level` cards into `shopStock`; opening and returning to the Shop preserves that inventory.
    - **Derived Combat Stats**:
      - **Hero ATK**: $\lfloor \text{STR} / 2 \rfloor + \lfloor \text{DEX} / 3 \rfloor + \text{gear.atk}$.
-     - **Hero DEF**: $\lfloor \text{STR} / 5 \rfloor + \lfloor \text{AGI} / 3 \rfloor + \text{gear.def}$. Reduces physical damage intake when hit.
+     - **Hero DEF**: $\lfloor \text{STR} / 5 \rfloor + \lfloor \text{VIT} / 5 \rfloor + \lfloor \text{AGI} / 3 \rfloor + \text{gear.def}$. Reduces physical damage intake when hit.
      - **Hero MATK & MDEF**: $\text{MATK} = \lfloor \text{INT} / 2 \rfloor + \text{gear.matk}$; $\text{MDEF} = \lfloor \text{INT} / 5 \rfloor + \text{gear.mdef}$. Boosts spell scaling and magical resistance.
      - **Hero ACC & EVA**: $\text{ACC} = \lfloor \text{DEX} / 2 \rfloor + \text{gear.acc}$, $\text{EVA} = \lfloor \text{AGI} / 2 \rfloor + \text{gear.eva}$.
      - **Hero PEN**: `gear.pen`; physical hero attacks ignore up to this much enemy natural DEF before temporary Block. Magical attacks use MDEF and do not gain PEN.
@@ -187,19 +187,19 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
   - `advfrs-00`: **Undiscovered Forest** (Level 2)
   - `advsmp-00`: **Undiscovered Swamp** (Level 3)
   - `advcav-00`: **Undiscovered Cave** (Level 4)
-- When the player steps onto an Undiscovered Terrain, an **Exploration Modal** opens displaying a seeded natural `1d6` exploration roll and its Luck-adjusted result: `effectiveRoll = naturalRoll + floor(Effective LUK / 5)`. The displayed LUK bonus is `+1` at 5–9 LUK, `+2` at 10–14 LUK, and so on.
-  1. **Secret Treasure Discovered (`effectiveRoll >= 6`)**:
+- When the player steps onto an Undiscovered Terrain, an **Exploration Modal** opens displaying a seeded `1d6` exploration roll.
+  1. **Secret Treasure Discovered (`roll === 6`)**:
      - Treasure takes priority even on a Level 6 terrain.
      - The player uncovers a hidden treasure cache.
      - Cards are drawn from the Treasure Deck until an item with **`item.level <= card.level`** is found.
      - Any drawn items exceeding `card.level` are placed into the `treasureDiscard` pile (and recycled if the deck runs dry).
      - The eligible item is awarded directly into the player's permanent backpack.
      - The item is already placed in the backpack before the result modal opens. The modal congratulates the player, displays the item as a mini art card, and provides `Return to Map View` only.
-  2. **Hostile Ambush (`effectiveRoll <= card.level`)**:
+  2. **Hostile Ambush (`roll <= card.level`)**:
      - Hostile creatures ambush the party.
      - The modal notifies the player and provides a `Proceed to Battle` action.
      - On confirmation, combat begins: monsters are drawn from the monster deck according to encounter rules (`encounterLevel = card.level`, matching terrain).
-  3. **Peaceful Wilderness (all other effective results)**:
+  3. **Peaceful Wilderness (all other results)**:
      - The journey through the wilderness is calm and serene.
      - No battle occurs and no treasure is found.
      - The player clicks `Continue Journey →` to move forward.
@@ -212,14 +212,14 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 
 ### 4.1 Upgrading Base Stats with Stat Points
 - Shrines are sacred locations where players commune with ancient altars to convert **Stat Points (`SP`)** into permanent **Base Stat upgrades**.
-- The player can spend Stat Points on any attribute (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `LUK`) that they can afford.
+- The player can spend Stat Points on any attribute (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) that they can afford.
 - Each upgrade increases the target Base Stat from `B` to `B + 1` at a cost of **`(B + 1) * (B + 1)` Stat Points** (e.g. Base 1 to 2 costs 4 SP, Base 4 to 5 costs 25 SP).
 - A Shrine's maximum Base Stat target is **Shrine Level + 1**. A Level 1 Grassland Shrine can perform only Base `1 -> 2`; a Level 2 Forest Shrine can also perform `2 -> 3`; a Level 3 Swamp Shrine can also perform `3 -> 4`.
 - Multiple legal upgrades can be performed during a single Shrine visit.
 - The Shrine modal shows the full stepped-on Shrine card with its lore and reuses the exact live Map `playerInfoWidget`, so current values and the result of each proposed upgrade remain visible.
 - Stat rows are always selectable, including when the hero cannot afford them. The selected row is highlighted. If affordable, one contextual Upgrade button appears; otherwise it is replaced by `Needs X SP to upgrade`. Confirming the Upgrade is required before SP is spent.
 - Leaving the Shrine also opens a confirmation dialog; cancelling keeps the player at the Shrine with the current selection intact.
-- Upgrading `STR` immediately increases `Max HP` (and restores the equivalent current HP) by `+2 HP`.
+- Upgrading `VIT` immediately increases `Max HP` (and restores the equivalent current HP) by `+2 HP`.
 
 ### 4.2 Void Skill Upgrades
 - The **Void** is a visible sidebar card zone containing not-in-play `+` skill templates, every Boss card, and the two hero cards not selected by the current player. It is inexhaustible and is never shuffled into the New Skills Deck.
@@ -232,7 +232,7 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 - **Single Active Blessing Invariant**: The adventurer can only have **1 shrine blessing active at a time**. Receiving a new blessing automatically replaces and eliminates the previous blessing (resets any previous blessing stat bonuses or divine protection and recalculates vitals).
 - The altar selects from all currently eligible boons:
   1. **Cleanse**: Cleanses all negative status effects (poison, blindness, crippled); only eligible if the player currently has at least one negative status.
-  2. **Blessing of {stat name}**: Grants a temporary `+1` blessing bonus to the named attribute (`STR`, `DEX`, `AGI`, `INT`, `CHA`, or `LUK`) for the remainder of the current map; no condition.
+  2. **Blessing of {stat name}**: Grants a temporary `+1` blessing bonus to the named attribute (`STR`, `DEX`, `AGI`, `INT`, `CHA`, or `VIT`) for the remainder of the current map; no condition.
   3. **Divine Protection**: Reduces incoming monster attack damage by `1` for the remainder of the current map; poison bypasses it. No eligibility condition.
   4. **Revitalize**: Fully restores current HP to Max HP immediately; only eligible if current `HP < Max HP`.
 
@@ -287,18 +287,18 @@ In Stage 1, **Encounter cards have levels 2–4**, as defined in the [Adventure 
      - **Skills, All-Enemy Attacks & Enchantments**: A confirmation modal presents any required discard selection before AP is committed. Eligible discard choices are compact mini cards showing the action art, name, AP cost, and selected state; the card being played is excluded. Whirlwind confirmation shows every living target and each target's separate hit threshold/probability; resolution rolls independently for each. Battle Flag costs 1 AP without regaining AP on play, remains in the visible **In play** zone for the battle, and triggers its card draw whenever another card's AP-granting effect resolves.
    - **Resolving Stack**: A played action leaves the hand and remains on the Stack until its entire effect finishes. Costs such as Battlecry's selected discards enter discard first; printed draws resolve next; AP gains and Battle Flag draws resolve afterward; only then does the played card move from the Stack to discard (or `inPlay`). A card can never redraw itself during its own resolution.
    - Clicking **Confirm Use** spends the AP and executes the action; **Cancel** returns to card selection without spending AP.
-   - **Permanent FLEE Action (2 AP)**: A `Flee` card is always available beside the hand and is never drawn, discarded, or shuffled. After confirmation, roll `1d6`; if the roll is $\le \lfloor(\text{AGI} + \text{LUK}) / 2\rfloor$ the hero escapes, combat ends with **no rewards**, and the encountered monsters go to the monster discard pile. On failure, the 2 AP is spent and combat continues. Stage Bosses cannot be fled from.
+   - **Permanent FLEE Action (2 AP)**: A `Flee` card is always available beside the hand and is never drawn, discarded, or shuffled. After confirmation, roll `1d6`; if the roll is $\le \lfloor\text{AGI} / 2\rfloor$ (minimum 1) the hero escapes, combat ends with **no rewards**, and the encountered monsters go to the monster discard pile. On failure, the 2 AP is spent and combat continues. Stage Bosses cannot be fled from.
 2. **Monster Turn (`2d6` Attack Roll & Pattern Execution)**:
    - Each living monster rolls **`2d6`** against the player's EVA: $\text{neededRoll} = 5 - (\text{Monster ACC} - \text{Player EVA})$.
    - **Snake eyes (`1 + 1 = 2`)**: Automatic miss.
    - **Boxcars (`6 + 6 = 12`)**: Automatic critical hit (+50% monster ATK damage).
    - **On Miss**: `0` damage taken (`DODGED!`).
-   - **On Hit**: Damage is absorbed first by **Hero Natural DEF** ($\lfloor\text{STR}/5\rfloor + \lfloor\text{AGI}/3\rfloor + \text{gear.def}$), reduced by `divineProtection`, absorbed by temporary `playerBlock`, and any remainder reduces `playerResources.hp`.
+   - **On Hit**: Damage is absorbed first by **Hero Natural DEF** ($\lfloor\text{STR}/5\rfloor + \lfloor\text{VIT}/5\rfloor + \lfloor\text{AGI}/3\rfloor + \text{gear.def}$), reduced by `divineProtection`, absorbed by temporary `playerBlock`, and any remainder reduces `playerResources.hp`.
    - **Explicit Absorption Logging**: Log entries explicitly state the absorbed damage amount (e.g. `2 absorbed by Hero DEF, 0 blocked, 4 HP damage`).
    - **Dice Banner Detail**: The 2d6 outcome banner details DEF absorption (e.g. `🎯 HIT! (4 DMG, 2 absorbed by Hero DEF)`).
 3. **Hero Character, Vitals & Backpack Sidebar in Combat (`.combat-hero-sidebar`)**:
    - The battle view features a dedicated 3-column layout on desktop:
-     - **Left Column (`.combat-hero-sidebar`)**: Displays Hero portrait, prominent HP / Max HP graphical bar, 6 core stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `LUK`) with right-click inspection, prominent derived stats chips (**DEF**, **ATK**, **ACC**, **EVA**, **BLK**, **AP**), and Backpack items with active `Use` buttons for consumables.
+     - **Left Column (`.combat-hero-sidebar`)**: Displays Hero portrait, prominent HP / Max HP graphical bar, 6 core stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) with right-click inspection, prominent derived stats chips (**DEF**, **ATK**, **ACC**, **EVA**, **BLK**, **AP**), and Backpack items with active `Use` buttons for consumables.
      - **Center Column (`.combat-main-col`)**: Active monster row, dice roll banner, player hand, draw/discard piles, and End Turn button.
      - **Right Column (`.combat-log-sidebar`)**: Scrollable Battle Log with real-time timestamps and Blue (Hero) / Red (Enemy) actor badges.
    - Using a consumable (e.g. `Health Potion`) during battle immediately heals the player and records a timestamped log entry (`🧪 Used Health Potion: restored +X HP`).
@@ -313,7 +313,7 @@ In Stage 1, **Encounter cards have levels 2–4**, as defined in the [Adventure 
      - **Defeated Foes**: Vanquished monster cards with raster art thumbnails, creature subtypes, levels, and individual SP/Gold yields.
      - **Loot Cards Grid**:
        - **Stat Points (`+X SP`)**: Inscribed directly on Monster Cards, saved to the player's treasury for upgrading Base Stats at Sacred Shrines.
-       - **Gold Spoils (`+Y Gold`)**: Inscribed creature gold plus Luck bonus ($\lfloor\text{LUK}/2\rfloor$) and Goldstar roll (`(1d6 - 1)`), with full breakdown of base spoils and bonus additions.
+       - **Gold Spoils (`+Y Gold`)**: Inscribed creature gold plus Rogue `[Steal]` spoils and Goldstar roll (`(1d6 - 1)`), with full breakdown of base spoils and bonus additions.
    - **Interactive Confirmation Action (`OK &mdash; Return to Map &rarr;`)**:
      - The player reviews their spoils and presses the golden **OK** button to return to map navigation.
      - Smoothly transitions `activeHook` to `'NONE'` and resumes the map area exploration soundtrack (`map-area.mp3`).

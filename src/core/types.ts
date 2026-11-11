@@ -6,12 +6,12 @@ export interface CharacterStats {
   agi: number;
   int: number;
   cha: number;
-  luk: number;
+  vit: number;
 }
 
 export type StatKey = keyof CharacterStats;
 
-export const STATS: StatKey[] = ['str', 'dex', 'agi', 'int', 'cha', 'luk'];
+export const STATS: StatKey[] = ['str', 'dex', 'agi', 'int', 'cha', 'vit'];
 
 export interface ClassPassiveDef {
   name: string;
@@ -46,12 +46,12 @@ export interface DerivedCombatStats {
   acc: number;    // floor(DEX / 2) + gear.acc
   eva: number;    // floor(AGI / 2) + gear.eva
   atk: number;    // floor(STR / 2) + floor(DEX / 3) + gear.atk
-  def: number;    // floor(STR / 5) + floor(AGI / 3) + gear.def
+  def: number;    // floor(STR / 5) + floor(VIT / 5) + floor(AGI / 3) + gear.def
   matk: number;   // floor(INT / 2) + gear.matk
   mdef: number;   // floor(INT / 5) + gear.mdef
   pen: number;    // Gear-only physical DEF penetration
   act: number;    // 3 + floor(INT / 5) (Max Action Points in battle)
-  critThreshold?: number; // 12 - floor(LUK / 10) (Minimum 2d6 roll for critical hit)
+  critThreshold?: number; // 12 (Boxcars 6+6 minimum 2d6 roll for critical hit)
   berzerkBonus?: number; // Fighter [Berzerk] ATK bonus
 }
 
@@ -80,13 +80,13 @@ export interface EquippedGear {
 
 export interface PlayerResources {
   hp: number;
-  maxHp: number;      // 10 + (effectiveStr * 2)
+  maxHp: number;      // 10 + (effectiveVit * 2)
   statPoints: number; // Earned from Monster Cards; spent to upgrade Base Stats (cost = (currentBaseStat + 1)^2)
   gold: number;
 }
 
 export type CombatCardType = 'attack' | 'defense' | 'skill' | 'enchantment';
-export type ScalingStat = 'str' | 'dex' | 'agi' | 'int' | 'cha' | 'luk';
+export type ScalingStat = 'str' | 'dex' | 'agi' | 'int' | 'cha' | 'vit';
 export type CombatScalingStat = ScalingStat | 'atk' | 'def';
 export type CombatTargetMode = 'single_enemy' | 'all_enemies' | 'self';
 export type CardDiscardMode = 'none' | 'exact' | 'any';
@@ -301,7 +301,7 @@ export type ShrinePrayerOptionId =
   | 'blessing_agi'
   | 'blessing_int'
   | 'blessing_cha'
-  | 'blessing_luk'
+  | 'blessing_vit'
   | 'divine_protection'
   | 'revitalize';
 
@@ -378,8 +378,7 @@ export interface ActiveExplorationState {
   coord: GridCoord;
   card: AdventureCard;
   roll: number;                 // Natural 1d6 result
-  luckBonus?: number;           // floor(effective LUK / 5)
-  effectiveRoll?: number;       // Natural roll + luckBonus; 6+ finds treasure
+  effectiveRoll?: number;       // 1d6 roll; 6 finds treasure
   outcome: ExplorationOutcome;
   foundItem?: ShopItemDef | null;
   discardedOverLevelCount?: number;
@@ -390,7 +389,6 @@ export interface CombatVictoryState {
   statPointsEarned: number;
   goldEarned: number;
   baseGold: number;
-  luckBonusGold: number;
   luckyCharmGold: number;
   isBoss: boolean;
   bossTitle?: string;

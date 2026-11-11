@@ -66,7 +66,7 @@ describe('reconciled critical and replay rules', () => {
   it('shows the same DEX, gear and Berzerk damage in hand, confirmation and inspection', () => {
     const state = startAdventure('fighter', 'preview');
     state.playerBaseStats.dex = 2; // Effective DEX 3 contributes 1 damage.
-    state.playerResources!.hp = 4; // Berzerk +2.
+    state.playerResources!.hp = 3; // Berzerk +2 (<= 25% of 14 Max HP).
     state.equippedGear.weapon = { id: 'sword', instanceId: 'sword', name: 'Sword', category: 'weapon', description: '', buyPrice: 0, sellPrice: 0, gearBonus: { atk: 2 } };
     const card: CombatCardDef = { id: 'strike', instanceId: 'strike', name: 'Strike', classId: 'fighter', cardType: 'attack', apCost: 1, baseDamage: 2, damageScalingStat: 'str', damageScalingDivisor: 2, baseBlock: 0 };
     state.activeHook = { type: 'COMBAT', combat: { ...createCombatSession([{ ...MONSTER_TEMPLATES.goblin, id: 'goblin' }], [], 1).combat, hand: [card] } };

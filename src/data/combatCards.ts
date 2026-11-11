@@ -248,6 +248,6 @@ export function createFleeCard(classId: ClassId = 'fighter'): CombatCardDef {
     baseBlock: 0,
     cardNumber: 'ACT · FLEE',
     flavorText:
-      'Disengage and sprint away from battle. Escape check: roll 1d6 ≤ ⌊(AGI + LUK) / 2⌋. No rewards or loots collected.',
+      'Disengage and sprint away from battle. Escape check: roll 1d6 ≤ ⌊AGI / 2⌋. No rewards or loots collected.',
   };
 }

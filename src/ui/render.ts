@@ -138,6 +138,7 @@ export interface UiState {
   inspectedStat?: StatKey | null;
   villageRestTicks?: number;
   showGuide?: boolean;
+  guidePage?: number;
 }
 
 /** True when keyboard/carousel input must not reach gameplay behind an overlay. */
@@ -159,7 +160,7 @@ export function hasBlockingUiOverlay(ui: UiState): boolean {
 // Screens
 // ---------------------------------------------------------------------------
 
-export function renderWelcome(showGuide = false): string {
+export function renderWelcome(showGuide = false, guidePage = 1): string {
   return `
   <main class="screen welcome">
     <div class="welcome-vignette" aria-hidden="true"></div>
@@ -216,73 +217,440 @@ export function renderWelcome(showGuide = false): string {
       <span>Strategy · Cards · Adventure</span>
       <span class="welcome-footer-build">v0.1</span>
     </footer>
-    ${showGuide ? renderGuideModal(false) : ''}
+    ${showGuide ? renderGuideModal(false, guidePage) : ''}
   </main>`;
 }
 
 /** A short, plain-language guide available before and during every adventure. */
-export function renderGuideModal(inGame: boolean): string {
+export function renderGuideModal(inGame: boolean, currentPage = 1): string {
+  const p = Math.max(1, Math.min(5, currentPage));
+
   return `
   <div class="modal-backdrop guide-backdrop" data-action="close-guide-backdrop">
-    <section class="modal guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
-      <header class="guide-header">
-        <div>
-          <span class="guide-kicker">📖 Quick guide</span>
-          <h2 id="guide-title">How to Play</h2>
-          <p>Choose a path, grow your hero, and defeat the boss at the end of the map.</p>
+    <div class="guide-book-tome" role="dialog" aria-modal="true" aria-labelledby="guide-book-title">
+      <!-- Brass Filigree Corner Bracket Embellishments on Tome Binding -->
+      <div class="guide-filigree guide-filigree-tl" aria-hidden="true"></div>
+      <div class="guide-filigree guide-filigree-tr" aria-hidden="true"></div>
+      <div class="guide-filigree guide-filigree-bl" aria-hidden="true"></div>
+      <div class="guide-filigree guide-filigree-br" aria-hidden="true"></div>
+
+      <!-- Ornate Medieval Tome Header -->
+      <header class="guide-tome-header">
+        <div class="guide-tome-identity">
+          <span class="guide-tome-sigil" aria-hidden="true">&#9884;</span>
+          <div>
+            <span class="guide-tome-eyebrow">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; 2ND EDITION</span>
+            <h2 id="guide-book-title" class="guide-tome-title">The Paths We Choose &mdash; Player's Handbook</h2>
+          </div>
         </div>
-        <button class="modal-close-btn" data-action="close-guide" aria-label="Close guide">&times;</button>
+        <button class="modal-close-btn guide-tome-close" data-action="close-guide" aria-label="Close rulebook" title="Close Tome (Esc)">&times;</button>
       </header>
 
-      <div class="guide-grid">
-        <article class="guide-step featured"><span class="guide-number">1</span><h3>Pick a path</h3><p>Tap a Land card in front of your hero. Each choice moves you forward and reveals more of the map.</p></article>
-        <article class="guide-step"><span class="guide-number">2</span><h3>Handle the Land</h3><p><b>Encounters</b> start battles. <b>Villages</b> heal, shop, and train. <b>Shrines</b> spend Stat Points. <b>Undiscovered</b> Lands can be safe, dangerous, or hide treasure.</p></article>
-        <article class="guide-step"><span class="guide-number">3</span><h3>Win the battle</h3><p>Play cards from your hand until you run out of AP, then press <b>End Turn</b>. Defeat every creature to earn Gold and Stat Points.</p></article>
+      <!-- Bookmark Ribbon Tabs (Top Page Navigation) -->
+      <nav class="guide-ribbon-bar" aria-label="Rulebook Chapters">
+        <button class="guide-ribbon-tab ${p === 1 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="1" title="Page 1: The Quest &amp; Pathfinding">
+          <span class="ribbon-tail"></span>
+          <span class="ribbon-text">&#128220; I. The Quest</span>
+        </button>
+        <button class="guide-ribbon-tab ${p === 2 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="2" title="Page 2: Combat Procedures &amp; Stack">
+          <span class="ribbon-tail"></span>
+          <span class="ribbon-text">&#9876;&#65039; II. Battle</span>
+        </button>
+        <button class="guide-ribbon-tab ${p === 3 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="3" title="Page 3: The Six Attributes &amp; Vigor">
+          <span class="ribbon-tail"></span>
+          <span class="ribbon-text">&#128202; III. Attributes</span>
+        </button>
+        <button class="guide-ribbon-tab ${p === 4 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="4" title="Page 4: Adventurer Classes">
+          <span class="ribbon-tail"></span>
+          <span class="ribbon-text">&#128737;&#65039; IV. Classes</span>
+        </button>
+        <button class="guide-ribbon-tab ${p === 5 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="5" title="Page 5: Shrines, Villages &amp; The Void">
+          <span class="ribbon-tail"></span>
+          <span class="ribbon-text">&#127963;&#65039; V. Shrines &amp; Void</span>
+        </button>
+      </nav>
+
+      <!-- The Parchment Folio Spread -->
+      <div class="guide-parchment-spread">
+        <!-- Center Book Spine Crease & Shadow Gutter -->
+        <div class="guide-book-spine-gutter" aria-hidden="true"></div>
+
+        <!-- ============================================================ -->
+        <!-- PAGE 1: Frontispiece & Core Dungeon Crawl Loop               -->
+        <!-- ============================================================ -->
+        <article class="guide-book-page ${p === 1 ? 'is-active' : ''}" data-page="1">
+          <header class="guide-page-header">
+            <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
+            <h3 class="guide-chapter-title">&mdash; PROLOGUE: THE PATH FORWARD &mdash;</h3>
+            <p class="guide-chapter-sub">How to Play, Navigate the Vision Cone, and Survive the Dungeon Crawl</p>
+          </header>
+
+          <div class="guide-folio-grid">
+            <div class="guide-folio-col">
+              <h4 class="guide-section-heading">&#9884; The Adventurer's Call</h4>
+              <p class="guide-body-text">
+                <span class="guide-drop-cap">H</span>arken, brave wanderer. Before thee stretches the perilous wilderness of <i>The Paths We Choose</i>. In this tabletop card expedition, thou must forge a route across treacherous terrain, nurture thy hero's attributes, master the martial art of two six-sided dice, and slay the slumbering monstrosity awaiting at the journey's terminus.
+              </p>
+
+              <div class="adnd-parchment-box">
+                <h5 class="adnd-box-title">THE THREE PILLARS OF EXPLORATION</h5>
+                <ol class="adnd-numbered-list">
+                  <li><b>Pick a Path:</b> Tap any forward Land card in front of your token. Every stride moves you forward and unmasks deeper dungeon rows.</li>
+                  <li><b>Handle the Land:</b> <b>Encounters</b> trigger fierce creature battles; <b>Villages</b> provide rest, goods, and training; <b>Shrines</b> bless and upgrade your stats; and <b>Undiscovered Lands</b> hold fortune or peril.</li>
+                  <li><b>Win the Battle:</b> Vanquish all foes using combat cards and Action Points (AP). Claim their inscribed Gold and Stat Points (SP) to grow ever stronger.</li>
+                </ol>
+              </div>
+
+              <h4 class="guide-section-heading">&#9884; The 3-Row Vision Cone</h4>
+              <p class="guide-body-text">
+                The dungeon unfolds before your eyes in a strict <b>Three-Row Lookahead Cone</b>:
+              </p>
+              <ul class="adnd-bullet-list">
+                <li><b>Current Row:</b> Where your hero token currently stands.</li>
+                <li><b>Next Choice Row:</b> The 2 forward tiles immediately reachable on your next step.</li>
+                <li><b>Lookahead Row:</b> 3 tiles branching beyond, allowing strategic long-term navigation toward villages, shrines, or safer terrain.</li>
+              </ul>
+            </div>
+
+            <div class="guide-folio-col">
+              <h4 class="guide-section-heading">&#9884; Terrain &amp; Dungeon Hazards</h4>
+              <p class="guide-body-text">
+                The realm is divided into distinct biomes&mdash;Grasslands, Forest, Swamp, and subterranean Caves. Each terrain spawns unique creature types and hazard levels:
+              </p>
+
+              <ul class="adnd-bullet-list">
+                <li><b>Hostile Lands:</b> Initiates immediate battle against local horrors drawn to meet the card's danger level.</li>
+                <li><b>Settlements &amp; Villages:</b> Civilized havens where an adventurer may rest at the inn, purchase equipment from dynamic treasure stores, and train skills.</li>
+                <li><b>Sacred Shrines:</b> Mystical altars granting an automatic divine boon and permitting permanent Base Stat upgrades using earned Stat Points.</li>
+                <li><b>Undiscovered Lands:</b> Shrouded regions. Stepping here triggers a 1d6 exploration check: a natural <b>6</b> unearths hidden treasure, while rolls at or below the card level invite an ambush!</li>
+              </ul>
+
+              <div class="adnd-parchment-box callout-quest">
+                <h5 class="adnd-box-title">VICTORY CONDITIONS &amp; THE STAGE BOSS</h5>
+                <p class="adnd-box-text">
+                  On <b>Turn 15</b>, the journey culminates at the boss tile. The stage tyrant (such as the <i>Goblin King</i> in Stage 1 or the <i>Cult of Trolls</i> in Stage 2) emerges. Slay the boss to finish the scenario and unlock subsequent adventures!
+                </p>
+              </div>
+
+              <div class="adnd-page-jump-row">
+                <span class="adnd-jump-label">Next Chapter:</span>
+                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="2">Turn to Ch. I: Combat &rarr;</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============================================================ -->
+        <!-- PAGE 2: Chapter I — Combat & The Stack                       -->
+        <!-- ============================================================ -->
+        <article class="guide-book-page ${p === 2 ? 'is-active' : ''}" data-page="2">
+          <header class="guide-page-header">
+            <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
+            <h3 class="guide-chapter-title">&mdash; CHAPTER I: COMBAT &amp; THE RESOLUTION STACK &mdash;</h3>
+            <p class="guide-chapter-sub">Battles in one minute: Turn Rhythm, Action Points, One-by-One Card Draws, and 2d6 Tabletop Rolls</p>
+          </header>
+
+          <div class="guide-folio-grid">
+            <div class="guide-folio-col">
+              <h4 class="guide-section-heading">&#9884; Turn Flow &amp; Action Points (AP)</h4>
+              <p class="guide-body-text">
+                <span class="guide-drop-cap">C</span>ombat in <i>The Paths We Choose</i> fuses tactical deckbuilding with classic tabletop dice checks. At the inception of battle&mdash;and at the beginning of each hero turn&mdash;you draw <b>5 cards</b> from your <b>Player Combat Deck</b>.
+              </p>
+              <ul class="adnd-bullet-list">
+                <li><b>Action Cards:</b> Represent attacks, defensive shields, elemental incantations, and combat maneuvers.</li>
+                <li><b>Action Points (AP):</b> Playing a card costs AP. Adventurers normally begin with <b>3 AP</b> per turn (which scales with INT via <code>3 + &lfloor;INT / 5&rfloor;</code>, and can be modified by relics or passives like Wizard's <code>[Conserve]</code>).</li>
+                <li><b>Targeting:</b> Attack actions can be directed at enemy creatures in the 3D monster carousel, while shields and buffs target your own Hero.</li>
+                <li><b>End of Turn:</b> Play cards until your AP is depleted. When you press <b>End Turn</b>, all unplayed cards in your hand are swept into your <b>Player Combat Discard Pile</b>, and enemies execute their intents.</li>
+              </ul>
+
+              <div class="adnd-parchment-box">
+                <h5 class="adnd-box-title">ONE-BY-ONE DRAWS &amp; THE DECK REFRESH</h5>
+                <p class="adnd-box-text">
+                  In faithful tabletop fashion, every draw resolves <b>one single card at a time</b>:
+                </p>
+                <p class="adnd-box-text">
+                  <b>The 1-Card Scenario:</b> If there is only <b>1 card remaining</b> in your Player Combat Deck and an effect commands you to <i>draw 2 cards</i>:
+                </p>
+                <ol class="adnd-numbered-list">
+                  <li>You draw that 1st card first. If that card possesses an immediate draw or trigger effect (e.g. placing a card on top of your Player Combat Deck), that effect resolves immediately!</li>
+                  <li>You then proceed to resolve drawing your 2nd card.</li>
+                </ol>
+                <p class="adnd-box-text">
+                  <b>The Deck Refresh:</b> When a draw is required and your deck is empty, the deck automatically <b>refreshes</b> by shuffling your entire <b>Player Combat Discard Pile</b> to create a fresh new draw deck, then proceeds to draw that next card.
+                </p>
+                <p class="adnd-box-text">
+                  <b>Stack Safety:</b> A card you just played remains on the resolving Stack until all costs and effects conclude, guaranteeing a card can never immediately redraw itself.
+                </p>
+              </div>
+            </div>
+
+            <div class="guide-folio-col">
+              <h4 class="guide-section-heading">&#9884; The Tabletop 2d6 Attack Check</h4>
+              <p class="guide-body-text">
+                All physical attacks and monster strikes roll <b>two six-sided dice (2d6)</b> against the defender's Evasion (EVA).
+              </p>
+              <ul class="adnd-bullet-list">
+                <li><b>Base Hit Threshold:</b> Without modifiers, rolls of <b>5 or higher hit</b> (83.3% chance), while rolls of 4 or below miss.</li>
+                <li><b>Accuracy vs. Evasion:</b> <code>Needed Roll = 5 - (Attacker ACC - Target EVA)</code>. High net ACC lowers the roll required to hit.</li>
+                <li><b>Snake Eyes (1+1=2):</b> An automatic total miss regardless of bonuses!</li>
+                <li><b>Critical Hits (Boxcars 6+6=12):</b> Rolling double sixes (12) scores an automatic <b>Critical Hit</b> dealing <b>+50% bonus ATK damage</b> (&lfloor;damage &times; 1.5&rfloor;).</li>
+                <li><b>Hit Preview:</b> The target badge and confirmation modal show your exact required roll and win percentage before confirming.</li>
+              </ul>
+
+              <h4 class="guide-section-heading">&#9884; Defense, Block &amp; Damage Mitigation</h4>
+              <ul class="adnd-bullet-list">
+                <li><b>Temporary Block:</b> Shields absorb incoming damage during the current round before dissipating.</li>
+                <li><b>Physical Defense (DEF):</b> Permanent armor and bodily resistance that directly absorbs incoming physical blows on every hit (physical resistance to getting hurt).</li>
+                <li><b>Magical Defense (MDEF):</b> Innate arcane warding reducing damage from hostile spell attacks.</li>
+                <li><b>Hand Discards:</b> Cards requiring discards prompt selection directly in the confirmation window.</li>
+              </ul>
+
+              <div class="adnd-page-jump-row">
+                <span class="adnd-jump-label">Next Chapter:</span>
+                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="3">Turn to Ch. II: Attributes &rarr;</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============================================================ -->
+        <!-- PAGE 3: Chapter II — The Six Attributes                      -->
+        <!-- ============================================================ -->
+        <article class="guide-book-page ${p === 3 ? 'is-active' : ''}" data-page="3">
+          <header class="guide-page-header">
+            <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
+            <h3 class="guide-chapter-title">&mdash; CHAPTER II: THE SIX ATTRIBUTES &amp; PHYSICAL VIGOR &mdash;</h3>
+            <p class="guide-chapter-sub">Understanding Stats & Attributes: Direct Stat Evolution and Derived Combat Scaling</p>
+          </header>
+
+          <div class="guide-folio-grid">
+            <div class="guide-folio-col">
+              <h4 class="guide-section-heading">&#9884; No Levels &mdash; Stats Define Growth</h4>
+              <p class="guide-body-text">
+                <span class="guide-drop-cap">T</span>here are no arbitrary character levels or XP bars in this realm! Thy hero's attributes directly define character evolution. Every adventurer begins with <b>Base 1</b> across all six attributes, boosted by their class archetype bonuses. Stat Points (SP) won from battle are invested at Shrines to raise base stats.
+              </p>
+
+              <div class="adnd-stat-entry">
+                <h5 class="adnd-stat-name"><span class="adnd-glyph">&#128170;</span> Strength (STR) &mdash; Power &amp; Martial Force</h5>
+                <p class="adnd-stat-desc">Raw muscular force, weapon power, and physical toughness.</p>
+                <ul class="adnd-stat-perks">
+                  <li><b>Physical Attack (ATK):</b> Adds <code>+&lfloor;STR / 2&rfloor;</code> flat damage bonus to melee strikes (e.g. <i>Slash</i>).</li>
+                  <li><b>Physical Defense (DEF):</b> Adds <code>+&lfloor;STR / 5&rfloor;</code> innate physical damage absorption, reducing damage suffered when struck.</li>
+                  <li><b>Martial Scaling:</b> Directly amplifies physical class skills and frontline combat prowess.</li>
+                </ul>
+              </div>
+
+              <div class="adnd-stat-entry">
+                <h5 class="adnd-stat-name"><span class="adnd-glyph">&#9889;</span> Agility (AGI) &mdash; Reflexes &amp; Reactiveness</h5>
+                <p class="adnd-stat-desc">Reactiveness, twitch speed, swift movement, and evasive footwork.</p>
+                <ul class="adnd-stat-perks">
+                  <li><b>Combat Evasion (EVA):</b> Grants <b>+1 EVA for every 2 AGI</b> (<code>&lfloor;AGI / 2&rfloor;</code>), directly forcing enemy attack rolls to meet a higher 2d6 threshold to hit you.</li>
+                  <li><b>Physical Defense (DEF):</b> Adds <code>+&lfloor;AGI / 3&rfloor;</code> damage reduction through reactive dodging and glancing deflections.</li>
+                  <li><b>Disengage &amp; Escape:</b> Boosts Sprint escape check threshold on 1d6 (<code>&lfloor;AGI / 2&rfloor;</code>, minimum 1).</li>
+                </ul>
+              </div>
+
+              <div class="adnd-stat-entry">
+                <h5 class="adnd-stat-name"><span class="adnd-glyph">&#127919;</span> Dexterity (DEX) &mdash; Skill &amp; Perceptiveness</h5>
+                <p class="adnd-stat-desc">Skillfulness, fine motor precision, keen perceptiveness, and weapon finesse.</p>
+                <ul class="adnd-stat-perks">
+                  <li><b>Combat Accuracy (ACC):</b> Grants <b>+1 ACC for every 2 DEX</b> (<code>&lfloor;DEX / 2&rfloor;</code>), lowering the required 2d6 roll to hit enemy targets.</li>
+                  <li><b>Physical Attack (ATK):</b> Adds <code>+&lfloor;DEX / 3&rfloor;</code> attack bonus through pinpoint targeting of vital weaknesses.</li>
+                  <li><b>Hit Consistency:</b> Working with STR, ensures physical strikes reliably land even against high-evasion monsters.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="guide-folio-col">
+              <div class="adnd-stat-entry">
+                <h5 class="adnd-stat-name"><span class="adnd-glyph">&#129504;</span> Intelligence (INT) &mdash; Arcane Wit &amp; Tactics</h5>
+                <p class="adnd-stat-desc">Arcane comprehension, quick wittiness, memory, and battlefield tactical acumen.</p>
+                <ul class="adnd-stat-perks">
+                  <li><b>Magical Attack (MATK):</b> Adds <code>+&lfloor;INT / 2&rfloor;</code> bonus damage to spells and arcane cards (e.g. <i>Fireball</i>).</li>
+                  <li><b>Magical Defense (MDEF):</b> Adds <code>+&lfloor;INT / 5&rfloor;</code> innate ward absorbing hostile magical and elemental damage.</li>
+                  <li><b>Action Points (ACT / AP):</b> Grants <b>+1 Max AP for every 5 INT</b> (<code>3 + &lfloor;INT / 5&rfloor;</code>), unlocking explosive turn economy.</li>
+                </ul>
+              </div>
+
+              <div class="adnd-stat-entry">
+                <h5 class="adnd-stat-name"><span class="adnd-glyph">&#128172;</span> Charisma (CHA) &mdash; Influence &amp; Mind Games</h5>
+                <p class="adnd-stat-desc">Street smarts, political maneuvering, manipulation, persuasion, mind games, and flirtatious charm.</p>
+                <ul class="adnd-stat-perks">
+                  <li><b>Village Shop Discount:</b> Cuts merchant purchase prices by <b>5% per Effective CHA</b> across all village wares (minimum 1 Gold).</li>
+                  <li><b>Economic Leverage:</b> Lets high-CHA adventurers afford elite weapons, armor, and potions far earlier.</li>
+                  <li><b>Future Encounters:</b> Governs peaceful resolutions, special NPC dialogues, and bribery checks.</li>
+                </ul>
+              </div>
+
+              <div class="adnd-stat-entry">
+                <h5 class="adnd-stat-name"><span class="adnd-glyph">&#10084;&#65039;</span> Vitality (VIT) &mdash; Vigor &amp; Fortitude</h5>
+                <p class="adnd-stat-desc">Bodily constitution, life force, and physical resilience to trauma.</p>
+                <ul class="adnd-stat-perks">
+                  <li><b>Max Health (Max HP):</b> Increases Hero Max HP by <b>+2 HP</b> per Effective VIT (<code>Max HP = 10 + Effective VIT &times; 2</code>).</li>
+                  <li><b>Physical Defense (DEF):</b> Adds <code>+&lfloor;VIT / 5&rfloor;</code> innate physical damage absorption alongside STR and AGI.</li>
+                  <li><b>Frontline Endurance:</b> High VIT expands your life pool and sustains you through attrition and boss encounters.</li>
+                </ul>
+              </div>
+
+              <div class="adnd-page-jump-row">
+                <span class="adnd-jump-label">Next Chapter:</span>
+                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="4">Turn to Ch. III: Classes &rarr;</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============================================================ -->
+        <!-- PAGE 4: Chapter III — The Adventurer Classes                 -->
+        <!-- ============================================================ -->
+        <article class="guide-book-page ${p === 4 ? 'is-active' : ''}" data-page="4">
+          <header class="guide-page-header">
+            <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
+            <h3 class="guide-chapter-title">&mdash; CHAPTER III: THE ADVENTURER CLASSES &mdash;</h3>
+            <p class="guide-chapter-sub">Player Class Guide: Primary &amp; Secondary Archetypes, Innate Passives, and Starter Combat Decks</p>
+          </header>
+
+          <div class="guide-folio-grid">
+            <div class="guide-folio-col">
+              <h4 class="guide-section-heading">&#9884; Archetype Class Bonuses</h4>
+              <p class="guide-body-text">
+                <span class="guide-drop-cap">E</span>ach adventurer class begins with Base Stats of 1 across all six attributes, elevated by <b>1 Primary Stat (+2 bonus)</b> and <b>2 Secondary Stats (+1 bonus each)</b>, an innate combat passive, and a distinct starter deck.
+              </p>
+
+              <div class="adnd-class-box">
+                <div class="adnd-class-header">
+                  <h5 class="adnd-class-title">&#9876;&#65039; Fighter</h5>
+                  <span class="adnd-class-role">Primary: STR (+2) &bull; Secondary: VIT (+1), DEX (+1)</span>
+                </div>
+                <p class="adnd-class-summary">A battle-hardened warrior who dominates the frontline with brute strength, high HP, and heavy shield defense.</p>
+                <div class="adnd-class-stats-strip">
+                  <span><b>STR 3</b></span> &bull; <span><b>DEX 2</b></span> &bull; <span><b>AGI 1</b></span> &bull; <span><b>INT 1</b></span> &bull; <span><b>CHA 1</b></span> &bull; <span><b>VIT 2</b></span>
+                </div>
+                <ul class="adnd-stat-perks">
+                  <li><b>Starting Vitals:</b> <b>14 Max HP</b>, 1 ACC, 0 EVA, 1 ATK, 0 DEF, 3 AP.</li>
+                  <li><b>Passive &mdash; <code>[Berzerk]</code>:</b> Gains <b>+1 ATK</b> when at 50% HP or lower; increases to <b>+2 ATK</b> when critically wounded at 25% HP or lower.</li>
+                  <li><b>Starter Combat Deck:</b> 8&times; Slash (1 AP, 5 physical damage + ATK) &bull; 2&times; Defend (1 AP, 4 Block).</li>
+                  <li><b>Tactics:</b> High starting HP lets the Fighter absorb hits while scaling melee strikes through both STR and DEX. Exploit Berzerk surges during fierce boss fights!</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="guide-folio-col">
+              <div class="adnd-class-box">
+                <div class="adnd-class-header">
+                  <h5 class="adnd-class-title">&#128302; Wizard</h5>
+                  <span class="adnd-class-role">Primary: INT (+2) &bull; Secondary: DEX (+1), CHA (+1)</span>
+                </div>
+                <p class="adnd-class-summary">A tactical scholar commanding elemental flame, bending action economy, and outsmarting opponents with high wit.</p>
+                <div class="adnd-class-stats-strip">
+                  <span><b>STR 1</b></span> &bull; <span><b>DEX 2</b></span> &bull; <span><b>AGI 1</b></span> &bull; <span><b>INT 3</b></span> &bull; <span><b>CHA 2</b></span> &bull; <span><b>VIT 1</b></span>
+                </div>
+                <ul class="adnd-stat-perks">
+                  <li><b>Starting Vitals:</b> <b>12 Max HP</b>, 1 ACC, 0 EVA, 1 MATK, 0 MDEF, 3 AP.</li>
+                  <li><b>Passive &mdash; <code>[Conserve]</code>:</b> Unspent Action Points (AP) at the end of a battle turn are saved and carried over into the next round.</li>
+                  <li><b>Starter Combat Deck:</b> 8&times; Fireball (1 AP, 5 magic damage + MATK) &bull; 2&times; Force Field (1 AP, 4 Block).</li>
+                  <li><b>Tactics:</b> Save AP during quiet turns to unleash explosive multi-spell combos. Enjoys an immediate 10% discount in village shops from starting CHA 2.</li>
+                </ul>
+              </div>
+
+              <div class="adnd-class-box">
+                <div class="adnd-class-header">
+                  <h5 class="adnd-class-title">&#128481;&#65039; Rogue</h5>
+                  <span class="adnd-class-role">Primary: AGI (+2) &bull; Secondary: DEX (+1), STR (+1)</span>
+                </div>
+                <p class="adnd-class-summary">An elusive infiltrator blending lightning reflexes, tactical perceptiveness, and opportunistic thievery.</p>
+                <div class="adnd-class-stats-strip">
+                  <span><b>STR 2</b></span> &bull; <span><b>DEX 2</b></span> &bull; <span><b>AGI 3</b></span> &bull; <span><b>INT 1</b></span> &bull; <span><b>CHA 1</b></span> &bull; <span><b>VIT 1</b></span>
+                </div>
+                <ul class="adnd-stat-perks">
+                  <li><b>Starting Vitals:</b> <b>12 Max HP</b>, 1 ACC, 1 EVA, 1 ATK, 1 DEF, 3 AP.</li>
+                  <li><b>Passive &mdash; <code>[Steal]</code>:</b> Rolling any pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6) on a 2d6 attack roll instantly pickpockets Gold equal to the doubled die number (e.g. 6+6 steals <b>+6 Gold</b>, 5+5 steals <b>+5 Gold</b>, and even Snake Eyes 1+1 steals <b>+1 Gold</b>).</li>
+                  <li><b>Starter Combat Deck:</b> 8&times; Slash (1 AP, 5 physical damage + ATK) &bull; 2&times; Defend (1 AP, 4 Block).</li>
+                  <li><b>Tactics:</b> High EVA causes enemy attacks to miss; starts with 1 natural DEF from AGI 3; generates bonus gold in battle to buy elite gear quickly.</li>
+                </ul>
+              </div>
+
+              <div class="adnd-page-jump-row">
+                <span class="adnd-jump-label">Next Chapter:</span>
+                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="5">Turn to Ch. IV: Shrines &amp; Void &rarr;</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============================================================ -->
+        <!-- PAGE 5: Chapter IV — Shrines, Villages & The Void            -->
+        <!-- ============================================================ -->
+        <article class="guide-book-page ${p === 5 ? 'is-active' : ''}" data-page="5">
+          <header class="guide-page-header">
+            <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
+            <h3 class="guide-chapter-title">&mdash; CHAPTER IV: SHRINES, SETTLEMENTS &amp; THE VOID &mdash;</h3>
+            <p class="guide-chapter-sub">Upgrading your hero at Shrines, Settlement Services, Villages, treasure, and decks, and the Finite Physical Void</p>
+          </header>
+
+          <div class="guide-folio-grid">
+            <div class="guide-folio-col">
+              <h4 class="guide-section-heading">&#9884; Upgrading at Sacred Shrines</h4>
+              <p class="guide-body-text">
+                <span class="guide-drop-cap">D</span>efeating monsters awards <b>Gold</b> and <b>Stat Points (SP)</b>. At a <b>Shrine</b> (or during Turn 0 preparation), spend SP to raise a base stat. The cost formula is:
+              </p>
+              <div class="adnd-parchment-box">
+                <h5 class="adnd-box-title">BASE STAT UPGRADE COST FORMULA</h5>
+                <p class="adnd-box-formula"><b>Cost(Base &rarr; Base + 1) = (currentBase + 1)&sup2; SP</b></p>
+                <p class="adnd-box-text">Base 1 &rarr; 2: costs <b>4 SP</b> &bull; Base 2 &rarr; 3: costs <b>9 SP</b> &bull; Base 3 &rarr; 4: costs <b>16 SP</b></p>
+              </div>
+              <ul class="adnd-bullet-list">
+                <li><b>Shrine Level Cap:</b> A Shrine can raise base stats only up to its <b>Shrine Level + 1</b>: Level 1 permits Base 1&rarr;2, Level 2 allows Base up to 3, and Level 3 allows Base up to 4.</li>
+                <li><b>Automatic Sacred Boons:</b> Stepping on a Sacred Shrine bestows 1 eligible divine boon upon arrival (Cleanse, +1 Stat Blessing, Divine Protection, or Revitalize). Only 1 shrine blessing can be active at a time.</li>
+                <li><b>Live Inspection:</b> Right-click (or hold/tap ⓘ) on any stat row in the sidebar or shrine to inspect the full calculation and derived attributes anytime.</li>
+              </ul>
+            </div>
+
+            <div class="guide-folio-col">
+              <h4 class="guide-section-heading">&#9884; Villages, treasure, and decks</h4>
+              <ul class="adnd-bullet-list">
+                <li><b>Resting:</b> Resting at the inn restores 2 HP per 1 Gold. Accessible anytime while visiting a village.</li>
+                <li><b>Market Trading:</b> Stores stock <code>5 + Village Level</code> eligible item cards drawn from the 42-card Treasure Deck, offering weapons, armor, and consumables.</li>
+                <li><b>Training &amp; Destruction:</b> Draft 1 of 3 learnable cards from the New Skills Deck, or permanently sacrifice an unwanted card to the Void.</li>
+                <li><b>Undiscovered Exploration:</b> Roll 1d6. A natural <b>6</b> finds treasure; rolls &le; tile level trigger an Ambush; other rolls are safe passage.</li>
+                <li><b>The Void &amp; Physical Supply:</b> Unselected creature copies remain publicly inspectable in the <b>Void</b>. Full creature cards use the New Paths set symbol for rarity: <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.goblin, 'guide-set-symbol')} bronze = Common</span>, <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.stalker, 'guide-set-symbol')} silver = Uncommon</span>, and <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.rattler, 'guide-set-symbol')} gold = Rare</span>.</li>
+              </ul>
+
+              <div class="adnd-parchment-box callout-quest">
+                <h5 class="adnd-box-title">COMMENCING THY JOURNEY</h5>
+                <p class="adnd-box-text">
+                  Equip thy weapon, steel thy resolve, and choose thy initial steps with wisdom. The realm awaits thy triumph!
+                </p>
+              </div>
+
+              <div class="adnd-page-jump-row">
+                <button class="btn primary guide-jump-btn" data-action="close-guide">${inGame ? 'Back to Game' : 'Ready to Begin'}</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
       </div>
 
-      <div class="guide-topic-grid">
-      <details class="guide-topic guide-battle-topic" open>
-        <summary>⚔️ Battles in one minute</summary>
-        <ul>
-          <li>Each turn, your remaining hand is discarded, then you draw <b>5 cards</b>. If the draw deck empties, shuffle its discard pile and keep drawing. You usually have <b>3 AP</b> to spend.</li>
-          <li>Choose a monster, then choose an attack card. The target badge tells you the roll needed and your chance to hit.</li>
-          <li>Attacks roll <b>2 dice</b>. A basic hit is 5 or more after ACC and EVA. Snake eyes always miss; double sixes are a critical hit.</li>
-          <li><b>Block</b> absorbs damage for this round. <b>DEF</b> reduces physical damage, while <b>MDEF</b> reduces magical damage.</li>
-          <li>If a card asks you to discard cards, choose them in the confirmation window before you press Confirm.</li>
-        </ul>
-      </details>
+      <!-- Tome Page-Turn Footer with Medallion and Controls -->
+      <footer class="guide-tome-footer">
+        <button class="btn guide-turn-btn prev ${p <= 1 ? 'is-disabled' : ''}" data-action="guide-prev-page" ${p <= 1 ? 'disabled' : ''} title="Previous Page (A or &larr;)">
+          &larr; Previous Page
+        </button>
 
-      <details class="guide-topic">
-        <summary>🌟 Improve your hero</summary>
-        <ul>
-          <li>Monsters award <b>Gold</b> and <b>Stat Points (SP)</b>.</li>
-          <li>At a Shrine, spend SP to raise a base stat. The cost grows as the stat gets higher.</li>
-          <li>STR helps HP and ATK; DEX helps ACC; AGI helps EVA; INT helps magic and AP; CHA lowers shop prices.</li>
-          <li><b>LUK</b> improves critical hits, victory Gold, and Undiscovered Lands: every 5 LUK adds +1 to the exploration roll.</li>
-        </ul>
-      </details>
+        <div class="guide-page-medallion">
+          <span class="guide-medallion-crest" aria-hidden="true">&#10022;</span>
+          <span class="guide-medallion-text">PAGE ${p} OF 5</span>
+          <span class="guide-medallion-crest" aria-hidden="true">&#10022;</span>
+          <span class="guide-turn-hint">Turn page with A / D or &larr; / &rarr; keys</span>
+        </div>
 
-      <details class="guide-topic">
-        <summary>🎒 Villages, treasure, and decks</summary>
-        <ul>
-          <li>Villages let you rest, buy or sell items, and learn skills. You can go back to the village menu while visiting.</li>
-          <li>On an Undiscovered Land, a modified exploration roll of <b>6 or more</b> finds treasure. A low result can cause an ambush; other results are safe.</li>
-          <li>The right sidebar lets you inspect Adventure, Monster, Treasure, Combat, and New Skills decks. Decks reshuffle their public discard pile when they need more cards.</li>
-          <li>The <b>Void</b> shows cards not currently in play, including creature copies not selected for this scenario. Full creature cards use the New Paths set symbol for rarity: <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.goblin, 'guide-set-symbol')} bronze = Common</span>, <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.stalker, 'guide-set-symbol')} silver = Uncommon</span>, and <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.rattler, 'guide-set-symbol')} gold = Rare</span>.</li>
-        </ul>
-      </details>
-
-      <details class="guide-topic">
-        <summary>🏁 How do I win?</summary>
-        <p>Keep moving forward. On Turn 15, the stage boss appears. Defeat it to complete the stage and unlock the next mission.</p>
-      </details>
-      </div>
-
-      <footer class="guide-footer">
-        <span>${inGame ? 'You can reopen this guide anytime from the Guide button.' : 'You can open this guide again anytime during your adventure.'}</span>
-        <button class="btn primary" data-action="close-guide">${inGame ? 'Back to Game' : 'Ready to Begin'}</button>
+        <button class="btn guide-turn-btn next" data-action="${p >= 5 ? 'close-guide' : 'guide-next-page'}" title="${p >= 5 ? 'Close Tome' : 'Next Page (D or &rarr;)'}">
+          ${p >= 5 ? 'Close Tome &times;' : 'Next Page &rarr;'}
+        </button>
       </footer>
-    </section>
+
+    </div>
   </div>`;
 }
 
@@ -335,9 +703,9 @@ export function classDetailPanelContentHtml(id: ClassId): string {
     agi: 1 + c.classBonuses.agi,
     int: 1 + c.classBonuses.int,
     cha: 1 + c.classBonuses.cha,
-    luk: 1 + c.classBonuses.luk,
+    vit: 1 + c.classBonuses.vit,
   };
-  const hp = 10 + eff.str * 2;
+  const hp = 10 + eff.vit * 2;
   const deckLine =
     id === 'wizard'
       ? '8&times; Fireball ATK &middot; 2&times; Force Field DEF'
@@ -573,12 +941,12 @@ function statPanelHtml(state: RunState): string {
       <span class="derived-chip acc" title="Accuracy: 1 ACC per 2 DEX">${getDerivedStatIcon('acc')} ACC <b>${derived.acc}</b></span>
       <span class="derived-chip eva" title="Evasion: 1 EVA per 2 AGI + Gear EVA">${getDerivedStatIcon('eva')} EVA <b>${derived.eva}</b></span>
       <span class="derived-chip atk" title="Physical Attack: floor(STR / 2) + floor(DEX / 3) + Gear ATK">${getDerivedStatIcon('atk')} ATK <b>${derived.atk}</b></span>
-      <span class="derived-chip def" title="Physical Defense: floor(STR / 5) + floor(AGI / 3) + Gear DEF">${getDerivedStatIcon('def')} DEF <b>${derived.def}</b></span>
+      <span class="derived-chip def" title="Physical Defense: floor(STR / 5) + floor(VIT / 5) + floor(AGI / 3) + Gear DEF">${getDerivedStatIcon('def')} DEF <b>${derived.def}</b></span>
       <span class="derived-chip matk" title="Magical Attack: floor(INT / 2) + Gear MATK">${getDerivedStatIcon('matk')} MATK <b>${derived.matk}</b></span>
       <span class="derived-chip mdef" title="Magical Defense: floor(INT / 5) + Gear MDEF">${getDerivedStatIcon('mdef')} MDEF <b>${derived.mdef}</b></span>
       ${derived.pen > 0 ? `<span class="derived-chip pen" title="Physical Penetration: physical attacks ignore this much enemy natural DEF"><span class="pen-symbol">PEN</span> PEN <b>${derived.pen}</b></span>` : ''}
       <span class="derived-chip act" title="Max Action Points: Base 3 + floor(INT / 5)">${getDerivedStatIcon('act')} ACT <b>${derived.act}</b></span>
-      <span class="derived-chip crit" title="Critical Hit Range: 12 - floor(LUK / 10)">🎲 CRIT <b>${derived.critThreshold ?? 12}+</b></span>
+      <span class="derived-chip crit" title="Critical Hit Range: Boxcars 12 (6+6)">🎲 CRIT <b>${derived.critThreshold ?? 12}+</b></span>
       <span class="derived-chip cha" title="Charisma: -5% shop prices per CHA">${getStatIcon('cha')} DISC <b>-${eff.cha * 5}%</b></span>
     </div>
     <p class="muted shrine-hint">Right-click any stat for full computation &amp; next SP cost.</p>
@@ -591,7 +959,7 @@ export interface PlayerInfoWidgetOptions {
   showGear?: boolean;
 }
 
-/** Canonical player-information widget shared by the Map, Shrine, and future overlays. */
+/** Canonical player-information widget shared by the Map, Shrine, Village Shop, and future overlays. */
 export function playerInfoWidgetHtml(
   state: RunState,
   options: PlayerInfoWidgetOptions = {},
@@ -2099,15 +2467,15 @@ export function fleeConfirmModal(state: RunState, _combat: ActiveCombatState, st
           <div class="confirm-calc-section">
         <div class="confirm-stat-chips-grid">
           <div class="confirm-chip">
-            <span class="chip-label">AGI + LUK</span>
-            <span class="chip-value"><b>${stats.agi} + ${stats.luk}</b></span>
-            <span class="chip-sub">Effective stats</span>
+            <span class="chip-label">Effective AGI</span>
+            <span class="chip-value"><b>${stats.agi}</b></span>
+            <span class="chip-sub">Effective stat</span>
           </div>
           <span class="chip-operator">&rarr;</span>
           <div class="confirm-chip target-roll">
             <span class="chip-label">Escape Target</span>
             <span class="chip-value">🎲 <b>&le; ${threshold}</b></span>
-            <span class="chip-sub">&lfloor;(AGI + LUK) / 2&rfloor; on 1d6</span>
+            <span class="chip-sub">&lfloor;AGI / 2&rfloor; (min 1) on 1d6</span>
           </div>
         </div>
         <div class="confirm-prob-box">
@@ -2549,7 +2917,7 @@ export function statUpgradeWidgetHtml(
     const can = !atShrineCap && res.statPoints >= cost;
     let benefitNote = '';
     if (s === 'str') {
-      benefitNote = ` <small>(Max HP ${res.maxHp} &rarr; ${res.maxHp + 2}, DEF +${Math.floor(eff.str / 5)} &rarr; +${Math.floor((eff.str + 1) / 5)})</small>`;
+      benefitNote = ` <small>(ATK +${Math.floor(eff.str / 2)} &rarr; +${Math.floor((eff.str + 1) / 2)}, DEF +${Math.floor(eff.str / 5)} &rarr; +${Math.floor((eff.str + 1) / 5)})</small>`;
     } else if (s === 'dex') {
       benefitNote = ` <small>(ACC ${Math.floor(eff.dex / 2)} &rarr; ${Math.floor((eff.dex + 1) / 2)}, ATK +${Math.floor(eff.dex / 3)} &rarr; +${Math.floor((eff.dex + 1) / 3)})</small>`;
     } else if (s === 'agi') {
@@ -2558,8 +2926,8 @@ export function statUpgradeWidgetHtml(
       benefitNote = ` <small>(MATK +${Math.floor(eff.int / 2)} &rarr; +${Math.floor((eff.int + 1) / 2)}, MDEF +${Math.floor(eff.int / 5)} &rarr; +${Math.floor((eff.int + 1) / 5)}, ACT ${3 + Math.floor(eff.int / 5)} &rarr; ${3 + Math.floor((eff.int + 1) / 5)})</small>`;
     } else if (s === 'cha') {
       benefitNote = ` <small>(Shop discount -${eff.cha * 5}% &rarr; -${(eff.cha + 1) * 5}%)</small>`;
-    } else if (s === 'luk') {
-      benefitNote = ` <small>(Crit ${Math.max(2, 12 - Math.floor(eff.luk / 10))}+ &rarr; ${Math.max(2, 12 - Math.floor((eff.luk + 1) / 10))}+, Gold +${Math.floor(eff.luk / 2)} &rarr; +${Math.floor((eff.luk + 1) / 2)})</small>`;
+    } else if (s === 'vit') {
+      benefitNote = ` <small>(Max HP ${res.maxHp} &rarr; ${res.maxHp + 2}, DEF +${Math.floor(eff.vit / 5)} &rarr; +${Math.floor((eff.vit + 1) / 5)})</small>`;
     }
     const rowContents = `
       <span style="display:flex;align-items:center;gap:8px;">
@@ -2670,11 +3038,8 @@ export function explorationModal(
   const capTerrain = terrain.label;
 
   const roll = exploration.roll;
-  const luckBonus = exploration.luckBonus ?? 0;
-  const effectiveRoll = exploration.effectiveRoll ?? roll + luckBonus;
-  const rollBreakdown = luckBonus > 0
-    ? `Natural ${roll} + LUK ${luckBonus} = ${effectiveRoll}`
-    : `Natural ${roll}`;
+  const effectiveRoll = exploration.effectiveRoll ?? roll;
+  const rollBreakdown = `Natural ${roll}`;
   const outcome = exploration.outcome;
 
   return `
@@ -2802,8 +3167,7 @@ export function victoryModal(
     .join('');
 
   const luckyCharmBonus = victory.luckyCharmGold;
-  const luckBonus = victory.luckBonusGold;
-  const hasBonuses = luckyCharmBonus > 0 || luckBonus > 0;
+  const hasBonuses = luckyCharmBonus > 0;
 
   return `
   <div class="modal-backdrop victory-backdrop">
@@ -2844,7 +3208,7 @@ export function victoryModal(
             <div class="reward-breakdown">
               ${
                 hasBonuses
-                  ? `Base: +${victory.baseGold}g${luckBonus > 0 ? ` &middot; Luck: +${luckBonus}g` : ''}${
+                  ? `Base: +${victory.baseGold}g${
                       luckyCharmBonus > 0 ? ` &middot; Goldstar: +${luckyCharmBonus}g` : ''
                     }`
                   : 'Added directly to your treasury'
@@ -3017,60 +3381,6 @@ function deltaChips(p: GearPreview): string {
   return chips.length ? chips.join('') : '<span class="chip">No stat change</span>';
 }
 
-function inventoryPanel(state: RunState): string {
-  const eff = getEffectiveStatsFromState(state);
-  const res = state.playerResources!;
-  const slot = (label: string, item: ShopItemDef | null) => {
-    const slotKey = label.toLowerCase();
-    if (!item) {
-      return `<div class="slot"><span class="slot-label">${getSlotIcon(slotKey, 'slot-icon')} ${label}</span><span class="slot-item">Empty</span></div>`;
-    }
-    const raster = getItemRasterArtPath(item.id);
-    return `<div class="slot filled inspectable-row" data-inspect-kind="item" data-item-instance="${item.instanceId}" data-item-id="${item.id}" title="Right-click or hold to inspect ${item.name}">
-      <span class="slot-label">${getSlotIcon(slotKey, 'slot-icon')} ${label}</span>
-      <div class="slot-item-with-art">
-        <img src="${raster}" alt="${item.name}" class="inv-slot-mini-img" loading="lazy" />
-        <span class="slot-item">${item.name} <small>${item.description.replace(/^[A-Za-z]+ Slot: /, '')}</small></span>
-      </div>
-      <button class="btn mini secondary unequip-btn" data-action="unequip" data-id="${slotKey}" title="Unequip ${item.name} to backpack">Unequip</button>
-    </div>`;
-  };
-  const bagItems = state.backpack.length
-    ? state.backpack
-        .map(
-          (i) => {
-            const raster = getItemRasterArtPath(i.id);
-            return `<div class="backpack-item inspectable-row" data-inspect-kind="item" data-item-instance="${i.instanceId}" data-item-id="${i.id}" title="Right-click or hold to inspect ${i.name}">
-              <div class="bag-item-left">
-                <img src="${raster}" alt="${i.name}" class="inv-slot-mini-img" loading="lazy" />
-                <span class="bag-item-name">${i.name}</span>
-              </div>
-              ${
-                i.category === 'consumable'
-                  ? `<button class="btn mini" data-action="use-item" data-id="${i.instanceId}">Use</button>`
-                  : `<button class="btn mini" data-action="equip" data-id="${i.instanceId}">Equip</button>`
-              }
-            </div>`;
-          }
-        )
-        .join('')
-    : '<span class="muted">empty</span>';
-  return `
-  <div class="inventory">
-    <h3>Your equipment</h3>
-    ${slot('Weapon', state.equippedGear.weapon)}
-    ${slot('Armor', state.equippedGear.armor)}
-    ${slot('Accessory', state.equippedGear.accessory)}
-    <div class="backpack-box">
-      <div class="backpack-header"><span class="slot-label">Backpack</span> <small class="muted">(${state.backpack.length})</small></div>
-      <div class="backpack-items">${bagItems}</div>
-    </div>
-    <div class="inv-stats-box">
-      <span class="slot-label">Current stats</span>
-      <p class="inv-stats">${STATS.map((s) => `${s.toUpperCase()} <b>${eff[s]}</b>`).join(' &middot; ')} &middot; HP <b>${res.hp}/${res.maxHp}</b></p>
-    </div>
-  </div>`;
-}
 
 function shopBuyRow(state: RunState, item: ShopItemDef | ShopItemTemplate): string {
   const gold = state.playerResources!.gold;
@@ -3257,7 +3567,11 @@ function villageModal(state: RunState, village: ActiveVillageState, ui: UiState)
     body = `
     <div class="shop-layout">
       <aside class="shop-sidebar">
-        ${inventoryPanel(state)}
+        ${playerInfoWidgetHtml(state, {
+          title: 'Character & Gear',
+          description: 'Your live hero, derived combat values, equipment, and backpack.',
+          showGear: true,
+        })}
       </aside>
       <section class="shop-main">
         <p class="muted">Level ${shopLevel} store · Supplies ${shopLevelBand} items</p>
@@ -3271,7 +3585,7 @@ function villageModal(state: RunState, village: ActiveVillageState, ui: UiState)
         <div class="shop-list">${list}</div>
         <div class="modal-actions">
           <button class="btn" data-action="village-back">&larr; Village options</button>
-          <button class="btn primary" data-action="village-leave">Done shopping</button>
+
         </div>
       </section>
     </div>`;
@@ -3720,9 +4034,9 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
           card.hasHostile
             ? `Stepping onto this card initiates an encounter. Monsters are drawn from the Monster Deck matching <code>spawnTerrains.includes('${card.terrain}')</code> until total creature level &ge; ${card.level}.`
             : card.hasVillage
-            ? 'Safe resting haven. Resting restores full HP for 5 gold + 1 gold per 10 missing HP (rounded down). Shop allows equipment upgrades with live before/after stat delta previews. Training allows drafting 1 of 3 cards or removing an unwanted card.'
+            ? `Safe resting haven. Resting restores 2 HP per 1 Gold (up to full HP). Shop stocks ${5 + card.level} items from the Treasure Deck (Levels ${Math.max(1, card.level - 1)}–${card.level}) with live stat delta previews. Training offers 3 skills from the New Skills Deck or destroys a card to the Void.`
             : card.hasShrine
-            ? 'Only place where Stat Points (earned from defeating monsters) can be converted into permanent Base Stats. Cost to upgrade from Base B to B+1 is (B+1)^2 SP (e.g. Base 1 to 2 costs 4 SP, Base 4 to 5 costs 25 SP). Also allows praying for 1 map-temporary divine favor.'
+            ? `Sacred sanctuary. Automatically grants 1 eligible divine boon on arrival (1 active blessing at a time). Converts Stat Points into permanent Base Stats up to Base ${card.level + 1} at cost (B+1)^2 SP.${card.level >= 2 ? ' Also supports upgrading owned skills from the Void.' : ''}`
             : 'Safe territory. No monsters spawn. Player safely advances towards the Turn 15 Boss.'
         }</p>
       </div>
@@ -3779,7 +4093,9 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
           ${item.gearBonus?.matk ? `<li><b>Magical ATK &amp; DEF (+${item.gearBonus.matk} MATK, +${item.gearBonus.mdef} MDEF):</b> Boosts spell scaling and magic defense. (Hero MATK = &lfloor;INT / 2&rfloor; + Weapon, Hero MDEF = &lfloor;INT / 5&rfloor; + Armor MDEF).</li>` : ''}
           ${item.gearBonus?.eva ? `<li><b>Evasion (+${item.gearBonus.eva}):</b> Adds +${item.gearBonus.eva} EVA to evade incoming 2d6 attack rolls.</li>` : ''}
           ${item.gearBonus?.pen ? `<li><b>Penetration (+${item.gearBonus.pen} PEN):</b> Physical hero attacks ignore up to ${item.gearBonus.pen} of an enemy's natural DEF before temporary Block applies. Magical attacks still use MDEF and do not gain PEN.</li>` : ''}
-          ${item.statBonus?.str ? `<li><b>Strength (+${item.statBonus.str} STR):</b> Increases Effective STR by ${item.statBonus.str}, granting +${item.statBonus.str * 2} Max HP and melee damage scaling.</li>` : ''}
+          ${item.statBonus?.str ? `<li><b>Strength (+${item.statBonus.str} STR):</b> Increases Effective STR by ${item.statBonus.str}, granting +${item.statBonus.str * 2} Max HP and boosting melee scaling.</li>` : ''}
+          ${item.statBonus?.vit ? `<li><b>Vitality (+${item.statBonus.vit} VIT):</b> Increases Effective VIT by ${item.statBonus.vit}, granting +${item.statBonus.vit * 2} Max HP and physical defense scaling.</li>` : ''}
+          ${item.statBonus?.dex ? `<li><b>Dexterity (+${item.statBonus.dex} DEX):</b> Increases Effective DEX by ${item.statBonus.dex}, boosting accuracy and physical attack scaling.</li>` : ''}
           ${item.statBonus?.int ? `<li><b>Intellect (+${item.statBonus.int} INT):</b> Increases Effective INT by ${item.statBonus.int}, boosting spell damage, MATK, and MDEF.</li>` : ''}
           ${item.statBonus?.agi ? `<li><b>Agility (+${item.statBonus.agi} AGI):</b> Increases Effective AGI by ${item.statBonus.agi}, boosting baseline Evasion.</li>` : ''}
           ${item.healAmount ? `<li><b>Consumable Elixir:</b> Restores ${item.healAmount} HP immediately when used from backpack.</li>` : ''}
@@ -3838,11 +4154,11 @@ const STAT_DESCRIPTIONS: Record<
 > = {
   str: {
     name: 'Strength',
-    role: 'Physical muscle power, resilience and martial force',
+    role: 'Physical muscle power, weapon force and martial toughness',
     derivedRules: (eff, derived) => [
-      `<b>Max Health (Max HP):</b> Increases Hero Max HP by <b>+2 HP</b> per Effective STR (<code>Max HP = 10 + Effective STR &times; 2</code>). Current: <b>${10 + eff * 2} Max HP</b>.`,
       `<b>Physical Attack (ATK):</b> Grants <code>&lfloor;STR / 2&rfloor; + &lfloor;DEX / 3&rfloor; + Weapon ATK</code>. Adds flat bonus damage to normal physical attack cards (e.g. <i>Slash</i>). Current Physical ATK: <b>${derived.atk} ATK</b> (STR contributes <code>&lfloor;${eff} / 2&rfloor; = ${Math.floor(eff / 2)}</code>).`,
-      `<b>Physical Defense (DEF):</b> Grants <code>&lfloor;STR / 5&rfloor; + &lfloor;AGI / 3&rfloor; + Armor DEF</code>. Flatly absorbs damage from all non-magical enemy attacks when hit. Current Physical DEF: <b>${derived.def} DEF</b> (STR contributes <code>&lfloor;${eff} / 5&rfloor; = ${Math.floor(eff / 5)}</code>).`,
+      `<b>Physical Defense (DEF):</b> Grants <code>&lfloor;STR / 5&rfloor; + &lfloor;VIT / 5&rfloor; + &lfloor;AGI / 3&rfloor; + Armor DEF</code>. Flatly absorbs damage from all non-magical enemy attacks when hit. Current Physical DEF: <b>${derived.def} DEF</b> (STR contributes <code>&lfloor;${eff} / 5&rfloor; = ${Math.floor(eff / 5)}</code>).`,
+      `<b>Martial Scaling:</b> Amplifies physical action cards that scale directly with STR.`,
     ],
   },
   dex: {
@@ -3881,14 +4197,13 @@ const STAT_DESCRIPTIONS: Record<
       `<b>Future Encounters:</b> Will be utilized for peaceful path events, wandering merchant negotiations, and faction dialogue.`,
     ],
   },
-  luk: {
-    name: 'Luck',
-    role: 'Serendipity, battle spoils and critical hit mastery',
+  vit: {
+    name: 'Vitality',
+    role: 'Bodily constitution, life force and physical resilience',
     derivedRules: (eff, derived) => [
-      `<b>Critical Hit Range:</b> Improves critical hit threshold by <b>1 for every 10 Effective LUK</b> (<code>12 - &lfloor;LUK / 10&rfloor;</code>). Base threshold is 12 (Boxcars [6, 6] = 2.8%). At 10 LUK: rolls of 11+ crit (8.3%). At 20 LUK: rolls of 10+ crit (16.7%). Current critical threshold: <b>Rolls ${derived.critThreshold ?? 12}+</b>. Critical hits deal +50% ATK damage!`,
-      `<b>Victory Gold Spoils:</b> Grants an additional <code>&lfloor;LUK / 2&rfloor; Gold</code> upon winning every battle. Current bonus: <b>+${Math.floor(eff / 2)} Gold</b> per victorious encounter.`,
-      `<b>Undiscovered Terrain:</b> Each <b>5 Effective LUK</b> adds <code>+1</code> to the 1d6 exploration result before resolving outcomes. Current exploration bonus: <b>+${Math.floor(eff / 5)}</b>. A modified result of <b>6 or more</b> finds Treasure; otherwise a result at or below terrain level is an Ambush.`,
-      `<b>Fortune Accessories:</b> Directly synergizes with items like the <i>Goldstar</i> (produces 1d6 - 1 bonus gold per victory) and special event fortune checks.`,
+      `<b>Max Health (Max HP):</b> Increases Hero Max HP by <b>+2 HP</b> per Effective VIT (<code>Max HP = 10 + Effective VIT &times; 2</code>). Current: <b>${10 + eff * 2} Max HP</b>.`,
+      `<b>Physical Defense (DEF):</b> Grants <code>&lfloor;STR / 5&rfloor; + &lfloor;VIT / 5&rfloor; + &lfloor;AGI / 3&rfloor; + Armor DEF</code>. Flatly absorbs damage from all non-magical enemy attacks when hit. Current Physical DEF: <b>${derived.def} DEF</b> (VIT contributes <code>&lfloor;${eff} / 5&rfloor; = ${Math.floor(eff / 5)}</code>).`,
+      `<b>Frontline Endurance:</b> Raising VIT immediately grants +2 current HP and +2 Max HP, keeping your hero alive through long dungeon delves.`,
     ],
   },
 };

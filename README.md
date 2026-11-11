@@ -30,7 +30,7 @@ npm run preview
 
 ## Current game
 
-Choose Fighter, Wizard or Rogue. All six Base Stats start at 1; a class adds +2 to its Primary stat and +1 to two Secondary stats. Before preparation upgrades, equipment or blessings, Fighter has 16 Max HP, Wizard 12 and Rogue 14. Each starts with 20 Gold, 4 SP and a 10-card combat deck.
+Choose Fighter, Wizard or Rogue. All six Base Stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) start at 1; a class adds +2 to its Primary stat and +1 to two Secondary stats. Before preparation upgrades, equipment or blessings, Fighter has 14 Max HP, Wizard 12 and Rogue 12. Each starts with 20 Gold, 4 SP and a 10-card combat deck.
 
 Base-stat upgrades cost `(currentBase + 1)^2` SP. Spend them during Turn 0 preparation or at a Shrine; a Shrine can raise Base Stats only through Shrine Level + 1. Shrine arrival shows the stepped-on card, lore, and the same reusable player-info widget as the Map. Select a stat first: affordable choices reveal a confirmed Upgrade action, while unaffordable choices show missing SP. Leaving also requires confirmation. Arrival automatically grants one eligible random boon and replaces the previous blessing; map blessings expire after boss victory acknowledgement.
 

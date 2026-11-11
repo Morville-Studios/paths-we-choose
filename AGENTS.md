@@ -59,17 +59,17 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
 - **Welcome Screen**: Full-screen cinematic portfolio presentation featuring height-maximized background artwork (`/background/start-screen.png`), the reusable **Morville Studios Games** lockup, a split editorial hero with the game title and concise browser-play value proposition, a prominent **Start Adventure** action, secondary **How to Play** access, a three-card feature showcase, and the looping intro soundtrack (`start-screen.mp3`). The composition collapses cleanly for mobile and short viewports while keeping the primary CTA visible.
 - **Base Stats, Class Stat Bonuses & Stat Evolution (No Character Levels)**:
   - There is **no Character Level or XP bar**—the player's stats themselves define character evolution!
-  - Every player starts with **Base Stats of `1`** across all six attributes (`Base STR 1, Base DEX 1, Base AGI 1, Base INT 1, Base CHA 1, Base LUK 1`).
+  - Every player starts with **Base Stats of `1`** across all six attributes (`Base STR 1, Base DEX 1, Base AGI 1, Base INT 1, Base CHA 1, Base VIT 1`).
   - **Class Archetypes (Primary & Secondary Stats)**:
     - Each class has **1 Primary Stat** (+2 bonus) and **2 Secondary Stats** (+1 bonus each); all remaining stats receive +0.
-    - **Fighter**: Primary `STR (+2)`, Secondary `DEX (+1), AGI (+1)` -> **Effective Starting Stats**: `STR 3, DEX 2, AGI 2, INT 1, CHA 1, LUK 1` -> **16 Max HP** (`10 + Effective STR * 2`), **1 ACC**, **1 EVA**, **1 ATK**, **0 DEF**, **3 ACT**.
+    - **Fighter**: Primary `STR (+2)`, Secondary `VIT (+1), DEX (+1)` -> **Effective Starting Stats**: `STR 3, DEX 2, AGI 1, INT 1, CHA 1, VIT 2` -> **14 Max HP** (`10 + Effective VIT * 2`), **1 ACC**, **0 EVA**, **1 ATK**, **0 DEF**, **3 ACT**.
       - **Passive `[Berzerk]`**: Gain `+1 ATK` bonus when HP is 50% or below Max HP; if 25% or below, gain `+2 ATK` bonus instead.
       - **10-Card Starter Combat Deck**: `8x Slash` + `2x Defend`.
-    - **Wizard**: Primary `INT (+2)`, Secondary `DEX (+1), CHA (+1)` -> **Effective Starting Stats**: `STR 1, DEX 2, AGI 1, INT 3, CHA 2, LUK 1` -> **12 Max HP** (`10 + Effective STR * 2`), **1 ACC**, **0 EVA**, **1 MATK**, **0 MDEF**, **3 ACT**.
+    - **Wizard**: Primary `INT (+2)`, Secondary `DEX (+1), CHA (+1)` -> **Effective Starting Stats**: `STR 1, DEX 2, AGI 1, INT 3, CHA 2, VIT 1` -> **12 Max HP** (`10 + Effective VIT * 2`), **1 ACC**, **0 EVA**, **1 MATK**, **0 MDEF**, **3 ACT**.
       - **Passive `[Conserve]`**: When ending turn in battle with unused Action Points, those AP carry over to the next battle turn.
       - **10-Card Starter Combat Deck**: `8x Fireball ATK` + `2x Force Field DEF`.
-    - **Rogue**: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)` -> **Effective Starting Stats**: `STR 2, DEX 2, AGI 3, INT 1, CHA 1, LUK 1` -> **14 Max HP** (`10 + Effective STR * 2`), **1 ACC**, **1 EVA**, **1 ATK**, **1 DEF**, **3 ACT**.
-      - **Passive `[Steal]`**: Whenever rolling a 2d6 to perform an attack hit check and it is a pair (`1+1, 2+2, 3+3, 4+4, 5+5, 6+6`), immediately gain `+1 Gold`.
+    - **Rogue**: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)` -> **Effective Starting Stats**: `STR 2, DEX 2, AGI 3, INT 1, CHA 1, VIT 1` -> **12 Max HP** (`10 + Effective VIT * 2`), **1 ACC**, **1 EVA**, **1 ATK**, **1 DEF**, **3 ACT**.
+      - **Passive `[Steal]`**: Whenever rolling a 2d6 to perform an attack hit check and it is a pair (`1+1, 2+2, 3+3, 4+4, 5+5, 6+6`), immediately gain Gold equal to the doubled die number (e.g. `6+6` grants `+6 Gold`, `5+5` grants `+5 Gold`, and even Snake Eyes `1+1` steals `+1 Gold`).
       - **10-Card Starter Combat Deck**: `8x Slash` + `2x Defend`.
     - **Full-Screen 3-Card Smooth Interactive Carousel with Adventurer Artwork**:
       - Full-screen presentation (`width: 100%`, `max-width: 100%`, `min-height: 100dvh`) with radial gradient backdrop (`radial-gradient(circle at 50% 35%, #151d2c 0%, #090d14 100%)`).
@@ -80,7 +80,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
       - **Keyboard Controls**: `A`, `a`, or `ArrowLeft` rotates to the previous class; `D`, `d`, or `ArrowRight` rotates to the next class; `Enter` or `Space` embarks on the adventure.
       - **Hardware-Accelerated In-Place Transitions**: Updating class selection modifies DOM classes and the side detail panel in place without destroying DOM nodes (`updateClassCarouselDom`), preserving seamless CSS transitions on transform, scale, opacity, and glow.
   - **Adventurer Visuals in Character Sidebar & Combat**:
-    - **Character & Gear Sidebar**: Features a prominent hero portrait on the left (`/cards/adventurers/*.jpg`) paired side-by-side with the 6 core stat rows (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `LUK`) on the right.
+    - **Character & Gear Sidebar**: Features a prominent hero portrait on the left (`/cards/adventurers/*.jpg`) paired side-by-side with the 6 core stat rows (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) on the right.
     - **Combat Confirmation Modal**: Target (Self) hero cards display the adventurer's raster artwork, `HERO` type, `YOU` badge, and `Target | Self` banner.
   - **Charisma (`CHA`) Stat**:
     - Each point of Effective CHA reduces the prices of purchaseable goods in Village Shops by **5%** (e.g. 1 CHA = 5% off, 2 CHA = 10% off; minimum 1 Gold). Will be utilized for future events and encounters.
@@ -94,12 +94,12 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     - **Stat Row Cleanup & Dedicated Stat Info Modal (Right-Click / Long-Press / ⓘ)**: Stat rows in the sidebar omit the noisy `next: X SP` text to keep the interface clean and spacious. Right-clicking (or holding for 1s on touch, or clicking `ⓘ`) on any stat row opens the dedicated **Stat Info Modal** showing:
       1. **Full Computation to Final Value**: `Effective Stat = Base + Class Archetype Bonus + Shrine Blessing + Equipped Gear`.
       2. **Derived Bonus Stats & Combat Scaling**: Exact formulas and live numbers:
-         - **STR**: Max HP $+2 \times \text{STR}$, ATK contribution $\lfloor\text{STR} / 2\rfloor$, DEF contribution $\lfloor\text{STR} / 5\rfloor$.
+         - **STR**: ATK contribution $\lfloor\text{STR} / 2\rfloor$, DEF contribution $\lfloor\text{STR} / 5\rfloor$.
          - **DEX**: 1 base ACC per 2 DEX ($\lfloor\text{DEX} / 2\rfloor$), plus direct gear ACC; ATK contribution $+1$ per 3 DEX ($\lfloor\text{DEX} / 3\rfloor$).
          - **AGI**: 1 EVA per 2 AGI ($\lfloor\text{AGI} / 2\rfloor$), DEF contribution $+1$ per 3 AGI ($\lfloor\text{AGI} / 3\rfloor$).
          - **INT**: MATK $\lfloor\text{INT} / 2\rfloor$, MDEF $\lfloor\text{INT} / 5\rfloor$, ACT $+1$ Max AP per 5 INT ($3 + \lfloor\text{INT} / 5\rfloor$).
          - **CHA**: -5% shop discount per CHA.
-         - **LUK**: Critical Hit threshold $12 - \lfloor\text{LUK} / 10\rfloor$ (default 12; 10 LUK = 11+; 20 LUK = 10+), victory spoils $+\lfloor\text{LUK} / 2\rfloor$ Gold, and `+floor(LUK / 5)` to Undiscovered Terrain exploration rolls.
+         - **VIT**: Max HP $+2 \times \text{VIT}$ (`10 + Effective VIT * 2`), DEF contribution $+1$ per 5 VIT ($\lfloor\text{VIT} / 5\rfloor$).
       3. **Next SP Required to Level**: Target Base level, `(currentBase + 1)²` SP formula, live current SP balance, ready/needed chip, and reminder that upgrades occur at Shrines or during Turn 0 preparation.
     - **Automatic Sacred Shrine Boons & Single Blessing Invariant**:
       - Visiting a Sacred Shrine automatically grants the adventurer a random eligible divine boon upon arrival (no manual prayer button required).
@@ -107,7 +107,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
       - **Single Active Blessing Invariant**: Only **1 shrine blessing may be active at a time**. Receiving a new shrine blessing automatically replaces and eliminates the previous blessing (resets prior blessing stat bonuses or divine protection and resyncs vitals).
       - Eligible boons are filtered by player condition:
         1. **Cleanse**: Cleanses all negative statuses (poison, blindness, crippled); only eligible if the player has an active negative status.
-        2. **Blessing of {stat name}**: Grants a temporary `+1` stat bonus to the named attribute (`STR`, `DEX`, `AGI`, `INT`, `CHA`, or `LUK`) for the current map; no condition.
+        2. **Blessing of {stat name}**: Grants a temporary `+1` stat bonus to the named attribute (`STR`, `DEX`, `AGI`, `INT`, `CHA`, or `VIT`) for the current map; no condition.
         3. **Divine Protection**: Reduces incoming monster attack damage by `1` for the remainder of the current map; poison bypasses it. No eligibility condition.
         4. **Revitalize**: Heals current HP to Max HP immediately; only eligible if current `HP < Max HP`.
       - **Stat Info Modal Inspection in Shrines**: Right-clicking (or contextmenu / long-press / clicking `ⓘ`) on any stat row in the shrine's Stat Point converter opens the dedicated Stat Info Modal showing full computations, scaling, and next SP costs.
@@ -117,7 +117,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
   - **Dice Mechanics**: Two six-sided dice are rolled (range 2–12, naturally bell-curved around 7).
   - **Hit / Miss Threshold**: With no modifiers, rolls of **5 and above are a Hit** (83.33%), while **4 and below are a Miss** (16.67%).
   - **Snake Eyes (`1 + 1 = 2`)**: Total miss (automatic miss regardless of accuracy modifiers).
-  - **Critical Hits**: Meeting or exceeding the critical threshold (default `12`, or improved by LUK) is an automatic critical hit applying **+50% bonus ATK damage** ($\lfloor \text{damage} \times 1.5 \rfloor$).
+  - **Critical Hits**: Rolling Boxcars (`6 + 6 = 12`, 2.8%) is an automatic critical hit applying **+50% bonus ATK damage** ($\lfloor \text{damage} \times 1.5 \rfloor$).
   - **ACC vs. EVA Modifiers**:
     - Net Accuracy: $\text{netAcc} = \text{attackerACC} - \text{targetEVA}$.
     - Required roll to hit: $\text{neededRoll} = 5 - \text{netAcc}$ (e.g., 2 ACC vs 1 EVA = +1 net ACC, hits on a roll of 4+).
@@ -125,9 +125,9 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     - **EVA Formula**: `1 EVA` is gained for each `2 AGI` ($\text{EVA} = \lfloor \text{AGI} / 2 \rfloor$). Defense cards can grant temporary round EVA bonuses.
     - **Hero ATK Formula**: $\lfloor \text{STR} / 2 \rfloor + \lfloor \text{DEX} / 3 \rfloor + \text{gear.atk}$.
     - **Hero PEN Formula**: `gear.pen`. Physical hero attacks bypass up to that much target natural DEF before remaining DEF and temporary Block reduce damage; magical attacks use MDEF and receive no PEN.
-    - **Hero DEF Formula**: $\lfloor \text{STR} / 5 \rfloor + \lfloor \text{AGI} / 3 \rfloor + \text{gear.def}$.
+    - **Hero DEF Formula**: $\lfloor \text{STR} / 5 \rfloor + \lfloor \text{VIT} / 5 \rfloor + \lfloor \text{AGI} / 3 \rfloor + \text{gear.def}$.
     - **Hero ACT (Max AP) Formula**: $3 + \lfloor \text{INT} / 5 \rfloor$.
-    - **Critical Threshold Formula**: $\max(2, 12 - \lfloor \text{LUK} / 10 \rfloor)$. Default is 12 (Boxcars, 2.8%); 10 LUK gives 11+ (8.3%); 20 LUK gives 10+ (16.7%).
+    - **Critical Threshold**: Fixed at `12` (Boxcars `6 + 6`, 2.8%).
   - **Monsters**: Every monster has inherent ACC and EVA stats (e.g., Goblin: 1 ACC, 1 EVA; Scavenger: 2 ACC, 2 EVA; Ramram: 2 ACC, 1 EVA; Rattler: 3 ACC, 1 EVA; Grundy: 1 ACC, 1 EVA).
   - **Card Accuracy Bonuses**: Only cards with an explicit `accBonus` modify their attack rolls. `Slash` has no inherent ACC bonus.
   - **Combat Action Confirmation Popup (Desktop Two-Column & Sticky Mobile Layout)**: Clicking an action card in combat does not use it immediately; instead, it opens a responsive confirmation modal pairing the Source and Target cards:
@@ -148,7 +148,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
   - **Hero Character, Vitals & Backpack Sidebar in Combat (`.combat-hero-sidebar`)**:
     - **Integrated Left Sidebar**: A dedicated hero panel occupies the left column of the battle screen (`.combat-modal`), ensuring hero vitals, stats, and inventory are always visible and interactive during active combat.
     - **Hero HP / Max HP Graphical Bar**: Prominently displays the player's HP numbers and a filled health bar with active Block indicator.
-    - **Core & Derived Stats**: Shows the 6 core stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `LUK`) with right-click inspection, alongside prominent derived combat chips: **DEF** (hero physical damage absorption), **ATK**, **ACC**, **EVA**, **BLK**, and **AP**.
+    - **Core & Derived Stats**: Shows the 6 core stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) with right-click inspection, alongside prominent derived combat chips: **DEF** (hero physical damage absorption), **ATK**, **ACC**, **EVA**, **BLK**, and **AP**.
     - **Combat Backpack & Consumables**: Lists items in the backpack with dedicated `Use` buttons on consumables (e.g. `Health Potion`), allowing the player to heal during battle. Using a potion immediately updates HP and adds a timestamped log to the combat log (`🧪 Used Health Potion: restored +X HP`).
   - **Explicit DEF Damage Absorption Logging & Dice Banner**:
     - When a monster hits the hero, the log explicitly details damage absorbed by natural Hero DEF and divine protection before shield block or HP loss (e.g. `2 absorbed by Hero DEF, 0 blocked, 4 HP damage`).
@@ -170,7 +170,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
   - **Monster DEF and PEN on Hero Attacks**: When a hero attack hits, INT-scaled attacks use the monster's MDEF. Other physical attacks first bypass up to the hero's PEN from the monster's natural DEF, then the remaining DEF and temporary Block reduce damage; the remainder reduces HP. Logs and the dice banner state any DEF bypassed by PEN and the amount absorbed by DEF.
   - **Permanent FLEE Action (2 AP)**:
     - A `Flee` card (`createFleeCard`, id `action_flee`) is always shown beside the hand. It is never drawn, discarded, or shuffled into the combat deck.
-    - Using it (after a confirmation modal showing escape odds) rolls `1d6`. Escape threshold = $\lfloor(\text{Effective AGI} + \text{Effective LUK}) / 2\rfloor$ (minimum 1).
+    - Using it (after a confirmation modal showing escape odds) rolls `1d6`. Escape threshold = $\lfloor\text{Effective AGI} / 2\rfloor$ (minimum 1).
     - **Success (`roll <= threshold`)**: The hero escapes. Combat ends with **no SP, Gold, or loot**, the encountered monsters go to `monsterDiscard`, and play returns to the map.
     - **Failure**: 2 AP is spent, a log entry records the roll, and the battle continues.
     - **Stage Bosses cannot be fled from** (the Flee card is disabled in boss fights).
@@ -180,7 +180,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     - Defeating all monsters in battle pauses gameplay and immediately displays the atmospheric **Victory Modal** (`activeHook.type === 'VICTORY'`) rather than snapping abruptly back to the map.
     - **Rewards & Defeated Foes Showcase**:
       - **Defeated Foes**: Cards with raster art thumbnails, creature subtypes, levels, and inscribed SP/Gold rewards.
-      - **Loot Cards Grid**: Large cards showcasing inscribed **Stat Points (`+X SP`)** for Sacred Shrine upgrades and **Gold Spoils (`+Y Gold`)** with base, Luck bonus ($\lfloor\text{LUK}/2\rfloor$), and Goldstar breakdown.
+      - **Loot Cards Grid**: Large cards showcasing inscribed **Stat Points (`+X SP`)** for Sacred Shrine upgrades and **Gold Spoils (`+Y Gold`)** with base, Rogue `[Steal]` spoils, and Goldstar breakdown.
     - **Interactive Return Action**:
       - Regular battles provide an `OK — Return to Map →` button (`data-action="confirm-victory"`), returning the player to map navigation (`activeHook.type = 'NONE'`) and resuming the map soundtrack (`map-area.mp3`).
       - Stage Boss battles provide an `OK — Proceed →` button transitioning directly to the Stage Complete screen (`ON_STAGE_COMPLETE`).
@@ -189,7 +189,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
   - **3 Equipment Slots & Permanent Backpack**: `Weapon`, `Armor`, and `Accessory` (1 item equipped per slot).
     - **Map Equipment Management & Unequip**: Players can freely equip and unequip items anytime while on the map outside combat. Filled slots feature an `Unequip` button that moves the gear to the backpack.
     - **Permanent Backpack Section**: The character sidebar permanently displays `🎒 Backpack (${state.backpack.length})`, listing all unequipped gear with `Equip` buttons (or `Use` for consumables).
-    - **Dynamic Vital Synchronization**: Equipping or unequipping gear that modifies STR (such as `Beast Ring +1 STR`) dynamically recalculates Max HP and clamps current HP cleanly.
+    - **Dynamic Vital Synchronization**: Equipping or unequipping gear that modifies stats dynamically recalculates derived combat values and clamps current HP cleanly.
     - **Combat Lock**: Equipping and unequipping is strictly disabled during active combat (`activeHook.type === 'COMBAT'`).
   - **Consumables Bag**: Holds items like `Health Potion`.
   - **21-Item Shop Catalog (Physical TCG Items, Levels 1–4)**:
@@ -223,7 +223,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     - **Endless Reshuffle**: If cards are drawn while `treasureDeck` is depleted, `treasureDiscard` is reshuffled to form the new Treasure Deck.
   - **Derived Combat Stats**:
     - **Physical ATK**: $\text{Hero ATK} = \lfloor \text{STR} / 2 \rfloor + \lfloor \text{DEX} / 3 \rfloor + \text{gear.atk}$.
-    - **Physical DEF**: $\text{Hero DEF} = \lfloor \text{STR} / 5 \rfloor + \lfloor \text{AGI} / 3 \rfloor + \text{gear.def}$. Reduces physical damage intake when a hit roll succeeds for non-magical (physical) attacks: $\max(0, \text{baseDmg} - \text{heroDef} - \text{protection})$.
+    - **Physical DEF**: $\text{Hero DEF} = \lfloor \text{STR} / 5 \rfloor + \lfloor \text{VIT} / 5 \rfloor + \lfloor \text{AGI} / 3 \rfloor + \text{gear.def}$. Reduces physical damage intake when a hit roll succeeds for non-magical (physical) attacks: $\max(0, \text{baseDmg} - \text{heroDef} - \text{protection})$.
     - **Magical ATK (MATK)**: $\text{Hero MATK} = \lfloor \text{INT} / 2 \rfloor + \text{gear.matk}$. Boosts spell scaling.
     - **Magical DEF (MDEF)**: $\text{Hero MDEF} = \lfloor \text{INT} / 5 \rfloor + \text{gear.mdef}$.
     - **ACC & EVA**: $\text{ACC} = \lfloor \text{DEX} / 2 \rfloor + \text{gear.acc}$, $\text{EVA} = \lfloor \text{AGI} / 2 \rfloor + \text{gear.eva} + \text{roundBonusEVA}$.
@@ -253,7 +253,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     - `Undiscovered Cave` (LVL4) = `advcav-00`
     - `Cave Encounter` (LVL5) = `advcav-01`
   - **Undiscovered Terrains Exploration Mechanics**:
-    - Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, `advsmp-00`, or `advcav-00`) triggers a seeded `1d6` roll modal. Add `floor(Effective LUK / 5)` to the natural roll; the modal displays natural roll, LUK bonus, and effective result. **Treasure** occurs at `effectiveRoll >= 6` (priority); otherwise **Combat** occurs at `effectiveRoll <= card.level`, and all other results are **Safe**. Treasure draws until an item with `item.level <= card.level` is found, discarding higher-level items to `treasureDiscard`, then adds it directly to the backpack.
+    - Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, `advsmp-00`, or `advcav-00`) triggers a seeded `1d6` roll modal. **Treasure** occurs on a natural `6` (priority); otherwise **Combat** occurs at `roll <= card.level`, and all other results are **Safe**. Treasure draws until an item with `item.level <= card.level` is found, discarding higher-level items to `treasureDiscard`, then adds it directly to the backpack.
   - **Deck Viewer Card Ordering Invariant**: Cards in the Deck Viewer modal are strictly arranged based on `cardNumber` in the exact sequence above.
 - **Stage 1 Adventure Deck ("The Goblin King", 30 Land Cards)**:
   - `advgrs-00` x3, `advgrs-01` x8, `advgrs-03` x3, `advgrs-04` x3
@@ -328,7 +328,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
   - **Unique Card Multiplier Modals**: Clicking or right-clicking any pile opens a dedicated inspection modal that deduplicates the cards into unique cards with a prominent high-contrast multiplier badge (`&times; N`) indicating the exact quantity of each card inside that pile. Right-clicking or holding any unique card in the pile modal opens its full tabletop inspection sheet.
 - **Official Raster RPG Icons System (`public/icons/`)**:
   - Sliced and extracted from the master fantasy sprite sheet `public/icons/icons.png` into 17 high-resolution raster icon PNGs with transparent anti-aliased rounded corners:
-    1. **6 Base Stats**: `str.png`, `dex.png`, `agi.png`, `int.png`, `cha.png`, `luk.png` (160×164 rounded filigree badge).
+    1. **6 Base Stats**: `str.png`, `dex.png`, `agi.png`, `int.png`, `cha.png`, `vit.png` (160×164 rounded filigree badge).
     2. **6 Derived Stats**: `acc.png`, `eva.png`, `atk.png`, `def.png`, `matk.png`, `mdef.png` (160×164).
     3. **3 Item Slots**: `slot-weapon.png` (and `weapon.png`), `slot-armor.png` (and `armor.png`), `slot-accessory.png` (and `accessory.png`) (160×164).
     4. **2 Resources**: `sp.png` (sprouting green seal, 194×175) and `gold.png` (radiant gold coins, 194×175).

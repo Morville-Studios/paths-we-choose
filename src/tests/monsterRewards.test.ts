@@ -35,7 +35,7 @@ describe('level-based monster reward inscriptions', () => {
     const result = playCombatCardFromHand(input, 'finish', 0, (next, defeated, rewards) => {
       awarded = true;
       expect(defeated).toHaveLength(monsters.length);
-      expect(rewards).toMatchObject({ statPointsEarned: expectedSp, baseGold: expectedGold, goldEarned: expectedGold, luckBonusGold: 0, luckyCharmGold: 0 });
+      expect(rewards).toMatchObject({ statPointsEarned: expectedSp, baseGold: expectedGold, goldEarned: expectedGold, luckyCharmGold: 0 });
       return next;
     });
     expect(awarded).toBe(true);

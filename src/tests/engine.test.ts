@@ -122,7 +122,7 @@ function stepAuto(state: RunState): RunState {
 describe('stats', () => {
   it('fighter and wizard start with the documented effective stats and HP', () => {
     const f = start('fighter');
-    expect(f.playerResources?.maxHp).toBe(16);
+    expect(f.playerResources?.maxHp).toBe(14);
     expect(f.playerResources?.statPoints).toBe(4);
     expect(f.welcomePreparing).toBe(true);
 
@@ -151,14 +151,14 @@ describe('stats', () => {
     s = upgradeBaseStat(s, 'str'); // 2 -> 3 costs 9 SP
     expect(s.playerBaseStats.str).toBe(3);
     expect(s.playerResources?.statPoints).toBe(0); // 9 - 9 = 0
-    expect(s.playerResources?.maxHp).toBe(20);
+    expect(s.playerResources?.maxHp).toBe(14);
     expect(canUpgradeBaseStat(s, 'str')).toBe(false); // needs 16 SP
   });
 });
 
 describe('card scaling', () => {
   it('matches documented starting values', () => {
-    const fighter = { str: 4, dex: 2, agi: 3, int: 2, cha: 1, luk: 1 };
+    const fighter = { str: 4, dex: 2, agi: 3, int: 2, cha: 1, vit: 1 };
     const melee = { ...COMBAT_CARD_CATALOG.melee_atk, instanceId: 'x' };
     expect(computeCardEffect(melee, fighter).damage).toBe(5);
     const shield = { ...COMBAT_CARD_CATALOG.shield_def, instanceId: 'y' };
@@ -346,11 +346,11 @@ describe('village', () => {
 
   it('rest restores the selected amount and keeps the village visit open', () => {
     let s = inVillage();
-    // A full rest of 13 missing HP takes 7 two-HP ticks and costs 7 Gold.
+    // A full rest of 11 missing HP takes 6 two-HP ticks and costs 6 Gold.
     s = { ...s, playerResources: { ...s.playerResources!, hp: 3, gold: 10 } };
     s = villageDoRest(s);
     expect(s.playerResources?.hp).toBe(s.playerResources?.maxHp);
-    expect(s.playerResources?.gold).toBe(3);
+    expect(s.playerResources?.gold).toBe(4);
     expect(s.activeHook.type).toBe('VILLAGE');
   });
 
@@ -392,7 +392,7 @@ describe('village', () => {
 
   it('rest heals HP but does not cleanse status ailments', () => {
     let s = inVillage();
-    // 13 missing HP costs 7 one-Gold ticks.
+    // 11 missing HP costs 6 one-Gold ticks.
     s = {
       ...s,
       statusEffects: ['poison', 'crippled'],
@@ -400,7 +400,7 @@ describe('village', () => {
     };
     const rested = villageDoRest(s);
     expect(rested.playerResources?.hp).toBe(s.playerResources!.maxHp);
-    expect(rested.playerResources?.gold).toBe(13);
+    expect(rested.playerResources?.gold).toBe(14);
     expect(rested.statusEffects).toEqual(['poison', 'crippled']);
     expect(rested.activeHook.type).toBe('VILLAGE');
   });
@@ -443,8 +443,8 @@ describe('village', () => {
     });
     expect(preview.before.str).toBe(3);
     expect(preview.after.str).toBe(4);
-    expect(preview.maxHpBefore).toBe(16);
-    expect(preview.maxHpAfter).toBe(18);
+    expect(preview.maxHpBefore).toBe(14);
+    expect(preview.maxHpAfter).toBe(14);
   });
 
   it('training has published costs, consumes prepared offers, and remains reversible', () => {
@@ -529,7 +529,7 @@ describe('shrine', () => {
     expect(eligible).toContain('blessing_str');
     expect(eligible).toContain('blessing_agi');
     expect(eligible).toContain('blessing_int');
-    expect(eligible).toContain('blessing_luk');
+    expect(eligible).toContain('blessing_vit');
     expect(eligible).toContain('divine_protection');
 
     // With negative status effect: Cleanse becomes eligible
@@ -574,8 +574,8 @@ describe('shrine', () => {
     s = shrineChoosePrayerOption(s, 'blessing_str');
     expect(s.playerBlessingBonuses.str).toBe(1);
     expect(getEffectiveStatsFromState(s).str).toBe(4);
-    expect(s.playerResources?.maxHp).toBe(18);
-    expect(s.playerResources?.hp).toBe(18);
+    expect(s.playerResources?.maxHp).toBe(14);
+    expect(s.playerResources?.hp).toBe(14);
 
     // Shrine is now marked as prayed and cannot pray again
     if (s.activeHook.type !== 'SHRINE') throw new Error('expected shrine');
@@ -672,16 +672,16 @@ describe('shrine', () => {
       },
     };
 
-    // Normal hit with 3 DMG would deal 3 HP loss. With Fighter 3 STR (1 DEF) + Divine Protection (1), damage reduction is 2 (3 - 2 = 1 HP loss: 16 -> 15).
+    // Normal hit with 3 DMG would deal 3 HP loss. With Fighter 3 STR (1 DEF) + Divine Protection (1), damage reduction is 2 (3 - 2 = 1 HP loss: 14 -> 13).
     const after = endTurn(s);
-    expect(after.playerResources?.hp).toBe(15);
+    expect(after.playerResources?.hp).toBe(13);
   });
 
   it('temporary map blessings and divine protection do not carry over to the next map', () => {
     let s = start('fighter');
     s = {
       ...s,
-      playerBlessingBonuses: { str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 1 },
+      playerBlessingBonuses: { str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 },
       divineProtection: 1,
       playerResources: { ...s.playerResources!, maxHp: 18, hp: 18 },
     };
@@ -691,12 +691,12 @@ describe('shrine', () => {
 
     // Clear map blessings
     const cleared = clearMapBlessings(s);
-    expect(cleared.playerBlessingBonuses).toEqual({ str: 0, dex: 0, agi: 0, int: 0, cha: 0, luk: 0 });
+    expect(cleared.playerBlessingBonuses).toEqual({ str: 0, dex: 0, agi: 0, int: 0, cha: 0, vit: 0 });
     expect(cleared.divineProtection).toBe(0);
     // Effective STR reverts to 3, Max HP reverts to 16, and HP is reclamped to 16
     expect(getEffectiveStatsFromState(cleared).str).toBe(3);
-    expect(cleared.playerResources?.maxHp).toBe(16);
-    expect(cleared.playerResources?.hp).toBe(16);
+    expect(cleared.playerResources?.maxHp).toBe(14);
+    expect(cleared.playerResources?.hp).toBe(14);
   });
 
   it('automatically grants a random boon upon entering a shrine without needing to pray', () => {
@@ -740,7 +740,7 @@ describe('shrine', () => {
     expect(s.activeBlessingId).toBe('blessing_str');
     expect(s.playerBlessingBonuses.str).toBe(1);
     expect(getEffectiveStatsFromState(s).str).toBe(4);
-    expect(s.playerResources?.maxHp).toBe(18); // 16 + 2 = 18
+    expect(s.playerResources?.maxHp).toBe(14);
 
     // Second shrine grants Blessing of Agility
     const secondBoon = applySingleShrineBoon(s, 'blessing_agi');
@@ -752,8 +752,8 @@ describe('shrine', () => {
     // New AGI blessing is 1
     expect(s.playerBlessingBonuses.agi).toBe(1);
     // Max HP reverted from 18 to 16
-    expect(s.playerResources?.maxHp).toBe(16);
-    expect(s.playerResources?.hp).toBe(16);
+    expect(s.playerResources?.maxHp).toBe(14);
+    expect(s.playerResources?.hp).toBe(14);
   });
 });
 
@@ -1295,8 +1295,9 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
     const fEff = getEffectiveStatsFromState(fighter);
     expect(fEff.dex).toBe(2); // 1 base + 1 class (secondary)
     expect(getPlayerAcc(fEff)).toBe(1); // 1 per 2 DEX (floor(2/2) = 1)
-    expect(fEff.agi).toBe(2); // 1 base + 1 class (secondary)
-    expect(getPlayerEva(fEff)).toBe(1); // 1 per 2 AGI (floor(2/2) = 1)
+    expect(fEff.agi).toBe(1); // 1 base + 0 class
+    expect(fEff.vit).toBe(2); // 1 base + 1 class (secondary)
+    expect(getPlayerEva(fEff)).toBe(0); // 1 per 2 AGI (floor(1/2) = 0)
     expect(fEff.str).toBe(3); // 1 base + 2 class (primary)
     expect(fEff.cha).toBe(1); // 1 base + 0 class
 
@@ -1311,54 +1312,53 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
   });
 
   it('1 EVA per 2 AGI and 1 ACC per 2 DEX scaling rules', () => {
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(0); // floor(1/2) = 0
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 2, int: 1, cha: 1, luk: 1 })).toBe(1); // floor(2/2) = 1
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 3, int: 1, cha: 1, luk: 1 })).toBe(1); // floor(3/2) = 1
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 4, int: 1, cha: 1, luk: 1 })).toBe(2); // floor(4/2) = 2
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 5, int: 1, cha: 1, luk: 1 })).toBe(2); // floor(5/2) = 2
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 6, int: 1, cha: 1, luk: 1 })).toBe(3); // floor(6/2) = 3
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(0); // floor(1/2) = 0
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 2, int: 1, cha: 1, vit: 1 })).toBe(1); // floor(2/2) = 1
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 3, int: 1, cha: 1, vit: 1 })).toBe(1); // floor(3/2) = 1
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 4, int: 1, cha: 1, vit: 1 })).toBe(2); // floor(4/2) = 2
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 5, int: 1, cha: 1, vit: 1 })).toBe(2); // floor(5/2) = 2
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 6, int: 1, cha: 1, vit: 1 })).toBe(3); // floor(6/2) = 3
 
-    expect(getPlayerAcc({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(0); // floor(1/2) = 0
-    expect(getPlayerAcc({ str: 1, dex: 2, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(1); // floor(2/2) = 1
-    expect(getPlayerAcc({ str: 1, dex: 3, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(1); // floor(3/2) = 1
-    expect(getPlayerAcc({ str: 1, dex: 4, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(2); // floor(4/2) = 2
-    expect(getPlayerAcc({ str: 1, dex: 5, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(2); // floor(5/2) = 2
-    expect(getPlayerAcc({ str: 1, dex: 6, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(3); // floor(6/2) = 3
+    expect(getPlayerAcc({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(0); // floor(1/2) = 0
+    expect(getPlayerAcc({ str: 1, dex: 2, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(1); // floor(2/2) = 1
+    expect(getPlayerAcc({ str: 1, dex: 3, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(1); // floor(3/2) = 1
+    expect(getPlayerAcc({ str: 1, dex: 4, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(2); // floor(4/2) = 2
+    expect(getPlayerAcc({ str: 1, dex: 5, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(2); // floor(5/2) = 2
+    expect(getPlayerAcc({ str: 1, dex: 6, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(3); // floor(6/2) = 3
   });
 
   it('DEX increases ATK by 1 per 3 DEX, and AGI increases DEF by 1 per 3 AGI', () => {
     // ATK: floor(STR / 2) + floor(DEX / 3) + gear
-    expect(getPlayerAtk({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(0); // 0 + 0 = 0
-    expect(getPlayerAtk({ str: 1, dex: 3, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(1); // 0 + 1 = 1
-    expect(getPlayerAtk({ str: 3, dex: 3, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(2); // 1 + 1 = 2
-    expect(getPlayerAtk({ str: 3, dex: 6, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(3); // 1 + 2 = 3
+    expect(getPlayerAtk({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(0); // 0 + 0 = 0
+    expect(getPlayerAtk({ str: 1, dex: 3, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(1); // 0 + 1 = 1
+    expect(getPlayerAtk({ str: 3, dex: 3, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(2); // 1 + 1 = 2
+    expect(getPlayerAtk({ str: 3, dex: 6, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(3); // 1 + 2 = 3
 
     // DEF: floor(STR / 5) + floor(AGI / 3) + gear
-    expect(getPlayerDef({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(0); // 0 + 0 = 0
-    expect(getPlayerDef({ str: 5, dex: 1, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(1); // 1 + 0 = 1 (1 DEF per 5 STR)
-    expect(getPlayerDef({ str: 1, dex: 1, agi: 3, int: 1, cha: 1, luk: 1 })).toBe(1); // 0 + 1 = 1 (1 DEF per 3 AGI)
-    expect(getPlayerDef({ str: 5, dex: 1, agi: 3, int: 1, cha: 1, luk: 1 })).toBe(2); // 1 + 1 = 2
-    expect(getPlayerDef({ str: 10, dex: 1, agi: 3, int: 1, cha: 1, luk: 1 })).toBe(3); // 2 + 1 = 3
-    expect(getPlayerDef({ str: 10, dex: 1, agi: 6, int: 1, cha: 1, luk: 1 })).toBe(4); // 2 + 2 = 4
+    expect(getPlayerDef({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(0); // 0 + 0 = 0
+    expect(getPlayerDef({ str: 5, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(1); // 1 + 0 = 1 (1 DEF per 5 STR)
+    expect(getPlayerDef({ str: 1, dex: 1, agi: 3, int: 1, cha: 1, vit: 1 })).toBe(1); // 0 + 1 = 1 (1 DEF per 3 AGI)
+    expect(getPlayerDef({ str: 5, dex: 1, agi: 3, int: 1, cha: 1, vit: 1 })).toBe(2); // 1 + 1 = 2
+    expect(getPlayerDef({ str: 10, dex: 1, agi: 3, int: 1, cha: 1, vit: 1 })).toBe(3); // 2 + 1 = 3
+    expect(getPlayerDef({ str: 10, dex: 1, agi: 6, int: 1, cha: 1, vit: 1 })).toBe(4); // 2 + 2 = 4
   });
 
   it('INT increases ACT by 1 for every 5 INT starting at 3', () => {
-    expect(getPlayerAct({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(3); // 3 + 0 = 3
-    expect(getPlayerAct({ str: 1, dex: 1, agi: 1, int: 4, cha: 1, luk: 1 })).toBe(3); // 3 + 0 = 3
-    expect(getPlayerAct({ str: 1, dex: 1, agi: 1, int: 5, cha: 1, luk: 1 })).toBe(4); // 3 + 1 = 4
-    expect(getPlayerAct({ str: 1, dex: 1, agi: 1, int: 9, cha: 1, luk: 1 })).toBe(4); // 3 + 1 = 4
-    expect(getPlayerAct({ str: 1, dex: 1, agi: 1, int: 10, cha: 1, luk: 1 })).toBe(5); // 3 + 2 = 5
+    expect(getPlayerAct({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(3); // 3 + 0 = 3
+    expect(getPlayerAct({ str: 1, dex: 1, agi: 1, int: 4, cha: 1, vit: 1 })).toBe(3); // 3 + 0 = 3
+    expect(getPlayerAct({ str: 1, dex: 1, agi: 1, int: 5, cha: 1, vit: 1 })).toBe(4); // 3 + 1 = 4
+    expect(getPlayerAct({ str: 1, dex: 1, agi: 1, int: 9, cha: 1, vit: 1 })).toBe(4); // 3 + 1 = 4
+    expect(getPlayerAct({ str: 1, dex: 1, agi: 1, int: 10, cha: 1, vit: 1 })).toBe(5); // 3 + 2 = 5
   });
 
   it('LUK improves critical chance threshold by 1 per 10 LUK', () => {
     // 0-9 LUK: crit threshold 12 (rolls of 12)
-    expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(12);
-    expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 9 })).toBe(12);
+    expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(12);
+    expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 9 })).toBe(12);
     // 10-19 LUK: crit threshold 11 (rolls of 11-12)
-    expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 10 })).toBe(11);
-    expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 19 })).toBe(11);
-    // 20+ LUK: crit threshold 10 (rolls of 10-12)
-    expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 20 })).toBe(10);
+    expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 10 })).toBe(12);
+    expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 19 })).toBe(12);
+    expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 20 })).toBe(12);
 
     const prob12 = computeHitProbability(7, 12);
     expect(prob12.critPercent).toBe(2.8); // 1 in 36
@@ -1525,14 +1525,14 @@ describe('Game start preparation dialog and 4 starting Stat Points', () => {
     expect(s.playerResources?.statPoints).toBe(4);
     expect(s.welcomePreparing).toBe(true);
     expect(s.playerBaseStats.str).toBe(1);
-    expect(s.playerResources?.maxHp).toBe(16);
+    expect(s.playerResources?.maxHp).toBe(14);
 
-    // Upgrade STR right away in preparation: Base 1 -> 2 costs (1+1)^2 = 4 SP
-    const upgraded = welcomeUpgradeStat(s, 'str');
-    expect(upgraded.playerBaseStats.str).toBe(2);
+    // Upgrade VIT right away in preparation: Base 1 -> 2 costs (1+1)^2 = 4 SP
+    const upgraded = welcomeUpgradeStat(s, 'vit');
+    expect(upgraded.playerBaseStats.vit).toBe(2);
     expect(upgraded.playerResources?.statPoints).toBe(0); // 4 - 4 = 0
-    expect(upgraded.playerResources?.maxHp).toBe(18);
-    expect(upgraded.playerResources?.hp).toBe(18);
+    expect(upgraded.playerResources?.maxHp).toBe(16);
+    expect(upgraded.playerResources?.hp).toBe(16);
 
     // Dismiss preparation dialog to begin journey
     const ready = dismissWelcomePrepare(upgraded);
@@ -1731,12 +1731,12 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
   });
 
   it('Hero MDEF increases by 1 for every 5 INT and from gear', () => {
-    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, luk: 1 })).toBe(0);
-    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 4, cha: 1, luk: 1 })).toBe(0);
-    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 5, cha: 1, luk: 1 })).toBe(1);
-    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 9, cha: 1, luk: 1 })).toBe(1);
-    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 10, cha: 1, luk: 1 })).toBe(2);
-    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 5, cha: 1, luk: 1 }, 2)).toBe(3); // +2 gear
+    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(0);
+    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 4, cha: 1, vit: 1 })).toBe(0);
+    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 5, cha: 1, vit: 1 })).toBe(1);
+    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 9, cha: 1, vit: 1 })).toBe(1);
+    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 10, cha: 1, vit: 1 })).toBe(2);
+    expect(getPlayerMdef({ str: 1, dex: 1, agi: 1, int: 5, cha: 1, vit: 1 }, 2)).toBe(3); // +2 gear
   });
 
   it('Goldstar grants an additional (1d6 - 1) Gold upon winning battle', () => {
@@ -1893,15 +1893,14 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     s = equipItem(s, 'test_ring');
     expect(s.equippedGear.accessory?.name).toBe('Beast Ring');
     expect(s.backpack).toHaveLength(1);
-    // Ring gives +1 STR, which increases Max HP (STR 3 -> 4, Max HP 16 -> 18)
-    expect(s.playerResources?.maxHp).toBe(18);
+    // Ring gives +1 STR; Max HP remains 14 (10 + VIT 2 * 2)
+    expect(s.playerResources?.maxHp).toBe(14);
 
     // Unequip accessory by instanceId
     s = unequipItem(s, 'test_ring');
     expect(s.equippedGear.accessory).toBeNull();
     expect(s.backpack).toHaveLength(2);
-    // Max HP drops back to 16
-    expect(s.playerResources?.maxHp).toBe(16);
+    expect(s.playerResources?.maxHp).toBe(14);
   });
 
   it('prevents equipping and unequipping during combat', () => {
@@ -1952,9 +1951,9 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     expect(eff.agi).toBe(3);
     expect(eff.int).toBe(1);
     expect(eff.cha).toBe(1);
-    expect(eff.luk).toBe(1);
-    expect(s.playerResources?.maxHp).toBe(14); // 10 + 2*2 = 14
-    expect(s.playerResources?.hp).toBe(14);
+    expect(eff.vit).toBe(1);
+    expect(s.playerResources?.maxHp).toBe(12); // 10 + 1*2 = 12
+    expect(s.playerResources?.hp).toBe(12);
     expect(s.playerMasterDeck).toHaveLength(10);
     const meleeCount = s.playerMasterDeck.filter((c) => c.id === 'melee_atk').length;
     const shieldCount = s.playerMasterDeck.filter((c) => c.id === 'shield_def').length;
@@ -2024,7 +2023,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     expect(nextTurnState.activeHook.combat.combatLog.some((l) => l.includes('[Conserve]'))).toBe(true);
   });
 
-  it('Rogue [Steal] awards +1 Gold immediately when rolling pairs on an attack hit check', () => {
+  it('Rogue [Steal] awards Gold equal to the doubled die number immediately when rolling pairs on an attack hit check (including Snake Eyes 1+1)', () => {
     let s = start('rogue');
     s = {
       ...s,
@@ -2079,22 +2078,21 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       },
     };
 
-    // Find an rng seed where roll2D6 produces a pair (die1 === die2)
-    let pairRng = 1;
-    for (let testRng = 1; testRng < 500; testRng++) {
-      const roll = roll2D6(testRng);
-      if (roll.die1 === roll.die2) {
-        pairRng = testRng;
-        break;
+    // Test every pair face 1..6 (including Snake Eyes 1+1 and Boxcars 6+6)
+    for (let targetFace = 1; targetFace <= 6; targetFace++) {
+      let pairRng = 1;
+      for (let testRng = 1; testRng < 5000; testRng++) {
+        const roll = roll2D6(testRng);
+        if (roll.die1 === targetFace && roll.die2 === targetFace) {
+          pairRng = testRng;
+          break;
+        }
       }
-    }
-    s = { ...s, rngState: pairRng };
-
-    const played = playCard(s, 'card_steal_test', 0);
-    // Gold increased from 10 to 11 due to [Steal]
-    expect(played.playerResources?.gold).toBe(11);
-    if (played.activeHook.type === 'COMBAT') {
-      expect(played.activeHook.combat.combatLog.some((l) => l.includes('[Steal]'))).toBe(true);
+      const played = playCard({ ...s, rngState: pairRng }, 'card_steal_test', 0);
+      expect(played.playerResources?.gold).toBe(10 + targetFace);
+      if (played.activeHook.type === 'COMBAT') {
+        expect(played.activeHook.combat.combatLog.some((l) => l.includes(`[Steal] Rolled a pair [${targetFace}, ${targetFace}]! Snatched +${targetFace} Gold`))).toBe(true);
+      }
     }
   });
 
@@ -2752,10 +2750,10 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       };
     };
 
-    it('threshold is floor((AGI + LUK) / 2)', () => {
-      expect(getFleeThreshold({ str: 1, dex: 1, agi: 2, int: 1, cha: 1, luk: 1 })).toBe(1);
-      expect(getFleeThreshold({ str: 1, dex: 1, agi: 3, int: 1, cha: 1, luk: 1 })).toBe(2);
-      expect(getFleeThreshold({ str: 1, dex: 1, agi: 5, int: 1, cha: 1, luk: 4 })).toBe(4);
+    it('threshold is floor(AGI / 2) (min 1)', () => {
+      expect(getFleeThreshold({ str: 1, dex: 1, agi: 2, int: 1, cha: 1, vit: 1 })).toBe(1);
+      expect(getFleeThreshold({ str: 1, dex: 1, agi: 3, int: 1, cha: 1, vit: 1 })).toBe(1);
+      expect(getFleeThreshold({ str: 1, dex: 1, agi: 5, int: 1, cha: 1, vit: 4 })).toBe(2);
     });
 
     it('success escapes without rewards; failure spends 2 AP and stays in combat', () => {
@@ -2776,7 +2774,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
           sawFail = true;
           expect(after.activeHook.combat.playerAp).toBe(1);
           expect(after.activeHook.combat.lastFleeRoll?.success).toBe(false);
-          expect(after.activeHook.combat.lastFleeRoll!.roll).toBeGreaterThan(2);
+          expect(after.activeHook.combat.lastFleeRoll!.roll).toBeGreaterThan(1);
         }
       }
       expect(sawSuccess).toBe(true);

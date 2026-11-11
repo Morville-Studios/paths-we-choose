@@ -4,7 +4,7 @@
 
 import { publicAsset } from './publicAsset';
 
-export type StatKey = 'str' | 'dex' | 'agi' | 'int' | 'cha' | 'luk';
+export type StatKey = 'str' | 'dex' | 'agi' | 'int' | 'cha' | 'vit';
 export type DerivedStatKey = 'acc' | 'eva' | 'atk' | 'def' | 'matk' | 'mdef';
 export type SlotKey = 'weapon' | 'armor' | 'accessory';
 export type ResourceKey = 'sp' | 'gold';

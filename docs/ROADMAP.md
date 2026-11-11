@@ -5,13 +5,13 @@ This is a current implementation/status map, not a historical milestone archive.
 ## Implemented
 
 - Strict TypeScript/Vite web application with separated core, content catalogs, DOM/CSS UI and automated tests.
-- Fighter, Wizard and Rogue; six Base Stats of 1; Primary +2 and two Secondary +1 class bonuses; Berzerk, Conserve and Steal passives.
-- Effective starting HP: Fighter 16, Wizard 12, Rogue 14 before upgrades, gear or blessings; 10-card starter decks, 20 Gold and 4 preparation SP.
+- Fighter, Wizard and Rogue; six Base Stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) of 1; Primary +2 and two Secondary +1 class bonuses; Berzerk, Conserve and Steal passives.
+- Effective starting HP: Fighter 14, Wizard 12, Rogue 12 before upgrades, gear or blessings; 10-card starter decks, 20 Gold and 4 preparation SP.
 - Base-stat upgrades priced `(B+1)^2` at Turn 0 preparation and Shrines. One automatic eligible shrine boon, single active blessing, map expiry.
 - Two missions with 30-card Adventure Decks: The Goblin King and Cult of Trolls, each with a Turn 15 boss encounter.
 - Grasslands, Forest and Swamp map cards, undiscovered exploration rolls, treasure finds, three-row lookahead and deck recycling.
 - A 76-card ordinary creature supply is partitioned from the public Void by scenario level, creature rarity, and main-terrain bands. Scenario 1 builds 45 cards; Scenario 2 builds 37. Grundy and the three-Troll bosses are separate. Creature MDEF, physical/magical damage, poison, DEF piercing, life drain, resurrection, Sprint, Skittish, seeded random buffs, independent multi-hit intents, hit-gated debuffs and direct retaliation are implemented.
-- 2d6 attacks, snake-eyes miss, Luck-adjusted critical threshold, critical damage floor(damage×1.5), five-card hands, INT-based AP and monster targeting carousel.
+- 2d6 attacks, snake-eyes miss, Boxcars (12) critical hit threshold, critical damage floor(damage×1.5), five-card hands, INT-based AP and monster targeting carousel.
 - Village Rest/Shop/Train, 21-item shop catalog, 42-card Treasure Deck, Charisma discounts, weapon/armor/accessory slots, consumables and physical PEN. Canonical item names are generated from SHOP_ITEM_CATALOG.
 - Victory acknowledgement, reward breakdown, ordinary Flee and Stage 1→2 continuation.
 - Raster card art/icons, inspection, keyboard/touch navigation, safe-area styling, combat logs and hero panels.

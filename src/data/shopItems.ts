@@ -96,7 +96,7 @@ export const SHOP_ITEM_CATALOG: ShopItemTemplate[] = [
     level: 2,
     statBonus: { str: 1 },
     cardNumber: 'ITM · #008',
-    description: 'Accessory Slot: +1 STR (+2 Max HP and melee scaling).',
+    description: 'Accessory Slot: +1 STR (boosts melee attack and physical defense scaling).',
     flavorText: 'An etched bronze band depicting a roaring chimera, filling the wearer with primal vigor.',
   },
   {

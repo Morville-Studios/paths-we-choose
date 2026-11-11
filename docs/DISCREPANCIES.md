@@ -67,9 +67,9 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Documentation locations:** README.md §Phase 1 Concept Summary; docs/ROADMAP.md §Phase 1; docs/ARCHITECTURE.md directory map.
 - **Audit observation (before resolution):** Older summaries describe four attributes, two classes, Fighter 18 HP and Wizard 14 HP. Newer specs describe six attributes and three classes.
 - **Implementation evidence:** `src/data/classes.ts; src/core/engine.ts:startAdventure`.
-- **Current behavior:** Six base attributes start at 1. Fighter effective STR/DEX/AGI/INT/CHA/LUK = 3/2/2/1/1/1 (16 HP); Wizard = 1/2/1/3/2/1 (12 HP); Rogue = 2/2/3/1/1/1 (14 HP).
+- **Current behavior:** Six base attributes start at 1. Fighter effective STR/DEX/AGI/INT/CHA/VIT = 3/2/1/1/1/2 (14 HP); Wizard = 1/2/1/3/2/1 (12 HP); Rogue = 2/2/3/1/1/1 (12 HP).
 - **Decision / reconciliation needed:** Confirm the current three-class, six-attribute model; replace outdated summaries and include Rogue everywhere.
-- **Accepted decision:** Retain the six-attribute, three-class model already specified in AGENTS.md and implemented in CLASS_CATALOG. Base stats are all 1; each class has one +2 Primary and two +1 Secondary bonuses. Starting HP is Fighter 16, Wizard 12, Rogue 14, before preparation upgrades, equipment or blessings.
+- **Accepted decision:** Retain the six-attribute, three-class model already specified in AGENTS.md and implemented in CLASS_CATALOG. Base stats are all 1; each class has one +2 Primary and two +1 Secondary bonuses. Starting HP is Fighter 14, Wizard 12, Rogue 12, before preparation upgrades, equipment or blessings.
 - **Resolution / validation:** Reconciled README and roadmap class summaries, added Rogue and passives, updated architecture class references and the six-stat state label, and corrected incomplete attribute lists and starting-stat examples in GAME_DESIGN.md and MECHANICS_AND_DATA.md. Compared values and starter decks against src/data/classes.ts and AGENTS.md. This item required no runtime changes; subsequent item resolutions are recorded separately.
 
 <a id="d002"></a>

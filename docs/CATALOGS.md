@@ -4,13 +4,13 @@ Generated from src/data by scripts/sync-doc-catalogs.cjs. Do not edit these tabl
 
 ## Classes
 
-Effective stats below are Base + Class, before preparation upgrades, gear or blessings. Stat order: STR / DEX / AGI / INT / CHA / LUK.
+Effective stats below are Base + Class, before preparation upgrades, gear or blessings. Stat order: STR / DEX / AGI / INT / CHA / VIT.
 
 | Class | Primary | Secondary | Class bonuses | Effective stats | Max HP | Starter deck | Passive |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Fighter | str | dex, agi | 2 / 1 / 1 / 0 / 0 / 0 | 3 / 2 / 2 / 1 / 1 / 1 | 16 | 8× Slash, 2× Defend | Gain +1 ATK bonus when HP is 50% or below Max HP. If 25% or below, gain +2 ATK bonus instead. |
+| Fighter | str | vit, dex | 2 / 1 / 0 / 0 / 0 / 1 | 3 / 2 / 1 / 1 / 1 / 2 | 14 | 8× Slash, 2× Defend | Gain +1 ATK bonus when HP is 50% or below Max HP. If 25% or below, gain +2 ATK bonus instead. |
 | Wizard | int | dex, cha | 0 / 1 / 0 / 2 / 1 / 0 | 1 / 2 / 1 / 3 / 2 / 1 | 12 | 8× Fireball ATK, 2× Force Field DEF | When you end turn in battle with unused Action Points, they carry over to your next battle turn. |
-| Rogue | agi | dex, str | 1 / 1 / 2 / 0 / 0 / 0 | 2 / 2 / 3 / 1 / 1 / 1 | 14 | 8× Slash, 2× Defend | Whenever you roll a 2d6 to perform an attack hit check and it is a pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6), you immediately gain 1 Gold. |
+| Rogue | agi | dex, str | 1 / 1 / 2 / 0 / 0 / 0 | 2 / 2 / 3 / 1 / 1 / 1 | 12 | 8× Slash, 2× Defend | Whenever you roll a 2d6 to perform an attack hit check and it is a pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6), you immediately gain Gold equal to the doubled number (e.g. 1+1 grants +1 Gold, 5+5 grants +5 Gold, 6+6 grants +6 Gold; even Snake Eyes steals +1 Gold). |
 
 ## Ordinary Monsters
 
@@ -82,7 +82,7 @@ Treasure deck: two copies per item, 42 cards total. Prices below are before Char
 | Leather Gear | lvl1_leather_gear | armor | 1 | 12 | 6 | Armor Slot: +1 EVA (increases evasion against all 2d6 attacks). |
 | Chainmail | lvl1_chainmail | armor | 1 | 15 | 7 | Armor Slot: +1 DEF (reduces incoming physical attack damage). |
 | Spellbinder | lvl2_spellbinder | accessory | 2 | 20 | 10 | Accessory Slot: +1 INT (boosts spellcraft and intellect). |
-| Beast Ring | lvl2_beast_ring | accessory | 2 | 20 | 10 | Accessory Slot: +1 STR (+2 Max HP and melee scaling). |
+| Beast Ring | lvl2_beast_ring | accessory | 2 | 20 | 10 | Accessory Slot: +1 STR (boosts melee attack and physical defense scaling). |
 | Hermes Gear | lvl2_hermes_gear | accessory | 2 | 20 | 10 | Accessory Slot: +1 AGI (improves agility and baseline evasion). |
 | Goldstar | lvl2_goldstar | accessory | 2 | 20 | 10 | Accessory Slot: Produces an additional (1d6 - 1) Gold per victory. |
 | Iron Sword + | lvl2_iron_sword_plus | weapon | 2 | 30 | 15 | Weapon Slot: +2 ATK and +1 ACC (boosts physical attack damage and hit rolls). |
