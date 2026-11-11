@@ -74,4 +74,23 @@ describe('New Skills Deck', () => {
     expect(upgraded.bannerMessage).toContain('10 missing skill cards');
     expect(upgraded.bannerMessage).toContain('5 Void upgrades removed');
   });
+
+  it('counts a physically destroyed learnable card in the Void instead of recreating it', () => {
+    const fresh = startAdventure('fighter', 'new-skills-destroyed-void');
+    const destroyed = fresh.newSkillsDeck.find((card) => card.id === 'battlecry')!;
+    const withDestroyedCard = {
+      ...fresh,
+      newSkillsDeck: fresh.newSkillsDeck.filter((card) => card.instanceId !== destroyed.instanceId),
+      voidCards: [destroyed],
+    };
+
+    const reconciled = reconcileRunNewSkills(withDestroyedCard);
+    expect(reconciled.newSkillsDeck.filter((card) => card.id === 'battlecry')).toHaveLength(1);
+    expect(reconciled.voidCards?.filter((card) => card.id === 'battlecry')).toHaveLength(1);
+    expect([
+      ...reconciled.newSkillsDeck,
+      ...reconciled.newSkillsDiscard,
+      ...(reconciled.voidCards ?? []),
+    ].filter((card) => card.id === 'battlecry')).toHaveLength(2);
+  });
 });

@@ -16,19 +16,9 @@ The original 27 findings were resolved against the rules then recorded. D029 now
 
 ## Audit baseline that is aligned
 
-The original audit baseline ordinary Stage 1 monster deck had **25 cards**. Subsequent Witch and quantity updates bring the current deck to **38 cards**; see the generated catalogs. Latest user-approved additions are already represented in catalog data:
+The original audit recorded historical fixed Stage 1 decks of 25 and later 38 cards. Those fixed-count rules are superseded. The aligned implementation now creates a 76-card ordinary physical supply: Common types have 6 copies, Uncommon types 4, and Rare types 3. Scenario setup partitions that supply from the public Void by main-terrain bands using 100%, rounded 2/3, and rounded 1/3 rates. Scenario 1 builds 45 cards and leaves 31 ordinary creatures in the Void; Scenario 2 builds 37 and leaves 39. The generated catalog is the exact current quantity reference. Boss cards remain separate.
 
-| Creature | Collector ID | Level | Type | Stage 1 copies | SP | Gold |
-| --- | --- | ---: | --- | ---: | ---: | ---: |
-| Leech | mon3smp-01 | 4 | Undead | 1 | 8 | 16 |
-| Creeper | mon3smp-02 | 3 | Undead | 1 | 4 | 8 |
-| Assasin | mon3smp-03 | 3 | Human | 1 | 4 | 8 |
-| Stalker | mon1grs-06 | 2 | Unspecified | 1 | 2 | 4 |
-| Rattler | mon2frs-01 | 2 | Reptile | 1 | 2 | 4 |
-
-Other approved quantities at the original audit: Goblin ×6, Blob ×2, Pincer ×2, Scavenger ×2, Ramram ×2, Basilisk ×1, Zombie ×3, Ghoul ×1, Bullwark ×1. Goblin includes Swamp eligibility; Ramram is Grasslands-only. Boss cards are separate from the ordinary deck.
-
-The appended Leech, Creeper, Assasin and Stalker mechanics sections and latest reward/type updates broadly match their implementations. Their earlier ambiguous details (e.g. poison timing/non-stacking, Skittish accumulation, revival timing) remain implementation interpretations documented in those sections; they can be revisited independently if desired. The latest local checks before this documentation-only change were **196 passing tests** and a passing production build.
+The appended creature mechanics and reward/type updates match their implementations. Earlier ambiguous details (for example poison timing, Skittish accumulation, and revival timing) remain implementation interpretations documented in their sections and can be revisited independently if desired.
 
 Cloudflare release monitoring and conservative revalidation are implemented and documented. The more efficient content-versioned media strategy discussed after reviewing Bocarena/Morville has **not** been implemented. Treat it as a proposed follow-up, not the current caching behavior. Actual Cloudflare response headers and cross-deployment behavior still require deployment verification.
 

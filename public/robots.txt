@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://morvillestudios.com/games/the-paths-we-choose/sitemap.xml

@@ -29,8 +29,8 @@ function battle(state: RunState) {
 
 describe('Leech', () => {
   it('uses the requested profile, artwork, magical pattern and spawn terrains', () => {
-    expect(leech).toMatchObject({ statPointReward: 8, goldReward: 16, creatureType: 'Undead', cardNumber: 'mon3smp-01', level: 4, maxHp: 10, def: 1, mdef: 3, eva: 2, acc: 2, spawnTerrains: ['swamp', 'cave'] });
-    const html = cardInspectModal({ kind: 'monster', monster: leech, currentHp: 10 }, setup());
+    expect(leech).toMatchObject({ statPointReward: 8, goldReward: 16, creatureType: 'Undead', cardNumber: 'mon3smp-01', level: 4, maxHp: 18, def: 1, mdef: 3, eva: 2, acc: 2, spawnTerrains: ['swamp', 'cave'] });
+    const html = cardInspectModal({ kind: 'monster', monster: leech, currentHp: 18 }, setup());
     expect(html).toContain('/cards/creatures/leech.jpg');
     expect(html).toContain('MDEF');
     expect(html).toContain('MATK');
@@ -43,9 +43,9 @@ describe('Leech', () => {
     battle(state).playerBlock = 1;
     const before = JSON.stringify(state);
     const next = endPlayerCombatTurn(state);
-    expect(next.playerResources?.hp).toBe(97);
-    expect(battle(next).monsters[0].hp).toBe(6);
-    expect(battle(next).lastAttackRoll).toMatchObject({ damageDealt: 3, damageBlocked: 1, damageDefReduced: 2, defenseType: 'MDEF' });
+    expect(next.playerResources?.hp).toBe(95);
+    expect(battle(next).monsters[0].hp).toBe(7);
+    expect(battle(next).lastAttackRoll).toMatchObject({ damageDealt: 5, damageBlocked: 1, damageDefReduced: 2, defenseType: 'MDEF' });
     expect(battle(next).combatLog.join(' ')).toContain('absorbed by Hero MDEF');
     expect(JSON.stringify(state)).toBe(before);
   });
@@ -58,8 +58,8 @@ describe('Leech', () => {
     state.rngState = Array.from({ length: 1000 }, (_, i) => i + 1).find(seed => !evaluateAttackRoll(seed, 2, 0).isHit)!;
     expect(battle(endPlayerCombatTurn(state)).monsters[0].hp).toBe(5);
     state.rngState = hitSeed;
-    battle(state).monsters[0].hp = 9;
-    expect(battle(endPlayerCombatTurn(state)).monsters[0].hp).toBe(10);
+    battle(state).monsters[0].hp = 17;
+    expect(battle(endPlayerCombatTurn(state)).monsters[0].hp).toBe(18);
   });
 
   it('Channels for healing and block and revives exactly one discarded Zombie on turns 6 and 12', () => {
@@ -93,14 +93,14 @@ describe('Leech', () => {
 
   it('absorbs hero spell damage with Leech MDEF rather than physical DEF', () => {
     const state = setup();
-    battle(state).monsters[0].hp = 10;
+    battle(state).monsters[0].hp = 18;
     battle(state).hand = [{ id: 'spell', instanceId: 'spell', name: 'Spell', classId: 'wizard', cardType: 'attack', apCost: 1, baseDamage: 6, damageScalingStat: 'int', damageScalingDivisor: 100, baseBlock: 0 }];
     state.rngState = Array.from({ length: 1000 }, (_, i) => i + 1).find(seed => {
       const roll = evaluateAttackRoll(seed, 1, 2);
       return roll.isHit && !roll.isCrit;
     })!;
     const next = playCard(state, 'spell', 0);
-    expect(battle(next).monsters[0].hp).toBe(7);
+    expect(battle(next).monsters[0].hp).toBe(15);
     expect(battle(next).lastAttackRoll?.defenseType).toBe('MDEF');
   });
 });

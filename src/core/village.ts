@@ -399,9 +399,10 @@ export function villageTrainRemove(state: RunState, instanceId: string): RunStat
   return {
     ...state,
     playerMasterDeck: state.playerMasterDeck.filter((c) => c.instanceId !== instanceId),
+    voidCards: [...(state.voidCards ?? []), card],
     playerResources: { ...state.playerResources, gold: state.playerResources.gold - cost },
     trainRemovalCount: (state.trainRemovalCount ?? 0) + 1,
-    bannerMessage: `Removed ${card.name} from your deck for ${cost} Gold. Next removal costs ${cost + 1} Gold.`,
+    bannerMessage: `Destroyed ${card.name} for ${cost} Gold and sent it to the Void. Next destruction costs ${cost + 1} Gold.`,
   };
 }
 

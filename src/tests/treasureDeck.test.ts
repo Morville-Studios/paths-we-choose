@@ -120,7 +120,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
 
     expect(inShop.activeHook.village.shopStock.length).toBe(7);
     expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(35);
-    expect(inShop.activeHook.village.shopStock.every(item => item.level === 2)).toBe(true);
+    expect(inShop.activeHook.village.shopStock.every(item => item.level === 1 || item.level === 2)).toBe(true);
   });
 
   it('going back to menu before purchasing retains shopStock and does not re-draw', () => {

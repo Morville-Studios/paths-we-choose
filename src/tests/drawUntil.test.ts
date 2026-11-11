@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { drawEncounterMonsters, drawMonsterCardWithReshuffle, drawTreasureCardsWithReshuffle, drawTreasureUntilLevel } from '../core/deck';
-import { chooseCard, getAvailableCoords, startAdventure } from '../core/engine';
+import { chooseCard, confirmEncounterClear, getAvailableCoords, startAdventure } from '../core/engine';
 import { MonsterCard, RunState, ShopItemDef } from '../core/types';
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
@@ -140,10 +140,10 @@ describe('ability searches and recycling game mechanics', () => {
   it('an empty encounter resolves normally without an empty battle or free victory rewards', () => {
     const { state, coord } = encounterState();
     const result = chooseCard(state, coord);
-    expect(result.activeHook.type).toBe('NONE');
-    expect(result.bannerMessage).toContain('No eligible monsters');
+    expect(result.activeHook.type).toBe('ENCOUNTER_CLEAR');
+    expect(result.bannerMessage).toContain('no eligible monsters');
     expect(result.bannerMessage).not.toContain('fizzl');
-    expect(result.currentMusic).toBe('map-area');
+    expect(result.currentMusic).toBeNull();
     expect(result.playerResources).toEqual(state.playerResources);
     expect(result.monsterDiscard.map(m => m.id)).toEqual(['bull']);
   });
@@ -151,8 +151,10 @@ describe('ability searches and recycling game mechanics', () => {
   it('an unavailable encounter on the final map turn still triggers its boss', () => {
     const { state, coord } = encounterState(1);
     const result = chooseCard(state, coord);
-    if (result.activeHook.type !== 'COMBAT') throw new Error('Expected boss combat');
-    expect(result.activeHook.combat.monsters[0].monster.templateId).toBe('goblin_chieftain');
+    expect(result.activeHook.type).toBe('ENCOUNTER_CLEAR');
+    const continued = confirmEncounterClear(result);
+    if (continued.activeHook.type !== 'COMBAT') throw new Error('Expected boss combat after acknowledging encounter');
+    expect(continued.activeHook.combat.monsters[0].monster.templateId).toBe('goblin_chieftain');
   });
 
   it('deck viewers disclose card counts in catalog order, not draw order; graveyards remain inspectable', () => {

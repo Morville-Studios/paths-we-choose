@@ -12,9 +12,9 @@ describe('level-based monster reward inscriptions', () => {
   });
 
   it('spawns bosses with the same reward rule', () => {
-    expect(createBossMonsterCard()).toMatchObject({ level: 2, statPointReward: 2, goldReward: 4 });
+    expect(createBossMonsterCard()).toMatchObject({ name: 'Grundy', level: 5, statPointReward: 16, goldReward: 32 });
     for (const monster of createMission2BossCards()) {
-      expect(monster).toMatchObject({ level: 3, statPointReward: 4, goldReward: 8 });
+      expect(monster).toMatchObject({ level: 4, statPointReward: 8, goldReward: 16 });
     }
   });
 
@@ -29,15 +29,17 @@ describe('level-based monster reward inscriptions', () => {
     const rngState = Array.from({ length: 1000 }, (_, index) => index + 1)
       .find(seed => evaluateAttackRoll(seed, 101, 1).isHit)!;
     const input: RunState = { ...state, rngState, activeHook: { type: 'COMBAT', combat } };
+    const expectedSp = monsters.reduce((sum, monster) => sum + monster.statPointReward, 0);
+    const expectedGold = monsters.reduce((sum, monster) => sum + monster.goldReward, 0);
     let awarded = false;
     const result = playCombatCardFromHand(input, 'finish', 0, (next, defeated, rewards) => {
       awarded = true;
-      expect(defeated).toHaveLength(19);
-      expect(rewards).toMatchObject({ statPointsEarned: 53, baseGold: 106, goldEarned: 106, luckBonusGold: 0, luckyCharmGold: 0 });
+      expect(defeated).toHaveLength(monsters.length);
+      expect(rewards).toMatchObject({ statPointsEarned: expectedSp, baseGold: expectedGold, goldEarned: expectedGold, luckBonusGold: 0, luckyCharmGold: 0 });
       return next;
     });
     expect(awarded).toBe(true);
-    expect(result.playerResources?.statPoints).toBe(state.playerResources!.statPoints + 53);
-    expect(result.playerResources?.gold).toBe(state.playerResources!.gold + 106);
+    expect(result.playerResources?.statPoints).toBe(state.playerResources!.statPoints + expectedSp);
+    expect(result.playerResources?.gold).toBe(state.playerResources!.gold + expectedGold);
   });
 });

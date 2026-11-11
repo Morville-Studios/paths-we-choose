@@ -5,6 +5,7 @@ import {
   buyItem,
   chooseCard,
   confirmCombatVictory,
+  confirmEncounterClear,
   confirmExplorationCombat,
   confirmExplorationSafe,
   createInitialState,
@@ -52,6 +53,7 @@ import {
   updateClassCarouselDom,
   updateMonsterCarouselDom,
   getHandCarouselIndex,
+  hasBlockingUiOverlay,
   updateHandCarouselDom,
 } from './ui/render';
 import { ClassId } from './core/types';
@@ -96,6 +98,7 @@ function setCombatTarget(newTarget: number): void {
 }
 
 function navigateCombatTarget(direction: -1 | 1): void {
+  if (hasBlockingUiOverlay(ui)) return;
   const s = store.get();
   if (s.activeHook?.type !== 'COMBAT') return;
   const combat = s.activeHook.combat;
@@ -118,7 +121,7 @@ function navigateCombatTarget(direction: -1 | 1): void {
 
 function selectHandCard(index: number): void {
   const state = store.get();
-  if (state.activeHook.type !== 'COMBAT' || ui.pendingCardPlay || ui.pendingFlee || ui.inspectedCard || ui.inspectedPile || ui.inspectedStat || ui.showDeck) return;
+  if (state.activeHook.type !== 'COMBAT' || hasBlockingUiOverlay(ui)) return;
   ui.handIndex = getHandCarouselIndex(index, state.activeHook.combat.hand.length);
   if (!updateHandCarouselDom(root, ui.handIndex)) render();
 }
@@ -239,10 +242,14 @@ function findInspectedCard(cardEl: HTMLElement): InspectedCardInfo | null {
         const boons: { name: string; description: string; value: string }[] = [];
         const bonus = cm.attackBonus ?? 0;
         if (bonus > 0) {
+          const damagingIntent = cm.monster.pattern.find((intent) => intent.damage > 0);
+          const baseDamage = damagingIntent?.damage ?? 0;
           boons.push({
-            name: 'Charge Momentum',
+            name: cm.monster.templateId === 'bullwark' ? 'Chaotic Impulse' : 'Temporary Attack Boon',
             value: `+${bonus} ATK`,
-            description: `Momentum accelerates with each charge. Heavy Charge currently deals ${6 + bonus} DMG (Base 6 + ${bonus} Boon).`,
+            description: damagingIntent
+              ? `${damagingIntent.label} currently deals ${baseDamage + bonus} DMG (Base ${baseDamage} + ${bonus} Boon).`
+              : `Gains +${bonus} ATK while this temporary boon remains active.`,
           });
         }
         if (cm.evaBonus && cm.evaBonus > 0) {
@@ -254,9 +261,11 @@ function findInspectedCard(cardEl: HTMLElement): InspectedCardInfo | null {
         }
         if (cm.accBonus && cm.accBonus > 0) {
           boons.push({
-            name: 'Lunging Accuracy',
+            name: cm.monster.templateId === 'bullwark' ? 'Chaotic Impulse' : 'Lunging Accuracy',
             value: `+${cm.accBonus} ACC`,
-            description: `Leaps forward with predatory precision, gaining +${cm.accBonus} ACC on attack rolls this round.`,
+            description: cm.monster.templateId === 'bullwark'
+              ? `Chaotic Impulse grants +${cm.accBonus} ACC to Bullwark's next action.`
+              : `Leaps forward with predatory precision, gaining +${cm.accBonus} ACC on attack rolls this round.`,
           });
         }
         if (cm.block > 0) {
@@ -439,6 +448,9 @@ function clearTransientUiForNewAdventure() {
   ui.showDeck = false;
   ui.pendingCardPlay = null;
   ui.pendingFlee = false;
+  ui.pendingTrainingAction = null;
+  ui.pendingShrineAction = null;
+  ui.selectedShrineStat = null;
   ui.showGuide = false;
   ui.handIndex = 0;
   ui.targetIndex = 0;
@@ -525,7 +537,36 @@ root.addEventListener('pointercancel', () => {
 window.addEventListener('keydown', (ev) => {
   const s = store.get();
 
+  if (ev.key === 'Escape') {
+    if (ui.inspectedCard || ui.inspectedStat) {
+      ui.inspectedCard = null;
+      ui.inspectedStat = null;
+      render();
+    } else if (ui.inspectedPile || ui.showDeck) {
+      ui.inspectedPile = null;
+      ui.showDeck = false;
+      render();
+    } else if (ui.pendingCardPlay) {
+      ui.pendingCardPlay = null;
+      render();
+    } else if (ui.pendingFlee) {
+      ui.pendingFlee = false;
+      render();
+    } else if (ui.pendingTrainingAction) {
+      ui.pendingTrainingAction = null;
+      render();
+    } else if (ui.pendingShrineAction) {
+      ui.pendingShrineAction = null;
+      render();
+    } else if (ui.showGuide) {
+      ui.showGuide = false;
+      render();
+    }
+    return;
+  }
+
   if (s.screen === 'class_select') {
+    if (hasBlockingUiOverlay(ui)) return;
     const current = ui.selectedClass ?? 'fighter';
     const activeIdx = CLASS_CAROUSEL_ORDER.indexOf(current) >= 0 ? CLASS_CAROUSEL_ORDER.indexOf(current) : 0;
 
@@ -555,43 +596,28 @@ window.addEventListener('keydown', (ev) => {
   }
 
   if (s.screen === 'play_area' && s.activeHook?.type === 'COMBAT') {
+    if (hasBlockingUiOverlay(ui)) return;
     if (ev.key.toLowerCase() === 'q' || ev.key.toLowerCase() === 'e') {
       ev.preventDefault();
       navigateHand(ev.key.toLowerCase() === 'q' ? -1 : 1);
       return;
     }
-    if (!ui.inspectedCard && !ui.inspectedPile && !ui.showDeck) {
-      if (ev.key === 'a' || ev.key === 'A' || ev.key === 'ArrowLeft') {
-        ev.preventDefault();
-        // With one target, target traversal has no effect. Reuse the familiar
-        // left controls for the hand carousel instead.
-        const livingTargets = s.activeHook.combat.monsters.filter((monster) => monster.hp > 0).length;
-        if (livingTargets <= 1) navigateHand(-1);
-        else navigateCombatTarget(-1);
-        return;
-      }
-
-      if (ev.key === 'd' || ev.key === 'D' || ev.key === 'ArrowRight') {
-        ev.preventDefault();
-        const livingTargets = s.activeHook.combat.monsters.filter((monster) => monster.hp > 0).length;
-        if (livingTargets <= 1) navigateHand(1);
-        else navigateCombatTarget(1);
-        return;
-      }
+    if (ev.key === 'a' || ev.key === 'A' || ev.key === 'ArrowLeft') {
+      ev.preventDefault();
+      // With one target, target traversal has no effect. Reuse the familiar
+      // left controls for the hand carousel instead.
+      const livingTargets = s.activeHook.combat.monsters.filter((monster) => monster.hp > 0).length;
+      if (livingTargets <= 1) navigateHand(-1);
+      else navigateCombatTarget(-1);
+      return;
     }
-  }
 
-  if (ev.key === 'Escape') {
-    if (ui.pendingCardPlay) {
-      ui.pendingCardPlay = null;
-      render();
-    } else if (ui.inspectedPile || ui.showDeck) {
-      ui.inspectedPile = null;
-      ui.showDeck = false;
-      render();
-    } else if (ui.inspectedCard) {
-      ui.inspectedCard = null;
-      render();
+    if (ev.key === 'd' || ev.key === 'D' || ev.key === 'ArrowRight') {
+      ev.preventDefault();
+      const livingTargets = s.activeHook.combat.monsters.filter((monster) => monster.hp > 0).length;
+      if (livingTargets <= 1) navigateHand(1);
+      else navigateCombatTarget(1);
+      return;
     }
   }
 });
@@ -751,6 +777,8 @@ root.addEventListener('click', (ev) => {
       render();
       break;
     case 'choose':
+      ui.selectedShrineStat = null;
+      ui.pendingShrineAction = null;
       store.update((s) => chooseCard(s, { col: Number(col), row: Number(row) }));
       break;
     case 'upgrade':
@@ -842,8 +870,22 @@ root.addEventListener('click', (ev) => {
     case 'shrine-upgrade':
       store.update((s) => shrineUpgradeStat(s, stat as StatKey));
       break;
-    case 'shrine-upgrade-skill':
-      if (id) store.update((s) => shrineUpgradeSkill(s, id));
+    case 'select-shrine-stat':
+      ui.selectedShrineStat = stat as StatKey;
+      render();
+      break;
+    case 'request-shrine-stat-upgrade':
+      if (stat) {
+        ui.selectedShrineStat = stat as StatKey;
+        ui.pendingShrineAction = { kind: 'upgrade-stat', stat: stat as StatKey };
+        render();
+      }
+      break;
+    case 'request-shrine-skill-upgrade':
+      if (id) {
+        ui.pendingShrineAction = { kind: 'upgrade-skill', sourceInstanceId: id };
+        render();
+      }
       break;
     case 'dismiss-welcome-dialog':
       store.update(dismissWelcomePrepare);
@@ -854,9 +896,35 @@ root.addEventListener('click', (ev) => {
     case 'shrine-choose-prayer':
       store.update((s) => shrineDoChoosePrayer(s, id as ShrinePrayerOptionId));
       break;
-    case 'leave-shrine':
-      store.update(leaveShrine);
+    case 'request-leave-shrine':
+      ui.pendingShrineAction = { kind: 'leave' };
+      render();
       break;
+    case 'cancel-shrine-action':
+      ui.pendingShrineAction = null;
+      render();
+      break;
+    case 'cancel-shrine-action-backdrop':
+      if (ev.target === target) {
+        ui.pendingShrineAction = null;
+        render();
+      }
+      break;
+    case 'confirm-shrine-action': {
+      const pending = ui.pendingShrineAction;
+      ui.pendingShrineAction = null;
+      if (pending?.kind === 'upgrade-stat') {
+        store.update((s) => shrineUpgradeStat(s, pending.stat));
+      } else if (pending?.kind === 'upgrade-skill') {
+        store.update((s) => shrineUpgradeSkill(s, pending.sourceInstanceId));
+      } else if (pending?.kind === 'leave') {
+        ui.selectedShrineStat = null;
+        store.update(leaveShrine);
+      } else {
+        render();
+      }
+      break;
+    }
     case 'village-back':
       store.update(villageGoBack);
       break;
@@ -876,6 +944,7 @@ root.addEventListener('click', (ev) => {
       break;
     case 'village-leave':
       ui.villageRestTicks = undefined;
+      ui.pendingTrainingAction = null;
       store.update(finishVillage);
       break;
     case 'buy':
@@ -889,16 +958,43 @@ root.addEventListener('click', (ev) => {
       render();
       break;
     case 'train-draft':
-      store.update((s) => villageDoTrainDraft(s, id as string));
+      ui.pendingTrainingAction = { kind: 'learn', cardInstanceId: id as string };
+      render();
       break;
     case 'train-remove':
-      store.update((s) => villageDoTrainRemove(s, id as string));
+      ui.pendingTrainingAction = { kind: 'destroy', cardInstanceId: id as string };
+      render();
       break;
+    case 'cancel-training-action':
+      ui.pendingTrainingAction = null;
+      render();
+      break;
+    case 'cancel-training-action-backdrop':
+      if (ev.target === target) {
+        ui.pendingTrainingAction = null;
+        render();
+      }
+      break;
+    case 'confirm-training-action': {
+      const pending = ui.pendingTrainingAction;
+      ui.pendingTrainingAction = null;
+      if (pending?.kind === 'learn') {
+        store.update((s) => villageDoTrainDraft(s, pending.cardInstanceId));
+      } else if (pending?.kind === 'destroy') {
+        store.update((s) => villageDoTrainRemove(s, pending.cardInstanceId));
+      } else {
+        render();
+      }
+      break;
+    }
     case 'confirm-exploration-combat':
       store.update(confirmExplorationCombat);
       break;
     case 'confirm-exploration-safe':
       store.update(confirmExplorationSafe);
+      break;
+    case 'confirm-encounter-clear':
+      store.update(confirmEncounterClear);
       break;
     case 'confirm-victory':
       store.update(confirmCombatVictory);

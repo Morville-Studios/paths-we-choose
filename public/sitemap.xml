@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://morvillestudios.com/games/the-paths-we-choose/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://morvillestudios.com/games/the-paths-we-choose/seo/the-paths-we-choose-share-1200x630.jpg</image:loc>
+      <image:caption>The Paths We Choose, a browser card adventure from Morville Studios Games</image:caption>
+    </image:image>
+  </url>
+</urlset>

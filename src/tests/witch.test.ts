@@ -23,7 +23,7 @@ function battle(state: RunState) {
 describe('Witch mechanics', () => {
   it('registers the confirmed collector ID, stats and default level rewards', () => {
     expect(witch).toMatchObject({ templateId: 'witch', cardNumber: 'mon3smp-04', level: 3,
-      maxHp: 10, def: 1, mdef: 3, eva: 1, acc: 1, spawnTerrains: ['swamp', 'cave'],
+      maxHp: 14, def: 1, mdef: 3, eva: 1, acc: 1, spawnTerrains: ['swamp', 'cave'],
       statPointReward: 4, goldReward: 8, endTurnRegen: 1 });
     expect(MONSTER_TEMPLATES.stalker.cardNumber).toBe('mon1grs-06');
     expect(Object.values(MONSTER_TEMPLATES).map(m => m.cardNumber).filter(id => id === 'mon3smp-04')).toHaveLength(1);
@@ -70,7 +70,7 @@ describe('Witch mechanics', () => {
     const state = endPlayerCombatTurn(setup());
     const attackIndex = battle(state).hand.findIndex(card => card.baseDamage > 0);
     const next = playCard(state, battle(state).hand[attackIndex].instanceId, 0);
-    expect(battle(next).lastAttackRoll?.netAcc).toBe(0); // base ACC 1 + card 1 - hex 1 - Witch EVA 1
+    expect(battle(next).lastAttackRoll?.netAcc).toBe(-1); // base ACC 1 - hex 1 - Witch EVA 1; Slash adds no ACC
     const html = cardInspectModal({ kind: 'monster', monster: witch }, state);
     expect(getMonsterRasterArtPath('witch')).toBe('/cards/creatures/witch.jpg');
     expect(html).toContain('/cards/creatures/witch.jpg');
@@ -81,8 +81,8 @@ describe('Witch mechanics', () => {
 
   it('regenerates after every pattern, caps healing, and never revives a dead Witch', () => {
     let state = setup();
-    battle(state).monsters[0].hp = 7;
-    for (const expected of [8, 9, 10, 10]) {
+    battle(state).monsters[0].hp = 11;
+    for (const expected of [12, 13, 14, 14]) {
       state = endPlayerCombatTurn(state);
       expect(battle(state).monsters[0].hp).toBe(expected);
     }

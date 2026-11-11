@@ -102,6 +102,8 @@ export interface CombatCardDef {
   damageScalingStat?: CombatScalingStat;
   damageScalingDivisor?: number; // 2 for +1 per 2 stat; 1 for +1 per 1 stat
   damageScalingMultiplier?: number;
+  /** Add the hero's current derived ACC once after ordinary damage scaling. */
+  damageAddsAccuracy?: boolean;
   baseBlock: number;
   blockScalingStat?: CombatScalingStat;
   blockScalingDivisor?: number;
@@ -138,10 +140,25 @@ export interface MonsterIntent {
   heal?: number;
   accBonus?: number;
   evaBonus?: number;
+  defBonus?: number;
   bonusDuration?: number;
+  /** Tutor one matching monster from the hidden draw pile directly into play. */
+  summonFromMonsterDeck?: MonsterTemplateId;
+  /** If the tutor misses, return one matching discard card to the top of the draw pile. */
+  returnDiscardToMonsterDeckOnMiss?: MonsterTemplateId;
+  /** Dynamic damage added for each living matching creature currently in play. */
+  damagePerCreatureInPlay?: { templateId: MonsterTemplateId; amount: number };
+  /** Dynamic damage added for each currently active negative effect on the hero. */
+  damagePerHeroDebuff?: number;
+  /** Resolve this intent as separate attacks, each with its own 2d6 hit check and mitigation. */
+  hitCount?: number;
   heroEvaDebuff?: number;
   heroEvaDebuffDuration?: number;
   heroStatDebuff?: { stats: Partial<Record<'acc' | 'eva' | 'def' | 'mdef', number>>; duration: number };
+  /** Apply heroStatDebuff only after at least one successful hit from this intent. */
+  heroStatDebuffOnHit?: boolean;
+  /** Choose one temporary combat buff deterministically when this intent resolves. */
+  randomBuff?: { amount: number; stats: Array<'atk' | 'acc'>; duration: number };
 }
 
 export type MonsterTemplateId =
@@ -160,10 +177,16 @@ export type MonsterTemplateId =
   | 'assassin'
   | 'stalker'
   | 'witch'
+  | 'phalanx'
+  | 'cultist_mage'
+  | 'lurker'
   | 'goblin_chieftain'
   | 'troll_healer'
   | 'troll_hexer'
   | 'troll_brute';
+
+export type MonsterRarity = 'common' | 'uncommon' | 'rare';
+export type MonsterTerrain = 'grasslands' | 'forest' | 'swamp' | 'cave' | 'underground' | 'underworld';
 
 export interface MonsterCard {
   id: string;
@@ -182,10 +205,16 @@ export interface MonsterCard {
   skittishEvaOnHit?: number;
   resilient?: { requiredRoll: number; reviveHp: number };
   endTurnRegen?: number;
+  /** Retaliation after a successful player attack; bypasses DEF and Block but respects Divine Protection. */
+  retaliationDamageOnHeroAttack?: number;
+  /** Physical supply rarity. Defaults to uncommon when omitted. */
+  rarity?: MonsterRarity;
+  /** Lowest-level terrain in which this creature can appear. */
+  mainTerrain?: MonsterTerrain;
   abilities: string[];
   pattern: MonsterIntent[];
   cardNumber?: string;     // e.g. "GRS · 001/011"
-  spawnTerrains?: string[]; // e.g. ["grasslands", "forest"]
+  spawnTerrains?: MonsterTerrain[]; // e.g. ["grasslands", "forest"]
   creatureType?: string;   // e.g. "Goblinoid", "Ooze", "Insect", "Beast"
   flavorText?: string;
 }
@@ -198,11 +227,14 @@ export interface CombatMonster {
   patternIndex: number;
   accBonusTurns?: number;
   evaBonusTurns?: number;
+  defBonusTurns?: number;
   skittishEvaBonus?: number;
   channelCount?: number;
   attackBonus?: number;
+  attackBonusTurns?: number;
   accBonus?: number;
   evaBonus?: number;
+  defBonus?: number;
 }
 
 export interface CombatAttackRollSummary {
@@ -240,6 +272,8 @@ export interface ActiveCombatState {
   drawPile: CombatCardDef[];
   hand: CombatCardDef[];      // Five cards are drawn at the start of each turn (recycling discard as needed)
   discardPile: CombatCardDef[];
+  /** Cards resolving now. A played card reaches discard only after its full effect resolves. */
+  stack?: CombatCardDef[];
   inPlay?: CombatCardDef[];      // Battle-long enchantments; destroyed cards move to discardPile
   combatLog: string[];
   lastAttackRoll?: CombatAttackRollSummary;
@@ -254,6 +288,7 @@ export interface HeroStatDebuff {
   sourceId: string;
   label: string;
   stats: Partial<Record<'acc' | 'eva' | 'def' | 'mdef', number>>;
+  damageTaken?: number;
   turnsRemaining: number;
 }
 
@@ -297,7 +332,7 @@ export interface ActiveShrineState {
   chosenOptionId?: ShrinePrayerOptionId;
 }
 
-export type TerrainType = 'start' | 'grasslands' | 'forest' | 'swamp';
+export type TerrainType = 'start' | 'grasslands' | 'forest' | 'swamp' | 'cave';
 
 export interface AdventureCard {
   id: string;
@@ -363,12 +398,18 @@ export interface CombatVictoryState {
   canContinue?: boolean;
 }
 
+export interface EncounterClearState {
+  card: AdventureCard;
+  reason: string;
+}
+
 export type ActiveHook =
   | { type: 'NONE' }
   | { type: 'COMBAT'; combat: ActiveCombatState }
   | { type: 'VILLAGE'; village: ActiveVillageState }
   | { type: 'SHRINE'; shrine: ActiveShrineState }
   | { type: 'EXPLORATION'; exploration: ActiveExplorationState }
+  | { type: 'ENCOUNTER_CLEAR'; encounter: EncounterClearState }
   | { type: 'VICTORY'; victory: CombatVictoryState }
   | { type: 'ON_STAGE_COMPLETE'; turn: number; bossDefeated: string; stageNumber?: number; canContinue?: boolean }
   | { type: 'ON_GAME_OVER'; turn: number; defeatedBy: string };
@@ -383,6 +424,7 @@ export interface RunState {
   maxTurns: number;
   currentMission?: number;           // 1: The Goblin King, 2: Cult of Trolls
   missionName?: string;              // 'The Goblin King' | 'Cult of Trolls'
+  scenarioLevel?: number;            // Determines the three main-terrain setup bands
   reshuffleCount: number;
   playerClass: ClassId | null;
   playerBaseStats: CharacterStats;   // Starts at { str: 1, agi: 1, int: 1, luk: 1 }
@@ -400,11 +442,15 @@ export interface RunState {
   /** Unlearned Village skill offers, recycled into the New Skills Deck when needed. */
   newSkillsDiscard: CombatCardDef[];
   newSkillsReshuffleCount: number;
+  /** Physical cards destroyed during training. Static Void templates are derived separately. */
+  voidCards?: CombatCardDef[];
   playerPosition: GridCoord;
   adventureDeck: AdventureCard[];
   adventureDiscard: AdventureCard[];
   monsterDeck: MonsterCard[];
   monsterDiscard: MonsterCard[];
+  /** Physical ordinary creature cards not selected for the current scenario. */
+  monsterVoid: MonsterCard[];
   treasureDeck: ShopItemDef[];
   treasureDiscard: ShopItemDef[];
   treasureReshuffleCount: number;

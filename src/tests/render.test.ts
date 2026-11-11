@@ -12,6 +12,7 @@ import {
   parseCombatLogEntry,
   renderCombatLogEntries,
   cardInspectModal,
+  hasBlockingUiOverlay,
   getMonsterCarouselClass,
   updateMonsterCarouselDom,
   victoryModal,
@@ -19,10 +20,24 @@ import {
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
 import { createCombatCardInstance } from '../data/combatCards';
+import { ADVENTURE_CARD_CATALOG } from '../data/stages';
 import { getActionRasterArtPath } from '../ui/cardArt';
 import { AdventureCard, CombatVictoryState, MonsterCard, RunState } from '../core/types';
 
 describe('Render Play Area and Shop Layout', () => {
+  it('treats every modal UI state as blocking gameplay carousel input', () => {
+    const base: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0 };
+    expect(hasBlockingUiOverlay(base)).toBe(false);
+    expect(hasBlockingUiOverlay({ ...base, inspectedStat: 'str' })).toBe(true);
+    expect(hasBlockingUiOverlay({ ...base, inspectedCard: { kind: 'action', card: createCombatCardInstance('melee_atk', 'blocking') } })).toBe(true);
+    expect(hasBlockingUiOverlay({ ...base, inspectedPile: 'player_deck' })).toBe(true);
+    expect(hasBlockingUiOverlay({ ...base, pendingCardPlay: { cardInstanceId: 'card', targetIndex: 0 } })).toBe(true);
+    expect(hasBlockingUiOverlay({ ...base, pendingFlee: true })).toBe(true);
+    expect(hasBlockingUiOverlay({ ...base, pendingTrainingAction: { kind: 'destroy', cardInstanceId: 'card' } })).toBe(true);
+    expect(hasBlockingUiOverlay({ ...base, pendingShrineAction: { kind: 'upgrade-stat', stat: 'agi' } })).toBe(true);
+    expect(hasBlockingUiOverlay({ ...base, showGuide: true })).toBe(true);
+  });
+
   it('offers a friendly How to Play guide from the welcome screen and in-game HUD', () => {
     expect(renderWelcome()).toContain('data-action="open-guide"');
     const welcomeGuide = renderWelcome(true);
@@ -75,6 +90,62 @@ describe('Render Play Area and Shop Layout', () => {
     expect(bodyHtml).toContain('shop-mini-card');
     expect(bodyHtml).toContain('shop-card-art-img');
     expect(bodyHtml).toContain('/cards/items/');
+  });
+
+  it('shows training Gold/SP in a sidebar and confirms learning or destroying cards', () => {
+    const state = startAdventure('fighter', 'training-confirm-ui');
+    const offer = createCombatCardInstance('battlecry', 'training-offer');
+    state.activeHook = {
+      type: 'VILLAGE',
+      village: { coord: { col: 0, row: 1 }, turn: 1, subView: 'train', trainOptions: [offer], shopStock: [] },
+    };
+    const baseUi: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0 };
+    const training = renderPlayArea(state, baseUi);
+    expect(training).toContain('village-training-sidebar');
+    expect(training).toContain('Your Resources');
+    expect(training).toContain('Destroy a card');
+    expect(training).toContain('Destroyed cards go to the Void');
+
+    const purchase = renderPlayArea(state, {
+      ...baseUi,
+      pendingTrainingAction: { kind: 'learn', cardInstanceId: offer.instanceId },
+    });
+    expect(purchase).toContain('Learn Battlecry?');
+    expect(purchase).toContain('Confirm Purchase');
+
+    const destroy = renderPlayArea(state, {
+      ...baseUi,
+      pendingTrainingAction: { kind: 'destroy', cardInstanceId: state.playerMasterDeck[0].instanceId },
+    });
+    expect(destroy).toContain('Destroy Slash?');
+    expect(destroy).toContain('Confirm Destroy');
+  });
+
+  it('shows every living target and its independent hit chance for Whirlwind', () => {
+    const state = startAdventure('fighter', 'whirlwind-target-ui');
+    const whirlwind = createCombatCardInstance('whirlwind', 'all-targets');
+    const goblin = { ...MONSTER_TEMPLATES.goblin, id: 'whirlwind-goblin' };
+    const rattler = { ...MONSTER_TEMPLATES.rattler, id: 'whirlwind-rattler' };
+    state.activeHook = {
+      type: 'COMBAT',
+      combat: {
+        monsters: [
+          { monster: goblin, hp: goblin.maxHp, block: 0, patternIndex: 0 },
+          { monster: rattler, hp: rattler.maxHp, block: 0, patternIndex: 0 },
+        ],
+        combatTurn: 1, playerAp: 3, playerMaxAp: 3, playerBlock: 0, playerEvasionMod: 0,
+        drawPile: [], hand: [whirlwind], discardPile: [], stack: [], inPlay: [], combatLog: [],
+      },
+    };
+    const html = renderPlayArea(state, {
+      selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0,
+      pendingCardPlay: { cardInstanceId: whirlwind.instanceId, targetIndex: 0 },
+    });
+    expect(html).toContain('All Target Creatures · Separate Hit Checks');
+    expect(html).toContain('Every living enemy makes its own hit check');
+    expect(html).toContain('Goblin');
+    expect(html).toContain('Rattler');
+    expect(html.match(/confirm-all-target-card/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it('renders TCG monster cards with grassland frame, spawn terrain icons, art, and card number', () => {
@@ -139,10 +210,9 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('tcg-art-raster');
     expect(html).toContain('/cards/creatures/goblin.jpg');
 
-    // Header with meta stack (Type & level) and name below
+    // Header with level and subtype, without the now-redundant CREATURE word
     expect(html).toContain('tcg-header-meta');
-    expect(html).toContain('tcg-type-main');
-    expect(html).toContain('CREATURE');
+    expect(html).not.toContain('<span class="tcg-type-main">CREATURE</span>');
     expect(html).toContain('Goblinoid');
     expect(html).toContain('Lvl 1');
     expect(html).toContain('tcg-header-title');
@@ -297,9 +367,9 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('+2');
   });
 
-  it('renders Card Info Modal with full detail, flavor text, and stat computation for offline play', () => {
+  it('renders Card Info Modal with card-specific detail, flavor text, and live stat computation', () => {
     let state = startAdventure('fighter', 'test-seed');
-    const actionCard = state.playerMasterDeck[0]; // Melee ATK
+    const actionCard = state.playerMasterDeck[0]; // Slash
     const ui: UiState = {
       selectedClass: 'fighter',
       showDeck: false,
@@ -314,14 +384,16 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('card-inspect-modal');
     expect(html).toContain('tcg-inspect-card');
 
-    // Tabletop Offline computation details
-    expect(html).toContain('Tabletop Offline Rules &amp; Stat Scaling');
-    expect(html).toContain('Damage Formula (Tabletop Rule)');
-    expect(html).toContain('2 Base DMG + &lfloor;Effective STR / 2&rfloor;');
-    expect(html).toContain('Hero Calculation: 2 + &lfloor;3 / 2&rfloor; = 2 + 1 = <b>3 DMG</b>');
+    // Only useful card-specific effect and live computation details are shown.
+    expect(html).toContain('Effect &amp; Live Calculation');
+    expect(html).toContain('Normal Damage Formula');
+    expect(html).toContain('3 Base DMG + ATK');
+    expect(html).toContain('Hero Calculation: 3 + 1 = <b>4 DMG</b>');
+    expect(html).not.toContain('This card is designed to be printed');
+    expect(html).not.toContain('Tabletop Offline Rules &amp; Stat Scaling');
 
     // Flavor text printed on the card and in the lore quote
-    expect(html).toContain('A disciplined, swift blade stroke');
+    expect(html).toContain('A direct martial strike that deals 3 plus the hero’s ATK as normal physical damage.');
     expect(html).toContain('data-action="close-inspect"');
     expect(html).toContain('data-action="close-inspect-backdrop"');
     expect(html).not.toContain('event.stopPropagation()');
@@ -613,7 +685,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Blob');
   });
 
-  it('renders player combat deck modal with unique action cards and multipliers (e.g. 8x Melee, 2x Shield)', () => {
+  it('renders player combat deck modal with unique action cards and multipliers (8x Slash, 2x Defend)', () => {
     const state = startAdventure('fighter', 'pile-test-seed');
     const ui: UiState = {
       selectedClass: 'fighter',
@@ -627,11 +699,11 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('modal pile-modal');
     expect(html).toContain('Player Combat Master Deck');
     expect(html).toContain('pile-multiplier-badge');
-    // Fighter starter deck has 8x Melee ATK and 2x Shield DEF
+    // Fighter starter deck has 8x Slash and 2x Defend
     expect(html).toContain('&times;8');
     expect(html).toContain('&times;2');
-    expect(html).toContain('Melee ATK');
-    expect(html).toContain('Shield DEF');
+    expect(html).toContain('Slash');
+    expect(html).toContain('Defend');
     // Reference cards should be readable, even though they cannot trigger combat actions.
     expect(html).not.toMatch(/data-card-id="(?:melee_atk|shield_def)"[^>]*disabled/);
     expect(html).not.toContain('data-action="play-card"');
@@ -695,7 +767,7 @@ describe('Render Play Area and Shop Layout', () => {
           lastAttackRoll: {
             attackerName: 'Hero',
             targetName: 'Goblin',
-            actionName: 'Melee ATK',
+            actionName: 'Slash',
             die1: 4,
             die2: 3,
             total: 7,
@@ -730,10 +802,10 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('TARGET (Roll 5+ · 83.3%)');
   });
 
-  it('renders card confirmation modal for attack card (Melee ATK on Goblin) with source/target cards, stats, probability and confirm button', () => {
+  it('renders card confirmation modal for attack card (Slash on Goblin) with source/target cards, stats, probability and confirm button', () => {
     let state = startAdventure('fighter', 'test-seed');
     const goblinCard = { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
-    const meleeCard = state.playerMasterDeck[0]; // Melee ATK
+    const meleeCard = state.playerMasterDeck[0]; // Slash
 
     state = {
       ...state,
@@ -769,12 +841,15 @@ describe('Render Play Area and Shop Layout', () => {
 
     // Modal structure
     expect(html).toContain('combat-confirm-modal');
-    expect(html).toContain('Use <span>Melee ATK</span> on <span>Goblin</span>');
+    expect(html).toContain('confirm-modal-body');
+    expect(html).toContain('confirm-visual-col');
+    expect(html).toContain('confirm-details-col');
+    expect(html).toContain('Use <span>Slash</span> on <span>Goblin</span>');
 
     // Source Card and Target Card comparison
     expect(html).toContain('Source Action (1 AP)');
     expect(html).toContain('Target Creature');
-    expect(html).toContain('Melee ATK');
+    expect(html).toContain('Slash');
     expect(html).toContain('Goblin');
 
     // In case of attack on creature: show ACC and EVA stats and bonuses
@@ -782,13 +857,13 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Target EVA');
     expect(html).toContain('Net ACC');
     expect(html).toContain('Dice Target');
-    // Fighter has 1 DEX ACC (floor(2/2)) + 1 Melee ATK = 2 Total ACC vs 1 Goblin EVA = +1 Net ACC -> Need 4+
-    expect(html).toContain('🎲 <b>4+</b>');
+    // Fighter has 1 DEX ACC (floor(2/2)) vs 1 Goblin EVA = 0 Net ACC -> Need 5+.
+    expect(html).toContain('🎲 <b>5+</b>');
 
     // Show probability to hit
     expect(html).toContain('Hit Probability');
-    expect(html).toContain('91.7%');
-    expect(html).toContain('33 of 36 combinations');
+    expect(html).toContain('83.3%');
+    expect(html).toContain('30 of 36 combinations');
     expect(html).toContain('Boxcars Critical');
     expect(html).toContain('Snake Eyes Auto-Miss');
 
@@ -799,7 +874,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Cancel');
   });
 
-  it('renders card confirmation modal for defense card (Shield DEF on Hero) with block and EVA stats', () => {
+  it('renders card confirmation modal for Defend with Block but no EVA bonus', () => {
     let state = startAdventure('fighter', 'test-seed');
     const goblinCard = { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
     const shieldCard = state.playerMasterDeck.find((c) => c.cardType === 'defense')!;
@@ -837,13 +912,13 @@ describe('Render Play Area and Shop Layout', () => {
     const html = renderPlayArea(state, ui);
 
     expect(html).toContain('combat-confirm-modal');
-    expect(html).toContain('Use <span>Shield DEF</span> on <span>Fighter (Hero)</span>');
+    expect(html).toContain('Use <span>Defend</span> on <span>Fighter (Hero)</span>');
     expect(html).toContain('Source Action (1 AP)');
     expect(html).toContain('Target (Self)');
     expect(html).toContain('/cards/adventurers/fighter.jpg');
     expect(html).toContain('hero-sidebar-portrait-frame');
     expect(html).toContain('Block Gained');
-    expect(html).toContain('Combat EVA');
+    expect(html).not.toContain('Combat EVA');
     expect(html).toContain('data-action="confirm-play-card"');
     expect(html).toContain('Confirm Use (1 AP)');
   });
@@ -887,8 +962,8 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('class="discard-choice-art"');
     expect(html).toContain('/cards/actions/blade.jpg');
     expect(html).toContain('/cards/actions/shield.jpg');
-    expect(html).toContain('Melee ATK');
-    expect(html).toContain('Shield DEF');
+    expect(html).toContain('Slash');
+    expect(html).toContain('Defend');
     const discardChoices = html.match(/<div class="combat-discard-choice-list">([\s\S]*?)<\/div>\s*<div class="discard-choice-count">/)?.[1] ?? '';
     expect(discardChoices).not.toContain(`data-id="${battlecry.instanceId}"`);
   });
@@ -1034,6 +1109,16 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('/icons/cha.png');
     expect(html).toContain('/icons/atk.png');
     expect(html).toContain('/icons/def.png');
+  });
+
+  it('renders stat inspection in the shared top inspection layer during preparation', () => {
+    const state = startAdventure('fighter', 'prepare-stat-inspection');
+    const html = renderPlayArea(state, {
+      selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0, inspectedStat: 'str',
+    });
+    expect(html).toContain('welcome-prepare-backdrop');
+    expect(html).toContain('inspection-backdrop stat-inspect-backdrop');
+    expect(html.indexOf('welcome-prepare-backdrop')).toBeLessThan(html.indexOf('inspection-backdrop stat-inspect-backdrop'));
   });
 
   it('renders item inspection modal with standard 5:7 physical TCG card', () => {
@@ -1202,7 +1287,7 @@ describe('Render Play Area and Shop Layout', () => {
 
     // 2. Action card has full-bleed art window, meta stack with AP bubble, and art spacer
     expect(html).toContain('tcg-card tcg-action');
-    expect(html).toContain('<span class="tcg-name action-name">Melee ATK</span>');
+    expect(html).toContain('<span class="tcg-name action-name">Slash</span>');
     expect(html).toContain('<span class="tcg-ap-bubble">1 AP</span>');
   });
 
@@ -1255,6 +1340,7 @@ describe('Render Play Area and Shop Layout', () => {
     const html = renderPlayArea(state, ui);
 
     // Stat inspect modal is opened
+    expect(html).toContain('inspection-backdrop stat-inspect-backdrop');
     expect(html).toContain('stat-inspect-modal');
     expect(html).toContain('Strength (STR) Attribute Profile');
     expect(html).toContain('Effective Stat Value Breakdown');
@@ -1286,10 +1372,11 @@ describe('Render Play Area and Shop Layout', () => {
 
     const html = renderPlayArea(state, ui);
 
-    // 1. Subtype does not repeat 'Creature — ' (shows 'Beast' instead of 'Creature — Beast')
-    expect(html).toContain('<span class="tcg-type-main">CREATURE</span>');
+    // 1. Subtype stands alone; the obvious Creature label is omitted.
+    expect(html).not.toContain('<span class="tcg-type-main">CREATURE</span>');
     expect(html).toContain('<span class="tcg-type-sub">Beast</span>');
     expect(html).not.toContain('<span class="tcg-type-sub">Creature — Beast</span>');
+    expect(html).toContain('/icons/new-paths-rare.svg');
 
     // 2. Inscribed rewards contain SP and Gold badges with numeric values
     expect(html).toContain('tcg-art-rewards');
@@ -1326,6 +1413,8 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).not.toContain('tcg-art-rewards');
     expect(html).not.toContain('creature-stats-row');
     expect(html).not.toContain('DEF:');
+    expect(html).not.toContain('tcg-set-symbol');
+    expect(html).not.toContain('/icons/new-paths-');
   });
 
   it('renders Bullwark, Basilisk, and Zombie in monster deck modal with correct artwork, levels, and spawn badges', () => {
@@ -1465,10 +1554,17 @@ describe('Render Play Area and Shop Layout', () => {
     let state = startAdventure('fighter', 'shrine-render-seed');
     state = {
       ...state,
+      board: {
+        ...state.board,
+        '0.0,0': {
+          ...state.board['0.0,0'],
+          card: { ...ADVENTURE_CARD_CATALOG['advgrs-04'], id: 'shrine-render-card', revealed: true },
+        },
+      },
       activeHook: {
         type: 'SHRINE',
         shrine: {
-          coord: { col: 0, row: 1 },
+          coord: { col: 0, row: 0 },
           turn: 1,
           grantedBoon: {
             id: 'blessing_str',
@@ -1496,18 +1592,83 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Only 1 shrine blessing can be active at a time');
     expect(html).not.toContain('Pray to the Gods');
     expect(html).toContain('Leave Shrine &rarr;');
+    expect(html).toContain('Grassland Shrine');
+    expect(html).toContain('/cards/adventure/grassland_shrine.jpg');
+    expect(html).toContain('Current Character');
+    expect(html).toContain('This Level 1 Shrine can raise a Base Stat only as high as <b>Base 2</b>');
 
     // 2. Stat converter options include right-click inspection attributes
     expect(html).toContain('data-inspect-stat="str"');
     expect(html).toContain('data-inspect-stat="dex"');
     expect(html).toContain('data-inspect-stat="agi"');
     expect(html).toContain('stat-info-pill');
+    expect(html.match(/class="player-info-widget"/g)).toHaveLength(2); // Map + Shrine use the same component.
+    expect(html).toContain('shrine-lore-panel');
+    expect(html).toContain('data-action="select-shrine-stat"');
+    expect(html).toContain('data-action="request-leave-shrine"');
+  });
+
+  it('selects Shrine stat rows before enabling one contextual upgrade action', () => {
+    let state = startAdventure('fighter', 'shrine-selection-seed');
+    state = {
+      ...state,
+      playerResources: { ...state.playerResources!, statPoints: 2 },
+      board: {
+        ...state.board,
+        '0.0,0': {
+          ...state.board['0.0,0'],
+          card: { ...ADVENTURE_CARD_CATALOG['advgrs-04'], id: 'shrine-selection-card', revealed: true },
+        },
+      },
+      activeHook: { type: 'SHRINE', shrine: { coord: { col: 0, row: 0 }, turn: 1, prayed: true } },
+    };
+    const ui: UiState = {
+      selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0, selectedShrineStat: 'agi',
+    };
+
+    const insufficient = renderPlayArea(state, ui);
+    const selectedAgi = insufficient.match(/<button[^>]*class="[^"]*shrine-stat-option[^"]*is-selected[^"]*"[\s\S]*?data-stat="agi"[\s\S]*?<\/button>/)?.[0] ?? '';
+    expect(selectedAgi).toContain('aria-pressed="true"');
+    expect(selectedAgi).not.toContain('disabled');
+    expect(insufficient).toContain('Needs 2 SP to upgrade AGI.');
+    expect(insufficient).not.toContain('data-action="request-shrine-stat-upgrade"');
+
+    state = { ...state, playerResources: { ...state.playerResources!, statPoints: 4 } };
+    const affordable = renderPlayArea(state, ui);
+    expect(affordable).toContain('data-action="request-shrine-stat-upgrade" data-stat="agi"');
+    expect(affordable).toContain('Upgrade AGI (4 SP)');
+  });
+
+  it('renders confirmations before a Shrine stat upgrade or leaving', () => {
+    let state = startAdventure('fighter', 'shrine-confirm-seed');
+    state = {
+      ...state,
+      board: {
+        ...state.board,
+        '0.0,0': {
+          ...state.board['0.0,0'],
+          card: { ...ADVENTURE_CARD_CATALOG['advgrs-04'], id: 'shrine-confirm-card', revealed: true },
+        },
+      },
+      activeHook: { type: 'SHRINE', shrine: { coord: { col: 0, row: 0 }, turn: 1, prayed: true } },
+    };
+    const baseUi: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0, selectedShrineStat: 'agi' };
+
+    const upgrade = renderPlayArea(state, { ...baseUi, pendingShrineAction: { kind: 'upgrade-stat', stat: 'agi' } });
+    expect(upgrade).toContain('Upgrade AGI?');
+    expect(upgrade).toContain('Confirm Upgrade');
+    expect(upgrade).toContain('data-action="cancel-shrine-action"');
+
+    const leave = renderPlayArea(state, { ...baseUi, pendingShrineAction: { kind: 'leave' } });
+    expect(leave).toContain('Leave this Shrine?');
+    expect(leave).toContain('Confirm Leave');
+    expect(leave).toContain('Stay at Shrine');
   });
 
   it('correctly parses combat log entries with timestamps and assigns blue for You and red for enemies', () => {
     // 1. Player attack
     const heroEntry = parseCombatLogEntry(
-      '[10:25:34] ⚔️ Played Melee ATK on Scavenger: rolled 2d6 = [6, 4] = 10 -> 🎯 HIT! Dealt 4 DMG.'
+      '[10:25:34] ⚔️ Played Slash on Scavenger: rolled 2d6 = [6, 4] = 10 -> 🎯 HIT! Dealt 4 DMG.'
     );
     expect(heroEntry.timestamp).toBe('10:25:34');
     expect(heroEntry.actorType).toBe('hero');
@@ -1555,7 +1716,7 @@ describe('Render Play Area and Shop Layout', () => {
 
     // 7. Direct rendering of combat log entries
     const renderedEntries = renderCombatLogEntries([
-      '[10:25:34] ⚔️ Played Melee ATK on Scavenger: rolled 2d6 = [6, 4] = 10 -> 🎯 HIT! Dealt 4 DMG.',
+      '[10:25:34] ⚔️ Played Slash on Scavenger: rolled 2d6 = [6, 4] = 10 -> 🎯 HIT! Dealt 4 DMG.',
       '[10:25:36] ⚔️ Pincer uses Shell Guard (2 DMG): rolled 2d6 = [3, 4] = 7 -> 🎯 HIT!',
     ]);
     expect(renderedEntries).toContain('combat-sidebar-log-item actor-hero');
@@ -1593,7 +1754,7 @@ describe('Render Play Area and Shop Layout', () => {
           discardPile: [],
           combatLog: [
             '[10:25:30] Encountered Pincer (Lvl 1, 11 HP)!',
-            '[10:25:34] ⚔️ Played Melee ATK on Pincer: rolled 2d6 = [5, 4] = 9 -> 🎯 HIT! Dealt 4 DMG.',
+            '[10:25:34] ⚔️ Played Slash on Pincer: rolled 2d6 = [5, 4] = 9 -> 🎯 HIT! Dealt 4 DMG.',
             '[10:25:38] ⚔️ Pincer uses Shell Guard (2 DMG): rolled 2d6 = [4, 4] = 8 -> 🎯 HIT!',
           ],
           lastAttackRoll: undefined,
@@ -1731,9 +1892,9 @@ describe('Render Play Area and Shop Layout', () => {
 
     const html = renderPlayArea(state, ui);
 
-    // 1. On card face, Heavy Charge shows 7 DMG (not 6) and has flashing class
+    // 1. On card face, Heavy Charge shows its 7 base + 1 temporary ATK buff.
     expect(html).toContain('is-buffed-flashing');
-    expect(html).toContain('<b>7</b> DMG');
+    expect(html).toContain('<b>8</b> DMG');
     expect(html).toContain('🔥 Boon: +1 ATK');
 
     // 2. Monster inspect button exists
@@ -1749,9 +1910,9 @@ describe('Render Play Area and Shop Layout', () => {
         attackBonus: 1,
         activeBoons: [
           {
-            name: 'Charge Momentum',
+            name: 'Chaotic Impulse',
             value: '+1 ATK',
-            description: 'Momentum accelerates with each charge. Heavy Charge currently deals 7 DMG (Base 6 + 1 Boon).',
+            description: 'Chaotic Impulse empowers the next action. Heavy Charge currently deals 8 DMG (Base 7 + 1 Boon).',
           },
         ],
       },
@@ -1759,10 +1920,10 @@ describe('Render Play Area and Shop Layout', () => {
     );
 
     expect(inspectHtml).toContain('inspect-boons-section');
-    expect(inspectHtml).toContain('Charge Momentum');
+    expect(inspectHtml).toContain('Chaotic Impulse');
     expect(inspectHtml).toContain('+1 ATK');
     expect(inspectHtml).toContain('is-buffed-flashing');
-    expect(inspectHtml).toContain('Base 6 + 1 Boon');
+    expect(inspectHtml).toContain('Base 7 + 1 Boon');
   });
 
   it('renders dice banner and outcome when monster damage is absorbed by Hero natural DEF', () => {
@@ -1848,7 +2009,7 @@ describe('Render Play Area and Shop Layout', () => {
     // Ensure no broken floating type line or footer on the adventure preview card
     expect(villageInspectHtml).not.toContain('<div class="tcg-type-line">');
 
-    // 2. Action inspect card (e.g. Melee ATK)
+    // 2. Action inspect card (e.g. Slash)
     const actionCard = state.playerMasterDeck[0];
     const actionInspectHtml = cardInspectModal({ kind: 'action', card: actionCard }, state);
     expect(actionInspectHtml).toContain('tcg-inner-frame');
@@ -1882,7 +2043,8 @@ describe('Render Play Area and Shop Layout', () => {
     expect(inspectHtml).toContain('aria-label="DEF: 1"');
     expect(inspectHtml).not.toContain('data-creature-stat="eva"');
     expect(inspectHtml).toContain('Regenerate');
-    expect(inspectHtml).toContain('+<b>2</b> HP');
+    expect(inspectHtml).toContain('+<b>3</b> HP');
+    expect(inspectHtml).toContain('aria-label="MDEF: 1"');
     expect(inspectHtml).toContain('Rotting Claw');
     expect(inspectHtml).toContain('<b>5</b> DMG');
 
@@ -1920,7 +2082,8 @@ describe('Render Play Area and Shop Layout', () => {
     };
     const combatHtml = renderPlayArea(combatState, combatUi);
     expect(combatHtml).toContain('Regenerate');
-    expect(combatHtml).toContain('+<b>2</b> HP');
+    expect(combatHtml).toContain('+<b>3</b> HP');
+    expect(combatHtml).toContain('aria-label="MDEF: 1"');
     expect(combatHtml).toContain('aria-label="DEF: 1"');
     expect(combatHtml).not.toContain('data-creature-stat="eva"');
   });

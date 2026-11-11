@@ -1,4 +1,34 @@
-# Revalidate fixed-URL artwork/audio as well as the entry page and release manifest.
-# Cached bytes can still be reused when the server returns 304 Not Modified.
+# The document shell and fixed-name public media revalidate so releases appear
+# without asking players to clear browser caches.
 /*
   Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/version.json
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# These equivalents apply when the build is mounted at its canonical route in
+# the shared Morville Studios Cloudflare project.
+/games/the-paths-we-choose/
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/games/the-paths-we-choose/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/games/the-paths-we-choose/version.json
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Vite fingerprints these filenames; they are safe to cache permanently.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/games/the-paths-we-choose/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/seo/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/games/the-paths-we-choose/seo/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800

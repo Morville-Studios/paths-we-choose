@@ -35,7 +35,7 @@ describe('Void skill upgrades at Shrines', () => {
     const voidModal = pileModal('void_deck', state);
     expect(voidModal).toContain('The Void');
     expect(voidModal).toContain('VOID UPGRADE');
-    expect(voidModal).toContain('Goblin Chieftain');
+    expect(voidModal).toContain('Grundy');
     expect(voidModal).toContain('Troll Healer');
     expect(voidModal).toContain('Wizard');
     expect(voidModal).toContain('Rogue');
@@ -53,15 +53,12 @@ describe('Void skill upgrades at Shrines', () => {
     expect(upgraded.playerResources).toMatchObject({ gold: 90, statPoints: 98 });
   });
 
-  it('reserves the 2 AP to 3 AP upgrade route for Level 3 Shrines at 30 Gold and 6 SP', () => {
+  it('upgrades the 1 AP High Strike into its 1 AP plus version at a Level 2 Shrine', () => {
     const level2 = atShrine(2, 'heavy_cleave');
-    expect(getShrineSkillUpgradeOptions(level2).some((candidate) => candidate.upgrade.id === 'high_strike_plus')).toBe(false);
-
-    const level3 = atShrine(3, 'heavy_cleave');
-    const option = getShrineSkillUpgradeOptions(level3).find((candidate) => candidate.upgrade.id === 'high_strike_plus');
-    expect(option).toMatchObject({ goldCost: 30, statPointCost: 6 });
-    const upgraded = upgradeShrineSkill(level3, option!.source.instanceId);
+    const option = getShrineSkillUpgradeOptions(level2).find((candidate) => candidate.upgrade.id === 'high_strike_plus');
+    expect(option).toMatchObject({ upgrade: { apCost: 1 }, goldCost: 10, statPointCost: 2 });
+    const upgraded = upgradeShrineSkill(level2, option!.source.instanceId);
     expect(upgraded.playerMasterDeck.some((card) => card.id === 'high_strike_plus')).toBe(true);
-    expect(upgraded.playerResources).toMatchObject({ gold: 70, statPoints: 94 });
+    expect(upgraded.playerResources).toMatchObject({ gold: 90, statPoints: 98 });
   });
 });

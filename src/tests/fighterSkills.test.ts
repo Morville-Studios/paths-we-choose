@@ -55,10 +55,15 @@ describe('Fighter skill cards', () => {
   it('uses derived ATK and DEF for the renamed cards and their upgrades', () => {
     const state = startAdventure('fighter', 'fighter-scaling');
     const stats = getEffectiveStatsFromState(state);
-    expect(computeCardEffect(card('heavy_cleave', 'high'), stats).damage).toBe(5); // 3 + (2 × 1 ATK)
-    expect(computeCardEffect(card('high_strike_plus', 'high-plus'), stats).damage).toBe(8); // 5 + (3 × 1 ATK)
-    expect(computeCardEffect(card('battle_focus', 'fortify'), stats).block).toBe(5); // DEF is 0
-    expect(computeCardEffect(card('fortify_plus', 'fortify-plus'), stats).block).toBe(7);
+    expect(computeCardEffect(card('melee_atk', 'melee'), stats).damage).toBe(4); // 3 + 1 ATK
+    expect(computeCardEffect(card('shield_def', 'shield'), stats).block).toBe(4); // 4 + 0 DEF
+    expect(computeCardEffect(card('heavy_cleave', 'high'), stats).damage).toBe(2); // 1 ATK + 1 ACC
+    expect(computeCardEffect(card('high_strike_plus', 'high-plus'), stats).damage).toBe(3); // 2 × 1 ATK + 1 ACC
+    expect(computeCardEffect(card('heavy_cleave', 'high-debuffed'), stats, undefined, 0, 0, -1).damage).toBe(1); // live -1 ACC debuff
+    expect(computeCardEffect(card('battle_focus', 'fortify'), stats).block).toBe(3); // 3 + 0 DEF
+    expect(computeCardEffect(card('fortify_plus', 'fortify-plus'), stats).block).toBe(4); // 4 + 2 × 0 DEF
+    expect(computeCardEffect(card('whirlwind', 'whirlwind'), stats).damage).toBe(2); // 1 + 1 ATK
+    expect(computeCardEffect(card('whirlwind_plus', 'whirlwind-plus'), stats).damage).toBe(4); // 2 + 2 × 1 ATK
     expect(computeCardEffect(card('iron_parry', 'parry'), stats)).toMatchObject({ block: 5, evasionBonus: 1 });
     expect(computeCardEffect(card('parry_plus', 'parry-plus'), stats)).toMatchObject({ block: 7, evasionBonus: 2 });
   });
@@ -77,6 +82,32 @@ describe('Fighter skill cards', () => {
     expect(result.activeHook.combat.playerAp).toBe(3);
     expect(result.activeHook.combat.hand.map((c) => c.instanceId)).toEqual([held.instanceId, ...draws.map((c) => c.instanceId)]);
     expect(result.activeHook.combat.discardPile).toHaveLength(3);
+  });
+
+  it('keeps Battlecry on the Stack until its draw finishes, so it cannot draw itself', () => {
+    const battlecry = card('battlecry', 'stack-play');
+    const first = card('melee_atk', 'stack-cost-1');
+    const second = card('shield_def', 'stack-cost-2');
+    const held = card('melee_atk', 'stack-held');
+    const drawOne = card('shield_def', 'stack-draw-1');
+    const drawTwo = card('melee_atk', 'stack-draw-2');
+    const result = playCard(
+      combatState([battlecry, first, second, held], [drawOne, drawTwo]),
+      battlecry.instanceId,
+      0,
+      [first.instanceId, second.instanceId]
+    );
+    if (result.activeHook.type !== 'COMBAT') throw new Error('combat should continue');
+    const combat = result.activeHook.combat;
+    expect(combat.hand).toHaveLength(4);
+    expect(combat.hand.some((drawn) => drawn.instanceId === battlecry.instanceId)).toBe(false);
+    expect(combat.discardPile.at(-1)?.instanceId).toBe(battlecry.instanceId);
+    expect(combat.stack).toEqual([]);
+    const entered = combat.combatLog.findIndex((entry) => entry.includes('enters the Stack'));
+    const drew = combat.combatLog.findIndex((entry) => entry.includes('Battlecry: drew 3 cards'));
+    const resolved = combat.combatLog.findIndex((entry) => entry.includes('fully resolves'));
+    expect(entered).toBeLessThan(drew);
+    expect(drew).toBeLessThan(resolved);
   });
 
   it('rolls Whirlwind independently against every living enemy', () => {
@@ -99,6 +130,21 @@ describe('Fighter skill cards', () => {
     expect(result.activeHook.combat.playerAp).toBe(3);
     expect(result.activeHook.combat.inPlay).toEqual([flag]);
     expect(result.activeHook.combat.hand).toEqual([drawn]);
+  });
+
+  it('spends Battle Flag AP without refunding AP or drawing a card on entry', () => {
+    const flag = card('battle_flag', 'play');
+    const held = card('melee_atk', 'held');
+    const waiting = card('shield_def', 'waiting');
+    const result = playCard(combatState([flag, held], [waiting]), flag.instanceId);
+    if (result.activeHook.type !== 'COMBAT') throw new Error('combat should continue');
+    const combat = result.activeHook.combat;
+    expect(combat.playerAp).toBe(2);
+    expect(combat.hand).toEqual([held]);
+    expect(combat.drawPile).toEqual([waiting]);
+    expect(combat.inPlay).toEqual([flag]);
+    expect(combat.combatLog.join(' ')).not.toContain('regained');
+    expect(combat.combatLog.join(' ')).not.toContain('Battle Flag: drew');
   });
 
   it('adds Final Smash damage for each chosen discard', () => {

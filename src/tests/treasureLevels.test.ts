@@ -6,13 +6,14 @@ import { SHOP_ITEM_CATALOG } from '../data/shopItems';
 
 const make = (level: number, id: string): ShopItemDef => ({ ...SHOP_ITEM_CATALOG[0], id, instanceId: id, name: id, level });
 
-describe('treasure mechanics: shop equality and exploration cap', () => {
-  it('keeps only exact village-level items, discarding both lower and higher cards immediately', () => {
+describe('treasure mechanics: shop level band and exploration cap', () => {
+  it('accepts a village-level item or one level below and discards higher cards', () => {
     const low = make(1, 'low'); const valid = make(2, 'valid'); const high = make(3, 'high');
-    const result = drawTreasureCardsWithReshuffle([low, high, valid], [], 1, 42, 0, 2);
-    expect(result.drawn).toEqual([valid]);
-    expect(result.discard).toEqual([low, high]);
-    expect(result.discardedInvalid).toEqual([low, high]);
+    const result = drawTreasureCardsWithReshuffle([high, low, valid], [], 1, 42, 0, 2);
+    expect(result.drawn).toEqual([low]);
+    expect(result.discard).toEqual([high]);
+    expect(result.discardedInvalid).toEqual([high]);
+    expect(result.deck).toEqual([valid]);
   });
 
   it('fills seven Level 2 stock slots across a reshuffle after rejecting the last Level 3 card', () => {
@@ -55,26 +56,27 @@ describe('treasure mechanics: shop equality and exploration cap', () => {
     const shop = villageChooseShop(village(level));
     if (shop.activeHook.type !== 'VILLAGE') throw new Error('Expected village');
     expect(shop.activeHook.village.shopStock).toHaveLength(5 + level);
-    expect(shop.activeHook.village.shopStock.every(item => item.level === level)).toBe(true);
+    expect(shop.activeHook.village.shopStock.every(item => (item.level ?? 1) >= Math.max(1, level - 1) && (item.level ?? 1) <= level)).toBe(true);
     const cards = [...shop.treasureDeck, ...shop.treasureDiscard, ...shop.activeHook.village.shopStock];
     expect(cards).toHaveLength(42);
     expect(new Set(cards.map(item => item.instanceId)).size).toBe(42);
   });
 
-  it('uses the two available Level 3 potions without minting further copies', () => {
+  it('fills a Level 3 store from Level 2 and Level 3 physical cards without minting copies', () => {
     const shop = villageChooseShop(village(3));
     if (shop.activeHook.type !== 'VILLAGE') throw new Error('Expected village');
-    expect(shop.activeHook.village.shopStock).toHaveLength(2);
-    expect(shop.activeHook.village.shopStock.every(item => item.level === 3)).toBe(true);
-    expect(shop.treasureDiscard).toHaveLength(40);
+    expect(shop.activeHook.village.shopStock).toHaveLength(8);
+    expect(shop.activeHook.village.shopStock.every(item => item.level === 2 || item.level === 3)).toBe(true);
+    expect([...shop.treasureDeck, ...shop.treasureDiscard, ...shop.activeHook.village.shopStock]).toHaveLength(42);
   });
 
-  it('cannot endlessly reshuffle an absent catalog level, and does not redraw empty stock when reopening', () => {
+  it('uses Level 4 supply in a Level 5 store and does not redraw partial stock when reopening', () => {
     const shop = villageChooseShop(village(5));
     if (shop.activeHook.type !== 'VILLAGE') throw new Error('Expected village');
-    expect(shop.activeHook.village.shopStock).toEqual([]);
+    expect(shop.activeHook.village.shopStock).toHaveLength(2);
+    expect(shop.activeHook.village.shopStock.every(item => item.level === 4)).toBe(true);
     expect(shop.activeHook.village.shopStockDrawn).toBe(true);
-    expect(shop.treasureDiscard).toHaveLength(42);
+    expect(shop.treasureDiscard).toHaveLength(40);
     const reopened = villageChooseShop(villageGoBack(shop));
     expect(reopened.treasureDeck).toEqual(shop.treasureDeck);
     expect(reopened.treasureDiscard).toEqual(shop.treasureDiscard);

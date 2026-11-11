@@ -108,7 +108,7 @@ export function getShrineSkillUpgradeOptions(state: RunState): ShrineSkillUpgrad
   return state.playerMasterDeck.flatMap((source) => {
     const upgrade = voidByBaseId.get(source.id);
     if (!upgrade) return [];
-    if (source.apCost === 1 && upgrade.apCost === 2) {
+    if (source.apCost === 1 && upgrade.apCost <= 2) {
       return [{
         source,
         upgrade,

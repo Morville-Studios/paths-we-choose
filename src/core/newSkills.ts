@@ -18,6 +18,7 @@ export function reconcileRunNewSkills(state: RunState): RunState {
     state.newSkillsDiscard,
     state.playerMasterDeck,
     activeTrainOptions,
+    state.voidCards ?? [],
     state.rngState
   );
   if (reconciliation.added.length === 0 && reconciliation.removed === 0) return state;

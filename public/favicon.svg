@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Morville Studios Games</title>
+  <rect width="64" height="64" rx="12" fill="#090d14"/>
+  <g fill="#f1efe8" transform="translate(10 6) scale(.55)">
+    <path d="M0 21 18 34v48L0 96V21ZM29 0l20 14v53L39 78 29 68V0Zm31 25 20-15v76l-20 14V25Z"/>
+  </g>
+  <path fill="#e0b34a" d="M11 55h42v3H11z"/>
+</svg>

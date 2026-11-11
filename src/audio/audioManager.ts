@@ -1,4 +1,5 @@
 import { MusicTrackId, RunState } from '../core/types';
+import { publicAsset } from '../ui/publicAsset';
 
 export interface AudioManagerOptions {
   volume?: number;
@@ -24,9 +25,9 @@ export class AudioManager {
     }
 
     const trackUrls: Record<string, string> = {
-      'start-screen': '/audio/start-screen.mp3',
-      'map-area': '/audio/map-area.mp3',
-      'battle-normal': '/audio/battle-normal.mp3',
+      'start-screen': publicAsset('audio/start-screen.mp3'),
+      'map-area': publicAsset('audio/map-area.mp3'),
+      'battle-normal': publicAsset('audio/battle-normal.mp3'),
     };
 
     for (const [id, url] of Object.entries(trackUrls)) {

@@ -25,8 +25,8 @@ function battle(state: RunState) {
 
 describe('Assassin poison and piercing attacks', () => {
   it('shows the profile, exact artwork filename, Underground badge and attack effects', () => {
-    expect(assassin).toMatchObject({ statPointReward: 4, goldReward: 8, level: 3, creatureType: 'Human', cardNumber: 'mon3smp-03', maxHp: 10, def: 1, eva: 3, acc: 2, mdef: 1, spawnTerrains: ['swamp', 'cave', 'underground'] });
-    const html = cardInspectModal({ kind: 'monster', monster: assassin, currentHp: 10 }, setup());
+    expect(assassin).toMatchObject({ statPointReward: 4, goldReward: 8, level: 3, creatureType: 'Human', cardNumber: 'mon3smp-03', maxHp: 13, def: 1, eva: 3, acc: 2, mdef: 1, spawnTerrains: ['swamp', 'cave', 'underground'] });
+    const html = cardInspectModal({ kind: 'monster', monster: assassin, currentHp: 13 }, setup());
     for (const text of ['/cards/creatures/assasin.jpg', 'Underground', 'Poison on hit', 'Ignore 2 DEF']) expect(html).toContain(text);
   });
 

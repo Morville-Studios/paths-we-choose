@@ -4,6 +4,8 @@ import {
   createStartCard,
   STAGE_1_MAX_TURNS,
   STAGE_2_MAX_TURNS,
+  STAGE_1_SCENARIO_LEVEL,
+  STAGE_2_SCENARIO_LEVEL,
   STAGE_1_MISSION_NAME,
   STAGE_2_MISSION_NAME,
 } from '../data/stages';
@@ -11,6 +13,7 @@ import { determineActiveAudio, syncAudioState } from './audio';
 import {
   buildStage1AdventureDeck,
   buildStage2AdventureDeck,
+  buildScenarioMonsterDeck,
   buildStage1MonsterDeck,
   buildStage1TreasureDeck,
   buildStarterCombatDeck,
@@ -79,6 +82,7 @@ export function createInitialState(seed = 'default'): RunState {
     maxTurns: STAGE_1_MAX_TURNS,
     currentMission: 1,
     missionName: STAGE_1_MISSION_NAME,
+    scenarioLevel: STAGE_1_SCENARIO_LEVEL,
     reshuffleCount: 0,
     playerClass: null,
     playerBaseStats: { ...STARTING_BASE_STATS },
@@ -94,11 +98,13 @@ export function createInitialState(seed = 'default'): RunState {
     newSkillsDeck: [],
     newSkillsDiscard: [],
     newSkillsReshuffleCount: 0,
+    voidCards: [],
     playerPosition: { col: 0, row: 0 },
     adventureDeck: [],
     adventureDiscard: [],
     monsterDeck: [],
     monsterDiscard: [],
+    monsterVoid: [],
     treasureDeck: [],
     treasureDiscard: [],
     treasureReshuffleCount: 0,
@@ -183,6 +189,7 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     playerClassBonuses: { ...classDef.classBonuses },
     currentMission: 1,
     missionName: STAGE_1_MISSION_NAME,
+    scenarioLevel: STAGE_1_SCENARIO_LEVEL,
     playerResources: { hp: maxHp, maxHp, statPoints: 4, gold: 20 },
     playerMasterDeck: buildStarterCombatDeck(classId),
     newSkillsDeck: skills.deck,
@@ -192,6 +199,7 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     adventureDiscard: discard,
     reshuffleCount: reshuffles,
     monsterDeck: mon.deck,
+    monsterVoid: mon.void,
     treasureDeck: tr.deck,
     treasureDiscard: [],
     treasureReshuffleCount: 0,
@@ -311,7 +319,7 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
   // 4. Resolve the tile
   const card = chosen.card;
   if (card.hasHostile) {
-    next = startMonsterCombat(next, card.level, card.terrain);
+    next = startMonsterCombat(next, card.level, card.terrain, card);
   } else if (card.hasVillage) {
     next = prepareVillage({
       ...next,
@@ -403,7 +411,7 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
 export function confirmExplorationCombat(state: RunState): RunState {
   if (state.activeHook.type !== 'EXPLORATION') return state;
   const { card } = state.activeHook.exploration;
-  return startMonsterCombat(state, card.level, card.terrain);
+  return startMonsterCombat(state, card.level, card.terrain, card);
 }
 
 export function confirmExplorationSafe(state: RunState): RunState {
@@ -415,19 +423,39 @@ export function confirmExplorationSafe(state: RunState): RunState {
 }
 
 /** Fills the battle area with monsters until their total level >= the Encounter tile's level. */
-function startMonsterCombat(state: RunState, tileLevel: number, terrain?: string): RunState {
+function startMonsterCombat(
+  state: RunState,
+  tileLevel: number,
+  terrain?: string,
+  encounterCard?: AdventureCard
+): RunState {
   const drawn = drawEncounterMonsters(state.monsterDeck, state.monsterDiscard, state.rngState, tileLevel, terrain);
   const next = { ...state, monsterDeck: drawn.deck, monsterDiscard: drawn.discard, rngState: drawn.nextState };
   if (drawn.monsters.length === 0) {
-    const resolved = afterTileResolved(next);
-    return resolved.activeHook.type === 'NONE'
-      ? { ...resolved, bannerMessage: 'No eligible monsters available. The path is clear.' }
-      : resolved;
+    if (encounterCard) {
+      return syncAudioState({
+        ...next,
+        activeHook: {
+          type: 'ENCOUNTER_CLEAR',
+          encounter: {
+            card: encounterCard,
+            reason: 'No eligible monsters remained in the Monster Deck or discard pile for this terrain and level.',
+          },
+        },
+        bannerMessage: `${encounterCard.name} resolved: no eligible monsters answered the encounter.`,
+      });
+    }
+    return afterTileResolved(next);
   }
   const battle = beginCombat(next, drawn.monsters);
   return drawn.supplyExhausted
     ? { ...battle, bannerMessage: `${battle.bannerMessage} No further eligible monsters available; the current foes remain.` }
     : battle;
+}
+
+export function confirmEncounterClear(state: RunState): RunState {
+  if (state.activeHook.type !== 'ENCOUNTER_CLEAR') return state;
+  return afterTileResolved({ ...state, activeHook: { type: 'NONE' } });
 }
 
 function beginCombat(state: RunState, monsters: MonsterCard[]): RunState {
@@ -466,7 +494,7 @@ function handleCombatVictory(
 ): RunState {
   const boss = defeated.find((m) => m.isBoss);
   const mission = state.currentMission ?? 1;
-  const bossTitle = boss ? (mission === 1 ? 'Goblin Chieftain' : 'Cult of Trolls') : undefined;
+  const bossTitle = boss ? (mission === 1 ? 'Grundy' : 'Cult of Trolls') : undefined;
 
   const victory: CombatVictoryState = {
     defeatedMonsters: defeated,
@@ -502,7 +530,7 @@ export function confirmCombatVictory(state: RunState): RunState {
   if (victory.isBoss) {
     const mission = victory.stageNumber ?? 1;
     const cleared = clearMapBlessings(state);
-    const bossTitle = victory.bossTitle ?? (mission === 1 ? 'Goblin Chieftain' : 'Cult of Trolls');
+    const bossTitle = victory.bossTitle ?? (mission === 1 ? 'Grundy' : 'Cult of Trolls');
     const missionName = mission === 1 ? STAGE_1_MISSION_NAME : STAGE_2_MISSION_NAME;
     return syncAudioState({
       ...cleared,
@@ -526,9 +554,12 @@ export function startNextMission(state: RunState): RunState {
   const mission = (state.currentMission ?? 1) + 1;
   const missionName = mission === 2 ? STAGE_2_MISSION_NAME : `Stage ${mission}`;
   const maxTurns = mission === 2 ? STAGE_2_MAX_TURNS : STAGE_1_MAX_TURNS;
+  const scenarioLevel = mission === 2 ? STAGE_2_SCENARIO_LEVEL : STAGE_1_SCENARIO_LEVEL;
 
   const adv = mission === 2 ? buildStage2AdventureDeck(rng) : buildStage1AdventureDeck(rng);
   rng = adv.nextState;
+  const monsters = buildScenarioMonsterDeck(scenarioLevel, rng);
+  rng = monsters.nextState;
 
   let deck = adv.deck;
   let discard: AdventureCard[] = [];
@@ -563,6 +594,7 @@ export function startNextMission(state: RunState): RunState {
     rngState: rng,
     currentMission: mission,
     missionName,
+    scenarioLevel,
     turn: 0,
     maxTurns,
     board,
@@ -571,6 +603,9 @@ export function startNextMission(state: RunState): RunState {
     adventureDeck: deck,
     adventureDiscard: discard,
     reshuffleCount: reshuffles,
+    monsterDeck: monsters.deck,
+    monsterDiscard: [],
+    monsterVoid: monsters.void,
     playerResources: state.playerResources
       ? { ...state.playerResources, hp: maxHp, maxHp }
       : null,

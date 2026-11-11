@@ -9,6 +9,15 @@ import {
   ShopItemDef,
   StatKey,
 } from './types';
+import { coordToKey } from './grid';
+
+/** A Shrine may raise Base Stats only as high as Shrine Level + 1. */
+export function getActiveShrineBaseStatCap(state: RunState): number | null {
+  if (state.activeHook.type !== 'SHRINE') return null;
+  const card = state.board[coordToKey(state.activeHook.shrine.coord)]?.card;
+  if (!card?.hasShrine) return null;
+  return card.level + 1;
+}
 
 export function computeGearBonuses(equippedGear: EquippedGear): CharacterStats {
   const bonus: CharacterStats = { str: 0, dex: 0, agi: 0, int: 0, cha: 0, luk: 0 };
@@ -233,6 +242,8 @@ export function getBaseStatUpgradeCost(currentBaseValue: number): number {
 export function canUpgradeBaseStat(state: RunState, stat: StatKey): boolean {
   if (!state.playerResources) return false;
   const currentBase = state.playerBaseStats[stat];
+  const shrineCap = getActiveShrineBaseStatCap(state);
+  if (shrineCap !== null && currentBase >= shrineCap) return false;
   const cost = getBaseStatUpgradeCost(currentBase);
   return state.playerResources.statPoints >= cost;
 }
@@ -240,6 +251,8 @@ export function canUpgradeBaseStat(state: RunState, stat: StatKey): boolean {
 export function upgradeBaseStat(state: RunState, stat: StatKey): RunState {
   if (!state.playerResources) return state;
   const currentBase = state.playerBaseStats[stat];
+  const shrineCap = getActiveShrineBaseStatCap(state);
+  if (shrineCap !== null && currentBase >= shrineCap) return state;
   const cost = getBaseStatUpgradeCost(currentBase);
   if (state.playerResources.statPoints < cost) {
     return state;

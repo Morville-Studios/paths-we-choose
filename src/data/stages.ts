@@ -2,6 +2,8 @@ import { AdventureCard, TerrainType } from '../core/types';
 
 export const STAGE_1_MAX_TURNS = 15;
 export const STAGE_2_MAX_TURNS = 15;
+export const STAGE_1_SCENARIO_LEVEL = 1;
+export const STAGE_2_SCENARIO_LEVEL = 2;
 
 export const STAGE_1_MISSION_NAME = 'The Goblin King';
 export const STAGE_2_MISSION_NAME = 'Cult of Trolls';
@@ -31,6 +33,8 @@ export const ADVENTURE_CARD_ORDER: string[] = [
   'advsmp-01',
   'advsmp-03',
   'advsmp-04',
+  'advcav-00',
+  'advcav-01',
 ];
 
 export const ADVENTURE_CARD_CATALOG: Record<string, AdventureCardDefinition> = {
@@ -157,6 +161,27 @@ export const ADVENTURE_CARD_CATALOG: Record<string, AdventureCardDefinition> = {
     hasShrine: true,
     flavorText: 'An ancient waterlogged altar carved from sunken stone, lit by eerie will-o-wisps.',
   },
+  'advcav-00': {
+    cardCode: 'advcav-00',
+    name: 'Undiscovered Cave',
+    terrain: 'cave',
+    level: 4,
+    hasHostile: false,
+    hasVillage: false,
+    hasShrine: false,
+    isUndiscovered: true,
+    flavorText: 'An uncharted cavern mouth descending into echoing stone passages and buried secrets.',
+  },
+  'advcav-01': {
+    cardCode: 'advcav-01',
+    name: 'Cave Encounter',
+    terrain: 'cave',
+    level: 5,
+    hasHostile: true,
+    hasVillage: false,
+    hasShrine: false,
+    flavorText: 'A hostile cavern network where every scrape of stone may announce another predator.',
+  },
 };
 
 /** Exact 30-card composition for Stage 1: The Goblin King */
@@ -178,17 +203,19 @@ export const STAGE_1_DECK_COMPOSITION: Record<string, number> = {
 /** Exact 30-card composition for Stage 2: Cult of Trolls */
 export const STAGE_2_DECK_COMPOSITION: Record<string, number> = {
   'advgrs-00': 0,
-  'advgrs-01': 2,
+  'advgrs-01': 0,
   'advgrs-03': 0,
   'advgrs-04': 0,
-  'advfrs-00': 2,
-  'advfrs-01': 9,
+  'advfrs-00': 3,
+  'advfrs-01': 8,
   'advfrs-03': 3,
   'advfrs-04': 3,
-  'advsmp-00': 1,
-  'advsmp-01': 6,
+  'advsmp-00': 2,
+  'advsmp-01': 5,
   'advsmp-03': 2,
   'advsmp-04': 2,
+  'advcav-00': 1,
+  'advcav-01': 1,
 };
 
 export function createStartCard(): AdventureCard {

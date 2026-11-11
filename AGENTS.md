@@ -4,7 +4,7 @@ Welcome to **The Paths We Choose** (`paths-we-choose`), a tabletop-inspired dung
 
 This document is the primary source of truth for AI coding agents and developers working in this repository. Always read this file and the relevant documents in [`docs/`](file:///d:/adoni/repos/paths-we-choose/docs) before making architectural or gameplay changes.
 
-The Goblin King uses a **38-card ordinary Monster Deck**. Exact card quantities and creature data are in the generated [catalogs](docs/CATALOGS.md#ordinary-monsters); collector IDs identify types and runtime IDs distinguish copies. Goblins include Swamp eligibility; Ramram is Grasslands-only. Bosses are separate.
+Ordinary creatures have a finite **76-card physical supply** held in the Void: Common types have 6 copies, Uncommon types have 4, and Rare types have 3. Scenario setup deterministically pulls the current scenario's three main-terrain bands into its Monster Deck; unused creature copies remain publicly inspectable in the Void. Exact quantities and creature data are in the generated [catalogs](docs/CATALOGS.md#ordinary-monsters). Bosses are separate.
 
 ---
 
@@ -19,6 +19,7 @@ All design specifications, architecture decisions, and roadmaps live in the repo
 | [`docs/GAME_DESIGN.md`](file:///d:/adoni/repos/paths-we-choose/docs/GAME_DESIGN.md) | Core game loop, Base Stats + Class Stat Bonuses, 3-row pyramid vision cone, Monster Deck (inscribed Stat Points & Gold), Village Menu, Equipment Slots, Turn 15 Boss, and Slay the Spire + AD&D combat |
 | [`docs/MECHANICS_AND_DATA.md`](file:///d:/adoni/repos/paths-we-choose/docs/MECHANICS_AND_DATA.md) | Exact math, Base Stat upgrade cost (`(baseStat + 1)²`), offset brick grid coordinates, 9-card board lag, Monster & Boss presets, Village Shop & Train catalogs, Equipment Slots, Player Action Decks, and TypeScript schemas |
 | [`docs/ARCHITECTURE.md`](file:///d:/adoni/repos/paths-we-choose/docs/ARCHITECTURE.md) | Tech stack (TypeScript + Vite + HTML5/CSS/Canvas + Capacitor), state machine, and module layout |
+| [`docs/BRANDING_AND_SEO.md`](file:///d:/adoni/repos/paths-we-choose/docs/BRANDING_AND_SEO.md) | Morville Studios Games identity, canonical route, SEO metadata, portfolio integration and Cloudflare cache policy |
 | [`docs/ROADMAP.md`](file:///d:/adoni/repos/paths-we-choose/docs/ROADMAP.md) | Phased development milestones and open design questions for upcoming phases |
 
 ---
@@ -55,7 +56,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
 
 ## 4. Current Scope (Phase 1 — Foundation, Path, Village, Combat & Boss Prototype)
 
-- **Welcome Screen**: Full-screen atmospheric presentation featuring height-maximized background artwork (`/background/start-screen.png`), centered frosted-glass card, game title, tagline, looping intro soundtrack (`start-screen.mp3`), and "Start Adventure" action.
+- **Welcome Screen**: Full-screen cinematic portfolio presentation featuring height-maximized background artwork (`/background/start-screen.png`), the reusable **Morville Studios Games** lockup, a split editorial hero with the game title and concise browser-play value proposition, a prominent **Start Adventure** action, secondary **How to Play** access, a three-card feature showcase, and the looping intro soundtrack (`start-screen.mp3`). The composition collapses cleanly for mobile and short viewports while keeping the primary CTA visible.
 - **Base Stats, Class Stat Bonuses & Stat Evolution (No Character Levels)**:
   - There is **no Character Level or XP bar**—the player's stats themselves define character evolution!
   - Every player starts with **Base Stats of `1`** across all six attributes (`Base STR 1, Base DEX 1, Base AGI 1, Base INT 1, Base CHA 1, Base LUK 1`).
@@ -63,13 +64,13 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     - Each class has **1 Primary Stat** (+2 bonus) and **2 Secondary Stats** (+1 bonus each); all remaining stats receive +0.
     - **Fighter**: Primary `STR (+2)`, Secondary `DEX (+1), AGI (+1)` -> **Effective Starting Stats**: `STR 3, DEX 2, AGI 2, INT 1, CHA 1, LUK 1` -> **16 Max HP** (`10 + Effective STR * 2`), **1 ACC**, **1 EVA**, **1 ATK**, **0 DEF**, **3 ACT**.
       - **Passive `[Berzerk]`**: Gain `+1 ATK` bonus when HP is 50% or below Max HP; if 25% or below, gain `+2 ATK` bonus instead.
-      - **10-Card Starter Combat Deck**: `8x Melee ATK` + `2x Shield DEF`.
+      - **10-Card Starter Combat Deck**: `8x Slash` + `2x Defend`.
     - **Wizard**: Primary `INT (+2)`, Secondary `DEX (+1), CHA (+1)` -> **Effective Starting Stats**: `STR 1, DEX 2, AGI 1, INT 3, CHA 2, LUK 1` -> **12 Max HP** (`10 + Effective STR * 2`), **1 ACC**, **0 EVA**, **1 MATK**, **0 MDEF**, **3 ACT**.
       - **Passive `[Conserve]`**: When ending turn in battle with unused Action Points, those AP carry over to the next battle turn.
       - **10-Card Starter Combat Deck**: `8x Fireball ATK` + `2x Force Field DEF`.
     - **Rogue**: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)` -> **Effective Starting Stats**: `STR 2, DEX 2, AGI 3, INT 1, CHA 1, LUK 1` -> **14 Max HP** (`10 + Effective STR * 2`), **1 ACC**, **1 EVA**, **1 ATK**, **1 DEF**, **3 ACT**.
       - **Passive `[Steal]`**: Whenever rolling a 2d6 to perform an attack hit check and it is a pair (`1+1, 2+2, 3+3, 4+4, 5+5, 6+6`), immediately gain `+1 Gold`.
-      - **10-Card Starter Combat Deck**: `8x Melee ATK` + `2x Shield DEF`.
+      - **10-Card Starter Combat Deck**: `8x Slash` + `2x Defend`.
     - **Full-Screen 3-Card Smooth Interactive Carousel with Adventurer Artwork**:
       - Full-screen presentation (`width: 100%`, `max-width: 100%`, `min-height: 100dvh`) with radial gradient backdrop (`radial-gradient(circle at 50% 35%, #151d2c 0%, #090d14 100%)`).
       - 3D perspective carousel with active/center card highlighted (`scale(1.05)`, golden glowing border `#f59e0b`) and flanking preview cards (`scale(0.85)`, dimmed `opacity: 0.52`, clickable).
@@ -89,7 +90,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
   - **Upgrading Base Stats with Stat Points at Shrines**:
     - Defeating Monsters awards **Stat Points (`statPoints`)** inscribed directly on the Monster Card.
     - Only **Base Stats** are upgraded using Stat Points.
-    - **Shrine Conversion Rule**: Outside of the initial preparation dialog, Base Stat upgrades can **only be performed at Shrines** (`hasShrine: true`). To raise a Base Stat from current level `B` to `B + 1`, the player spends **`(B + 1) * (B + 1)` Stat Points** (e.g., Base `1 -> 2` costs `2x2 = 4` Stat Points; Base `2 -> 3` costs `3x3 = 9` Stat Points; Base `3 -> 4` costs `4x4 = 16` Stat Points; Base `4 -> 5` costs `5x5 = 25` Stat Points). Players may purchase multiple upgrades in a single Shrine visit as long as they have sufficient Stat Points.
+    - **Shrine Conversion Rule**: Outside of the initial preparation dialog, Base Stat upgrades can **only be performed at Shrines** (`hasShrine: true`). To raise a Base Stat from current level `B` to `B + 1`, the player spends **`(B + 1) * (B + 1)` Stat Points**. A Shrine can raise a Base Stat only as high as **Shrine Level + 1**: Level 1 permits Base `1 -> 2`; Level 2 permits `1 -> 2` and `2 -> 3`; Level 3 permits through Base 4. Multiple legal upgrades may be purchased while SP remains. The Shrine modal shows the stepped-on Shrine card and lore, and renders the same reusable `playerInfoWidget` used by the Map beside selectable stat options. Selecting a row never depends on affordability. An affordable selection reveals one contextual Upgrade button; an unaffordable selection shows the missing SP instead. Upgrade and Leave Shrine actions both require confirmation before state changes.
     - **Stat Row Cleanup & Dedicated Stat Info Modal (Right-Click / Long-Press / ⓘ)**: Stat rows in the sidebar omit the noisy `next: X SP` text to keep the interface clean and spacious. Right-clicking (or holding for 1s on touch, or clicking `ⓘ`) on any stat row opens the dedicated **Stat Info Modal** showing:
       1. **Full Computation to Final Value**: `Effective Stat = Base + Class Archetype Bonus + Shrine Blessing + Equipped Gear`.
       2. **Derived Bonus Stats & Combat Scaling**: Exact formulas and live numbers:
@@ -127,9 +128,10 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     - **Hero DEF Formula**: $\lfloor \text{STR} / 5 \rfloor + \lfloor \text{AGI} / 3 \rfloor + \text{gear.def}$.
     - **Hero ACT (Max AP) Formula**: $3 + \lfloor \text{INT} / 5 \rfloor$.
     - **Critical Threshold Formula**: $\max(2, 12 - \lfloor \text{LUK} / 10 \rfloor)$. Default is 12 (Boxcars, 2.8%); 10 LUK gives 11+ (8.3%); 20 LUK gives 10+ (16.7%).
-  - **Monsters**: Every monster has inherent ACC and EVA stats (e.g., Goblin: 1 ACC, 1 EVA; Scavenger: 2 ACC, 2 EVA; Ramram: 2 ACC, 1 EVA; Rattler: 3 ACC, 1 EVA; Goblin Chieftain: 3 ACC, 2 EVA).
-  - **Card Accuracy Bonuses**: Cards like `Melee ATK` feature an inherent **`+1 ACC` bonus** (`accBonus: 1`) on attack rolls, lowering the required 2d6 roll to hit.
-  - **Combat Action Confirmation Popup**: Clicking an action card in combat does not use it immediately; instead, it opens a confirmation modal pairing the Source and Target cards:
+  - **Monsters**: Every monster has inherent ACC and EVA stats (e.g., Goblin: 1 ACC, 1 EVA; Scavenger: 2 ACC, 2 EVA; Ramram: 2 ACC, 1 EVA; Rattler: 3 ACC, 1 EVA; Grundy: 1 ACC, 1 EVA).
+  - **Card Accuracy Bonuses**: Only cards with an explicit `accBonus` modify their attack rolls. `Slash` has no inherent ACC bonus.
+  - **Combat Action Confirmation Popup (Desktop Two-Column & Sticky Mobile Layout)**: Clicking an action card in combat does not use it immediately; instead, it opens a responsive confirmation modal pairing the Source and Target cards:
+    - On desktop / large screens, uses a two-column grid (`.confirm-modal-body`): the visual card matchup is on the left (`.confirm-visual-col`), while the target picker, combat math/probabilities, and action buttons live on the right (`.confirm-details-col`), ensuring the **Confirm Use** button is immediately visible without vertical scrolling. On mobile screens, stacks gracefully with a sticky footer.
     - Displays `Use {card} on {target}` header.
     - Shows the 2 cards side-by-side (Source Action Card & Target Creature / Hero).
     - For attacks on creatures: displays full ACC and EVA stats, net ACC modifier, required 2d6 dice roll, and exact **hit probability percentage** (out of 36 dice combinations, including Boxcars crit and Snake Eyes miss notes).
@@ -152,7 +154,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     - When a monster hits the hero, the log explicitly details damage absorbed by natural Hero DEF and divine protection before shield block or HP loss (e.g. `2 absorbed by Hero DEF, 0 blocked, 4 HP damage`).
     - The 2d6 dice banner outcome displays the DEF reduction explicitly (e.g. `🎯 HIT! (4 DMG, 2 absorbed by Hero DEF)`).
   - **Dynamic Monster Attack Bonus & Flashing Buffed Damage**:
-    - When a monster's attack is scaled by abilities (such as *Bullwark's Charge Momentum* granting `+1 ATK` each charge), the pattern table on the card face and the `NEXT:` status dock display the live boosted damage (e.g. `7 DMG` instead of base `6 DMG`).
+    - When a monster's attack is scaled by an active ability (such as *Bullwark's Chaotic Impulse* randomly granting `+1 ATK` for its next action), the pattern table on the card face and the `NEXT:` status dock display the live boosted damage (e.g. `8 DMG` instead of base `7 DMG`).
     - The boosted damage number pulses with a flashing amber glow (`.is-buffed-flashing`).
     - The card face displays an active boon badge (`🔥 Boon: +X ATK`).
     - The Monster Info Modal (`cardInspectModal`) includes an `✨ Active Boons & Combat Enhancements` section explaining the active boon and updates the pattern steps to show boosted values.
@@ -173,6 +175,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     - **Failure**: 2 AP is spent, a log entry records the roll, and the battle continues.
     - **Stage Bosses cannot be fled from** (the Flee card is disabled in boss fights).
   - **Combat Hand Cycle**: At battle start and after each End Turn, discard all remaining hand cards and draw exactly 5 action cards one at a time. If an individual draw finds the draw pile empty, deterministically shuffle the action discard pile into a new draw pile and continue that same five-card draw. Played cards and discard-cost cards always enter action discard; only battle-long enchantments remain in `inPlay`.
+  - **Resolving Stack**: A played action leaves the hand and remains in `combat.stack` until every part of its effect resolves. Discard costs resolve first, printed draws second, AP gains and Battle Flag draws afterward, and only then does the played card move to action discard or `inPlay`. A resolving Battlecry can never redraw itself.
   - **Combat Victory Modal & Loots Showcase**:
     - Defeating all monsters in battle pauses gameplay and immediately displays the atmospheric **Victory Modal** (`activeHook.type === 'VICTORY'`) rather than snapping abruptly back to the map.
     - **Rewards & Defeated Foes Showcase**:
@@ -213,7 +216,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     21. `Focus Ring`: +1 DEX. Costs 20 Gold (Accessory, Level 2).
   - **Treasure Deck & Village Shop Stock Mechanics**:
     - **42-Card Treasure Deck**: At game start, a Treasure Deck of **42 item cards** is created from 2 copies of each of the 21 catalog items (`SHOP_ITEM_CATALOG` x 2) and shuffled deterministically.
-    - **Village Shop Draw Count**: Stores no longer sell the entire catalog. Entering a Village draws **`5 + Village Level` item cards** (e.g. 6 cards in a Level 1 Village) from the top of the Treasure Deck into `shopStock`; switching services does not reroll it.
+    - **Village Shop Draw Count**: Stores no longer sell the entire catalog. Entering a Village draws **`5 + Village Level` eligible item cards** from the Treasure Deck into `shopStock`; Level 1 accepts Level 1, Level 2 accepts Levels 1–2, and Level 3 accepts Levels 2–3. Ineligible levels go to `treasureDiscard`; switching services does not reroll stock.
     - **Card Arts in Options**: Every option displayed in the store features its official 5:7 raster card artwork (`/cards/items/*.jpg`), item type, stats, level badge, and Charisma price discount.
     - **Unbought Card Discard**: When the player finishes or leaves the village (`finishVillage`), all remaining unbought cards in `shopStock` are swept into `treasureDiscard`.
     - **Selling Cards**: Selling an item returns that card directly to `treasureDiscard`.
@@ -226,15 +229,15 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     - **ACC & EVA**: $\text{ACC} = \lfloor \text{DEX} / 2 \rfloor + \text{gear.acc}$, $\text{EVA} = \lfloor \text{AGI} / 2 \rfloor + \text{gear.eva} + \text{roundBonusEVA}$.
   - **Village Rest Cost & Conditions**: The Village rest slider restores **2 HP per tick for 1 Gold per tick**; its final option is always **Full** and restores any remaining HP. Rest is disabled at full HP or if the selected duration costs more Gold than available. It restores HP only and does not cleanse status ailments.
   - **Shop Comparison & Inventory Visibility**: The Village Shop displays the player's equipped gear in each slot, what will be replaced, and live before/after stat delta chips (`STR 4 -> 5 (+1)`, `ATK 1 -> 2 (+1)`, `DEF 0 -> 1 (+1)`, Max HP changes) before purchasing or selling.
-    - **Village Menu Reversibility & Training Costs**: Players can freely return from `Shop` and `Train` to Village options after every service; village-entry stock and three train offers remain fixed. Train offers are drawn from the visible right-sidebar **New Skills Deck**: starter cards remain exclusive to the initial 8 attacks and 2 defenses, while every other trainable class skill has exactly 2 physical copies. Fighter's 8 trainable non-starter types therefore supply 16 physical cards: High Strike, Parry, Fortify, Whirlwind, Battlecry, Battle Flag, Adrenalin and Final Smash. The five `+` cards are not trainable: they reside in the public, inexhaustible sidebar **Void**, alongside every Boss card and the two hero cards not selected by the current player. A Level 2+ Shrine upgrades a matching owned 1 AP base card to its 2 AP Void card for `10 Gold + 2 SP`; a Level 3+ Shrine can also upgrade a matching owned 2 AP card to its 3 AP Void card for `30 Gold + 6 SP`. Learning transfers its exact copy into the combat deck; unlearned offers enter New Skills Discard and recycle only after the draw deck empties. Learning 1/2/3 AP skills costs respectively `5/10/20 Gold` plus `1/2/4 SP`. Card removal begins at `5 Gold` and increases by 1 Gold after each removal for that run.
-    - **Action Card Effects**: Combat cards may be attacks, defenses, skills, or battle-long enchantments. Derived `ATK`/`DEF` scaling is data-defined; all-enemy attacks roll separately for each living target; discard effects always let the player choose eligible other cards in the confirmation dialog through mini-card controls showing their action art, name, AP cost, and selected state. Battle Flag remains in `combat.inPlay`, draws for every active Flag when a card effect grants AP, and returns to action discard only if destroyed.
+    - **Village Menu Reversibility & Training Costs**: Players can freely return from `Shop` and `Train` to Village options after every service; village-entry stock and three train offers remain fixed. Training keeps Gold and SP visible in a sticky resource sidebar, and learning or destroying always opens a confirmation before mutation. Train offers are drawn from the visible right-sidebar **New Skills Deck**: starter cards remain exclusive to the initial 8 attacks and 2 defenses, while every other trainable class skill has exactly 2 physical copies. Fighter's 8 trainable non-starter types therefore supply 16 physical cards: High Strike, Parry, Fortify, Whirlwind, Battlecry, Battle Flag, Adrenalin and Final Smash. The five `+` cards are not trainable: they reside in the public, inexhaustible sidebar **Void**, alongside every Boss card and the two hero cards not selected by the current player. A Level 2+ Shrine upgrades a matching owned 1 AP base card to its matching Void `+` card for `10 Gold + 2 SP`, even when the upgraded card remains 1 AP (High Strike +); a Level 3+ Shrine can also use any defined 2 AP to 3 AP route for `30 Gold + 6 SP`. Learning transfers its exact copy into the combat deck; unlearned offers enter New Skills Discard and recycle only after the draw deck empties. Learning 1/2/3 AP skills costs respectively `5/10/20 Gold` plus `1/2/4 SP`. Destroying transfers that physical card into `voidCards`, begins at `5 Gold`, and rises by 1 Gold per destruction for the run.
+    - **Action Card Effects**: Combat cards may be attacks, defenses, skills, or battle-long enchantments. Fighter formulas are: Slash `3 + ATK` normal physical damage; Defend `4 + DEF` Block for the turn; High Strike (1 AP) `ATK + ACC`; High Strike + (1 AP) `2×ATK + ACC`; Fortify `3 + DEF`; Fortify + `4 + 2×DEF`; Whirlwind `1 + ATK` to all enemies; Whirlwind + (2 AP) `2 + 2×ATK` to all enemies. All-enemy attacks roll separately for each living target and their confirmation shows every target with its own odds; discard effects always let the player choose eligible other cards in the confirmation dialog through mini-card controls showing their action art, name, AP cost, and selected state. Battle Flag costs 1 AP without regaining AP on play, remains in `combat.inPlay`, draws for every active Flag when another card effect grants AP, and returns to action discard only if destroyed.
   - **Effective Stat Formula**: `Effective Stat = Base Stat + Class Stat Bonus + Blessing Bonus + Equipped Gear Bonus`.
 - **Play Area, 3-Row Pyramid Vision Cone & Offset Brick Grid**:
   - Starts at **Turn 0** with a central **Start Tile/Card** at `(0, 0)` with the **Player Token** on top of it.
   - **Initial Pyramid Draw (5 cards total)**: Row 1 (`2` choices) + Row 2 (`3` lookahead cards).
   - **Larger Lagging Row Discard & Endless Deck Reshuffle**: Moving to row `R` sweeps only `Row R - 1` into `adventureDiscard`, keeping up to **9 Adventure Cards** on the board across Rows `R`, `R + 1`, and `R + 2`.
 - **Adventure Card Numbering & Catalog Architecture**:
-  - The current 12 Adventure Cards adhere to standardized collector card numbers starting with `adv`. There is exactly one Encounter level for each terrain: Grassland LVL2, Forest LVL3, Swamp LVL4, Cave LVL5, Underground LVL6, and Underworld LVL7. The current catalog includes Grassland, Forest, and Swamp:
+  - Adventure Cards adhere to standardized collector card numbers starting with `adv`. There is exactly one Encounter level for each terrain: Grassland LVL2, Forest LVL3, Swamp LVL4, Cave LVL5, Underground LVL6, and Underworld LVL7. The current catalog includes Grassland, Forest, Swamp, and the Stage 2 Cave cards:
     - `Undiscovered Grassland` (LVL1) = `advgrs-00`
     - `Grassland Encounter` (LVL2) = `advgrs-01`
     - `Grassland Village` (LVL1) = `advgrs-03`
@@ -247,38 +250,45 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     - `Swamp Encounter` (LVL4) = `advsmp-01`
     - `Swamp Village` (LVL3) = `advsmp-03`
     - `Swamp Shrine` (LVL3) = `advsmp-04`
+    - `Undiscovered Cave` (LVL4) = `advcav-00`
+    - `Cave Encounter` (LVL5) = `advcav-01`
   - **Undiscovered Terrains Exploration Mechanics**:
-    - Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, or `advsmp-00`) triggers a seeded `1d6` roll modal. Add `floor(Effective LUK / 5)` to the natural roll; the modal displays natural roll, LUK bonus, and effective result. **Treasure** occurs at `effectiveRoll >= 6` (priority); otherwise **Combat** occurs at `effectiveRoll <= card.level`, and all other results are **Safe**. Treasure draws until an item with `item.level <= card.level` is found, discarding higher-level items to `treasureDiscard`, then adds it directly to the backpack.
+    - Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, `advsmp-00`, or `advcav-00`) triggers a seeded `1d6` roll modal. Add `floor(Effective LUK / 5)` to the natural roll; the modal displays natural roll, LUK bonus, and effective result. **Treasure** occurs at `effectiveRoll >= 6` (priority); otherwise **Combat** occurs at `effectiveRoll <= card.level`, and all other results are **Safe**. Treasure draws until an item with `item.level <= card.level` is found, discarding higher-level items to `treasureDiscard`, then adds it directly to the backpack.
   - **Deck Viewer Card Ordering Invariant**: Cards in the Deck Viewer modal are strictly arranged based on `cardNumber` in the exact sequence above.
 - **Stage 1 Adventure Deck ("The Goblin King", 30 Land Cards)**:
   - `advgrs-00` x3, `advgrs-01` x8, `advgrs-03` x3, `advgrs-04` x3
   - `advfrs-00` x2, `advfrs-01` x5, `advfrs-03` x2, `advfrs-04` x2
   - `advsmp-00` x1, `advsmp-01` x1, `advsmp-03` x0, `advsmp-04` x0
-  - **Total**: 30 cards. Turn 15 Boss: **Goblin Chieftain**.
+  - **Total**: 30 cards. Turn 15 Boss: **Grundy**, the Level 5 Goblin Warlord.
 - **Stage 2 Adventure Deck ("Cult of Trolls", 30 Land Cards & 3-Troll Boss Encounter)**:
   - After defeating the Goblin King, the player can continue to the next mission: **"Cult of Trolls"**.
-  - `advgrs-00` x0, `advgrs-01` x2, `advgrs-03` x0, `advgrs-04` x0
-  - `advfrs-00` x2, `advfrs-01` x9, `advfrs-03` x3, `advfrs-04` x3
-  - `advsmp-00` x1, `advsmp-01` x6, `advsmp-03` x2, `advsmp-04` x2
+  - `advfrs-00` x3, `advfrs-01` x8, `advfrs-03` x3, `advfrs-04` x3
+  - `advsmp-00` x2, `advsmp-01` x5, `advsmp-03` x2, `advsmp-04` x2
+  - `advcav-00` x1, `advcav-01` x1
   - **Total**: 30 cards.
   - **Turn 15 Boss: Cult of Trolls (3 Trolls Active Simultaneously)**:
-    1. **Troll Healer** (20 HP, 1 DEF, 2 ACC, 0 EVA): Heals a random damaged troll for 10 HP (*Troll Mending*).
-    2. **Troll Hexer** (20 HP, 1 DEF, 2 ACC, 0 EVA): Casts a random 1-turn debuff on hero (*Troll Hex*):
+    1. **Troll Healer** (Level 4, 25 HP, 1 DEF, 2 MDEF, 2 ACC, 1 EVA, 8 SP/16 Gold): Heals a random damaged troll for 10 HP (*Troll Mending*).
+    2. **Troll Hexer** (Level 4, 25 HP, 1 DEF, 2 MDEF, 2 ACC, 1 EVA, 8 SP/16 Gold): Alternates a stacking random 5-turn *Troll Hex* with *Cursed Recoil* (`2 + 2 per active negative Hero debuff` MATK):
        - 1: Lose 1 ACC (`-1 ACC` on attack hit checks).
        - 2: Damage hero takes increases by 1 (`+1 DMG taken` from incoming monster attacks).
        - 3: Hero EVA is reduced by 1 (`-1 EVA` on monster attack rolls).
-    3. **Troll Warrior** (24 HP, 1 DEF, 3 ACC, 0 EVA): Continues to attack for 6 DMG each round (*Troll Smash*).
+    3. **Troll Warrior** (Level 4, 25 HP, 2 DEF, 3 ACC, 1 EVA, 8 SP/16 Gold): Continues to attack for 6 DMG each round (*Troll Smash*).
 - **Hostile Level & Terrain-Filtered Encounter Spawning**:
   - A card's **Encounter Level** defines the encounter level budget. Stepping onto an Encounter card draws Monster Cards from the Monster Deck matching the tile's terrain (`monster.spawnTerrains.includes(card.terrain)`) until the **total level of all monsters >= the encounter level budget** (e.g., Level 2 Encounter draws 2 Level 1 monsters or 1 Level 2 monster).
   - **Creature Draw Rule (Higher Level straight to Discard)**: When drawing monster cards for an encounter, if the monster LVL drawn is higher than the LVL of the encounter (`monster.level > encounterLevel`), it goes straight into the monster discard pile.
   - **Incompatible Terrain Card Cycling Rule**: When drawing from the monster deck for an encounter, any drawn monster that is incompatible with the current terrain goes back to the **bottom of the monster deck immediately instead of the discard pile**.
   - All monsters in the battle area are active simultaneously: each acts on the monster turn with its own 2d6 attack roll against the player's EVA. The player selects which target to attack.
-- **Stage 1 Monster Deck (38 ordinary cards) + Turn 15 Boss**:
+- **Scenario-built Monster Decks + Turn 15 Bosses**:
   - Exact quantities, collector IDs, types, stats, rewards, terrains, patterns and abilities are maintained in the generated [CATALOGS.md](docs/CATALOGS.md#ordinary-monsters), sourced from `src/data/monsters.ts`.
-  - The separately spawned Stage 1 Boss is Goblin Chieftain. Stage 2 has the three Cult of Trolls bosses.
+  - Terrain levels are Grassland 1, Forest 2, Swamp 3, Cave 4, Underground 5, and Underworld 6. A creature's main terrain is the lowest-level terrain in its eligibility list.
+  - Common creature types (Goblin, Zombie, Assasin, Cultist Mage) have 6 physical copies. Rare types (Ramram, Rattler, Creeper, Phalanx) have 3. Every other ordinary type is Uncommon with 4.
+  - A Scenario Level `L` uses main terrains `L`, `L+1`, and `L+2`. Per creature type it pulls 100% of the lowest band, `round(supply × 2/3)` of the middle band, and `round(supply × 1/3)` of the highest band from the Void. All other copies stay in `monsterVoid`. Stage 1 therefore pulls 45 cards and leaves 31 in the Void; Stage 2 pulls 37 and leaves 39.
+  - Multi-hit intents resolve one seeded 2d6 check and mitigation sequence per hit. Hit-gated debuffs apply after the first successful hit only. Retaliation such as Lurker acid ignores DEF, MDEF and Block but still respects Divine Protection, and triggers only after a successful nonlethal Hero attack.
+  - The separately spawned Stage 1 Boss is **Grundy**: Level 5; 30 HP; 1 DEF/MDEF/ACC/EVA; 16 SP/32 Gold. He cycles Call Goblin (tutor a Goblin from Monster draw pile; on failure, return one discarded Goblin to the top of that pile), Beef up! (+1 DEF for one turn and +4 Block), and Goblin March (6 physical damage +1 per living Goblin in play). Stage 2 has the three Cult of Trolls bosses.
 - **Official Standard TCG Card Architecture (Unified Full-Art Template across All Cards)**:
   - **Standard Card Proportions**: Strictly maintains the official **5:7 aspect ratio** (**2.5" × 3.5"**) across all card types and devices.
   - **Unified Reusable Full-Art Card Format**: Every single card in the game (Creatures, Actions, Items/Equipment, Lands, and Hero) shares the exact same full-art presentation template:
+    - Action card faces and live face text are owned by `src/ui/actionCard.ts`; hand, deck, training, confirmation and inspection views configure that one renderer rather than recreating markup. Compact Land faces are owned by `src/ui/adventureCard.ts`, while terrain labels/icons/set codes/CSS classes come from `src/ui/terrainPresentation.ts`. Repeated pile entries are grouped in one pass through `src/ui/grouping.ts`.
     1. **Full-Bleed Raster Art Layer (`inset: 0`)**: Digital raster paintings span the entire card surface edge-to-edge from top to bottom (`.tcg-art-window` with `position: absolute; inset: 0`), replacing old cropped rectangular windows. Every card has its own dedicated raster art (`/cards/creatures/*.jpg`, `/cards/actions/*.jpg`, `/cards/adventure/*.jpg`, `/cards/items/*.jpg`).
     2. **Consolidated Top Header (Meta Line & Card Name)**: Full-size creatures use level at left, inline type/subtype and spawn icons at right on the first row; name and collector number occupy the second row. Other card types retain their type stack and level/AP placement.
     3. **Floating Target Pill (`.combat-target-badge-top`)**: The active target pill (`🎯 TARGET (Roll X+ · Y%)`) floats neatly above the card frame in combat (not inside or covering the artwork).
@@ -296,11 +306,12 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
     9. **Universal Mini Card Rules (`.is-mini`, Deck & Pile Modals)**: Mini cards are streamlined to prioritize illustration artwork and essential identification:
         - **Mini Creature Cards**:
           - **Header**: Single-row layout with Monster Name on the left and `Lvl X` ribbon on the right in gold border. Omits type stack or duplicate text.
-          - **Artwork Showcase**: Full unobstructed digital raster painting. Does NOT display attack pattern tables, defeat reward icons/values (`+X Gold`, `+Y SP`), creature derived stats row (`DEF: ?? / EVA: ??`), or textboxes.
+          - **Artwork Showcase**: Full unobstructed digital raster painting. Does NOT display rarity/set symbols, attack pattern tables, defeat reward icons/values (`+X Gold`, `+Y SP`), creature derived stats row (`DEF: ?? / EVA: ??`), or textboxes.
           - **Footer**: Single-row docked bar displaying creature subtype (`Serpent`, `Goblinoid`, `Beast`, `Ooze`, `Insect`, etc.) in gold `#fef08a` text on the left, and circular terrain spawn badges (`🌿`, `🌲`) on the right.
           - **Multiplier Badge**: Straddles the bottom center of the card frame (`x N`), preventing any obstruction of top header names or level ribbons.
         - **Mini Item & Action Cards**: Render with transparent textboxes to showcase artwork while keeping essential rule text legible.
     10. **Card Footer**: Full-size creatures show Max HP and positive DEF/MDEF/ACC/EVA values only; their collector number is in the header. Other card types retain their existing footer format.
+    11. **New Paths Set/Rarity Symbol**: Ordinary full-size creature cards use the forked-road New Paths emblem near the lower-right edge of the artwork: bronze for Common, silver for Uncommon, and gold for Rare. Rarity is never written on the card face. Mini creature cards omit the emblem entirely. Full creature headers omit the redundant word `CREATURE`; Boss cards may use the shorter `BOSS` marker.
   - **Reusable Border Templates**: Grassland creatures and lands have vibrant **green outer and inner borders** (`#2d7a3e` outer frame, `#4ade80` inner trim, `tcg-template-grassland`); Forest lands have deep **emerald pine borders** (`#059669` outer frame, `#34d399` inner trim, `tcg-template-forest`); Stage 1 Boss has a radiant **gold metallic frame** (`tcg-template-boss`); Action cards have **crimson/ruby** (Attack, `tcg-template-attack`) and **azure/sapphire** (Defense, `tcg-template-defense`) frames; Item/Equipment cards have a rich **gold & bronze frame** (`tcg-template-item`).
   - **Card Inspection (Right-Click & 2s Long-Press)**: Right-clicking or holding down for 2 seconds on any card opens the Card Info Modal, showing the full physical print layout with exact tabletop stat scaling formulas (`Base + ⌊STAT / 2⌋`), live character calculations, full lore flavor text, monster cycling AI moves, and land board rules.
 - **Audio State Machine & Looped Soundtrack Management**:
@@ -333,7 +344,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
 
 ## Treasure level filtering and recycling
 
-Village stock accepts only `item.level === village.level`. Wrong-level items, both lower and higher, go immediately to treasureDiscard and do not count toward the `5 + village level` stock target. Draw again until the target is filled, reshuffling the treasure graveyard whenever a further draw needs an empty deck.
+Village stock accepts `max(1, village.level - 1) <= item.level <= village.level`. Level 1 supplies Level 1, Level 2 supplies Levels 1–2, and Level 3 supplies Levels 2–3. Cards outside that band go immediately to treasureDiscard and do not count toward the `5 + village level` stock target. Draw again until the target is filled, reshuffling the treasure graveyard whenever a further draw needs an empty deck.
 
 Undiscovered terrain rewards use `item.level <= terrain.level` as a cap. A Level 2 Forest discovery accepts Level 1 or Level 2 items. If the last card is an invalid Level 3 item, discard it, reshuffle the treasure graveyard into the new deck, and continue drawing until a valid reward appears. This is a game mechanic, not a spell/attack fizzle. Starting with an empty Treasure Deck follows the same reshuffle rule.
 
@@ -349,6 +360,6 @@ Stalker base EVA is 2. Sprint adds 1 EVA (total 3); an additional Skittish hit b
 
 ## Witch and default creature rewards
 
-Witch (`mon3smp-04`) is registered with Level 3 Swamp/Cave eligibility, 10 HP, 1 DEF, 3 MDEF, 1 EVA, 1 ACC, 4 SP and 8 Gold. It cycles Blinding Hex (-1 Hero EVA/ACC, 2 turns), Expose weakness (-1 Hero DEF/MDEF, 1 turn), then Smite (7 magical damage), and regenerates 1 HP at the end of each living turn, capped at Max HP. The Goblin King Stage 1 deck includes 1 Witch. See [exact timing](docs/MECHANICS_AND_DATA.md#witch--mon3smp-04).
+Witch (`mon3smp-04`) is registered with Level 3 Swamp/Cave eligibility, 14 HP, 1 DEF, 3 MDEF, 1 EVA, 1 ACC, 4 SP and 8 Gold. It cycles Blinding Hex (-1 Hero EVA/ACC, 2 turns), Expose weakness (-1 Hero DEF/MDEF, 1 turn), then Smite (7 magical damage), and regenerates 1 HP at the end of each living turn, capped at Max HP. The Goblin King Stage 1 deck includes 1 Witch. See [exact timing](docs/MECHANICS_AND_DATA.md#witch--mon3smp-04).
 
 Default creature rewards double at each level: factor `2 ** (level - 1)`, yielding `factor` SP and `2 * factor` Gold. Every current ordinary monster and boss uses this formula. A future exception requires an explicit reward override; existing boss rewards have been normalized to their levels.

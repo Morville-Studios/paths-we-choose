@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "seo:assets": "node scripts/generateSeoShare.cjs",
     "docs:sync": "node scripts/sync-doc-catalogs.cjs",
     "docs:check": "node scripts/sync-doc-catalogs.cjs --check"
   },

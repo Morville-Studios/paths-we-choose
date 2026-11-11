@@ -1,4 +1,5 @@
 import { AdventureCard } from '../core/types';
+import { publicAsset } from './publicAsset';
 
 /**
  * Raster art illustrations and paths for official standard TCG cards.
@@ -6,10 +7,16 @@ import { AdventureCard } from '../core/types';
  * on top of reusable card base templates.
  */
 
-export function getMonsterRasterArtPath(templateId: string): string {
+function getMonsterRasterArtRelativePath(templateId: string): string {
   switch (templateId) {
     case 'witch':
       return '/cards/creatures/witch.jpg';
+    case 'phalanx':
+      return '/cards/creatures/phalanx.png';
+    case 'cultist_mage':
+      return '/cards/creatures/cultist_mage.png';
+    case 'lurker':
+      return '/cards/creatures/lurker.png';
     case 'leech':
       return '/cards/creatures/leech.jpg';
     case 'stalker':
@@ -51,7 +58,11 @@ export function getMonsterRasterArtPath(templateId: string): string {
   }
 }
 
-export function getAdventureRasterArtPath(card: AdventureCard): string {
+export function getMonsterRasterArtPath(templateId: string): string {
+  return publicAsset(getMonsterRasterArtRelativePath(templateId));
+}
+
+function getAdventureRasterArtRelativePath(card: AdventureCard): string {
   if (card.terrain === 'start') {
     return '/cards/adventure/start_tile.jpg';
   }
@@ -74,6 +85,11 @@ export function getAdventureRasterArtPath(card: AdventureCard): string {
     return '/cards/adventure/grassland_shrine.jpg';
   }
   if (card.hasHostile) {
+    if (card.terrain === 'cave') {
+      // Dedicated Cave art has not yet been supplied; keep the new card fully
+      // rendered with the darkest existing encounter plate in the meantime.
+      return '/cards/adventure/swamp_encounter.jpg';
+    }
     if (card.terrain === 'swamp') {
       return '/cards/adventure/swamp_encounter.jpg';
     }
@@ -81,6 +97,9 @@ export function getAdventureRasterArtPath(card: AdventureCard): string {
       return '/cards/adventure/forest_encounter.jpg';
     }
     return '/cards/adventure/grassland_encounter.jpg';
+  }
+  if (card.terrain === 'cave') {
+    return '/cards/adventure/swamp.jpg';
   }
   if (card.terrain === 'swamp') {
     return '/cards/adventure/swamp.jpg';
@@ -91,7 +110,11 @@ export function getAdventureRasterArtPath(card: AdventureCard): string {
   return '/cards/adventure/grassland.jpg';
 }
 
-export function getActionRasterArtPath(cardId: string, cardType: 'attack' | 'defense' | 'skill' | 'enchantment'): string {
+export function getAdventureRasterArtPath(card: AdventureCard): string {
+  return publicAsset(getAdventureRasterArtRelativePath(card));
+}
+
+function getActionRasterArtRelativePath(cardId: string, cardType: 'attack' | 'defense' | 'skill' | 'enchantment'): string {
   if (cardId.includes('whirlwind')) {
     return '/cards/actions/whirlwind.jpg';
   }
@@ -140,6 +163,10 @@ export function getActionRasterArtPath(cardId: string, cardType: 'attack' | 'def
   return '/cards/actions/blade.jpg';
 }
 
+export function getActionRasterArtPath(cardId: string, cardType: 'attack' | 'defense' | 'skill' | 'enchantment'): string {
+  return publicAsset(getActionRasterArtRelativePath(cardId, cardType));
+}
+
 export function getMonsterIllustration(templateId: string): string {
   const rasterPath = getMonsterRasterArtPath(templateId);
   return `<img src="${rasterPath}" alt="${templateId}" class="tcg-art-raster" loading="eager" />`;
@@ -156,7 +183,7 @@ export function getActionCardIllustration(cardId: string, cardType: 'attack' | '
   return `<img src="${rasterPath}" alt="${cardId}" class="tcg-art-raster action-raster" loading="eager" />`;
 }
 
-export function getAdventurerRasterArtPath(classId?: string | null): string {
+function getAdventurerRasterArtRelativePath(classId?: string | null): string {
   switch (classId) {
     case 'rogue':
       return '/cards/adventurers/rogue.jpg';
@@ -168,12 +195,16 @@ export function getAdventurerRasterArtPath(classId?: string | null): string {
   }
 }
 
+export function getAdventurerRasterArtPath(classId?: string | null): string {
+  return publicAsset(getAdventurerRasterArtRelativePath(classId));
+}
+
 export function getAdventurerIllustration(classId?: string | null, name = 'Adventurer'): string {
   const rasterPath = getAdventurerRasterArtPath(classId);
   return `<img src="${rasterPath}" alt="${name}" class="tcg-art-raster adventurer-raster" loading="lazy" />`;
 }
 
-export function getItemRasterArtPath(itemId?: string): string {
+function getItemRasterArtRelativePath(itemId?: string): string {
   if (!itemId) return '/cards/items/wooden_sword.jpg';
   const cleanId = itemId.replace(/^lvl\d+_/, '').replace(/(?:_plus)+$/, '');
   switch (cleanId) {
@@ -209,6 +240,10 @@ export function getItemRasterArtPath(itemId?: string): string {
     default:
       return '/cards/items/wooden_sword.jpg';
   }
+}
+
+export function getItemRasterArtPath(itemId?: string): string {
+  return publicAsset(getItemRasterArtRelativePath(itemId));
 }
 
 export function getItemIllustration(itemId: string, name = 'Item'): string {
