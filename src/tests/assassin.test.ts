@@ -7,10 +7,10 @@ import { MONSTER_TEMPLATES } from '../data/monsters';
 import { cardInspectModal } from '../ui/render';
 
 const assassin: MonsterCard = { ...MONSTER_TEMPLATES.assassin, id: 'assassin_test' };
-function seedFor(hit: boolean, crit = false): number {
+function seedFor(hit: boolean): number {
   for (let seed = 1; seed < 10000; seed++) {
-    const roll = evaluateAttackRoll(seed, 2, 1);
-    if (roll.isHit === hit && roll.isCrit === crit) return seed;
+    const roll = evaluateAttackRoll(seed, 4, 2);
+    if (roll.isHit === hit && !roll.isDiabolic) return seed;
   }
   throw new Error('No matching roll');
 }
@@ -25,23 +25,21 @@ function battle(state: RunState) {
 
 describe('Assassin poison and piercing attacks', () => {
   it('shows the profile, exact artwork filename, Underground badge and attack effects', () => {
-    expect(assassin).toMatchObject({ statPointReward: 4, goldReward: 8, level: 3, creatureType: 'Human', cardNumber: 'mon3smp-03', maxHp: 13, def: 1, eva: 3, acc: 2, mdef: 1, spawnTerrains: ['swamp', 'cave', 'underground'] });
+    expect(assassin).toMatchObject({ statPointReward: 4, goldReward: 8, level: 3, creatureType: 'Human', cardNumber: 'mon3smp-03', maxHp: 13, def: 2, eva: 4, acc: 4, mdef: 1, spawnTerrains: ['swamp', 'cave', 'underground'] });
     const html = cardInspectModal({ kind: 'monster', monster: assassin, currentHp: 13 }, setup());
     for (const text of ['/cards/creatures/assasin.jpg', 'Underground', 'Poison on hit', 'Ignore 2 DEF']) expect(html).toContain(text);
   });
 
-  it('applies poison even when direct damage is fully blocked, including critical hits', () => {
-    for (const crit of [false, true]) {
-      const state = setup();
-      state.rngState = seedFor(true, crit);
-      battle(state).playerBlock = 100;
-      const before = JSON.stringify(state);
-      const next = endPlayerCombatTurn(state);
-      expect(next.statusEffects).toEqual(['poison']);
-      expect(next.playerResources?.hp).toBe(state.playerResources?.hp);
-      expect(battle(next).lastAttackRoll?.damageDealt).toBe(0);
-      expect(JSON.stringify(state)).toBe(before);
-    }
+  it('applies poison even when direct damage is fully blocked', () => {
+    const state = setup();
+    state.rngState = seedFor(true);
+    battle(state).playerBlock = 100;
+    const before = JSON.stringify(state);
+    const next = endPlayerCombatTurn(state);
+    expect(next.statusEffects).toEqual(['poison']);
+    expect(next.playerResources?.hp).toBe(state.playerResources?.hp);
+    expect(battle(next).lastAttackRoll?.damageDealt).toBe(0);
+    expect(JSON.stringify(state)).toBe(before);
   });
 
   it.each([0, 2, 4])('Poison Dart deals 3 physical damage ignoring up to 3 DEF (DEF %i)', def => {

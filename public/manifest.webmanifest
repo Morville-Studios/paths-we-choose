@@ -1,7 +1,7 @@
 {
-  "name": "The Paths We Choose — Morville Studios Games",
+  "name": "The Paths We Choose — Morville Studios",
   "short_name": "Paths We Choose",
-  "description": "A tabletop-inspired browser card adventure where every path reshapes the journey.",
+  "description": "A tabletop-inspired browser card adventure from Morville Studios and Morville Games. Build a path, roll 3d6 combat dice with MACG-3D6™, and defeat the dungeon boss.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

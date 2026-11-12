@@ -23,7 +23,7 @@ function battle(state: RunState) {
 describe('Witch mechanics', () => {
   it('registers the confirmed collector ID, stats and default level rewards', () => {
     expect(witch).toMatchObject({ templateId: 'witch', cardNumber: 'mon3smp-04', level: 3,
-      maxHp: 14, def: 1, mdef: 3, eva: 1, acc: 1, spawnTerrains: ['swamp', 'cave'],
+      maxHp: 14, def: 1, mdef: 3, eva: 2, acc: 4, spawnTerrains: ['swamp', 'cave'],
       statPointReward: 4, goldReward: 8, endTurnRegen: 1 });
     expect(MONSTER_TEMPLATES.stalker.cardNumber).toBe('mon1grs-06');
     expect(Object.values(MONSTER_TEMPLATES).map(m => m.cardNumber).filter(id => id === 'mon3smp-04')).toHaveLength(1);
@@ -58,7 +58,7 @@ describe('Witch mechanics', () => {
     state = endPlayerCombatTurn(endPlayerCombatTurn(state));
     battle(state).playerBlock = 1;
     state.rngState = Array.from({ length: 1000 }, (_, i) => i + 1).find(seed => {
-      const roll = evaluateAttackRoll(seed, 1, 0);
+      const roll = evaluateAttackRoll(seed, 1, 1);
       return roll.isHit && !roll.isCrit;
     })!;
     const next = endPlayerCombatTurn(state);
@@ -70,7 +70,7 @@ describe('Witch mechanics', () => {
     const state = endPlayerCombatTurn(setup());
     const attackIndex = battle(state).hand.findIndex(card => card.baseDamage > 0);
     const next = playCard(state, battle(state).hand[attackIndex].instanceId, 0);
-    expect(battle(next).lastAttackRoll?.netAcc).toBe(-1); // base ACC 1 - hex 1 - Witch EVA 1; Slash adds no ACC
+    expect(battle(next).lastAttackRoll?.netAcc).toBe(0); // default Hero ACC 3 - hex 1 - Witch EVA 2 = 0; Slash adds no ACC
     const html = cardInspectModal({ kind: 'monster', monster: witch }, state);
     expect(getMonsterRasterArtPath('witch')).toBe('/cards/creatures/witch.jpg');
     expect(html).toContain('/cards/creatures/witch.jpg');
@@ -95,7 +95,7 @@ describe('Witch mechanics', () => {
     const state = setup([witch, dog]);
     battle(state).monsters[0].patternIndex = 1;
     state.rngState = Array.from({ length: 1000 }, (_, i) => i + 1).find(seed => {
-      const roll = evaluateAttackRoll(seed, 2, 1);
+      const roll = evaluateAttackRoll(seed, 2, 2);
       return roll.isHit && !roll.isCrit;
     })!;
     const next = endPlayerCombatTurn(state);

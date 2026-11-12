@@ -1,4 +1,5 @@
-import { CLASS_CATALOG } from '../data/classes';
+import { CLASS_CATALOG, STARTING_BASE_STATS } from '../data/classes';
+import { createInitialState } from '../core/engine';
 import {
   getMonsterMainTerrain,
   getMonsterRarity,
@@ -15,7 +16,6 @@ import {
   getHeroStatDebuffMods,
   firstLivingMonsterIndex,
   computeHitProbability,
-  BASE_HIT_THRESHOLD,
   FLEE_AP_COST,
 } from '../core/combat';
 import { createFleeCard, getVoidCards } from '../data/combatCards';
@@ -56,8 +56,9 @@ import {
   getPlayerDef,
   getPlayerCritThreshold,
   getPlayerEva,
-  getFleeThreshold,
   calculateGoodsPrice,
+  calculateMaxHp,
+  computeEffectiveStats,
   GearPreview,
 } from '../core/stats';
 import {
@@ -67,6 +68,7 @@ import {
   getTrainingSkillCost,
   getVillageRestOption,
 } from '../core/village';
+import { parseGameLogEntry } from '../core/log';
 import {
   ActiveCombatState,
   ActiveExplorationState,
@@ -75,16 +77,20 @@ import {
   AdventureCard,
   CharacterStats,
   ClassId,
+  CombatAttackRollSummary,
   CombatCardDef,
   CombatMonster,
   CombatVictoryState,
   DerivedCombatStats,
+  HeroStatDebuff,
   PlacedCardNode,
   RunState,
   ShopItemDef,
   InspectedCardInfo,
   MonsterCard,
   MonsterIntent,
+  MonsterTemplateId,
+  MonsterTerrain,
   StatKey,
   STATS,
 } from '../core/types';
@@ -102,6 +108,101 @@ export type PileType =
   | 'treasure_deck'
   | 'treasure_discard';
 
+export interface QteBarOptions {
+  minHitRoll: number;
+  maxHitRoll: number;
+  rolledTotal?: number;
+  die1?: number;
+  die2?: number;
+  die3?: number;
+  isHit?: boolean;
+  isCrit?: boolean;
+  netAcc?: number;
+  hitPercent?: number;
+  compact?: boolean;
+}
+
+/**
+ * Renders the 3d6 Quick Time Event (QTE) Distance / Hit Check Bar.
+ * - 16 discrete slots from 3 to 18 (each 6.25% wide).
+ * - Median rolls 10 and 11 form the center Sure Hit Rolls (25% minimum success roll).
+ * - Net ACC expands the emerald hit zone outward.
+ * - When rolled, places the raster image token piece (qte-token.png) pointing at the rolled slot.
+ */
+export function renderQteHitCheckBarHtml(opts: QteBarOptions): string {
+  const minHit = Math.max(3, Math.min(18, opts.minHitRoll));
+  const maxHit = Math.max(minHit, Math.min(18, opts.maxHitRoll));
+  const slotPct = 100 / 16; // 6.25% per 3d6 discrete total (3 to 18)
+
+  const hitLeftPct = (minHit - 3) * slotPct;
+  const hitWidthPct = (maxHit - minHit + 1) * slotPct;
+  const hitRightLeftPct = hitLeftPct + hitWidthPct;
+
+  // Diabolic slots:
+  // Slot 3: 0% to 6.25%
+  // Slot 18: 93.75% to 100%
+  const diabolicSlotWidthPct = slotPct; // 6.25%
+  const diabolicRightLeftPct = 100 - slotPct; // 93.75%
+
+  // Miss zones:
+  // Left Miss: between 3 (6.25%) and minHit (hitLeftPct)
+  const missLeftWidthPct = Math.max(0, hitLeftPct - diabolicSlotWidthPct);
+  // Right Miss: between maxHit (hitRightLeftPct) and 18 (93.75%)
+  const missRightWidthPct = Math.max(0, diabolicRightLeftPct - hitRightLeftPct);
+
+  // Sure Hit Rolls zone (10 and 11):
+  // Slots 10 & 11: left = (10 - 3) * 6.25% = 43.75%, width = 2 * 6.25% = 12.5%
+  const sureHitLeftPct = (10 - 3) * slotPct; // 43.75%
+  const sureHitWidthPct = 2 * slotPct; // 12.5%
+
+  let tokenHtml = '';
+  if (opts.rolledTotal !== undefined) {
+    const clampedRoll = Math.max(3, Math.min(18, opts.rolledTotal));
+    const tokenLeftPct = (clampedRoll - 3 + 0.5) * slotPct;
+    const isDiabolic = clampedRoll === 3 || clampedRoll === 18;
+    const hitClass = isDiabolic ? 'token-diabolic' : opts.isHit ? 'token-hit' : 'token-miss';
+    tokenHtml = `
+      <div class="qte-token-anchor" style="left: ${tokenLeftPct}%;">
+        <div class="qte-token-wrapper ${hitClass}" title="Rolled ${opts.rolledTotal}${isDiabolic ? ' (Diabolic Miss!)' : ''}">
+          <img class="qte-token-img" src="/icons/qte-token.png" alt="Rolled ${opts.rolledTotal}" />
+          <span class="qte-token-label">${opts.rolledTotal}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  const isCompact = opts.compact ?? false;
+
+  return `
+    <div class="qte-bar-container ${isCompact ? 'is-compact' : ''}">
+      <div class="qte-bar-header">
+        <span class="qte-range-label">🎯 Hit Range: <b>${minHit} – ${maxHit}</b> <span class="qte-rolls-tag">Rolls</span></span>
+        ${opts.hitPercent !== undefined ? `<span class="qte-odds-badge"><b>${opts.hitPercent}%</b> chance</span>` : ''}
+      </div>
+      <div class="qte-bar-track-wrap">
+        <div class="qte-bar-track">
+          <div class="qte-zone diabolic left" style="left: 0%; width: ${diabolicSlotWidthPct}%;" title="Diabolic Roll 3: Always Misses"></div>
+          ${missLeftWidthPct > 0 ? `<div class="qte-zone miss left" style="left: ${diabolicSlotWidthPct}%; width: ${missLeftWidthPct}%;"></div>` : ''}
+          <div class="qte-zone hit" style="left: ${hitLeftPct}%; width: ${hitWidthPct}%;"></div>
+          <div class="qte-zone sure-hit" style="left: ${sureHitLeftPct}%; width: ${sureHitWidthPct}%;" title="Sure Hit Rolls (10 &amp; 11): 25.0% Baseline">
+            <div class="qte-center-notch" title="Median: 10 - 11"></div>
+          </div>
+          ${missRightWidthPct > 0 ? `<div class="qte-zone miss right" style="left: ${hitRightLeftPct}%; width: ${missRightWidthPct}%;"></div>` : ''}
+          <div class="qte-zone diabolic right" style="left: ${diabolicRightLeftPct}%; width: ${diabolicSlotWidthPct}%;" title="Diabolic Roll 18: Always Misses"></div>
+        </div>
+        ${tokenHtml}
+      </div>
+      <div class="qte-ruler ${tokenHtml ? 'has-token' : ''}">
+        <span class="qte-ruler-mark mark-diabolic mark-min" title="Diabolic Roll 3: Always Misses">3</span>
+        ${minHit < 10 ? `<span class="qte-ruler-mark mark-hit-bound mark-hit-min" style="left: ${hitLeftPct}%;"><b>${minHit}</b></span>` : ''}
+        <span class="qte-ruler-mark mark-sure-hit" style="left: 50%;" title="Sure Hit Rolls: 10 &amp; 11 (25.0% Baseline)"><b>10-11</b></span>
+        ${maxHit > 11 ? `<span class="qte-ruler-mark mark-hit-bound mark-hit-max" style="left: ${hitRightLeftPct}%;"><b>${maxHit}</b></span>` : ''}
+        <span class="qte-ruler-mark mark-diabolic mark-max" title="Diabolic Roll 18: Always Misses">18</span>
+      </div>
+    </div>
+  `;
+}
+
 const ADVENTURE_CARD_ORDER_INDEX = new Map(
   ADVENTURE_CARD_ORDER.map((cardNumber, index) => [cardNumber, index]),
 );
@@ -115,6 +216,12 @@ export interface PendingCardPlay {
 export interface PendingTrainingAction {
   kind: 'learn' | 'destroy';
   cardInstanceId: string;
+}
+
+export interface PendingDiceRoll {
+  roll: CombatAttackRollSummary;
+  nextState?: RunState;
+  settled: boolean;
 }
 
 export type PendingShrineAction =
@@ -131,6 +238,7 @@ export interface UiState {
   inspectedCard?: InspectedCardInfo | null;
   inspectedPile?: PileType | null;
   pendingCardPlay?: PendingCardPlay | null;
+  pendingDiceRolls?: PendingDiceRoll[] | null;
   pendingFlee?: boolean;
   pendingTrainingAction?: PendingTrainingAction | null;
   pendingShrineAction?: PendingShrineAction | null;
@@ -139,6 +247,7 @@ export interface UiState {
   villageRestTicks?: number;
   showGuide?: boolean;
   guidePage?: number;
+  showLog?: boolean;
 }
 
 /** True when keyboard/carousel input must not reach gameplay behind an overlay. */
@@ -149,10 +258,12 @@ export function hasBlockingUiOverlay(ui: UiState): boolean {
     || ui.inspectedStat
     || ui.showDeck
     || ui.pendingCardPlay
+    || (ui.pendingDiceRolls && ui.pendingDiceRolls.length > 0)
     || ui.pendingFlee
     || ui.pendingTrainingAction
     || ui.pendingShrineAction
     || ui.showGuide
+    || ui.showLog
   );
 }
 
@@ -160,39 +271,29 @@ export function hasBlockingUiOverlay(ui: UiState): boolean {
 // Screens
 // ---------------------------------------------------------------------------
 
-export function renderWelcome(showGuide = false, guidePage = 1): string {
+export function renderWelcome(
+  showGuide = false,
+  guidePage = 1,
+  inspectedCard: InspectedCardInfo | null = null,
+  inspectedStat: StatKey | null = null,
+  state?: RunState
+): string {
+  const effectiveState = state ?? createInitialState('welcome-inspect');
   return `
   <main class="screen welcome">
     <div class="welcome-vignette" aria-hidden="true"></div>
     <header class="welcome-studio-bar">
       ${studioBrandHtml({ className: 'welcome-studio-brand' })}
       <div class="welcome-studio-nav">
-        <span>Original browser game</span>
         <a href="${MORVILLE_STUDIOS_URL}">MorvilleStudios.com <span aria-hidden="true">↗</span></a>
       </div>
     </header>
 
     <section class="welcome-stage" aria-labelledby="game-title">
-      <div class="welcome-card">
-        <div class="welcome-release-line">
-          <span class="welcome-release-dot" aria-hidden="true"></span>
-          Playable prototype · Stage 1 available
-        </div>
-        <p class="eyebrow">A tabletop-inspired card adventure</p>
-        <h1 id="game-title">The Paths<br/>We Choose</h1>
-        <p class="welcome-deckline">Build a path. Shape a hero. Survive what your choices reveal.</p>
-        <p class="tagline">A solo browser game combining tactical deck-building, 2d6 tabletop combat, and a map that grows from every decision.</p>
-        <div class="welcome-actions">
-          <button class="btn primary big welcome-start" data-action="start">
-            <span>Start Adventure</span><span aria-hidden="true">→</span>
-          </button>
-          <button class="btn guide-start-btn" data-action="open-guide">How to Play</button>
-        </div>
-        <dl class="welcome-facts" aria-label="Game information">
-          <div><dt>Format</dt><dd>Solo strategy</dd></div>
-          <div><dt>Play</dt><dd>Free in browser</dd></div>
-          <div><dt>Current build</dt><dd>Grasslands</dd></div>
-        </dl>
+      <div class="welcome-floating-logo-wrap">
+        <h1 id="game-title" class="welcome-logo-heading">
+          <img src="${publicAsset('brand/paths-we-choose-logo.png')}" alt="The Paths We Choose" class="welcome-game-logo" width="900" height="380" />
+        </h1>
       </div>
 
       <aside class="welcome-card-showcase" aria-label="Cards from The Paths We Choose">
@@ -209,6 +310,17 @@ export function renderWelcome(showGuide = false, guidePage = 1): string {
           <span>Face the consequence</span>
         </article>
       </aside>
+
+      <div class="welcome-bottom-tray">
+        <p class="welcome-deckline">Build a path. Shape a hero. Survive what your choices reveal.</p>
+        <p class="tagline">A solo browser game combining tactical deck-building, MACG-3D6™ tabletop combat, and a map that grows from every decision.</p>
+        <div class="welcome-actions">
+          <button class="btn primary big welcome-start" data-action="start">
+            <span>Start Adventure</span><span aria-hidden="true">→</span>
+          </button>
+          <button class="btn guide-start-btn" data-action="open-guide">How to Play</button>
+        </div>
+      </div>
     </section>
 
     <footer class="welcome-footer">
@@ -218,12 +330,74 @@ export function renderWelcome(showGuide = false, guidePage = 1): string {
       <span class="welcome-footer-build">v0.1</span>
     </footer>
     ${showGuide ? renderGuideModal(false, guidePage) : ''}
+    ${inspectedCard ? cardInspectModal(inspectedCard, effectiveState) : ''}
+    ${inspectedStat ? statInspectModal(inspectedStat, effectiveState) : ''}
   </main>`;
+}
+
+export function getMonsterLowestTerrain(monster: Pick<MonsterCard, 'spawnTerrains' | 'mainTerrain'>): MonsterTerrain {
+  const terrains: MonsterTerrain[] = monster.spawnTerrains && monster.spawnTerrains.length > 0
+    ? monster.spawnTerrains
+    : (monster.mainTerrain ? [monster.mainTerrain] : ['grasslands']);
+  return [...terrains].sort((a, b) => (MONSTER_TERRAIN_LEVELS[a] ?? 99) - (MONSTER_TERRAIN_LEVELS[b] ?? 99))[0];
+}
+
+export function getMonsterLowestTerrainTier(monster: Pick<MonsterCard, 'spawnTerrains' | 'mainTerrain'>): number {
+  return MONSTER_TERRAIN_LEVELS[getMonsterLowestTerrain(monster)] ?? 1;
+}
+
+export function getBestiaryMonstersForTerrain(terrain: MonsterTerrain): MonsterTemplateId[] {
+  const all = Object.values(MONSTER_TEMPLATES).filter(
+    (m) => !m.isBoss && getMonsterLowestTerrain(m) === terrain
+  );
+  return [...all]
+    .sort((a, b) => {
+      if (a.level !== b.level) return a.level - b.level;
+      return a.name.localeCompare(b.name);
+    })
+    .map((m) => m.templateId as MonsterTemplateId);
+}
+
+export function getBestiaryBosses(): MonsterTemplateId[] {
+  const bosses = Object.values(MONSTER_TEMPLATES).filter((m) => m.isBoss);
+  return [...bosses]
+    .sort((a, b) => {
+      const tierA = getMonsterLowestTerrainTier(a);
+      const tierB = getMonsterLowestTerrainTier(b);
+      if (tierA !== tierB) return tierA - tierB;
+      if (a.level !== b.level) return a.level - b.level;
+      return a.name.localeCompare(b.name);
+    })
+    .map((m) => m.templateId as MonsterTemplateId);
+}
+
+function renderGuideBestiaryCardItem(templateId: MonsterTemplateId): string {
+  const m = MONSTER_TEMPLATES[templateId];
+  if (!m) return '';
+  const monsterCard: MonsterCard = { ...m, id: `guide_${m.templateId}` };
+  const cardHtml = fullCreatureCardHtml({
+    monster: monsterCard,
+    className: 'guide-creature-card-preview',
+    attributes: 'tabindex="-1"',
+  });
+
+  return `
+    <div class="guide-bestiary-card-item" data-action="inspect-monster" data-inspect-kind="monster" data-monster-id="${m.templateId}" role="button" tabindex="0" title="Click to view full ${m.name} stats, intents and lore">
+      <div class="guide-bestiary-card-wrapper">
+        ${cardHtml}
+      </div>
+      <div class="guide-bestiary-card-footer">
+        <button type="button" class="guide-bestiary-inspect-btn" tabindex="-1">
+          <span class="inspect-icon">&#9432;</span> Inspect Info
+        </button>
+      </div>
+    </div>
+  `;
 }
 
 /** A short, plain-language guide available before and during every adventure. */
 export function renderGuideModal(inGame: boolean, currentPage = 1): string {
-  const p = Math.max(1, Math.min(5, currentPage));
+  const p = Math.max(1, Math.min(6, currentPage));
 
   return `
   <div class="modal-backdrop guide-backdrop" data-action="close-guide-backdrop">
@@ -268,12 +442,18 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
           <span class="ribbon-tail"></span>
           <span class="ribbon-text">&#127963;&#65039; V. Shrines &amp; Void</span>
         </button>
+        <button class="guide-ribbon-tab ${p === 6 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="6" title="Page 6: Monstrous Compendium &amp; Bestiary">
+          <span class="ribbon-tail"></span>
+          <span class="ribbon-text">&#128121; VI. Bestiary</span>
+        </button>
       </nav>
 
-      <!-- The Parchment Folio Spread -->
-      <div class="guide-parchment-spread">
-        <!-- Center Book Spine Crease & Shadow Gutter -->
+      <!-- The Parchment Folio Spread Viewport (Non-scrolling frame with fixed spine overlay) -->
+      <div class="guide-spread-viewport">
+        <!-- Center Book Spine Crease & Shadow Gutter (Fixed over open spread) -->
         <div class="guide-book-spine-gutter" aria-hidden="true"></div>
+
+        <div class="guide-parchment-spread">
 
         <!-- ============================================================ -->
         <!-- PAGE 1: Frontispiece & Core Dungeon Crawl Loop               -->
@@ -301,15 +481,18 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 </ol>
               </div>
 
-              <h4 class="guide-section-heading">&#9884; The 3-Row Vision Cone</h4>
+              <h4 class="guide-section-heading">&#9884; The 3-Row Vision Cone (MACG-PG&trade;)</h4>
               <p class="guide-body-text">
-                The dungeon unfolds before your eyes in a strict <b>Three-Row Lookahead Cone</b>:
+                The dungeon unfolds before your eyes via the <b>Morville Adventure Card Game Path Generator&trade; (MACG-PG&trade;)</b> in a strict <b>Three-Row Lookahead Cone</b>:
               </p>
               <ul class="adnd-bullet-list">
                 <li><b>Current Row:</b> Where your hero token currently stands.</li>
-                <li><b>Next Choice Row:</b> The 2 forward tiles immediately reachable on your next step.</li>
-                <li><b>Lookahead Row:</b> 3 tiles branching beyond, allowing strategic long-term navigation toward villages, shrines, or safer terrain.</li>
+                <li><b>Next Choice Row:</b> The 2 forward tiles immediately reachable on your next step (offset brick math <code>C &plusmn; 0.5</code>).</li>
+                <li><b>Lookahead Row:</b> 3 tiles branching beyond, where the center tile is shared by both forward choices.</li>
               </ul>
+              <p class="guide-body-text">
+                Tabletop encounter and scouting distances follow the <b>3d6 Gravitational Median model</b> (centered on the <b>10&ndash;11 Sure Hit Rolls</b>; see Chapter I for the complete distance table).
+              </p>
             </div>
 
             <div class="guide-folio-col">
@@ -385,17 +568,81 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             </div>
 
             <div class="guide-folio-col">
-              <h4 class="guide-section-heading">&#9884; The Tabletop 2d6 Attack Check</h4>
+              <h4 class="guide-section-heading">&#9884; Morville Adventure Card Game &ldquo;3d6 Success Roll Range Table Reference&rdquo; (MACG-3D6™)</h4>
               <p class="guide-body-text">
-                All physical attacks and monster strikes roll <b>two six-sided dice (2d6)</b> against the defender's Evasion (EVA).
+                All physical attacks and monster strikes roll <b>three six-sided dice (3d6)</b> evaluated on the proprietary <b>Morville Adventure Card Game 3d6 Success Roll Range Table Reference (MACG-3D6™)</b> against the defender's Evasion (EVA).
               </p>
               <ul class="adnd-bullet-list">
-                <li><b>Base Hit Threshold:</b> Without modifiers, rolls of <b>5 or higher hit</b> (83.3% chance), while rolls of 4 or below miss.</li>
-                <li><b>Accuracy vs. Evasion:</b> <code>Needed Roll = 5 - (Attacker ACC - Target EVA)</code>. High net ACC lowers the roll required to hit.</li>
-                <li><b>Snake Eyes (1+1=2):</b> An automatic total miss regardless of bonuses!</li>
-                <li><b>Critical Hits (Boxcars 6+6=12):</b> Rolling double sixes (12) scores an automatic <b>Critical Hit</b> dealing <b>+50% bonus ATK damage</b> (&lfloor;damage &times; 1.5&rfloor;).</li>
-                <li><b>Hit Preview:</b> The target badge and confirmation modal show your exact required roll and win percentage before confirming.</li>
+                <li><b>Roll Range (3 to 18):</b> Three six-sided dice naturally cluster around the median.</li>
+                <li><b>The 10–11 Sure Hit Rolls (Minimum Success Roll):</b> Rolls <b>10 and 11</b> consume the center, providing a guaranteed baseline <b>25.0% chance to hit</b>.</li>
+                <li><b>Success Roll Range Expansion:</b> Whenever Attacker ACC &gt; Defender EVA, each point of difference expands the hit check outward from the median by 1 on each side: <code>Hit Range = [max(4, 10 - bonus) .. min(17, 11 + bonus)]</code> where <code>bonus = max(0, Attacker ACC - Target EVA)</code>.</li>
+                <li><b>Diabolic Rolls (3 &amp; 18):</b> Rolls of <b>3</b> and <b>18</b> are <b>Diabolic rolls</b> that <b>always guarantee a miss</b> regardless of how high your character's ACC is.</li>
+                <li><b>No Critical Hits:</b> Pure tactical clarity&mdash;no arbitrary critical multiplier spikes; character ACC directly expands your visible Success Roll Range on the QTE bar.</li>
               </ul>
+
+              <div style="margin: 10px 0 14px 0;">
+                ${renderQteHitCheckBarHtml({ minHitRoll: 10, maxHitRoll: 11, hitPercent: 25.0, rolledTotal: 10, isHit: true })}
+              </div>
+
+              <div class="adnd-parchment-box adnd-prob-table-box">
+                <h5 class="adnd-box-title">&#128207; MACG-3D6™ SUCCESS ROLL RANGE TABLE REFERENCE</h5>
+                <p class="adnd-box-text">
+                  In MACG-3D6™, rolls naturally gravitate toward the median of <b>10 &amp; 11</b> (combined <b>25.0% Sure Hit Rolls</b> / minimum success roll). Success bands expand outward symmetrically:
+                </p>
+                <div class="adnd-prob-table-wrap">
+                  <table class="adnd-prob-table" aria-label="MACG-3D6 Success Roll Range Table Reference">
+                    <thead>
+                      <tr>
+                        <th>Success Tier</th>
+                        <th>Roll Range</th>
+                        <th>Probability</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="is-peak-row">
+                        <td><b>Tier 1</b> <small>(&le; -3 Net ACC · Sure Hit Rolls)</small></td>
+                        <td><b>10 &ndash; 11</b></td>
+                        <td><b>25.0%</b></td>
+                      </tr>
+                      <tr>
+                        <td><b>Tier 2</b> <small>(-2 Net ACC)</small></td>
+                        <td><b>9 &ndash; 12</b></td>
+                        <td><b>48.1%</b></td>
+                      </tr>
+                      <tr>
+                        <td><b>Tier 3</b> <small>(-1 Net ACC)</small></td>
+                        <td><b>8 &ndash; 13</b></td>
+                        <td><b>67.6%</b></td>
+                      </tr>
+                      <tr class="is-base-hit-row">
+                        <td><b>Tier 4</b> <small>(+0 Net ACC · Baseline)</small></td>
+                        <td><b>7 &ndash; 14</b></td>
+                        <td><b>81.5%</b></td>
+                      </tr>
+                      <tr>
+                        <td><b>Tier 5</b> <small>(+1 Net ACC)</small></td>
+                        <td><b>6 &ndash; 15</b></td>
+                        <td><b>90.7%</b></td>
+                      </tr>
+                      <tr>
+                        <td><b>Tier 6</b> <small>(+2 Net ACC)</small></td>
+                        <td><b>5 &ndash; 16</b></td>
+                        <td><b>96.3%</b></td>
+                      </tr>
+                      <tr>
+                        <td><b>Tier 7</b> <small>(&ge; +3 Net ACC)</small></td>
+                        <td><b>4 &ndash; 17</b></td>
+                        <td><b>99.1%</b></td>
+                      </tr>
+                      <tr class="is-miss-row">
+                        <td><b>Diabolic Rolls</b> 😈 <small>(Always Miss)</small></td>
+                        <td><b>3 &amp; 18</b></td>
+                        <td><b>0.9%</b></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
               <h4 class="guide-section-heading">&#9884; Defense, Block &amp; Damage Mitigation</h4>
               <ul class="adnd-bullet-list">
@@ -427,7 +674,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             <div class="guide-folio-col">
               <h4 class="guide-section-heading">&#9884; No Levels &mdash; Stats Define Growth</h4>
               <p class="guide-body-text">
-                <span class="guide-drop-cap">T</span>here are no arbitrary character levels or XP bars in this realm! Thy hero's attributes directly define character evolution. Every adventurer begins with <b>Base 1</b> across all six attributes, boosted by their class archetype bonuses. Stat Points (SP) won from battle are invested at Shrines to raise base stats.
+                <span class="guide-drop-cap">T</span>here are no arbitrary character levels or XP bars in this realm! Thy hero's attributes directly define character evolution. Every adventurer begins with <b>Base 1</b> across all six attributes plus an <b>Innate +1 Stat Bonus</b> across all attributes (<code>Effective = 1 (Innate) + Base + Class + Blessing + Gear</code>), boosted by their class archetype bonuses. This innate baseline ensures leveling a Base Stat from 1 to 2 creates a smooth 50% progression (2 &rarr; 3) rather than a jarring 100% leap. Stat Points (SP) won from battle are invested at Shrines to raise base stats.
               </p>
 
               <div class="adnd-stat-entry">
@@ -444,7 +691,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 <h5 class="adnd-stat-name"><span class="adnd-glyph">&#9889;</span> Agility (AGI) &mdash; Reflexes &amp; Reactiveness</h5>
                 <p class="adnd-stat-desc">Reactiveness, twitch speed, swift movement, and evasive footwork.</p>
                 <ul class="adnd-stat-perks">
-                  <li><b>Combat Evasion (EVA):</b> Grants <b>+1 EVA for every 2 AGI</b> (<code>&lfloor;AGI / 2&rfloor;</code>), directly forcing enemy attack rolls to meet a higher 2d6 threshold to hit you.</li>
+                  <li><b>Combat Evasion (EVA):</b> Grants <b>+1 EVA for every 1 AGI</b> (<code>AGI</code>), directly forcing enemy attack rolls to meet a higher threshold to hit you.</li>
                   <li><b>Physical Defense (DEF):</b> Adds <code>+&lfloor;AGI / 3&rfloor;</code> damage reduction through reactive dodging and glancing deflections.</li>
                   <li><b>Disengage &amp; Escape:</b> Boosts Sprint escape check threshold on 1d6 (<code>&lfloor;AGI / 2&rfloor;</code>, minimum 1).</li>
                 </ul>
@@ -454,7 +701,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 <h5 class="adnd-stat-name"><span class="adnd-glyph">&#127919;</span> Dexterity (DEX) &mdash; Skill &amp; Perceptiveness</h5>
                 <p class="adnd-stat-desc">Skillfulness, fine motor precision, keen perceptiveness, and weapon finesse.</p>
                 <ul class="adnd-stat-perks">
-                  <li><b>Combat Accuracy (ACC):</b> Grants <b>+1 ACC for every 2 DEX</b> (<code>&lfloor;DEX / 2&rfloor;</code>), lowering the required 2d6 roll to hit enemy targets.</li>
+                  <li><b>Combat Accuracy (ACC):</b> Grants <b>+1 ACC for every 1 DEX</b> (<code>DEX</code>), expanding your MACG-3D6™ hit range against enemy Evasion.</li>
                   <li><b>Physical Attack (ATK):</b> Adds <code>+&lfloor;DEX / 3&rfloor;</code> attack bonus through pinpoint targeting of vital weaknesses.</li>
                   <li><b>Hit Consistency:</b> Working with STR, ensures physical strikes reliably land even against high-evasion monsters.</li>
                 </ul>
@@ -514,7 +761,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             <div class="guide-folio-col">
               <h4 class="guide-section-heading">&#9884; Archetype Class Bonuses</h4>
               <p class="guide-body-text">
-                <span class="guide-drop-cap">E</span>ach adventurer class begins with Base Stats of 1 across all six attributes, elevated by <b>1 Primary Stat (+2 bonus)</b> and <b>2 Secondary Stats (+1 bonus each)</b>, an innate combat passive, and a distinct starter deck.
+                <span class="guide-drop-cap">E</span>ach adventurer begins with <b>Base Stats of 1</b> across all six attributes plus an <b>Innate +1 Stat Bonus</b> across all attributes, elevated by <b>1 Primary Stat (+2 bonus)</b> and <b>2 Secondary Stats (+1 bonus each)</b>, an innate combat passive, and a distinct starter deck.
               </p>
 
               <div class="adnd-class-box">
@@ -524,10 +771,10 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 </div>
                 <p class="adnd-class-summary">A battle-hardened warrior who dominates the frontline with brute strength, high HP, and heavy shield defense.</p>
                 <div class="adnd-class-stats-strip">
-                  <span><b>STR 3</b></span> &bull; <span><b>DEX 2</b></span> &bull; <span><b>AGI 1</b></span> &bull; <span><b>INT 1</b></span> &bull; <span><b>CHA 1</b></span> &bull; <span><b>VIT 2</b></span>
+                  <span><b>STR 4</b></span> &bull; <span><b>DEX 3</b></span> &bull; <span><b>AGI 2</b></span> &bull; <span><b>INT 2</b></span> &bull; <span><b>CHA 2</b></span> &bull; <span><b>VIT 3</b></span>
                 </div>
                 <ul class="adnd-stat-perks">
-                  <li><b>Starting Vitals:</b> <b>14 Max HP</b>, 1 ACC, 0 EVA, 1 ATK, 0 DEF, 3 AP.</li>
+                  <li><b>Starting Vitals:</b> <b>16 Max HP</b>, 3 ACC, 2 EVA, 3 ATK, 0 DEF, 3 AP.</li>
                   <li><b>Passive &mdash; <code>[Berzerk]</code>:</b> Gains <b>+1 ATK</b> when at 50% HP or lower; increases to <b>+2 ATK</b> when critically wounded at 25% HP or lower.</li>
                   <li><b>Starter Combat Deck:</b> 8&times; Slash (1 AP, 5 physical damage + ATK) &bull; 2&times; Defend (1 AP, 4 Block).</li>
                   <li><b>Tactics:</b> High starting HP lets the Fighter absorb hits while scaling melee strikes through both STR and DEX. Exploit Berzerk surges during fierce boss fights!</li>
@@ -543,13 +790,13 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 </div>
                 <p class="adnd-class-summary">A tactical scholar commanding elemental flame, bending action economy, and outsmarting opponents with high wit.</p>
                 <div class="adnd-class-stats-strip">
-                  <span><b>STR 1</b></span> &bull; <span><b>DEX 2</b></span> &bull; <span><b>AGI 1</b></span> &bull; <span><b>INT 3</b></span> &bull; <span><b>CHA 2</b></span> &bull; <span><b>VIT 1</b></span>
+                  <span><b>STR 2</b></span> &bull; <span><b>DEX 3</b></span> &bull; <span><b>AGI 2</b></span> &bull; <span><b>INT 4</b></span> &bull; <span><b>CHA 3</b></span> &bull; <span><b>VIT 2</b></span>
                 </div>
                 <ul class="adnd-stat-perks">
-                  <li><b>Starting Vitals:</b> <b>12 Max HP</b>, 1 ACC, 0 EVA, 1 MATK, 0 MDEF, 3 AP.</li>
+                  <li><b>Starting Vitals:</b> <b>14 Max HP</b>, 3 ACC, 2 EVA, 2 MATK, 0 MDEF, 3 AP.</li>
                   <li><b>Passive &mdash; <code>[Conserve]</code>:</b> Unspent Action Points (AP) at the end of a battle turn are saved and carried over into the next round.</li>
                   <li><b>Starter Combat Deck:</b> 8&times; Fireball (1 AP, 5 magic damage + MATK) &bull; 2&times; Force Field (1 AP, 4 Block).</li>
-                  <li><b>Tactics:</b> Save AP during quiet turns to unleash explosive multi-spell combos. Enjoys an immediate 10% discount in village shops from starting CHA 2.</li>
+                  <li><b>Tactics:</b> Save AP during quiet turns to unleash explosive multi-spell combos. Enjoys an immediate 15% discount in village shops from starting CHA 3.</li>
                 </ul>
               </div>
 
@@ -560,13 +807,13 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 </div>
                 <p class="adnd-class-summary">An elusive infiltrator blending lightning reflexes, tactical perceptiveness, and opportunistic thievery.</p>
                 <div class="adnd-class-stats-strip">
-                  <span><b>STR 2</b></span> &bull; <span><b>DEX 2</b></span> &bull; <span><b>AGI 3</b></span> &bull; <span><b>INT 1</b></span> &bull; <span><b>CHA 1</b></span> &bull; <span><b>VIT 1</b></span>
+                  <span><b>STR 3</b></span> &bull; <span><b>DEX 3</b></span> &bull; <span><b>AGI 4</b></span> &bull; <span><b>INT 2</b></span> &bull; <span><b>CHA 2</b></span> &bull; <span><b>VIT 2</b></span>
                 </div>
                 <ul class="adnd-stat-perks">
-                  <li><b>Starting Vitals:</b> <b>12 Max HP</b>, 1 ACC, 1 EVA, 1 ATK, 1 DEF, 3 AP.</li>
-                  <li><b>Passive &mdash; <code>[Steal]</code>:</b> Rolling any pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6) on a 2d6 attack roll instantly pickpockets Gold equal to the doubled die number (e.g. 6+6 steals <b>+6 Gold</b>, 5+5 steals <b>+5 Gold</b>, and even Snake Eyes 1+1 steals <b>+1 Gold</b>).</li>
+                  <li><b>Starting Vitals:</b> <b>14 Max HP</b>, 3 ACC, 4 EVA, 2 ATK, 1 DEF, 3 AP.</li>
+                  <li><b>Passive &mdash; <code>[Steal]</code>:</b> Rolling any matching pair on a 3d6 attack hit check (e.g. [6, 6, 2], [5, 3, 5], [1, 1, 4]) instantly pickpockets Gold equal to the matching die number (e.g. pair of 6s steals <b>+6 Gold</b>, pair of 5s steals <b>+5 Gold</b>, and even a pair of 1s steals <b>+1 Gold</b>).</li>
                   <li><b>Starter Combat Deck:</b> 8&times; Slash (1 AP, 5 physical damage + ATK) &bull; 2&times; Defend (1 AP, 4 Block).</li>
-                  <li><b>Tactics:</b> High EVA causes enemy attacks to miss; starts with 1 natural DEF from AGI 3; generates bonus gold in battle to buy elite gear quickly.</li>
+                  <li><b>Tactics:</b> High EVA causes enemy attacks to miss; starts with 1 natural DEF from AGI 4; generates bonus gold in battle to buy elite gear quickly.</li>
                 </ul>
               </div>
 
@@ -624,12 +871,88 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               </div>
 
               <div class="adnd-page-jump-row">
+                <span class="adnd-jump-label">Next Chapter:</span>
+                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="6">Turn to Ch. V: Bestiary &rarr;</button>
                 <button class="btn primary guide-jump-btn" data-action="close-guide">${inGame ? 'Back to Game' : 'Ready to Begin'}</button>
               </div>
             </div>
           </div>
         </article>
 
+        <!-- ============================================================ -->
+        <!-- PAGE 6: Chapter VI — The Monstrous Compendium (Bestiary)     -->
+        <!-- ============================================================ -->
+        <article class="guide-book-page ${p === 6 ? 'is-active' : ''}" data-page="6">
+          <header class="guide-page-header">
+            <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
+            <h3 class="guide-chapter-title">&mdash; CHAPTER VI: THE MONSTROUS COMPENDIUM &mdash;</h3>
+            <p class="guide-chapter-sub">Field Guide to Creatures of the Realm &bull; Click any monster card to inspect full stats, intents, rewards &amp; lore</p>
+          </header>
+
+          <div class="guide-folio-grid">
+            <div class="guide-folio-col">
+              <section class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>🌿</span> Grasslands Dwellers <small>(Lvl 1–2)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Encountered across open plains and grassy borders</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${getBestiaryMonstersForTerrain('grasslands').map(id => renderGuideBestiaryCardItem(id)).join('')}
+                </div>
+              </section>
+
+              <section class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>🌲</span> Forest Predators <small>(Lvl 2–3)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Lurking beneath deep canopies and ancient thickets</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${getBestiaryMonstersForTerrain('forest').map(id => renderGuideBestiaryCardItem(id)).join('')}
+                </div>
+              </section>
+            </div>
+
+            <div class="guide-folio-col">
+              <section class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>🪷</span> Swamp Horrors <small>(Lvl 3–4)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Festering in murky bogs, toxic fens and rotting marshes</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${getBestiaryMonstersForTerrain('swamp').map(id => renderGuideBestiaryCardItem(id)).join('')}
+                </div>
+              </section>
+
+              <section class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>🪨</span> Cave Denizens <small>(Lvl 4–5)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Stalking subterranean caverns, shadows and crystal depths</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${getBestiaryMonstersForTerrain('cave').map(id => renderGuideBestiaryCardItem(id)).join('')}
+                </div>
+              </section>
+
+              <section class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>👑</span> Legendary Bosses <small>(Culminations)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Stage 1 &amp; Stage 2 Turn 15 culmination encounters</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${getBestiaryBosses().map(id => renderGuideBestiaryCardItem(id)).join('')}
+                </div>
+              </section>
+
+              <div class="adnd-page-jump-row">
+                <span class="adnd-jump-label">Previous Chapter:</span>
+                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="5">&larr; Back to Ch. V: Shrines &amp; Void</button>
+                <button class="btn primary guide-jump-btn" data-action="close-guide">${inGame ? 'Back to Game' : 'Ready to Begin'}</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        </div>
       </div>
 
       <!-- Tome Page-Turn Footer with Medallion and Controls -->
@@ -640,13 +963,13 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
 
         <div class="guide-page-medallion">
           <span class="guide-medallion-crest" aria-hidden="true">&#10022;</span>
-          <span class="guide-medallion-text">PAGE ${p} OF 5</span>
+          <span class="guide-medallion-text">PAGE ${p} OF 6</span>
           <span class="guide-medallion-crest" aria-hidden="true">&#10022;</span>
           <span class="guide-turn-hint">Turn page with A / D or &larr; / &rarr; keys</span>
         </div>
 
-        <button class="btn guide-turn-btn next" data-action="${p >= 5 ? 'close-guide' : 'guide-next-page'}" title="${p >= 5 ? 'Close Tome' : 'Next Page (D or &rarr;)'}">
-          ${p >= 5 ? 'Close Tome &times;' : 'Next Page &rarr;'}
+        <button class="btn guide-turn-btn next" data-action="${p >= 6 ? 'close-guide' : 'guide-next-page'}" title="${p >= 6 ? 'Close Tome' : 'Next Page (D or &rarr;)'}">
+          ${p >= 6 ? 'Close Tome &times;' : 'Next Page &rarr;'}
         </button>
       </footer>
 
@@ -697,15 +1020,8 @@ function monsterRaritySymbolHtml(monster: Pick<MonsterCard, 'isBoss' | 'rarity'>
 
 export function classDetailPanelContentHtml(id: ClassId): string {
   const c = CLASS_CATALOG[id];
-  const eff: CharacterStats = {
-    str: 1 + c.classBonuses.str,
-    dex: 1 + c.classBonuses.dex,
-    agi: 1 + c.classBonuses.agi,
-    int: 1 + c.classBonuses.int,
-    cha: 1 + c.classBonuses.cha,
-    vit: 1 + c.classBonuses.vit,
-  };
-  const hp = 10 + eff.vit * 2;
+  const eff: CharacterStats = computeEffectiveStats(STARTING_BASE_STATS, c.classBonuses, { weapon: null, armor: null, accessory: null });
+  const hp = calculateMaxHp(eff.vit);
   const deckLine =
     id === 'wizard'
       ? '8&times; Fireball ATK &middot; 2&times; Force Field DEF'
@@ -726,12 +1042,12 @@ export function classDetailPanelContentHtml(id: ClassId): string {
   </div>
   <table class="stat-table">
     <thead>
-      <tr><th class="stat-th-header"></th><th>Base</th><th>Class</th><th>Total</th></tr>
+      <tr><th class="stat-th-header"></th><th>Base</th><th>Innate</th><th>Class</th><th>Total</th></tr>
     </thead>
     <tbody>
       ${STATS.map(
         (s) =>
-          `<tr><th class="stat-th-cell"><span class="stat-cell-inner">${getStatIcon(s, 'stat-select-icon')} <span class="stat-select-label">${s.toUpperCase()}</span></span></th><td>1</td><td>${
+          `<tr><th class="stat-th-cell"><span class="stat-cell-inner">${getStatIcon(s, 'stat-select-icon')} <span class="stat-select-label">${s.toUpperCase()}</span></span></th><td>1</td><td>+1</td><td>${
             c.classBonuses[s] > 0 ? '+' + c.classBonuses[s] : c.classBonuses[s]
           }</td><td><b>${eff[s]}</b></td></tr>`
       ).join('')}
@@ -915,12 +1231,56 @@ function statPanelHtml(state: RunState): string {
     state.playerResources?.hp,
     state.playerResources?.maxHp
   );
-  const derived = getDerivedCombatStats(eff, state.equippedGear, 0, berzerkBonus);
+  const combat: ActiveCombatState | undefined = state.activeHook.type === 'COMBAT' ? state.activeHook.combat : undefined;
+  const roundEva = combat ? combat.playerEvasionMod : 0;
+  const derived = getDerivedCombatStats(eff, state.equippedGear, roundEva, berzerkBonus);
+  if (combat) {
+    const heroDebuffs = getHeroStatDebuffMods(combat);
+    derived.acc += (combat.playerAccMod ?? 0) + heroDebuffs.acc;
+    derived.eva += heroDebuffs.eva;
+    derived.def = Math.max(0, derived.def + heroDebuffs.def);
+    derived.mdef = Math.max(0, derived.mdef + heroDebuffs.mdef);
+  }
   const className = getPlayerClassName(state.playerClass);
   const heroArt = getAdventurerRasterArtPath(state.playerClass);
+  const res = state.playerResources;
+  const hp = res?.hp ?? 0;
+  const maxHp = res?.maxHp ?? 1;
+  const hpPct = Math.max(0, Math.min(100, Math.round((hp / maxHp) * 100)));
+  const blockText = combat && combat.playerBlock > 0 ? ` (+${combat.playerBlock} &#128737;)` : '';
 
   return `
   <div class="stat-panel">
+    <!-- Hero Resources (Gold & SP) above Health Bar -->
+    <div class="hero-sidebar-resources">
+      <div class="hero-res-chip gold" title="Current Gold">${getResourceIcon('gold', 'chip-icon')} <b>${res?.gold ?? 0} Gold</b></div>
+      <div class="hero-res-chip sp" title="Current Stat Points">${getResourceIcon('sp', 'chip-icon')} <b>${res?.statPoints ?? 0} SP</b></div>
+    </div>
+
+    <!-- Hero Health & Vitals Bar above Portrait & Stats -->
+    <div class="hero-sidebar-vitals-card">
+      <div class="hero-sidebar-vitals-top">
+        <span class="hero-sidebar-class-name">${className}</span>
+        <span class="hero-sidebar-hp-text"><b>${hp}</b> / ${maxHp} HP${blockText}</span>
+      </div>
+      <div class="hero-sidebar-hp-track" role="progressbar" aria-valuenow="${hp}" aria-valuemin="0" aria-valuemax="${maxHp}" aria-label="${className} Health">
+        <div class="hero-sidebar-hp-fill" style="width: ${hpPct}%;"></div>
+      </div>
+      ${
+        combat && (
+          (combat.heroStatDebuffs?.length ?? 0) > 0 ||
+          (combat.playerAccMod ?? 0) < 0 ||
+          (combat.playerEvasionMod ?? 0) < 0
+        )
+          ? `<div class="combat-debuff-tray" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;">
+              ${(combat.heroStatDebuffs ?? []).map((effect: HeroStatDebuff) => `<span class="combat-debuff-chip" style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;" title="${effect.label}">${effect.label}</span>`).join('')}
+              ${(combat.playerAccMod ?? 0) < 0 ? `<span class="combat-debuff-chip" style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;" title="Accuracy debuff">🔮 -1 ACC</span>` : ''}
+              ${(combat.playerEvasionMod ?? 0) < 0 ? `<span class="combat-debuff-chip" style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;" title="Evasion debuff">🔮 -1 EVA</span>` : ''}
+            </div>`
+          : ''
+      }
+    </div>
+
     <div class="hero-sidebar-portrait-row">
       <div class="hero-sidebar-portrait-frame" title="${className} (Hero)" data-inspect-kind="hero">
         <img src="${heroArt}" alt="${className} Hero" class="hero-sidebar-portrait-img" loading="lazy" />
@@ -938,15 +1298,14 @@ function statPanelHtml(state: RunState): string {
       </div>
     </div>
     <div class="derived-combat-stats">
-      <span class="derived-chip acc" title="Accuracy: 1 ACC per 2 DEX">${getDerivedStatIcon('acc')} ACC <b>${derived.acc}</b></span>
-      <span class="derived-chip eva" title="Evasion: 1 EVA per 2 AGI + Gear EVA">${getDerivedStatIcon('eva')} EVA <b>${derived.eva}</b></span>
+      <span class="derived-chip acc" title="Accuracy: 1 ACC per 1 DEX">${getDerivedStatIcon('acc')} ACC <b>${derived.acc}</b></span>
+      <span class="derived-chip eva" title="Evasion: 1 EVA per 1 AGI + Gear EVA">${getDerivedStatIcon('eva')} EVA <b>${derived.eva}</b></span>
       <span class="derived-chip atk" title="Physical Attack: floor(STR / 2) + floor(DEX / 3) + Gear ATK">${getDerivedStatIcon('atk')} ATK <b>${derived.atk}</b></span>
       <span class="derived-chip def" title="Physical Defense: floor(STR / 5) + floor(VIT / 5) + floor(AGI / 3) + Gear DEF">${getDerivedStatIcon('def')} DEF <b>${derived.def}</b></span>
       <span class="derived-chip matk" title="Magical Attack: floor(INT / 2) + Gear MATK">${getDerivedStatIcon('matk')} MATK <b>${derived.matk}</b></span>
       <span class="derived-chip mdef" title="Magical Defense: floor(INT / 5) + Gear MDEF">${getDerivedStatIcon('mdef')} MDEF <b>${derived.mdef}</b></span>
       ${derived.pen > 0 ? `<span class="derived-chip pen" title="Physical Penetration: physical attacks ignore this much enemy natural DEF"><span class="pen-symbol">PEN</span> PEN <b>${derived.pen}</b></span>` : ''}
-      <span class="derived-chip act" title="Max Action Points: Base 3 + floor(INT / 5)">${getDerivedStatIcon('act')} ACT <b>${derived.act}</b></span>
-      <span class="derived-chip crit" title="Critical Hit Range: Boxcars 12 (6+6)">🎲 CRIT <b>${derived.critThreshold ?? 12}+</b></span>
+      <span class="derived-chip act" title="Action Points: ${combat ? `${combat.playerAp}/${combat.playerMaxAp}` : `Max ${derived.act}`}">${getDerivedStatIcon('act')} ACT <b>${combat ? `${combat.playerAp}/${combat.playerMaxAp}` : derived.act}</b></span>
       <span class="derived-chip cha" title="Charisma: -5% shop prices per CHA">${getStatIcon('cha')} DISC <b>-${eff.cha * 5}%</b></span>
     </div>
     <p class="muted shrine-hint">Right-click any stat for full computation &amp; next SP cost.</p>
@@ -1123,11 +1482,57 @@ export function deckPilesPanelHtml(state: RunState, config: DeckPanelConfig): st
   </section>`;
 }
 
+export function combatRightSidebarHtml(state: RunState, combat: ActiveCombatState): string {
+  const gameEntries = state.gameLog ?? [];
+  const combatEntries = combat.combatLog ?? [];
+  const missingFromGame = combatEntries.filter((c) => !gameEntries.includes(c));
+  const logEntries = missingFromGame.length > 0 ? [...gameEntries, ...missingFromGame] : (gameEntries.length > 0 ? gameEntries : combatEntries);
+  return `
+  <aside class="combat-log-sidebar" aria-label="Battle Log">
+    ${deckPilesPanelHtml(state, {
+      visibleGroups: ['player'],
+      heading: 'Action Deck',
+      ariaLabel: 'Action draw and discard piles',
+      className: 'combat-action-piles',
+      showFooter: false,
+      groupLabels: { player: 'Action Cards' },
+    })}
+    <div class="combat-log-header">
+      <span class="combat-log-header-title">📜 Battle Log</span>
+      <span class="combat-log-count">${logEntries.length}</span>
+      <button class="btn mini secondary log-expand-btn" data-action="open-log" title="View Full Game Log">View All</button>
+    </div>
+    <ul class="combat-sidebar-log log">
+      ${renderCombatLogEntries(logEntries)}
+    </ul>
+  </aside>`;
+}
+
+export function mapGameLogHtml(state: RunState): string {
+  const logEntries = state.gameLog ?? [];
+  return `
+  <section class="main-viewport-log-box" aria-label="Recent Game Log">
+    <div class="combat-log-header">
+      <div class="main-viewport-log-title-group">
+        <span class="combat-log-header-title">📜 Game Log</span>
+        <span class="combat-log-count">${logEntries.length}</span>
+      </div>
+      <button class="btn mini secondary log-expand-btn" data-action="open-log" title="View Full Game Log">View All</button>
+    </div>
+    <ul class="combat-sidebar-log log main-viewport-recent-log">
+      ${renderCombatLogEntries(logEntries.slice(-5))}
+    </ul>
+  </section>`;
+}
+
 export function rightSidebarHtml(state: RunState): string {
-  return deckPilesPanelHtml(state, {
-    visibleGroups: ['adventure', 'monster', 'player', 'treasure', 'newSkills', 'void'],
-    heading: 'Decks &amp; Discards',
-  });
+  return `
+  <div class="map-sidebar-right-wrap">
+    ${deckPilesPanelHtml(state, {
+      visibleGroups: ['adventure', 'monster', 'player', 'treasure', 'newSkills', 'void'],
+      heading: 'Decks &amp; Discards',
+    })}
+  </div>`;
 }
 
 function adventurePileCardItem(card: AdventureCard, count: number, totalCards: number): string {
@@ -1520,54 +1925,164 @@ export function pileModal(pileType: PileType, state: RunState): string {
   </div>`;
 }
 
+
+/** Themed tabletop boardgame turn tracker strip with phase bands, nodes, and player standee marker. */
+export function turnTrackerHtml(state: RunState): string {
+  const currentTurn = state.turn;
+  const maxTurns = state.maxTurns ?? 15;
+  const heroArt = getAdventurerRasterArtPath(state.playerClass);
+  const className = getPlayerClassName(state.playerClass);
+
+  const meepleHtml = `
+    <div class="turn-standee-marker" title="Hero Party Position: ${
+      currentTurn === 0
+        ? 'Preparation'
+        : currentTurn >= maxTurns
+        ? 'Stage Boss Confrontation!'
+        : `Turn ${currentTurn} of ${maxTurns}`
+    }">
+      <div class="standee-token">
+        <img src="${heroArt}" alt="${className}" class="standee-hero-art" loading="lazy" />
+      </div>
+      <div class="standee-base" aria-hidden="true"></div>
+    </div>`;
+
+  const nodesHtml: string[] = [];
+
+  // Start Node (Turn 0)
+  const isStartCurrent = currentTurn === 0;
+  const isStartCompleted = currentTurn > 0;
+  nodesHtml.push(`
+    <div class="turn-node is-start ${isStartCurrent ? 'is-current' : ''} ${isStartCompleted ? 'is-completed' : ''}" data-turn="0" title="Turn 0: Adventure Preparation">
+      ${isStartCurrent ? meepleHtml : ''}
+      <span class="turn-node-circle start-circle">
+        <span class="turn-label">START</span>
+      </span>
+    </div>
+    <span class="turn-arrow ${currentTurn > 0 ? 'is-completed' : ''}" aria-hidden="true">&rarr;</span>
+  `);
+
+  // Turns 1 through maxTurns
+  for (let i = 1; i <= maxTurns; i++) {
+    const isCurrent = currentTurn === i;
+    const isCompleted = currentTurn > i;
+    const isBoss = i === maxTurns;
+
+    nodesHtml.push(`
+      <div class="turn-node ${isBoss ? 'is-boss-node' : ''} ${isCurrent ? 'is-current' : ''} ${isCompleted ? 'is-completed' : ''} ${!isCurrent && !isCompleted ? 'is-upcoming' : ''}" data-turn="${i}" title="${isBoss ? `Turn ${i}: Stage Boss Battle!` : `Turn ${i} of ${maxTurns}`}">
+        ${isCurrent ? meepleHtml : ''}
+        <span class="turn-node-circle ${isBoss ? 'boss-circle' : ''}">
+          ${isBoss ? '<span class="turn-boss-skull" aria-hidden="true">&#9760;</span>' : ''}
+          <span class="turn-num">${i}</span>
+        </span>
+      </div>
+      ${i < maxTurns ? `<span class="turn-arrow ${currentTurn > i ? 'is-completed' : ''}" aria-hidden="true">&rarr;</span>` : ''}
+    `);
+  }
+
+  return `
+  <div class="boardgame-turn-tracker" aria-label="Scenario Turn Track (Turn ${currentTurn} of ${maxTurns})">
+    <!-- Phase Category Banners (Bands) -->
+    <div class="turn-phase-bands-row">
+      <div class="turn-phase-band phase-start ${currentTurn === 0 ? 'is-active-phase' : ''}">
+        <span class="phase-title">Preparation</span>
+      </div>
+      <div class="turn-phase-band phase-approach ${currentTurn >= 1 && currentTurn <= 4 ? 'is-active-phase' : ''}">
+        <span class="phase-title">The Approach (1–4)</span>
+      </div>
+      <div class="turn-phase-band phase-wilds ${currentTurn >= 5 && currentTurn <= 9 ? 'is-active-phase' : ''}">
+        <span class="phase-title">The Wilds (5–9)</span>
+      </div>
+      <div class="turn-phase-band phase-dungeon ${currentTurn >= 10 && currentTurn <= 14 ? 'is-active-phase' : ''}">
+        <span class="phase-title">Deep Dungeon (10–14)</span>
+      </div>
+      <div class="turn-phase-band phase-boss ${currentTurn >= 15 ? 'is-active-phase' : ''}">
+        <span class="phase-title">Stage Boss (15)</span>
+      </div>
+    </div>
+
+    <!-- The Tabletop Track with Nodes & Meeple Standee -->
+    <div class="turn-track-scroll">
+      <div class="turn-track-nodes">
+        ${nodesHtml.join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
 export function renderPlayArea(state: RunState, ui: UiState): string {
   const res = state.playerResources;
   if (!res) return '';
-  const hpPct = Math.max(0, Math.round((res.hp / res.maxHp) * 100));
   const nodes = Object.values(state.board).sort((a, b) => a.coord.row - b.coord.row);
   const classDef = state.playerClass ? CLASS_CATALOG[state.playerClass] : null;
+  const isCombat = state.activeHook.type === 'COMBAT';
+  const stats = getEffectiveStatsFromState(state);
 
-  return `
-  <main class="screen play">
-    <header class="hud">
-      <div class="hud-top">
-        <div class="turn">Turn <b>${state.turn}</b> / ${state.maxTurns}</div>
-        <div class="scenario-level">Scenario ${state.currentMission ?? 1} &middot; Level ${state.scenarioLevel ?? state.currentMission ?? 1}</div>
-        <div class="who">${classDef ? classDef.name : ''}</div>
-        <div class="gold">${getResourceIcon('gold', 'chip-icon')} ${res.gold} Gold</div>
-        <div class="sp">${getResourceIcon('sp', 'chip-icon')} ${res.statPoints} SP</div>
-        <button class="btn mini hud-guide-btn" data-action="open-guide" title="Open the How to Play guide">📖 Guide</button>
-        ${state.divineProtection > 0 ? `<div class="hud-badge prot">&#10022; Prot -${state.divineProtection}</div>` : ''}
-        ${state.statusEffects && state.statusEffects.length > 0 ? `<div class="hud-badge status">${state.statusEffects.join(', ')}</div>` : ''}
-      </div>
-      <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%"></div><span>${res.hp} / ${res.maxHp} HP</span></div>
-      <div class="decks">
-        <button class="linklike" data-action="open-pile" data-pile="adventure_deck" title="View Adventure Deck &amp; Discard">Adventure ${state.adventureDeck.length} / ${state.adventureDiscard.length} discard</button>
-        <button class="linklike" data-action="open-pile" data-pile="monster_deck" title="View Monster Deck &amp; Discard">Monsters ${state.monsterDeck.length} / ${state.monsterDiscard.length} discard</button>
-        <button class="linklike" data-action="open-pile" data-pile="treasure_deck" title="View Treasure Deck &amp; Discard">Treasure ${state.treasureDeck.length} / ${state.treasureDiscard.length} discard</button>
-        <button class="linklike" data-action="open-pile" data-pile="player_deck" title="View Player Combat Deck">Combat deck (${state.playerMasterDeck.length})</button>
-      </div>
-    </header>
-
-    <div class="play-layout">
-      <aside class="play-sidebar">
-        ${playerInfoWidgetHtml(state, {
-          title: 'Character & Gear',
-          description: 'Your live hero, derived combat values, equipment, and backpack.',
-          showGear: true,
-        })}
-      </aside>
-
-      <div class="play-main">
+  const mainContent = state.activeHook.type === 'COMBAT'
+    ? combatViewHtml(state, state.activeHook.combat, ui, stats)
+    : state.activeHook.type === 'VILLAGE'
+    ? villageViewHtml(state, state.activeHook.village, ui)
+    : `
         <section class="board" aria-label="Adventure board">
           <div class="board-world">${nodes.map((n) => adventureCardHtml(n, state)).join('')}</div>
         </section>
 
         <div class="banner">${state.bannerMessage}</div>
+      `;
+
+  const leftSidebarContent = playerInfoWidgetHtml(state, {
+    title: 'Character & Gear',
+    description: 'Your live hero, derived combat values, equipment, and backpack.',
+    showGear: true,
+  });
+
+  const rightSidebarContent = state.activeHook.type === 'COMBAT'
+    ? combatRightSidebarHtml(state, state.activeHook.combat)
+    : rightSidebarHtml(state);
+
+  const logCount = (state.gameLog ?? []).length;
+
+  return `
+  <main class="screen play ${isCombat ? 'is-in-combat' : ''}">
+    <header class="hud">
+      <div class="hud-logo-col">
+        <img src="${publicAsset('brand/paths-we-choose-logo.png')}" alt="The Paths We Choose" class="hud-game-logo" width="220" height="92" />
       </div>
 
-      <aside class="play-sidebar-right">
-        ${rightSidebarHtml(state)}
+      <div class="hud-content-col">
+        <div class="hud-top">
+          <div class="hud-scenario-group">
+            <span class="hud-scenario-badge">Scenario ${state.currentMission ?? 1}</span>
+            ${classDef ? `<span class="hud-hero-badge">${classDef.name}</span>` : ''}
+          </div>
+
+          <div class="hud-resources">
+            ${state.divineProtection > 0 ? `<div class="hud-badge prot">&#10022; Prot -${state.divineProtection}</div>` : ''}
+            ${state.statusEffects && state.statusEffects.length > 0 ? `<div class="hud-badge status">${state.statusEffects.join(', ')}</div>` : ''}
+          </div>
+
+          <div class="hud-actions-group">
+            <button class="btn mini hud-log-btn" data-action="open-log" title="Open Adventure Chronicle (Game Log)">📜 Log (${logCount})</button>
+            <button class="btn mini hud-guide-btn" data-action="open-guide" title="Open the How to Play guide">📖 Guide</button>
+          </div>
+        </div>
+
+        ${turnTrackerHtml(state)}
+      </div>
+    </header>
+
+    <div class="play-layout">
+      <aside class="play-sidebar ${isCombat ? 'is-combat-hero' : ''}">
+        ${leftSidebarContent}
+      </aside>
+
+      <div class="play-main ${isCombat ? 'is-combat-main' : ''}">
+        ${mainContent}
+        ${!isCombat ? mapGameLogHtml(state) : ''}
+      </div>
+
+      <aside class="play-sidebar-right ${isCombat ? 'is-combat-right' : ''}">
+        ${rightSidebarContent}
       </aside>
     </div>
     <footer class="foot">seed: ${state.seed}</footer>
@@ -1575,11 +2090,15 @@ export function renderPlayArea(state: RunState, ui: UiState): string {
     ${ui.inspectedPile ? pileModal(ui.inspectedPile, state) : ''}
     ${ui.showDeck ? pileModal('player_deck', state) : ''}
     ${renderHook(state, ui)}
+    ${ui.pendingCardPlay && state.activeHook.type === 'COMBAT' ? combatConfirmModal(state, state.activeHook.combat, ui.pendingCardPlay, stats) : ''}
+    ${ui.pendingDiceRolls && ui.pendingDiceRolls.length > 0 ? combatDiceRollModal(ui.pendingDiceRolls[0]) : ''}
+    ${ui.pendingFlee && state.activeHook.type === 'COMBAT' ? fleeConfirmModal(state, state.activeHook.combat, stats) : ''}
     ${ui.pendingTrainingAction ? trainingConfirmModal(state, ui.pendingTrainingAction) : ''}
     ${ui.pendingShrineAction ? shrineConfirmModal(state, ui.pendingShrineAction) : ''}
+    ${ui.showGuide ? renderGuideModal(true, ui.guidePage ?? 1) : ''}
+    ${ui.showLog ? gameLogModal(state, ui) : ''}
     ${ui.inspectedCard ? cardInspectModal(ui.inspectedCard, state) : ''}
     ${ui.inspectedStat ? statInspectModal(ui.inspectedStat, state) : ''}
-    ${ui.showGuide ? renderGuideModal(true) : ''}
   </main>`;
 }
 
@@ -1621,9 +2140,9 @@ function renderHook(state: RunState, ui: UiState): string {
   const hook = state.activeHook;
   switch (hook.type) {
     case 'COMBAT':
-      return combatModal(state, hook.combat, ui);
+      return ''; // Rendered inline in .play-main replacing the maps/board component
     case 'VILLAGE':
-      return villageModal(state, hook.village, ui);
+      return ''; // Rendered inline in .play-main replacing the maps/board component
     case 'SHRINE':
       return shrineModal(state, ui);
     case 'EXPLORATION':
@@ -1712,9 +2231,9 @@ export function updateMonsterCarouselDom(
 
   const total = combat.monsters.length;
   const target =
-    combat.monsters[targetIndex] && combat.monsters[targetIndex].hp > 0
+    targetIndex >= 0 && targetIndex < total
       ? targetIndex
-      : firstLivingMonsterIndex(combat);
+      : (firstLivingMonsterIndex(combat) >= 0 ? firstLivingMonsterIndex(combat) : 0);
 
   combat.monsters.forEach((cm, i) => {
     const unit = track.querySelector<HTMLElement>(`.combat-monster-unit[data-id="${i}"]`);
@@ -1739,9 +2258,10 @@ export function updateMonsterCarouselDom(
 
     const header = unit.querySelector<HTMLElement>('.combat-target-header');
     if (header) {
-      const neededRoll = playerAcc !== undefined ? Math.max(2, Math.min(12, BASE_HIT_THRESHOLD - (playerAcc - ((cm.monster.eva ?? 0) + (cm.evaBonus ?? 0))))) : null;
-      const targetText = neededRoll !== null
-        ? `🎯 TARGET (Roll ${neededRoll}+ · ${computeHitProbability(neededRoll, playerCritThreshold).hitPercent}%)`
+      const netAcc = playerAcc !== undefined ? playerAcc - ((cm.monster.eva ?? 0) + (cm.evaBonus ?? 0)) : null;
+      const prob = netAcc !== null ? computeHitProbability(netAcc, playerCritThreshold) : null;
+      const targetText = prob !== null
+        ? `🎯 TARGET (Hit: ${prob.minHitRoll}–${prob.maxHitRoll} · ${prob.hitPercent}%)`
         : '🎯 TARGET';
       const badgeHtml = isSelected
         ? `<div class="combat-target-badge-top">${targetText}</div>`
@@ -1921,9 +2441,10 @@ function monsterCardHtml(
   const intent = getMonsterIntent(cm, allMonsters, heroDebuffCount);
   const actionAttr = canTarget && !dead ? `data-action="target"` : '';
 
-  const neededRoll = playerAcc !== undefined ? Math.max(2, Math.min(12, BASE_HIT_THRESHOLD - (playerAcc - ((m.eva ?? 0) + (cm.evaBonus ?? 0))))) : null;
-  const targetText = neededRoll !== null
-    ? `🎯 TARGET (Roll ${neededRoll}+ · ${computeHitProbability(neededRoll, playerCritThreshold).hitPercent}%)`
+  const netAcc = playerAcc !== undefined ? playerAcc - ((m.eva ?? 0) + (cm.evaBonus ?? 0)) : null;
+  const prob = netAcc !== null ? computeHitProbability(netAcc, playerCritThreshold) : null;
+  const targetText = prob !== null
+    ? `🎯 TARGET (Hit: ${prob.minHitRoll}–${prob.maxHitRoll} · ${prob.hitPercent}%)`
     : '🎯 TARGET';
 
   return `
@@ -2016,54 +2537,7 @@ export interface ParsedCombatLogEntry {
 }
 
 export function parseCombatLogEntry(entry: string): ParsedCombatLogEntry {
-  let timestamp = '';
-  let text = entry.trim();
-
-  // Extract [HH:MM:SS] if present at the start
-  const timeMatch = text.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.*)$/s);
-  if (timeMatch) {
-    timestamp = timeMatch[1];
-    text = timeMatch[2].trim();
-  }
-
-  // Determine actor type and display label
-  let actorType: 'hero' | 'enemy' | 'system' = 'enemy';
-  let actorLabel = 'Enemy';
-
-  if (
-    text.includes('Played ') ||
-    text.includes('enters the Stack') ||
-    text.includes('fully resolves') ||
-    /:\s*(?:discarded|drew|regained)\b/i.test(text) ||
-    text.includes('Battle Flag:') ||
-    text.includes('[Steal]') ||
-    text.includes('[Conserve]') ||
-    text.includes('Used ') ||
-    /^(?:⚔️|🛡️|💰|✨|🧪)?\s*(?:You|Hero)\b/i.test(text)
-  ) {
-    actorType = 'hero';
-    actorLabel = 'You';
-  } else if (/^(?:[🗺️🌲🌿✦⚔️]?\s*)?Encountered\b/i.test(text)) {
-    actorType = 'system';
-    actorLabel = 'Encounter';
-  } else {
-    actorType = 'enemy';
-    const creatureMatch = text.match(
-      /^[^\w\s]*\s*([A-Za-z0-9 '\-]+?)(?:\s+uses\b|\s+gathers\b|\s+did nothing|\s+drains life|'s\b)/i
-    );
-    if (creatureMatch && creatureMatch[1].trim()) {
-      actorLabel = creatureMatch[1].trim();
-    } else {
-      actorLabel = 'Enemy';
-    }
-  }
-
-  return {
-    timestamp,
-    actorType,
-    actorLabel,
-    text,
-  };
+  return parseGameLogEntry(entry) as ParsedCombatLogEntry;
 }
 
 export function renderCombatLogEntries(combatLog: string[]): string {
@@ -2091,154 +2565,6 @@ function heroHexIntentHtml(intent: MonsterIntent): string {
   if (!intent.heroStatDebuff) return '';
   const stats = Object.entries(intent.heroStatDebuff.stats).map(([stat, value]) => `-${value} ${stat.toUpperCase()}`).join(' / ');
   return `Hero ${stats} (${intent.heroStatDebuff.duration}t)`;
-}
-
-function combatHeroSidebarHtml(state: RunState, combat: ActiveCombatState, stats: CharacterStats): string {
-  const res = state.playerResources!;
-  const hpPct = Math.max(0, Math.min(100, Math.round((res.hp / res.maxHp) * 100)));
-  const eff = stats;
-  const gearCombat = computeCombatGearBonuses(state.equippedGear);
-  const heroDef = Math.max(0, getPlayerDef(stats, gearCombat.def) + getHeroStatDebuffMods(combat).def);
-  const heroAtk = getPlayerAtk(stats, gearCombat.atk);
-  const playerAccMod = (combat.playerAccMod ?? 0) + getHeroStatDebuffMods(combat).acc;
-  const playerAcc = getPlayerAcc(stats, gearCombat.acc) + playerAccMod;
-  const playerEva = getPlayerEva(stats, combat.playerEvasionMod + getHeroStatDebuffMods(combat).eva, gearCombat.eva);
-  const className = getPlayerClassName(state.playerClass);
-  const heroArt = getAdventurerRasterArtPath(state.playerClass);
-  const classDef = state.playerClass ? CLASS_CATALOG[state.playerClass] : null;
-
-  return `
-  <aside class="combat-hero-sidebar" aria-label="Hero Vitals & Inventory">
-    ${state.statusEffects.includes('poison') ? '<div class="hud-badge status">Poison: 1 HP damage at End Turn until cleansed</div>' : ''}
-    ${(combat.heroStatDebuffs ?? []).map(effect => `<div class="hud-badge status">${effect.label}: ${[
-      ...Object.entries(effect.stats).map(([stat, value]) => `-${value} ${stat.toUpperCase()}`),
-      effect.damageTaken ? `+${effect.damageTaken} DMG taken` : '',
-    ].filter(Boolean).join(', ')} · ${effect.turnsRemaining} turn(s)</div>`).join('')}
-    <!-- 1. Hero Header & HP / Max HP Bar -->
-    <div class="combat-hero-vitals-card">
-      <div class="hero-vitals-header">
-        <div class="hero-vitals-title">
-          <span class="hero-class-tag">${className}</span>
-          <span class="hero-role-sub">${classDef ? classDef.title : ''}</span>
-        </div>
-        ${state.divineProtection > 0 ? `<span class="hud-badge prot" title="Divine Protection: -${state.divineProtection} incoming DMG">✦ -${state.divineProtection} DMG</span>` : ''}
-      </div>
-      
-      <div class="combat-hp-progress-box">
-        <div class="combat-hp-labels">
-          <span class="hp-label">Hero HP:</span>
-          <span class="hp-numbers"><b>${res.hp}</b> / ${res.maxHp} HP</span>
-        </div>
-        <div class="hp-bar combat-hero-hp-bar" title="Hero Health: ${res.hp} / ${res.maxHp} HP${combat.playerBlock > 0 ? ` (+${combat.playerBlock} Block)` : ''}">
-          <div class="hp-fill" style="width: ${hpPct}%"></div>
-          <span class="hp-text">${res.hp} / ${res.maxHp} HP${combat.playerBlock > 0 ? ` (+${combat.playerBlock} &#128737;)` : ''}</span>
-        </div>
-      </div>
-      ${
-        (combat.playerAccMod ?? 0) < 0 || (combat.playerVulnerableMod ?? 0) > 0 || (combat.playerEvasionMod ?? 0) < 0
-          ? `<div class="combat-debuff-tray" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;">
-              ${(combat.playerAccMod ?? 0) < 0 ? `<span class="combat-debuff-chip" style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;" title="Hex of Enfeeblement: -1 ACC on attack rolls">🔮 -1 ACC</span>` : ''}
-              ${(combat.playerVulnerableMod ?? 0) > 0 ? `<span class="combat-debuff-chip" style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;" title="Hex of Vulnerability: +1 damage taken from attacks">🔮 +1 DMG Taken</span>` : ''}
-              ${(combat.playerEvasionMod ?? 0) < 0 ? `<span class="combat-debuff-chip" style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;" title="Hex of Clumsiness: -1 EVA">🔮 -1 EVA</span>` : ''}
-            </div>`
-          : ''
-      }
-    </div>
-
-    <!-- 2. Hero Portrait & Core 6 Attributes (Inspectable) -->
-    <div class="combat-hero-stats-card">
-      <div class="hero-sidebar-portrait-row">
-        <div class="hero-sidebar-portrait-frame" title="${className} (Hero)" data-inspect-kind="hero">
-          <img src="${heroArt}" alt="${className} Hero" class="hero-sidebar-portrait-img" loading="lazy" />
-        </div>
-        <div class="hero-sidebar-stats-col">
-          ${STATS.map((s) => `
-            <div class="stat-row inspectable-stat"
-              data-action="inspect-stat" data-stat="${s}" data-inspect-stat="${s}"
-              title="Click or right-click to view ${s.toUpperCase()} computation & scaling">
-              <span class="stat-name">${getStatIcon(s, 'stat-icon')} ${s.toUpperCase()}</span>
-              <span class="stat-val">${eff[s]}</span>
-              <span class="stat-info-pill" title="View stat breakdown">&#9432;</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-
-      <!-- 3. Derived Combat Stats Grid (Prominent DEF & ATK) -->
-      <div class="derived-combat-stats-grid">
-        <div class="derived-chip" title="Physical DEF (Hero Natural DEF absorbs incoming physical damage): ${heroDef}">
-          ${getDerivedStatIcon('def', 'chip-icon')}
-          <span class="d-label">DEF</span>
-          <b class="d-val">${heroDef}</b>
-        </div>
-        <div class="derived-chip" title="Physical ATK (Attack damage bonus): ${heroAtk}">
-          ${getDerivedStatIcon('atk', 'chip-icon')}
-          <span class="d-label">ATK</span>
-          <b class="d-val">${heroAtk}</b>
-        </div>
-        <div class="derived-chip" title="Accuracy (Bonus to hit rolls): ${playerAcc}">
-          ${getDerivedStatIcon('acc', 'chip-icon')}
-          <span class="d-label">ACC</span>
-          <b class="d-val">${playerAcc}</b>
-        </div>
-        <div class="derived-chip" title="Evasion (Lowers enemy hit chance): ${playerEva}">
-          ${getDerivedStatIcon('eva', 'chip-icon')}
-          <span class="d-label">EVA</span>
-          <b class="d-val">${playerEva}</b>
-        </div>
-        ${gearCombat.pen > 0 ? `<div class="derived-chip pen" title="Physical Penetration: physical attacks ignore ${gearCombat.pen} enemy natural DEF">
-          <span class="chip-icon pen-symbol">PEN</span>
-          <span class="d-label">PEN</span>
-          <b class="d-val">${gearCombat.pen}</b>
-        </div>` : ''}
-        <div class="derived-chip" title="Active Block (Absorbs damage this round): ${combat.playerBlock}">
-          <span class="chip-icon">&#128737;</span>
-          <span class="d-label">BLK</span>
-          <b class="d-val">${combat.playerBlock}</b>
-        </div>
-        <div class="derived-chip ap-chip" title="Action Points: ${combat.playerAp}/${combat.playerMaxAp}">
-          <span class="chip-icon">&#9889;</span>
-          <span class="d-label">AP</span>
-          <b class="d-val">${combat.playerAp}/${combat.playerMaxAp}</b>
-        </div>
-      </div>
-    </div>
-
-    <!-- 4. Combat Backpack Section (Use Consumables in Battle!) -->
-    <div class="combat-backpack-card">
-      <div class="combat-backpack-header">
-        <span class="slot-label">&#127890; Backpack (${state.backpack.length})</span>
-        <span class="backpack-tip muted">Usable in battle</span>
-      </div>
-      <div class="combat-backpack-list">
-        ${
-          state.backpack.length
-            ? state.backpack.map((i) => {
-                const raster = getItemRasterArtPath(i.id);
-                const isConsumable = i.category === 'consumable';
-                return `
-                <div class="combat-bag-item inspectable-row" data-inspect-kind="item" data-item-id="${i.id}" data-item-instance="${i.instanceId}" title="Right-click to inspect ${i.name}">
-                  <div class="bag-item-left">
-                    <img src="${raster}" alt="${i.name}" class="inv-slot-mini-img" loading="lazy" />
-                    <div class="bag-item-text">
-                      <span class="bag-item-name">${i.name}</span>
-                      <span class="bag-item-desc">${isConsumable ? `Restores ${i.healAmount ?? 10} HP` : i.description || i.category}</span>
-                    </div>
-                  </div>
-                  <div class="bag-item-actions">
-                    ${
-                      isConsumable
-                        ? `<button class="btn mini primary use-consumable-btn" data-action="use-item" data-id="${i.instanceId}" title="Use ${i.name} now">Use</button>`
-                        : `<span class="gear-locked-badge" title="Gear cannot be changed during combat">Equipped</span>`
-                    }
-                  </div>
-                </div>`;
-              }).join('')
-            : '<div class="empty-backpack-note muted">Backpack is empty</div>'
-        }
-      </div>
-    </div>
-  </aside>`;
 }
 
 export function getHandCarouselIndex(index: number, count: number): number {
@@ -2292,8 +2618,12 @@ function combatHandCarousel(state: RunState, combat: ActiveCombatState, ui: UiSt
   </section>`;
 }
 
-function combatModal(state: RunState, combat: ActiveCombatState, ui: UiState): string {
-  const stats = getEffectiveStatsFromState(state);
+export function combatViewHtml(
+  state: RunState,
+  combat: ActiveCombatState,
+  ui: UiState,
+  stats: CharacterStats = getEffectiveStatsFromState(state)
+): string {
   const combatGear = computeCombatGearBonuses(state.equippedGear);
   const heroDebuffs = getHeroStatDebuffMods(combat);
   const playerAcc = getPlayerAcc(stats, combatGear.acc) + (combat.playerAccMod ?? 0) + heroDebuffs.acc;
@@ -2301,152 +2631,97 @@ function combatModal(state: RunState, combat: ActiveCombatState, ui: UiState): s
   const playerCritThreshold = getPlayerCritThreshold(stats);
   const res = state.playerResources!;
   const living = combat.monsters.filter((m) => m.hp > 0).length;
-  const target =
-    combat.monsters[ui.targetIndex] && combat.monsters[ui.targetIndex].hp > 0
-      ? ui.targetIndex
-      : firstLivingMonsterIndex(combat);
-  ui.targetIndex = target;
   const totalMonsters = combat.monsters.length;
+  const target =
+    ui.targetIndex >= 0 && ui.targetIndex < totalMonsters
+      ? ui.targetIndex
+      : (firstLivingMonsterIndex(combat) >= 0 ? firstLivingMonsterIndex(combat) : 0);
+  ui.targetIndex = target;
   const heroDebuffCount = (combat.heroStatDebuffs ?? []).filter((effect) => effect.turnsRemaining > 0).length
     + (state.statusEffects?.length ?? 0)
     + ((combat.playerEvaDebuffTurns ?? 0) > 0 ? 1 : 0);
+
   return `
-  <div class="modal-backdrop combat">
-    <div class="modal combat-modal">
-      ${combatHeroSidebarHtml(state, combat, stats)}
-      <div class="combat-main-col">
-        <div class="monster-carousel">
-          <div class="monster-carousel-track">
-            ${combat.monsters
-              .map((cm, i) => {
-                const posClass = getMonsterCarouselClass(i, target, totalMonsters);
-                return monsterCardHtml(cm, i, i === target, living > 1, playerAcc, playerCritThreshold, posClass, combat.monsters, heroDebuffCount);
-              })
-              .join('')}
-          </div>
-          ${
-            totalMonsters > 1
-              ? `
-          <button type="button" class="monster-carousel-nav prev" data-action="prev-target" title="Previous Target (Press A or Left Arrow)" aria-label="Previous Target" ${
-                  living <= 1 ? 'disabled' : ''
-                }>&#10094;</button>
-          <button type="button" class="monster-carousel-nav next" data-action="next-target" title="Next Target (Press D or Right Arrow)" aria-label="Next Target" ${
-                  living <= 1 ? 'disabled' : ''
-                }>&#10095;</button>`
-              : ''
-          }
-        </div>
-        <p class="monster-carousel-instructions">
-          ${
-            living > 1
-              ? 'Traverse targets with <b>A</b> or <b>D</b>. You can also use the <b>LEFT</b> and <b>RIGHT</b> keys. Tap a monster to target it with attacks.'
-              : 'Tap a monster to target it with attacks.'
-          }
-        </p>
-        <div class="player-line">
-          <span>HP <b>${res.hp}</b>/${res.maxHp}</span>
-          <span>${getDerivedStatIcon('def', 'chip-icon')} Block <b>${combat.playerBlock}</b></span>
-          <span>${getDerivedStatIcon('acc', 'chip-icon')} ACC <b>${playerAcc}</b></span>
-          <span>${getDerivedStatIcon('eva', 'chip-icon')} EVA <b>${playerEva}</b></span>
-          ${combatGear.pen > 0 ? `<span class="pen-line" title="Physical attacks ignore enemy natural DEF">PEN <b>${combatGear.pen}</b></span>` : ''}
-          <span class="ap">AP <b>${combat.playerAp}</b>/${combat.playerMaxAp}</span>
+  <section class="combat-view combat-component" aria-label="Battle Area">
+    <div class="combat-main-col">
+      <div class="monster-carousel">
+        <div class="monster-carousel-track">
+          ${combat.monsters
+            .map((cm, i) => {
+              const posClass = getMonsterCarouselClass(i, target, totalMonsters);
+              return monsterCardHtml(cm, i, i === target, living > 1, playerAcc, playerCritThreshold, posClass, combat.monsters, heroDebuffCount);
+            })
+            .join('')}
         </div>
         ${
-          combat.lastAttackRoll
+          totalMonsters > 1
             ? `
-        <div class="combat-dice-banner ${combat.lastAttackRoll.isHit ? 'is-hit' : 'is-miss'} ${
-                combat.lastAttackRoll.isCrit ? 'is-crit' : ''
-              } ${combat.lastAttackRoll.isSnakeEyes ? 'is-snake-eyes' : ''}">
-          <span class="dice-summary-label">🎲 <b>${combat.lastAttackRoll.attackerName}</b> &rarr; <b>${
-                combat.lastAttackRoll.targetName
-              }</b> (${combat.lastAttackRoll.actionName})</span>
-          <div class="dice-roll-group">
-            <span class="dice-die">🎲 ${combat.lastAttackRoll.die1}</span>
-            <span class="dice-plus">+</span>
-            <span class="dice-die">🎲 ${combat.lastAttackRoll.die2}</span>
-            <span class="dice-eq">=</span>
-            <span class="dice-total">${combat.lastAttackRoll.total}</span>
-            <span class="dice-vs">(vs ${combat.lastAttackRoll.neededRoll}+ needed)</span>
-          </div>
-          <span class="dice-outcome-badge">
-            ${
-              combat.lastAttackRoll.isCrit
-                ? '💥 BOXCARS CRITICAL (+50% DMG)!'
-                : combat.lastAttackRoll.isSnakeEyes
-                ? '🐍 SNAKE EYES (TOTAL MISS)!'
-                : combat.lastAttackRoll.isHit
-                ? `🎯 HIT! (${combat.lastAttackRoll.damageDealt} DMG${
-                    (combat.lastAttackRoll.damagePenetrated ?? 0) > 0
-                      ? `, ${combat.lastAttackRoll.damagePenetrated} DEF bypassed by PEN`
-                      : ''
-                  }${
-                    (combat.lastAttackRoll.damageDefReduced ?? 0) > 0
-                      ? `, ${combat.lastAttackRoll.damageDefReduced} absorbed by ${
-                          combat.lastAttackRoll.attackerName === 'Hero' ? combat.lastAttackRoll.targetName : 'Hero'
-                        } ${combat.lastAttackRoll.defenseType ?? 'DEF'}`
-                      : ''
-                  }${
-                    combat.lastAttackRoll.damageBlocked > 0
-                      ? `, ${combat.lastAttackRoll.damageBlocked} blocked`
-                      : ''
-                  })`
-                : '💨 MISSED!'
-            }
-          </span>
-        </div>`
+        <button type="button" class="monster-carousel-nav prev" data-action="prev-target" title="Previous Target (Press A or Left Arrow)" aria-label="Previous Target" ${
+                living <= 1 ? 'disabled' : ''
+              }>&#10094;</button>
+        <button type="button" class="monster-carousel-nav next" data-action="next-target" title="Next Target (Press D or Right Arrow)" aria-label="Next Target" ${
+                living <= 1 ? 'disabled' : ''
+              }>&#10095;</button>`
             : ''
         }
-        <div class="hand-row">
-          ${combatHandCarousel(state, combat, ui, stats)}
-          <div class="flee-card-slot" title="Permanent action: always available, never discarded or shuffled">
-            ${combatCardHtml(
-              createFleeCard(state.playerClass ?? 'fighter'),
-              stats,
-              combat.playerAp >= FLEE_AP_COST && !combat.monsters.some((m) => m.monster.isBoss),
-              'flee-card'
-            )}
-            <span class="flee-slot-label">${
-              combat.monsters.some((m) => m.monster.isBoss) ? 'Cannot flee a Boss' : 'Always available'
-            }</span>
-          </div>
-        </div>
-        ${(combat.inPlay?.length ?? 0) > 0 ? `
-        <section class="combat-in-play" aria-label="Cards in play">
-          <span class="combat-in-play-label">In play</span>
-          ${combat.inPlay!.map((card) => `<span class="combat-in-play-card" title="${card.flavorText ?? card.name}">🚩 ${card.name}</span>`).join('')}
-        </section>` : ''}
-        <div class="combat-actions">
-          <button class="btn primary" data-action="end-turn">End Turn</button>
-        </div>
       </div>
-      <aside class="combat-log-sidebar" aria-label="Battle Log">
-        ${deckPilesPanelHtml(state, {
-          visibleGroups: ['player'],
-          heading: 'Action Deck',
-          ariaLabel: 'Action draw and discard piles',
-          className: 'combat-action-piles',
-          showFooter: false,
-          groupLabels: { player: 'Action Cards' },
-        })}
-        <div class="combat-log-header">
-          <span class="combat-log-header-title">📜 Battle Log</span>
-          <span class="combat-log-count">${combat.combatLog.length}</span>
-        </div>
-        <ul class="combat-sidebar-log log">
-          ${renderCombatLogEntries(combat.combatLog)}
-        </ul>
-      </aside>
+      <p class="monster-carousel-instructions">
+        ${
+          living > 1
+            ? 'Traverse targets with <b>A</b> or <b>D</b>. You can also use the <b>LEFT</b> and <b>RIGHT</b> keys. Tap a monster to target it with attacks.'
+            : 'Tap a monster to target it with attacks.'
+        }
+      </p>
+      <div class="player-line">
+        <span>HP <b>${res.hp}</b>/${res.maxHp}</span>
+        <span>${getDerivedStatIcon('def', 'chip-icon')} Block <b>${combat.playerBlock}</b></span>
+        <span>${getDerivedStatIcon('acc', 'chip-icon')} ACC <b>${playerAcc}</b></span>
+        <span>${getDerivedStatIcon('eva', 'chip-icon')} EVA <b>${playerEva}</b></span>
+        ${combatGear.pen > 0 ? `<span class="pen-line" title="Physical attacks ignore enemy natural DEF">PEN <b>${combatGear.pen}</b></span>` : ''}
+        <span class="ap">AP <b>${combat.playerAp}</b>/${combat.playerMaxAp}</span>
+      </div>
+      <div class="hand-row">
+        ${combatHandCarousel(state, combat, ui, stats)}
+      </div>
+      ${(combat.inPlay?.length ?? 0) > 0 ? `
+      <section class="combat-in-play" aria-label="Cards in play">
+        <span class="combat-in-play-label">In play</span>
+        ${combat.inPlay!.map((card) => `<span class="combat-in-play-card" title="${card.flavorText ?? card.name}">🚩 ${card.name}</span>`).join('')}
+      </section>` : ''}
+      <div class="combat-actions">
+        <button class="btn secondary flee-btn" data-action="flee-card" ${
+          combat.playerAp < FLEE_AP_COST || combat.monsters.some((m) => m.monster.isBoss) ? 'disabled' : ''
+        } title="${
+          combat.monsters.some((m) => m.monster.isBoss)
+            ? 'Cannot flee a Boss encounter'
+            : combat.playerAp < FLEE_AP_COST
+            ? 'Need 2 AP to attempt fleeing'
+            : 'Attempt to flee from battle (2 AP)'
+        }">🏃 Flee (${FLEE_AP_COST} AP)</button>
+        <button class="btn primary end-turn-btn" data-action="end-turn">End Turn</button>
+      </div>
     </div>
-    ${ui.pendingCardPlay ? combatConfirmModal(state, combat, ui.pendingCardPlay, stats) : ''}
-    ${ui.pendingFlee ? fleeConfirmModal(state, combat, stats) : ''}
-  </div>`;
+  </section>`;
 }
 
-export function fleeConfirmModal(state: RunState, _combat: ActiveCombatState, stats: CharacterStats): string {
-  const threshold = getFleeThreshold(stats);
-  const successFaces = Math.min(6, threshold);
-  const pct = Math.round((successFaces / 6) * 1000) / 10;
+export function combatModal(state: RunState, combat: ActiveCombatState, ui: UiState): string {
+  return combatViewHtml(state, combat, ui);
+}
+
+export function fleeConfirmModal(state: RunState, combat: ActiveCombatState, stats: CharacterStats): string {
   const fleeCard = createFleeCard(state.playerClass ?? 'fighter');
+  const combatGear = computeCombatGearBonuses(state.equippedGear);
+  const heroDebuffs = getHeroStatDebuffMods(combat);
+  const playerEva = getPlayerEva(stats, combat.playerEvasionMod + heroDebuffs.eva, combatGear.eva);
+
+  const livingMonsters = combat.monsters.filter((m) => m.hp > 0);
+  const totalEnemyAcc = livingMonsters.reduce((sum, m) => sum + (m.monster.acc ?? 0), 0);
+  const netFlee = playerEva - totalEnemyAcc;
+
+  const prob = computeHitProbability(netFlee);
+  const tierNum = Math.max(1, Math.min(7, 4 + netFlee));
+  const enemyAccBreakdown = livingMonsters.map((m) => `${m.monster.name} (${m.monster.acc ?? 0} ACC)`).join(' + ');
+
   return `
   <div class="modal-backdrop combat-confirm-backdrop" data-action="cancel-flee-backdrop">
     <div class="modal combat-confirm-modal flee-confirm-modal" role="dialog" aria-modal="true">
@@ -2465,29 +2740,49 @@ export function fleeConfirmModal(state: RunState, _combat: ActiveCombatState, st
         </div>
         <div class="confirm-details-col">
           <div class="confirm-calc-section">
-        <div class="confirm-stat-chips-grid">
-          <div class="confirm-chip">
-            <span class="chip-label">Effective AGI</span>
-            <span class="chip-value"><b>${stats.agi}</b></span>
-            <span class="chip-sub">Effective stat</span>
+            <div class="confirm-stat-chips-grid">
+              <div class="confirm-chip">
+                <span class="chip-label">Hero EVA</span>
+                <span class="chip-value">🏃 <b>${playerEva}</b></span>
+                <span class="chip-sub">Player Evasion</span>
+              </div>
+              <span class="chip-operator">&minus;</span>
+              <div class="confirm-chip">
+                <span class="chip-label">Foes Total ACC</span>
+                <span class="chip-value">🎯 <b>${totalEnemyAcc}</b></span>
+                <span class="chip-sub" title="${enemyAccBreakdown}">${livingMonsters.length} living ${livingMonsters.length === 1 ? 'foe' : 'foes'}</span>
+              </div>
+              <span class="chip-operator">=</span>
+              <div class="confirm-chip net-acc">
+                <span class="chip-label">Net Modifier</span>
+                <span class="chip-value"><b>${netFlee >= 0 ? `+${netFlee}` : netFlee}</b></span>
+                <span class="chip-sub">Tier ${tierNum}</span>
+              </div>
+              <div class="confirm-chip target-roll">
+                <span class="chip-label">Success Range</span>
+                <span class="chip-value">🎲 <b>${prob.minHitRoll}–${prob.maxHitRoll}</b></span>
+                <span class="chip-sub">MACG-3D6™</span>
+              </div>
+            </div>
+
+            ${renderQteHitCheckBarHtml({
+              minHitRoll: prob.minHitRoll,
+              maxHitRoll: prob.maxHitRoll,
+              netAcc: netFlee,
+              hitPercent: prob.hitPercent,
+            })}
+
+            <div class="confirm-prob-box">
+              <div class="prob-summary-row">
+                <span class="prob-icon-label">🏃 Escape Probability:</span>
+                <span class="prob-percentage"><b>${prob.hitPercent}%</b> (Tier ${tierNum})</span>
+              </div>
+              <div class="prob-notes-row">
+                <span class="prob-note diabolic">😈 <b>0.9%</b> Diabolic Rolls (3 &amp; 18 Always Fail)</span>
+                <span class="prob-note miss">⚠️ Escaping forfeits all rewards: no SP, Gold, or loot. On failure, ${FLEE_AP_COST} AP is spent and battle continues.</span>
+              </div>
+            </div>
           </div>
-          <span class="chip-operator">&rarr;</span>
-          <div class="confirm-chip target-roll">
-            <span class="chip-label">Escape Target</span>
-            <span class="chip-value">🎲 <b>&le; ${threshold}</b></span>
-            <span class="chip-sub">&lfloor;AGI / 2&rfloor; (min 1) on 1d6</span>
-          </div>
-        </div>
-        <div class="confirm-prob-box">
-          <div class="prob-summary-row">
-            <span class="prob-icon-label">🏃 Escape Chance:</span>
-            <span class="prob-percentage"><b>${pct}%</b> (${successFaces} of 6 faces)</span>
-          </div>
-          <div class="prob-notes-row">
-            <span class="prob-note miss">⚠️ Escaping forfeits all rewards: no SP, Gold, or loot. On a failed roll, the ${FLEE_AP_COST} AP is spent and the battle continues.</span>
-          </div>
-        </div>
-      </div>
           <footer class="confirm-modal-footer">
             <button class="btn primary big confirm-action-btn" data-action="confirm-flee">Attempt Flee (${FLEE_AP_COST} AP)</button>
             <button class="btn secondary cancel-action-btn" data-action="cancel-flee">Cancel</button>
@@ -2547,6 +2842,108 @@ function heroTargetCardHtml(state: RunState, combat: ActiveCombatState, stats: C
   </div>`;
 }
 
+export function combatDiceRollModal(pending: PendingDiceRoll): string {
+  const { roll, settled } = pending;
+  const isFlee = roll.actionName === 'Flee';
+  const outcomeText = roll.isDiabolic
+    ? `😈 DIABOLIC ROLL [${roll.total}] (GUARANTEED ${isFlee ? 'FAILURE' : 'MISS'})!`
+    : isFlee
+    ? roll.isHit
+      ? '🏃 ESCAPED FROM BATTLE!'
+      : '💨 FAILED TO ESCAPE!'
+    : roll.isHit
+    ? `🎯 HIT! (${roll.damageDealt} DMG${
+        (roll.damagePenetrated ?? 0) > 0
+          ? `, ${roll.damagePenetrated} DEF bypassed by PEN`
+          : ''
+      }${
+        (roll.damageDefReduced ?? 0) > 0
+          ? `, ${roll.damageDefReduced} absorbed by ${
+              roll.attackerName === 'Hero' ? roll.targetName : 'Hero'
+            } ${roll.defenseType ?? 'DEF'}`
+          : ''
+      }${
+        roll.damageBlocked > 0
+          ? `, ${roll.damageBlocked} blocked`
+          : ''
+      })`
+    : '💨 MISSED!';
+
+  return `
+  <div class="modal-backdrop dice-roll-modal-backdrop" data-action="skip-or-apply-dice">
+    <div class="modal dice-roll-modal ${roll.isHit ? 'is-hit' : 'is-miss'} ${roll.isDiabolic ? 'is-diabolic' : ''}" role="dialog" aria-modal="true">
+      <header class="dice-modal-header">
+        <div class="dice-modal-title">
+          <span class="dice-title-icon">🎲</span>
+          <span class="dice-title-text">${isFlee ? 'Tabletop 3d6 Escape Check' : 'Tabletop 3d6 Hit Check'}</span>
+        </div>
+        <div class="dice-modal-matchup">
+          <span class="dice-actor attacker">${roll.attackerName}</span>
+          <span class="dice-action-badge">${roll.actionName}</span>
+          <span class="dice-arrow">&rarr;</span>
+          <span class="dice-actor target">${roll.targetName}</span>
+        </div>
+      </header>
+
+      <div class="dice-roll-stage">
+        <div class="dice-hit-range-pill">
+          <span class="pill-label">${isFlee ? 'Escape Range:' : 'Hit Range:'}</span>
+          <span class="pill-value">${roll.minHitRoll ?? 10}–${roll.maxHitRoll ?? 11}</span>
+          <span class="pill-sub">(Sure Hit: 10–11)</span>
+        </div>
+
+        <div class="dice-bounce-container ${settled ? 'is-settled' : 'is-rolling'}">
+          <div class="tabletop-die die-1 dice-die" data-final="${roll.die1}">🎲 ${settled ? roll.die1 : 4}</div>
+          <span class="dice-math-op">+</span>
+          <div class="tabletop-die die-2 dice-die" data-final="${roll.die2}">🎲 ${settled ? roll.die2 : 3}</div>
+          <span class="dice-math-op">+</span>
+          <div class="tabletop-die die-3 dice-die" data-final="${roll.die3 ?? 0}">🎲 ${settled ? (roll.die3 ?? 0) : 3}</div>
+          <span class="dice-math-op">=</span>
+          <div class="tabletop-die-total dice-total">
+            <span class="die-total-label">TOTAL</span>
+            <span class="die-total-value">${settled ? roll.total : '?'}</span>
+          </div>
+        </div>
+
+        ${settled ? `
+        <div class="dice-qte-wrapper">
+          ${renderQteHitCheckBarHtml({
+            minHitRoll: roll.minHitRoll ?? 10,
+            maxHitRoll: roll.maxHitRoll ?? 11,
+            rolledTotal: roll.total,
+            die1: roll.die1,
+            die2: roll.die2,
+            die3: roll.die3,
+            isHit: roll.isHit,
+            isCrit: roll.isCrit,
+            compact: false,
+          })}
+        </div>
+
+        <div class="dice-outcome-container">
+          <div class="dice-outcome-badge ${roll.isDiabolic ? 'is-diabolic' : roll.isHit ? 'is-hit' : 'is-miss'}">
+            ${outcomeText}
+          </div>
+        </div>
+        ` : `
+        <div class="dice-rolling-placeholder">
+          <span class="rolling-text">🎲 Rolling 3d6...</span>
+        </div>
+        `}
+      </div>
+
+      <footer class="dice-modal-footer">
+        <button type="button" class="btn btn-primary btn-lg dice-apply-btn" data-action="apply-dice-roll" ${!settled ? 'disabled' : ''}>
+          Apply
+        </button>
+        <span class="dice-footer-hint">
+          ${settled ? 'Click Apply or press Enter / Space to proceed' : 'Rolling... click to settle'}
+        </span>
+      </footer>
+    </div>
+  </div>`;
+}
+
 export function combatConfirmModal(
   state: RunState,
   combat: ActiveCombatState,
@@ -2595,19 +2992,14 @@ export function combatConfirmModal(
   const totalAcc = baseAcc + cardAccBonus + playerAccMod;
   const targetEva = (targetMonster?.monster.eva ?? 0) + (targetMonster?.evaBonus ?? 0);
   const netAcc = totalAcc - targetEva;
-  const neededRoll = Math.max(2, Math.min(12, BASE_HIT_THRESHOLD - netAcc));
   const critThreshold = getPlayerCritThreshold(stats);
-  const prob = computeHitProbability(neededRoll, critThreshold);
-  const critLabel =
-    critThreshold === 12
-      ? 'Boxcars Critical ([6, 6] = +50% ATK DMG)'
-      : `Critical Hit (Rolls ${critThreshold}+ = +50% ATK DMG)`;
+  const prob = computeHitProbability(netAcc, critThreshold);
 
   const allTargetOdds = livingMonsters.map(({ m, idx }) => {
     const eva = (m.monster.eva ?? 0) + (m.evaBonus ?? 0);
     const targetNetAcc = totalAcc - eva;
-    const targetNeededRoll = Math.max(2, Math.min(12, BASE_HIT_THRESHOLD - targetNetAcc));
-    return { m, idx, eva, netAcc: targetNetAcc, neededRoll: targetNeededRoll, probability: computeHitProbability(targetNeededRoll, critThreshold) };
+    const targetProb = computeHitProbability(targetNetAcc, critThreshold);
+    return { m, idx, eva, netAcc: targetNetAcc, neededRoll: targetProb.minHitRoll, probability: targetProb };
   });
 
   const targetCardHtml = isAttack && card.targetMode === 'all_enemies'
@@ -2664,26 +3056,6 @@ export function combatConfirmModal(
 
     <div class="confirm-details-col">
       ${
-        isAttack && card.targetMode !== 'all_enemies' && livingMonsters.length > 1
-          ? `
-      <div class="confirm-target-picker">
-        <span class="picker-label">Target:</span>
-        <div class="picker-options">
-          ${livingMonsters
-            .map(
-              ({ m, idx }) => `
-            <button class="btn target-pill ${idx === targetIdx ? 'primary' : 'secondary'}"
-              data-action="confirm-switch-target" data-id="${idx}">
-              ${m.monster.name} (${m.hp} HP)
-            </button>`
-            )
-            .join('')}
-        </div>
-      </div>`
-          : ''
-      }
-
-      ${
         card.discardMode && card.discardMode !== 'none'
           ? `
       <section class="combat-discard-choice">
@@ -2714,7 +3086,7 @@ export function combatConfirmModal(
           <div class="confirm-chip acc">
             <span class="chip-label">Hero ACC</span>
             <span class="chip-value">${getDerivedStatIcon('acc', 'chip-icon')} <b>${totalAcc}</b></span>
-            <span class="chip-sub">&lfloor;DEX / 2&rfloor; ${cardAccText}</span>
+            <span class="chip-sub">DEX ${cardAccText}</span>
           </div>
           <span class="chip-operator">&minus;</span>
           <div class="confirm-chip eva">
@@ -2730,20 +3102,27 @@ export function combatConfirmModal(
           </div>
           <span class="chip-operator">&rarr;</span>
           <div class="confirm-chip target-roll">
-            <span class="chip-label">Dice Target</span>
-            <span class="chip-value">🎲 <b>${neededRoll}+</b></span>
-            <span class="chip-sub">5 &minus; (${netAcc >= 0 ? '+' : ''}${netAcc})</span>
+            <span class="chip-label">Hit Range</span>
+            <span class="chip-value">🎯 <b>${prob.minHitRoll}–${prob.maxHitRoll}</b></span>
+            <span class="chip-sub">MACG-3D6™</span>
           </div>
         </div>
+
+        ${renderQteHitCheckBarHtml({
+          minHitRoll: prob.minHitRoll,
+          maxHitRoll: prob.maxHitRoll,
+          netAcc,
+          hitPercent: prob.hitPercent,
+        })}
 
         <div class="confirm-prob-box">
           <div class="prob-summary-row">
             <span class="prob-icon-label">${getDerivedStatIcon('acc', 'chip-icon')} Hit Probability:</span>
-            <span class="prob-percentage"><b>${prob.hitPercent}%</b> (${prob.hitCombos} of 36 combinations)</span>
+            <span class="prob-percentage"><b>${prob.hitPercent}%</b> (${prob.hitCombos} of 216 combinations)</span>
           </div>
           <div class="prob-notes-row">
-            <span class="prob-note crit">👑 <b>${prob.critPercent}%</b> ${critLabel}</span>
-            <span class="prob-note miss">🐍 <b>${prob.snakeEyesPercent}%</b> Snake Eyes Auto-Miss ([1, 1])</span>
+            <span class="prob-note diabolic">😈 <b>0.9%</b> Diabolic Rolls (3 &amp; 18 Always Miss)</span>
+            <span class="prob-note sweet">🎯 <b>25.0%</b> Sure Hit Rolls (Rolls 10 &amp; 11)</span>
           </div>
         </div>
       </div>`
@@ -2752,17 +3131,17 @@ export function combatConfirmModal(
       <div class="confirm-calc-section multitarget-calc">
         <h3>Every living enemy makes its own hit check</h3>
         <div class="multitarget-odds-list">
-          ${allTargetOdds.map(({ m, eva, netAcc: targetNet, neededRoll: roll, probability }) => `
+          ${allTargetOdds.map(({ m, eva, netAcc: targetNet, probability }) => `
             <div class="multitarget-odds-row">
               <b>${m.monster.name}</b>
               <span>ACC ${totalAcc} − EVA ${eva} = ${targetNet >= 0 ? '+' : ''}${targetNet}</span>
-              <span>Roll <b>${roll}+</b></span>
+              <span>Hit <b>${probability.minHitRoll}–${probability.maxHitRoll}</b></span>
               <strong>${probability.hitPercent}%</strong>
             </div>`).join('')}
         </div>
         <div class="prob-notes-row">
-          <span class="prob-note crit">👑 ${critLabel}</span>
-          <span class="prob-note miss">🐍 Snake Eyes always misses</span>
+          <span class="prob-note diabolic">😈 Diabolic Rolls (3 &amp; 18) Always Miss</span>
+          <span class="prob-note sweet">🎯 25.0% Sure Hit Rolls (10 &amp; 11)</span>
         </div>
       </div>`
           : `
@@ -2919,9 +3298,9 @@ export function statUpgradeWidgetHtml(
     if (s === 'str') {
       benefitNote = ` <small>(ATK +${Math.floor(eff.str / 2)} &rarr; +${Math.floor((eff.str + 1) / 2)}, DEF +${Math.floor(eff.str / 5)} &rarr; +${Math.floor((eff.str + 1) / 5)})</small>`;
     } else if (s === 'dex') {
-      benefitNote = ` <small>(ACC ${Math.floor(eff.dex / 2)} &rarr; ${Math.floor((eff.dex + 1) / 2)}, ATK +${Math.floor(eff.dex / 3)} &rarr; +${Math.floor((eff.dex + 1) / 3)})</small>`;
+      benefitNote = ` <small>(ACC ${eff.dex} &rarr; ${eff.dex + 1}, ATK +${Math.floor(eff.dex / 3)} &rarr; +${Math.floor((eff.dex + 1) / 3)})</small>`;
     } else if (s === 'agi') {
-      benefitNote = ` <small>(EVA ${Math.floor(eff.agi / 2)} &rarr; ${Math.floor((eff.agi + 1) / 2)}, DEF +${Math.floor(eff.agi / 3)} &rarr; +${Math.floor((eff.agi + 1) / 3)})</small>`;
+      benefitNote = ` <small>(EVA ${eff.agi} &rarr; ${eff.agi + 1}, DEF +${Math.floor(eff.agi / 3)} &rarr; +${Math.floor((eff.agi + 1) / 3)})</small>`;
     } else if (s === 'int') {
       benefitNote = ` <small>(MATK +${Math.floor(eff.int / 2)} &rarr; +${Math.floor((eff.int + 1) / 2)}, MDEF +${Math.floor(eff.int / 5)} &rarr; +${Math.floor((eff.int + 1) / 5)}, ACT ${3 + Math.floor(eff.int / 5)} &rarr; ${3 + Math.floor((eff.int + 1) / 5)})</small>`;
     } else if (s === 'cha') {
@@ -3014,7 +3393,7 @@ function welcomePrepareModal(state: RunState): string {
       </div>
       <p class="welcome-intro-text">
         Welcome to <b>The Paths We Choose</b>! Before taking your first step onto the tiles, take time to prepare for your journey.
-        You have been granted <b>4 Stat Points (SP)</b> to immediately upgrade your Base Stats.
+        All adventurers begin with an innate +1 baseline across all attributes plus class archetype bonuses. You have been granted <b>4 Stat Points (SP)</b> to immediately upgrade your Base Stats.
       </p>
 
       ${statUpgradeWidgetHtml(state, 'welcome-upgrade')}
@@ -3499,7 +3878,7 @@ function shopSellRow(state: RunState, item: ShopItemDef): string {
   </div>`;
 }
 
-function villageModal(state: RunState, village: ActiveVillageState, ui: UiState): string {
+export function villageViewHtml(state: RunState, village: ActiveVillageState, ui: UiState): string {
   const res = state.playerResources!;
   const villageCard = state.board[coordToKey(village.coord)]?.card;
   const villageName = villageCard?.name ?? 'Village';
@@ -3545,7 +3924,9 @@ function villageModal(state: RunState, village: ActiveVillageState, ui: UiState)
       <button class="btn big" data-action="village-shop">Shop<small>Buy &amp; sell gear</small></button>
       <button class="btn big" data-action="village-train">Training<small>Learn skills or destroy cards</small></button>
     </div>
-    <button class="btn" data-action="village-leave">Leave village</button>`;
+    <div class="village-view-footer">
+      <button class="btn" data-action="village-leave">Leave village</button>
+    </div>`;
   } else if (village.subView === 'shop') {
     const shopLevel = state.board[coordToKey(village.coord)]?.card.level ?? 1;
     const shopLevelBand = shopLevel === 1 ? 'Level 1' : `Levels ${shopLevel - 1}–${shopLevel}`;
@@ -3566,13 +3947,6 @@ function villageModal(state: RunState, village: ActiveVillageState, ui: UiState)
         : '<p class="muted">Nothing to sell.</p>';
     body = `
     <div class="shop-layout">
-      <aside class="shop-sidebar">
-        ${playerInfoWidgetHtml(state, {
-          title: 'Character & Gear',
-          description: 'Your live hero, derived combat values, equipment, and backpack.',
-          showGear: true,
-        })}
-      </aside>
       <section class="shop-main">
         <p class="muted">Level ${shopLevel} store · Supplies ${shopLevelBand} items</p>
         <div class="shop-header">
@@ -3583,9 +3957,9 @@ function villageModal(state: RunState, village: ActiveVillageState, ui: UiState)
           </div>
         </div>
         <div class="shop-list">${list}</div>
-        <div class="modal-actions">
+        <div class="village-view-footer">
           <button class="btn" data-action="village-back">&larr; Village options</button>
-
+          <button class="btn primary" data-action="village-leave">Leave village</button>
         </div>
       </section>
     </div>`;
@@ -3628,15 +4002,16 @@ function villageModal(state: RunState, village: ActiveVillageState, ui: UiState)
         <button class="void-inspect-link" data-action="open-pile" data-pile="void_deck">Inspect Void (${voidCardCount(state)})</button>
       </aside>
     </div>
-    <div class="modal-actions"><button class="btn" data-action="village-back">&larr; Village options</button><button class="btn primary" data-action="village-leave">Leave village</button></div>`;
+    <div class="village-view-footer">
+      <button class="btn" data-action="village-back">&larr; Village options</button>
+      <button class="btn primary" data-action="village-leave">Leave village</button>
+    </div>`;
   }
   return `
-  <div class="modal-backdrop">
-    <div class="modal village-modal ${village.subView === 'shop' ? 'is-shop' : ''} ${village.subView === 'train' ? 'is-train' : ''}">
-      ${locationHeader}
-      ${body}
-    </div>
-  </div>`;
+  <section class="village-view village-component ${village.subView === 'shop' ? 'is-shop' : ''} ${village.subView === 'train' ? 'is-train' : ''}" aria-label="Village View">
+    ${locationHeader}
+    ${body}
+  </section>`;
 }
 
 function trainingConfirmModal(state: RunState, pending: PendingTrainingAction): string {
@@ -3968,11 +4343,11 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
       </div>
 
       <div class="inspect-section">
-        <h3>🎲 Tabletop 2d6 Combat Rules</h3>
+        <h3>🎲 3d6 QTE Combat Rules</h3>
         <ul class="inspect-bullet-list">
-          <li><b>Attack Roll:</b> Rolls <code>2x 1d6</code> (2d6). Probability bell-curve gears towards 7 (result range 2–12). With no modifiers, rolls of <b>&ge; 5</b> hit; <b>&le; 4</b> miss.</li>
-          <li><b>Net Accuracy &amp; Dodge:</b> <code>Net ACC = Attacker ACC (${m.acc ?? 1}) - Target EVA</code>. Each +1 net ACC lowers the required dice roll to hit by 1 (e.g. +1 net ACC hits on 4+).</li>
-          <li><b>Criticals &amp; Total Misses:</b> <b>Snake Eyes</b> (1+1=2) is an automatic total miss. <b>Boxcars</b> (6+6=12) is an automatic critical hit dealing <b>+50% bonus ATK damage</b>!</li>
+          <li><b>Attack Roll:</b> Rolls <code>3x 1d6</code> (3d6) evaluated on the <b>Quick Time Event (QTE) Hit Check Bar</b> (range 3–18). Center Sure Hit Rolls: rolls <b>10 &amp; 11</b> provide a guaranteed minimum <b>25.0%</b> base hit chance.</li>
+          <li><b>Net Accuracy &amp; Dodge:</b> <code>Net ACC = Attacker ACC (${m.acc ?? 1}) - Target EVA</code>. Each +1 net ACC expands the hit range outward from the median by 1 on each side (e.g. +1 net ACC expands hit range from 10–11 to 9–12, 48.1% hit chance).</li>
+          <li><b>Diabolic Rolls (3 &amp; 18):</b> Rolls of 3 and 18 are Diabolic rolls that always guarantee a chance to miss regardless of ACC. No critical hit multipliers exist.</li>
           <li><b>Inscribed Stat Points:</b> Defeating this monster awards <b>+${m.statPointReward} SP</b>. SP is converted into permanent Base Stats exclusively at Sacred Shrines.</li>
         </ul>
       </div>
@@ -4165,18 +4540,18 @@ const STAT_DESCRIPTIONS: Record<
     name: 'Dexterity',
     role: 'Precision, coordination, attack accuracy and martial finesse',
     derivedRules: (eff, derived) => [
-      `<b>Combat Accuracy (ACC):</b> Grants <b>1 ACC for every 2 Effective DEX</b> (<code>&lfloor;DEX / 2&rfloor;</code>). Current: <b>${derived.acc} ACC</b> (<code>&lfloor;${eff} / 2&rfloor; = ${Math.floor(eff / 2)}</code>).`,
+      `<b>Combat Accuracy (ACC):</b> 1 point in DEX increases ACC by 1 (<code>DEX + Gear ACC</code>). Current: <b>${derived.acc} ACC</b>.`,
       `<b>Physical Attack Contribution:</b> Increases Physical ATK by <b>+1 for every 3 Effective DEX</b> (<code>&lfloor;DEX / 3&rfloor;</code>). Current DEX ATK bonus: <b>+${Math.floor(eff / 3)} ATK</b>.`,
-      `<b>Tabletop 2d6 Attack Rolls:</b> Determines roll threshold against target Evasion (<code>Net ACC = Attacker ACC - Target EVA</code>; Needed Roll = <code>5 - Net ACC</code>). Each +1 Net ACC lowers the required 2d6 roll to hit by 1 (e.g. +2 Net ACC hits on 3+).`,
+      `<b>MACG-3D6™ Tabletop Attack Rolls:</b> Determines roll range against target Evasion (<code>Net ACC = Attacker ACC - Target EVA</code>; Baseline +0 Net ACC is Tier 4 <code>7–14</code>, 81.5%). Positive Net ACC expands up to Tier 7 (&ge; +3 Net ACC, <code>4–17</code>, 99.1%); lower Net ACC contracts toward Tier 1 (&le; -3 Net ACC, <code>10–11</code>, 25.0% Sure Hit Rolls).`,
     ],
   },
   agi: {
     name: 'Agility',
     role: 'Reflexes, evasion, footwork and physical defense',
     derivedRules: (eff, derived) => [
-      `<b>Combat Evasion (EVA):</b> Grants <b>1 EVA for every 2 Effective AGI</b> (<code>&lfloor;AGI / 2&rfloor; + Gear EVA</code>). Current: <b>${derived.eva} EVA</b> (Base <code>&lfloor;${eff} / 2&rfloor; = ${Math.floor(eff / 2)}</code> + Gear).`,
+      `<b>Combat Evasion (EVA):</b> 1 point in AGI increases EVA by 1 (<code>AGI + Gear EVA</code>). Current: <b>${derived.eva} EVA</b>.`,
       `<b>Physical Defense Contribution:</b> Adds <b>+1 Physical DEF for every 3 Effective AGI</b> (<code>&lfloor;AGI / 3&rfloor;</code>). Current AGI DEF bonus: <b>+${Math.floor(eff / 3)} DEF</b>.`,
-      `<b>Tabletop 2d6 Monster Attack Dodge:</b> Each point of EVA directly forces attacking creatures to roll higher on their 2d6 attack rolls to hit you (e.g. facing a 2 ACC monster with 2 EVA = 0 Net ACC, monster needs 5+ to hit; with 3 EVA, monster needs 6+).`,
+      `<b>MACG-3D6™ Monster Attack Dodge:</b> Each point of EVA directly reduces incoming monster Net ACC, shrinking their hit range toward Tier 1 (&le; -3 Net ACC, <code>10–11</code>, 25.0% Sure Hit Rolls).`,
     ],
   },
   int: {
@@ -4245,9 +4620,13 @@ export function statInspectModal(stat: StatKey, state: RunState): string {
               <span class="calc-hero-val">${getStatIcon(stat, 'stat-icon')} <b>${eff[stat]}</b></span>
             </div>
             <div class="stat-calc-formula">
-              <code>Effective ${stat.toUpperCase()} = Base (${base}) + Class Bonus (+${classBonus}) ${blessing > 0 ? `+ Blessing (+${blessing}) ` : ''}${gearBonus > 0 ? `+ Gear (+${gearBonus}) ` : ''}= ${eff[stat]}</code>
+              <code>Effective ${stat.toUpperCase()} = Innate (1) + Base (${base}) + Class Bonus (+${classBonus}) ${blessing > 0 ? `+ Blessing (+${blessing}) ` : ''}${gearBonus > 0 ? `+ Gear (+${gearBonus}) ` : ''}= ${eff[stat]}</code>
             </div>
             <div class="stat-calc-components">
+              <div class="calc-row">
+                <span class="comp-name">Innate Stat Baseline:</span>
+                <span class="comp-val"><b>+1</b> <small class="muted">(innate baseline for all adventurers)</small></span>
+              </div>
               <div class="calc-row">
                 <span class="comp-name">Base Stat Level:</span>
                 <span class="comp-val"><b>${base}</b> <small class="muted">(permanently upgraded with Stat Points at Shrines)</small></span>
@@ -4322,6 +4701,30 @@ export function statInspectModal(stat: StatKey, state: RunState): string {
       <div class="inspect-footer">
         <button class="btn primary" data-action="close-inspect">Back to Game</button>
       </div>
+    </div>
+  </div>`;
+}
+
+export function gameLogModal(state: RunState, _ui: UiState): string {
+  const entries = state.gameLog ?? [];
+  return `
+  <div class="modal-backdrop game-log-backdrop" data-action="close-log-backdrop">
+    <div class="modal game-log-modal" role="dialog" aria-modal="true" aria-labelledby="game-log-title">
+      <header class="game-log-modal-header">
+        <div class="game-log-title-group">
+          <h2 id="game-log-title">📜 Adventure Chronicle</h2>
+          <span class="game-log-counter">${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}</span>
+        </div>
+        <button class="btn mini secondary log-close-btn" data-action="close-log" title="Close (Esc)">✕</button>
+      </header>
+      <div class="game-log-modal-body">
+        <ul class="game-log-full-list log">
+          ${renderCombatLogEntries(entries)}
+        </ul>
+      </div>
+      <footer class="game-log-modal-footer">
+        <button class="btn primary" data-action="close-log">Return to Adventure</button>
+      </footer>
     </div>
   </div>`;
 }

@@ -21,7 +21,7 @@ const overlay = Buffer.from(`
       <path d="M0 21 18 34v48L0 96V21ZM29 0l20 14v53L39 78 29 68V0Zm31 25 20-15v76l-20 14V25Z"/>
     </g>
     <text x="124" y="91" fill="#f1efe8" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" letter-spacing="5">MORVILLE</text>
-    <text x="126" y="118" fill="#9dafff" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" letter-spacing="5">STUDIOS · GAMES</text>
+    <text x="126" y="118" fill="#9dafff" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" letter-spacing="8">STUDIOS</text>
     <text x="64" y="285" fill="#ffffff" font-family="Georgia, Times New Roman, serif" font-size="75" font-weight="600">The Paths</text>
     <text x="64" y="362" fill="#ffffff" font-family="Georgia, Times New Roman, serif" font-size="75" font-weight="600">We Choose</text>
     <text x="67" y="414" fill="#e4bd65" font-family="Georgia, Times New Roman, serif" font-size="24">Build a path. Shape a hero. Survive the consequence.</text>

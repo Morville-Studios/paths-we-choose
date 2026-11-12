@@ -75,12 +75,12 @@ describe('cave monster catalog and combat mechanics', () => {
     expect(MONSTER_TEMPLATES.fighting_beetle.pattern[0]).toMatchObject({
       label: 'Shell Guard', damage: 3, block: 0, defBonus: 1, bonusDuration: 1,
     });
-    expect(MONSTER_TEMPLATES.rattler).toMatchObject({ maxHp: 7, def: 1 });
+    expect(MONSTER_TEMPLATES.rattler).toMatchObject({ maxHp: 10, def: 1 });
     expect(MONSTER_TEMPLATES.pink_slime).toMatchObject({ mdef: 1 });
     expect(MONSTER_TEMPLATES.zombie).toMatchObject({ mdef: 1 });
     expect(MONSTER_TEMPLATES.zombie.pattern[0]).toMatchObject({ label: 'Regenerate', heal: 3 });
-    expect(MONSTER_TEMPLATES.ghoul).toMatchObject({ maxHp: 10, mdef: 1 });
-    expect(MONSTER_TEMPLATES.bullwark).toMatchObject({ maxHp: 14 });
+    expect(MONSTER_TEMPLATES.ghoul).toMatchObject({ maxHp: 12, mdef: 2 });
+    expect(MONSTER_TEMPLATES.bullwark).toMatchObject({ maxHp: 16 });
     expect(MONSTER_TEMPLATES.bullwark.pattern).toEqual([
       { label: 'Chaotic Impulse', damage: 0, block: 0, randomBuff: { amount: 1, stats: ['atk', 'acc'], duration: 1 } },
       { label: 'Heavy Charge', damage: 7, block: 0 },
@@ -94,7 +94,7 @@ describe('cave monster catalog and combat mechanics', () => {
   it('registers Phalanx, Cultist Mage, and Lurker with art, stats, rewards, terrains, and public collector IDs', () => {
     const phalanx = card('phalanx');
     expect(phalanx).toMatchObject({
-      cardNumber: 'mon4cav-01', level: 4, maxHp: 20, def: 3, eva: 2, acc: 1,
+      cardNumber: 'mon4cav-01', level: 4, maxHp: 20, def: 3, mdef: 2, eva: 5, acc: 4,
       statPointReward: 8, goldReward: 16, spawnTerrains: ['cave'], creatureType: 'Arachnid',
     });
     expect(phalanx.pattern[0]).toMatchObject({
@@ -105,14 +105,14 @@ describe('cave monster catalog and combat mechanics', () => {
 
     const cultist = card('cultist_mage');
     expect(cultist).toMatchObject({
-      cardNumber: 'mon4cav-02', level: 4, maxHp: 18, def: 1, mdef: 2, acc: 3, eva: 2,
+      cardNumber: 'mon4cav-02', level: 4, maxHp: 18, def: 2, mdef: 3, acc: 5, eva: 4,
       statPointReward: 8, goldReward: 16, spawnTerrains: ['cave', 'underground', 'underworld'],
     });
     expect(cultist.pattern).toEqual([{ label: 'Soul Burn', damage: 8, damageType: 'magical', block: 0 }]);
 
     const lurker = card('lurker');
     expect(lurker).toMatchObject({
-      cardNumber: 'mon4cav-03', level: 5, maxHp: 25, def: 2, mdef: 1,
+      cardNumber: 'mon4cav-03', level: 5, maxHp: 25, def: 4, mdef: 3, acc: 4, eva: 4,
       statPointReward: 16, goldReward: 32, spawnTerrains: ['cave', 'underground'],
       creatureType: 'Wurm', retaliationDamageOnHeroAttack: 1,
     });
@@ -136,14 +136,14 @@ describe('cave monster catalog and combat mechanics', () => {
   it('applies Phalanx Blinding Web penalties only when the web attack hits', () => {
     const phalanx = card('phalanx');
     const hitState = setup(phalanx);
-    hitState.rngState = seedForMonsterRolls(1, 1, [true]);
+    hitState.rngState = seedForMonsterRolls(4, 2, [true]);
     const hit = endPlayerCombatTurn(hitState);
     expect(hit.playerResources?.hp).toBe(94);
     expect(getHeroStatDebuffMods(battle(hit))).toEqual({ acc: -1, eva: -2, def: 0, mdef: 0 });
     expect(battle(hit).heroStatDebuffs).toMatchObject([{ turnsRemaining: 1 }]);
 
     const missState = setup(phalanx);
-    missState.rngState = seedForMonsterRolls(1, 1, [false]);
+    missState.rngState = seedForMonsterRolls(4, 2, [false]);
     const miss = endPlayerCombatTurn(missState);
     expect(miss.playerResources?.hp).toBe(100);
     expect(getHeroStatDebuffMods(battle(miss))).toEqual({ acc: 0, eva: 0, def: 0, mdef: 0 });
@@ -154,7 +154,7 @@ describe('cave monster catalog and combat mechanics', () => {
     const state = setup(phalanx);
     battle(state).monsters[0].patternIndex = 1;
     battle(state).playerBlock = 3;
-    state.rngState = seedForMonsterRolls(1, 1, [true, true]);
+    state.rngState = seedForMonsterRolls(4, 2, [true, true]);
     const next = endPlayerCombatTurn(state);
     expect(next.playerResources?.hp).toBe(87); // 16 total damage; 3 absorbed by Block.
     expect(battle(next).playerBlock).toBe(0);
@@ -169,7 +169,7 @@ describe('cave monster catalog and combat mechanics', () => {
       id: 'mdef_armor', instanceId: 'mdef_armor', name: 'MDEF Armor', category: 'armor', description: '',
       buyPrice: 0, sellPrice: 0, gearBonus: { def: 100, mdef: 2 },
     };
-    state.rngState = seedForMonsterRolls(3, 1, [true]);
+    state.rngState = seedForMonsterRolls(5, 2, [true]);
     const next = endPlayerCombatTurn(state);
     expect(next.playerResources?.hp).toBe(94);
     expect(battle(next).lastAttackRoll).toMatchObject({ defenseType: 'MDEF', damageDefReduced: 2, damageDealt: 6 });
@@ -188,7 +188,7 @@ describe('cave monster catalog and combat mechanics', () => {
     const next = playCombatCardFromHand(state, reliableAttack.instanceId, 0, value => value);
     expect(next.playerResources?.hp).toBe(99);
     expect(battle(next).playerBlock).toBe(99);
-    expect(battle(next).monsters[0].hp).toBe(21); // 6 damage - 2 Lurker DEF.
+    expect(battle(next).monsters[0].hp).toBe(22); // 7 damage - 4 Lurker DEF.
     expect(battle(next).combatLog.join(' ')).toContain('ignores DEF and Block');
   });
 

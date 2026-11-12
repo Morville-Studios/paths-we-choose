@@ -1,3 +1,4 @@
+import { appendGameLog, createTimestamp } from './log';
 import { shuffleArray } from './rng';
 import { syncVitals } from './stats';
 import { coordToKey } from './grid';
@@ -38,12 +39,12 @@ export const PRAYER_OPTION_CATALOG: Record<ShrinePrayerOptionId, ShrinePrayerOpt
   blessing_dex: {
     id: 'blessing_dex',
     name: 'Blessing of Dexterity',
-    description: '+1 DEX bonus for this map (+1 ACC to your 2d6 attack rolls).',
+    description: '+1 DEX bonus for this map (increases ACC to your 3d6 attack rolls under MACG-3D6™).',
   },
   blessing_agi: {
     id: 'blessing_agi',
     name: 'Blessing of Agility',
-    description: '+1 AGI bonus for this map (increases EVA against incoming 2d6 attacks).',
+    description: '+1 AGI bonus for this map (increases EVA against incoming 3d6 attacks under MACG-3D6™).',
   },
   blessing_int: {
     id: 'blessing_int',
@@ -338,6 +339,7 @@ export function grantShrineBoonOnEnter(
   return {
     ...nextState,
     activeHook: { type: 'SHRINE', shrine: shrineState },
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] ✦ Visited Sacred Shrine: granted boon ${grantedBoon.name}!`),
     bannerMessage: banner,
   };
 }

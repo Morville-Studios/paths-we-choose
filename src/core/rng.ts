@@ -52,6 +52,45 @@ export function roll2D6(state: number): {
   };
 }
 
+export function roll3D6(state: number): {
+  die1: number;
+  die2: number;
+  die3: number;
+  total: number;
+  isTriples: boolean;
+  isPair: boolean;
+  matchingDie?: number;
+  nextState: number;
+} {
+  const r1 = rollInt(state, 1, 6);
+  const r2 = rollInt(r1.nextState, 1, 6);
+  const r3 = rollInt(r2.nextState, 1, 6);
+  const total = r1.roll + r2.roll + r3.roll;
+  const isTriples = r1.roll === r2.roll && r2.roll === r3.roll;
+  let isPair = false;
+  let matchingDie: number | undefined;
+  if (r1.roll === r2.roll) {
+    isPair = true;
+    matchingDie = r1.roll;
+  } else if (r2.roll === r3.roll) {
+    isPair = true;
+    matchingDie = r2.roll;
+  } else if (r1.roll === r3.roll) {
+    isPair = true;
+    matchingDie = r1.roll;
+  }
+  return {
+    die1: r1.roll,
+    die2: r2.roll,
+    die3: r3.roll,
+    total,
+    isTriples,
+    isPair: isPair || isTriples,
+    matchingDie: matchingDie ?? (isTriples ? r1.roll : undefined),
+    nextState: r3.nextState,
+  };
+}
+
 export function rollD20(state: number): { roll: number; nextState: number } {
   return rollInt(state, 1, 20);
 }

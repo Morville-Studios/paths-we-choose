@@ -1,3 +1,4 @@
+import { appendGameLog, createTimestamp } from './log';
 import {
   CharacterStats,
   ClassId,
@@ -54,6 +55,8 @@ export function computeCombatGearBonuses(equippedGear: EquippedGear): Required<C
   return bonus;
 }
 
+export const INNATE_STAT_BONUS = 1;
+
 export function computeEffectiveStats(
   baseStats: CharacterStats,
   classBonuses: CharacterStats,
@@ -63,12 +66,12 @@ export function computeEffectiveStats(
   const gear = computeGearBonuses(equippedGear);
   const blessings = blessingBonuses ?? { str: 0, dex: 0, agi: 0, int: 0, cha: 0, vit: 0 };
   return {
-    str: baseStats.str + classBonuses.str + blessings.str + gear.str,
-    dex: baseStats.dex + classBonuses.dex + blessings.dex + gear.dex,
-    agi: baseStats.agi + classBonuses.agi + blessings.agi + gear.agi,
-    int: baseStats.int + classBonuses.int + blessings.int + gear.int,
-    cha: baseStats.cha + classBonuses.cha + blessings.cha + gear.cha,
-    vit: baseStats.vit + classBonuses.vit + blessings.vit + gear.vit,
+    str: INNATE_STAT_BONUS + baseStats.str + classBonuses.str + blessings.str + gear.str,
+    dex: INNATE_STAT_BONUS + baseStats.dex + classBonuses.dex + blessings.dex + gear.dex,
+    agi: INNATE_STAT_BONUS + baseStats.agi + classBonuses.agi + blessings.agi + gear.agi,
+    int: INNATE_STAT_BONUS + baseStats.int + classBonuses.int + blessings.int + gear.int,
+    cha: INNATE_STAT_BONUS + baseStats.cha + classBonuses.cha + blessings.cha + gear.cha,
+    vit: INNATE_STAT_BONUS + baseStats.vit + classBonuses.vit + blessings.vit + gear.vit,
   };
 }
 
@@ -82,14 +85,18 @@ export function calculateGoodsPrice(basePrice: number, effectiveCha: number): nu
   return Math.max(1, Math.round(basePrice * (1 - discountRate)));
 }
 
-/** 1 ACC is gained for each 2 DEX, plus direct equipment bonuses. */
+/**
+ * 1 point in DEX increases ACC by 1 (plus direct gear ACC).
+ */
 export function getPlayerAcc(stats: CharacterStats, gearAcc = 0): number {
-  return Math.floor(stats.dex / 2) + gearAcc;
+  return stats.dex + gearAcc;
 }
 
-/** 1 EVA is gained for each 2 AGI (plus any gear and temporary card round EVA bonus) */
+/**
+ * 1 point in AGI increases EVA by 1 (plus gear and temporary card round EVA bonus).
+ */
 export function getPlayerEva(stats: CharacterStats, bonusEva = 0, gearEva = 0): number {
-  return Math.floor(stats.agi / 2) + gearEva + bonusEva;
+  return stats.agi + gearEva + bonusEva;
 }
 
 /** Hero ATK: floor(STR / 2) + floor(DEX / 3) + gear.atk */
@@ -284,6 +291,7 @@ export function upgradeBaseStat(state: RunState, stat: StatKey): RunState {
       maxHp: nextMaxHp,
       hp: nextHp,
     },
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] ⬆️ Upgraded Base ${stat.toUpperCase()} to ${currentBase + 1} (-${cost} SP).`),
     bannerMessage: `Upgraded Base ${stat.toUpperCase()} to ${currentBase + 1} (-${cost} SP)!`,
   };
 }

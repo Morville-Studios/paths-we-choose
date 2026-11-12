@@ -162,7 +162,7 @@ Base card fields, class train pools and starter lists are in [CATALOGS.md](CATAL
 - The Fighter has 8 non-starter skill types (16 physical New Skills cards): **High Strike**, **Parry**, **Fortify**, **Whirlwind**, **Battlecry**, **Battle Flag**, **Adrenalin**, and **Final Smash**. `Heavy Cleave`, `Iron Parry`, and `Battle Focus` are the retained collector IDs for High Strike, Parry, and Fortify respectively. The five `+` cards are **Void upgrades**, never trainable New Skills cards.
 - **The Void and skill upgrades**: The Void is a public not-in-play card zone shown in the sidebar. Its catalog templates are inexhaustible and contain **Parry +**, **Fortify +**, **Whirlwind +**, **Battlecry +**, and **High Strike +**, every Boss card, and the two Adventurer cards for classes not selected by the current player. It also holds physical cards destroyed during Training. At a Level 2+ Shrine, an owned 1 AP base card may be replaced with its matching Void `+` upgrade for **10 Gold + 2 SP**, even when that upgrade remains 1 AP (High Strike +). At a Level 3+ Shrine, a defined 2 AP to 3 AP route costs **30 Gold + 6 SP**. The upgrade template is not consumed.
 - Fighter card formulas use the already-derived live `ATK`, `DEF`, and `ACC` values: **Slash** `3 + ATK` normal physical damage; **Defend** `4 + DEF` Block for the turn; **High Strike** (1 AP) `ATK + ACC`; **High Strike +** (1 AP) `2 × ATK + ACC`; **Fortify** `3 + DEF`; **Fortify +** `4 + 2 × DEF`; **Whirlwind** `1 + ATK`; **Whirlwind +** (2 AP) `2 + 2 × ATK`.
-- Whirlwind and Whirlwind + attack every living enemy, performing a separate seeded 2d6 hit check, defense reduction, Block reduction, and critical check for each target. Their confirmation displays every living target, not only the currently selected monster, with each target's own needed roll and probability. Both impose `-1 ACC`.
+- Whirlwind and Whirlwind + attack every living enemy, performing a separate seeded 3d6 hit check, defense reduction, and Block reduction for each target under MACG-3D6™. Their confirmation displays every living target, not only the currently selected monster, with each target's own hit range and probability. Both impose `-1 ACC`.
 - A card with a discard rule opens a confirmation selection: Battlecry and Battlecry + require exactly two other cards; Adrenalin and Final Smash permit any number of other cards, including zero. Each eligible discard is a compact visual card option with its action art, name, AP cost, and selected marker; the card currently being played is never selectable. Battlecry draws 3 and regains 1 AP; Battlecry + draws 4 and regains 2 AP; Adrenalin regains 1 AP per selected discard; Final Smash deals `6 + 2 × ATK + 3 × selected discards`.
 - Battle Flag is a battle-long enchantment. It costs 1 AP and enters the battle's `inPlay` zone instead of the action discard pile, but does **not** regain AP or draw a card when played. Each active Battle Flag draws one card whenever another card effect grants AP. No current monster effect destroys enchantments; if an effect later destroys one, it moves to the action discard pile.
 - **Resolving Stack**: A played card leaves the hand and enters `combat.stack` until its complete effect resolves. Chosen discard costs enter action discard first, then the printed draw is performed one card at a time with ordinary discard recycling, then AP gains and any Battle Flag draws resolve. Only after all those steps does the played card move from the Stack to action discard, or to `inPlay` for a lasting enchantment. Battlecry therefore cannot draw itself during the same resolution.
@@ -172,22 +172,32 @@ Base card fields, class train pools and starter lists are in [CATALOGS.md](CATAL
 - INT-scaled damage additionally adds gear.matk. Hero INT-scaled attacks use target MDEF; other attacks use target DEF reduced by the hero's gear PEN (minimum 0).
 - Block = baseBlock + scalingMultiplier × floor(block scaling value / divisor), when present. Gear DEF/MDEF reduce incoming damage; they do not directly add card Block unless a card explicitly scales from derived DEF.
 - EVA card effects grant the flat evasionMultiplier (default 1) when evasionScalingStat is present; they do not multiply by the attribute value.
-- Damage is then multiplied for a critical hit using floor(damage×1.5), then reduced by the appropriate target defense and Block. No minimum +1 critical-damage exception applies.
+- Combat damage is not multiplied by critical hit spikes. Damage dealt is reduced by target defense (DEF or MDEF) and Block directly.
 
-### 3.2 Tabletop 2d6 Combat Resolution & Formulas
-Combat uses **2x 1d6 (2d6)** dice rolls rather than 1d20:
-- **Base Hit Threshold**: `5`. Rolling 5 or higher hits; 4 or lower misses.
-- **Snake Eyes (`1 + 1 = 2`)**: Total miss (always misses, regardless of accuracy).
-- **Boxcars (`6 + 6 = 12`)**: Critical hit; applies **+50% bonus ATK damage** ($\lfloor \text{damage} \times 1.5 \rfloor$).
-- **ACC & EVA Scaling**:
-  - `Player ACC` = `floor(DEX/2)` + `gear.acc` + any explicit card ACC bonus + temporary ACC modifiers. **Slash has no inherent ACC bonus**; Iron Sword + is an example of a `+1 gear ACC` source.
-  - `Player EVA` = $\lfloor \text{AGI} / 2 \rfloor + \text{gear.eva} + \text{roundBonusEVA}$.
+### 3.2 Tabletop 3d6 Combat Resolution & Formulas (MACG-3D6™)
+Combat uses the **Morville Adventure Card Game "3d6 Success Roll Range Table Reference" (MACG-3D6™)**:
+- **Dice Mechanics**: 3d6 (sum of 3 six-sided dice, range 3 to 18, 216 combinations).
+- **Sure Hit Rolls (Minimum Success Roll)**: The exact center rolls **10 and 11** form the minimum success roll or **Sure Hit Rolls (25.0% baseline)** (54 combinations).
+- **1:1 DEX & AGI Scaling & Net ACC Expansion**:
+  - `1 point in DEX increases ACC by 1`: `Player ACC = Effective DEX + gear.acc + any explicit card ACC bonus + temporary ACC modifiers`. **Slash has no inherent ACC bonus**; Iron Sword + is an example of a `+1 gear ACC` source.
+  - `1 point in AGI increases EVA by 1`: `Player EVA = Effective AGI + gear.eva + roundBonusEVA`.
   - `Net ACC` = $\text{Attacker ACC} - \text{Target EVA}$.
-  - Target roll needed to hit: $\text{neededRoll} = 5 - \text{Net ACC}$. (e.g. 3 ACC vs 2 EVA = +1 Net ACC, hits on 4+).
+  - Expansion: $\text{expansion} = \max(0, \min(6, 3 + \text{Net ACC}))$.
+  - `Hit Range` = $[\max(4, 10 - \text{expansion}) \dots \min(17, 11 + \text{expansion})]$.
+  - **Baseline (+0 Net ACC)** is **Tier 4** (`7 – 14`, 81.5% probability).
+  - Positive Net ACC expands outward up to **Tier 7** ($\ge +3$ Net ACC, `4 – 17`, 99.1% probability).
+  - Negative Net ACC contracts inward down to **Tier 1** ($\le -3$ Net ACC, `10 – 11`, 25.0% Sure Hit Rolls / minimum success roll). For example, an attacker with 3 ACC against a target with 5 EVA has Net ACC $-2$, resolving at **Tier 2** (`9 – 12`, 48.1% probability).
+- **Diabolic Rolls (3 and 18 Always Miss)**:
+  - Rolls of **3** (Triple 1s) and **18** (Triple 6s) are **Diabolic Rolls**.
+  - They **always guarantee a miss**, regardless of the attacker's Accuracy.
+  - Maximum hit chance is capped at **99.1%** (rolls 4–17, 214/216 combinations).
+- **Elimination of Critical Hits, Snake Eyes & Boxcars**:
+  - All concepts of critical hits (+50% DMG), snake eyes, and boxcars are removed.
+  - Attack damage is consistent and derived purely from cards and stats.
 - **Combat Pre-Play Confirmation Modal**:
   - Clicking any playable card from hand opens a confirmation modal before any AP or action is committed:
     - **Source & Target Comparison**: Displays the action card and target (creature or hero) side-by-side with an arrow flow (`Use {card} on {target}`).
-    - **Attack Math Breakdown**: Displays Hero ACC (DEX + gear + card bonus), Target EVA, Net ACC modifier, needed roll on 2d6, and exact hit probability percentage calculated over the 36 combinations (accounting for Snake Eyes auto-miss and Boxcars auto-crit).
+    - **Interactive QTE Hit Check Bar**: Shows dynamic green hit zone, red miss zone, Diabolic miss notches (`3 😈` and `😈 18`), live hit range, and exact hit probability percentage calculated over the 216 combinations.
     - **Direct Target Switching**: When facing multiple enemies, players can click monster chips inside the popup to switch target and preview live math differences before hitting **Confirm**.
     - **Confirm & Cancel Controls**: AP is only spent upon clicking `Confirm Use (X AP)`; clicking `Cancel`, backdrop, or pressing `Escape` cancels without spending AP.
 
@@ -332,11 +342,29 @@ When the player steps on an Encounter card:
   - Guidance text: *"Traverse targets with A or D. You can also use the LEFT and RIGHT keys. Tap a monster to target it with attacks."*
 - Rewards: Winning awards the sum of all inscribed `Stat Point Bonuses` and `Gold` from every defeated monster.
 
-### 5.3 3-Row Pyramid Vision Cone & Lagging Discard
-- `Row R`: Player's current card `(C, R)` + lagging `unchosen`/`unreachable` cards on Row `R`.
-- `Row R + 1`: `2` selectable forward choices `(C - 0.5, R + 1)` and `(C + 0.5, R + 1)` + `1` far-side `unreachable` card.
-- `Row R + 2`: `3` newly drawn lookahead cards `(C - 1.0, R + 2)`, `(C, R + 2)`, and `(C + 1.0, R + 2)`.
-- **Lagging Row Discard**: Moving to `Row R` sweeps only `Row R - 1` into `adventureDiscard` (keeping up to **9 Adventure Cards** on the board at once). When `adventureDeck` hits `0`, `adventureDiscard` is shuffled into `adventureDeck`.
+### 5.3 Morville Adventure Card Game Path Generator™ (MACG-PG™) — Offset Brick-Bond Geometry & Vision Cone
+The map layout is governed by the proprietary **Morville Adventure Card Game Path Generator™ (MACG-PG™)**, a board game strategy pathing system created by **Morville Studios**:
+- **Coordinate System**: Cards occupy fractional column offsets on half-step brick increments (`C ± 0.5`).
+- `Row R` (Current Row): Player's current card `(C, R)` + lagging `unchosen`/`unreachable` sibling cards on Row `R`.
+- `Row R + 1` (Choice Row): `2` selectable forward choices `(C - 0.5, R + 1)` and `(C + 0.5, R + 1)` + `1` far-side `unreachable` card.
+- `Row R + 2` (Lookahead Horizon): `3` newly drawn lookahead cards `(C - 1.0, R + 2)`, `(C, R + 2)`, and `(C + 1.0, R + 2)`.
+  - **Shared Central Node**: The center lookahead card `(C, R + 2)` is reachable from both `(C - 0.5, R + 1)` and `(C + 0.5, R + 1)`, ensuring seamless path branching and natural reconvergence.
+- **Lagging Row Discard & Tabletop Footprint**: Moving to `Row R` sweeps only `Row R - 1` into `adventureDiscard` (maintaining at most **9 Adventure Cards** on the board at any time). When `adventureDeck` hits `0`, `adventureDiscard` is shuffled back into `adventureDeck`.
+- **Trademark**: *Morville Adventure Card Game Path Generator™* (*MACG-PG™*) is a trademark of Morville Studios for board game and tabletop card strategy systems.
+
+#### 5.3.1 Morville Adventure Card Game "3d6 Success Roll Range Table Reference" (MACG-3D6™)
+In 3d6 mechanics, rolls naturally gravitate toward the median of **10 and 11** (12.50% each = 25.0% combined), which define the **Sure Hit Rolls** (minimum success roll). **Tier 4 (+0 Net ACC)** forms the middle baseline at **7 – 14 (81.5%)**. Symmetrical expansion yields concentric success roll ranges:
+
+| Tier | Net ACC | Roll Range | Probability |
+| :---: | :---: | :---: | :---: |
+| **Tier 1 (Sure Hit Rolls)** | &le; -3 | **10 – 11** | **25.0%** |
+| **Tier 2** | -2 | **9 – 12** | **48.1%** |
+| **Tier 3** | -1 | **8 – 13** | **67.6%** |
+| **Tier 4 (Baseline)** | +0 | **7 – 14** | **81.5%** |
+| **Tier 5** | +1 | **6 – 15** | **90.7%** |
+| **Tier 6** | +2 | **5 – 16** | **96.3%** |
+| **Tier 7 (Cap)** | &ge; +3 | **4 – 17** | **99.1%** |
+| **Diabolic Rolls 😈 (Always Miss)** | *Any* | **3 & 18** | **0.9%** |
 
 ---
 
@@ -362,7 +390,7 @@ Adventure TerrainType is start/grasslands/forest/swamp/cave. Monster spawnTerrai
 
 The Goblin King monster deck: 1 copy. Rewards: 8 SP and 16 Gold. Artwork: `/cards/creatures/leech.jpg`. Level 4; Swamp and Cave; 18 HP, 1 DEF, 2 EVA, 2 ACC, 3 MDEF.
 
-Alternates Soul Drain (8 magical damage, using the universal 2d6 attack roll) and Channel (+2 HP capped at Max HP, +2 Block). Soul Drain uses Hero MDEF instead of DEF; Divine Protection and Block still apply. It heals half the actual HP lost by the hero, rounded down and capped at Leech Max HP; misses and fully absorbed hits heal nothing. Hero INT-scaled spell attacks use monster MDEF (default 0) instead of DEF; other attacks use DEF.
+Alternates Soul Drain (8 magical damage, using the universal 3d6 attack roll under MACG-3D6™) and Channel (+2 HP capped at Max HP, +2 Block). Soul Drain uses Hero MDEF instead of DEF; Divine Protection and Block still apply. It heals half the actual HP lost by the hero, rounded down and capped at Leech Max HP; misses and fully absorbed hits heal nothing. Hero INT-scaled spell attacks use monster MDEF (default 0) instead of DEF; other attacks use DEF.
 
 Each living Leech tracks its own completed Channel count. Every third Channel (normally monster turns 6, 12, 18...) removes the first Zombie card from `monsterDiscard` and returns that same card/instance to battle at full HP, starting Block, and pattern index 0. It first acts on the next monster turn. No Zombie means no revival; the next opportunity remains the next third Channel. Dead Leeches do not Channel. Multiple Leeches consume distinct available discard cards. Revived Zombies participate in ordinary targeting, victory rewards, and final discard handling.
 
@@ -370,7 +398,7 @@ Each living Leech tracks its own completed Channel count. Every third Channel (n
 
 The Goblin King monster deck: 1 copy. Rewards: 4 SP and 8 Gold. Artwork: `/cards/creatures/creeper.jpg`. Level 3; Swamp only; 12 HP, 2 DEF, 0 EVA, 1 ACC, 1 MDEF.
 
-Alternates Submerge (regain 3 HP, capped at Max HP; gain 3 Block) and Ambush (7 physical damage, universal 2d6 attack check; reduced by Hero DEF rather than MDEF, then Divine Protection and Block).
+Alternates Submerge (regain 3 HP, capped at Max HP; gain 3 Block) and Ambush (7 physical damage, universal 3d6 attack check under MACG-3D6™; reduced by Hero DEF rather than MDEF, then Divine Protection and Block).
 
 Resilient is a declarative on-defeat ability. After each lethal hero attack, consume one seeded 1d6 roll before victory, rewards, or discard resolution. On 6, Creeper returns immediately at 6 HP with no Block, preserving its pattern position. Otherwise it remains defeated. This can trigger again on each subsequent defeat; misses and nonlethal hits do not roll. The revived creature retains its card identity, remains targetable, and prevents victory until finally defeated. Logs show the die result and whether it revived. No extra card or reward is created by resurrection.
 
@@ -378,7 +406,7 @@ Resilient is a declarative on-defeat ability. After each lethal hero attack, con
 
 Display name Assasin, using the supplied artwork `/cards/creatures/assasin.jpg`. Level 3; Swamp, Cave, Underground; 13 HP, 1 DEF, 3 EVA, 2 ACC, 1 MDEF. The Goblin King monster deck: 2 copies; Rewards: 4 SP and 8 Gold.
 
-Alternates Poison Dart (3 physical damage ignoring up to 3 Hero DEF; universal 2d6 attack check, applies poison on hit) and Piercing Strike (7 physical damage, ignores up to 2 Hero DEF). Piercing cannot reduce effective DEF below 0; MDEF does not absorb it. Divine Protection and Block still apply. Poison application requires a successful hit, including critical hits, and does not require HP damage or bypass the hit check.
+Alternates Poison Dart (3 physical damage ignoring up to 3 Hero DEF; universal 3d6 attack check under MACG-3D6™, applies poison on hit) and Piercing Strike (7 physical damage, ignores up to 2 Hero DEF). Piercing cannot reduce effective DEF below 0; MDEF does not absorb it. Divine Protection and Block still apply. Poison application requires a successful hit, and does not require HP damage or bypass the hit check.
 
 Poison is a single non-stacking persistent status. At the hero's next and every subsequent combat End Turn, before monsters act, it deals 1 HP damage, bypassing DEF/MDEF, Divine Protection, and Block. New poison applied during the monster turn first ticks on the next hero End Turn. It persists across battles until cleansed by a Shrine Cleanse; Village Rest restores HP only and does not remove poison. Map movement alone does not tick poison. Lethal poison ends the run before monsters act or RNG advances. The combat hero panel and log show poison and its damage.
 
@@ -388,7 +416,7 @@ Underground is recognized as a creature spawn tag and visible badge; no Undergro
 
 Level 2; Grasslands and Forest; 8 HP, 0 DEF, 2 EVA, 1 ACC. Artwork: `/cards/creatures/stalker.jpg`. As an Uncommon Grassland creature, Scenario 1 pulls all 4 copies; Rewards: 2 SP and 4 Gold.
 
-Alternates Sprint (+1 EVA and +1 ACC for 2 turns) and Pounce (6 physical damage with a normal 2d6 hit check). Sprint applies during its monster turn and lasts through the next Pounce and the following hero action turn; it expires at the start of the monster turn after that. A new Sprint refreshes the bonuses without stacking. Existing one-turn creature buffs retain their original duration.
+Alternates Sprint (+1 EVA and +1 ACC for 2 turns) and Pounce (6 physical damage with a normal 3d6 hit check under MACG-3D6™). Sprint applies during its monster turn and lasts through the next Pounce and the following hero action turn; it expires at the start of the monster turn after that. A new Sprint refreshes the bonuses without stacking. Existing one-turn creature buffs retain their original duration.
 
 Skittish: each successful hit against a living Stalker immediately grants +1 EVA for the rest of the current hero turn. Repeated hits add another +1 each; fully blocked hits still trigger it, misses do not. The incoming attack rolls against EVA before its own Skittish bonus. All Skittish bonuses expire at hero End Turn, independently of Sprint. Lethal hits do not buff a dead creature. Live card stats, target roll labels, and confirmation odds include current EVA bonuses.
 
@@ -398,7 +426,7 @@ Creature types: **Leech — Undead**, **Creeper — Undead**, **Assasin — Huma
 
 These Cave-main ordinary cards use collector IDs `mon4cav-01` through `mon4cav-03`. They remain entirely in the Void during Scenario 1 because Cave is outside its Grassland/Forest/Swamp setup bands. Scenario 2 uses Cave as its highest band and pulls rounded one-third: 1 Phalanx, 2 Cultist Mages, and 1 Lurker.
 
-- **Phalanx** (`mon4cav-01`): Level 4 Arachnid, Cave only, 20 HP, 3 DEF, 2 EVA, 1 ACC, 8 SP/16 Gold. **Blinding Web** makes one normal physical attack for 6 damage; only a successful hit applies `-1 ACC` and `-2 EVA` to the Hero for one turn. **Double Smash** performs two separate 8-damage physical attacks; each consumes its own seeded 2d6 roll and applies DEF, Divine Protection, and the remaining Block independently.
+- **Phalanx** (`mon4cav-01`): Level 4 Arachnid, Cave only, 20 HP, 3 DEF, 2 EVA, 1 ACC, 8 SP/16 Gold. **Blinding Web** makes one normal physical attack for 6 damage; only a successful hit applies `-1 ACC` and `-2 EVA` to the Hero for one turn. **Double Smash** performs two separate 8-damage physical attacks; each consumes its own seeded 3d6 roll and applies DEF, Divine Protection, and the remaining Block independently.
 - **Cultist Mage** (`mon4cav-02`): Level 4 Human, Cave/Underground/Underworld, 18 HP, 1 DEF, 2 MDEF, 3 ACC, 2 EVA, 8 SP/16 Gold. **Soul Burn** is an 8 MATK attack and therefore uses Hero MDEF rather than DEF.
 - **Lurker** (`mon4cav-03`): Level 5 Wurm, Cave/Underground, 25 HP, 2 DEF, 1 MDEF, 16 SP/32 Gold. **Drill** deals 10 physical damage. **Shed** restores up to 12 HP and applies `-2 DEF` to Lurker for one turn; effective DEF clamps at zero. After every successful nonlethal Hero attack against it, Acid Retaliation deals 1 Hero HP damage, ignoring DEF, MDEF, and Block but still respecting Divine Protection. A miss or the attack that defeats Lurker causes no retaliation.
 
@@ -425,7 +453,7 @@ Eligible physical copies are conserved; nothing is created to fill stock. If no 
 
 ## Battle hand carousel and revised full-size creature template
 
-The battle hand uses one centered, fully readable action card with dimmed flanking previews. Browse by clicking a side preview, using chevrons, numbered selectors, Q/E keys, or horizontal swipes. Browsing updates existing nodes in place and never spends AP. Tapping the center card opens the existing confirmation; Flee occupies its own separate slot. A/D and left/right arrows target enemies when multiple living targets exist; with one target they browse the hand instead. End Turn resets hand selection; selection clamps safely after playing a card. Empty hands retain End Turn. Inspect/confirmation overlays suspend hand navigation; reduced-motion settings disable transitions.
+The battle hand uses one centered, fully readable action card with dimmed flanking previews. Browse by clicking a side preview, using chevrons, numbered selectors, Q/E keys, or horizontal swipes. Browsing updates existing nodes in place and never spends AP. Tapping the center card opens the existing confirmation; Flee is accessed via the dedicated Flee button alongside End Turn below the carousel. A/D and left/right arrows target enemies when multiple living targets exist; with one target they browse the hand instead. End Turn resets hand selection; selection clamps safely after playing a card. Empty hands retain End Turn. Inspect/confirmation overlays suspend hand navigation; reduced-motion settings disable transitions.
 
 Full-size creature cards in battle and inspection share one header/footer template: the first header line shows level, subtype, and spawn icons without the redundant word `CREATURE`; Boss cards may show `BOSS`. The second line holds the name at left and collector number at right. The rules textbox contains abilities and patterns without a duplicate derived-stat row. The bottom dock shows printed Max HP plus icon/value pairs only for positive DEF, MDEF, ACC and EVA; zero-valued combat stats are omitted. Live battle ACC/EVA include temporary buffs and highlight positive bonuses; HP/Block remain live in the external combat dock.
 
@@ -437,7 +465,7 @@ Stalker base EVA is 2. Sprint adds 1 EVA (total 3); an additional Skittish hit b
 
 Witch (`mon3smp-04`), Level 3, Swamp/Cave, 14 HP, 1 DEF, 3 MDEF, 1 EVA, 1 ACC. Artwork: `/cards/creatures/witch.jpg`. Rewards: 4 SP and 8 Gold by the default level formula below. Stalker retains `mon1grs-06`. The Goblin King Stage 1 monster deck includes 1 Witch.
 
-Witch cycles through Blinding Hex (Hero -1 EVA and -1 ACC for 2 turns), Expose weakness (Hero -1 DEF and -1 MDEF for 1 turn), and Smite (7 magical damage). Non-damaging hexes apply directly without a hit roll, immediately affecting later attackers in the same enemy phase. Smite uses the universal 2d6 attack roll, Hero MDEF instead of DEF, then Divine Protection and Block. DEF and MDEF after penalties cannot drop below zero; ACC/EVA remain signed modifiers under the existing hit system.
+Witch cycles through Blinding Hex (Hero -1 EVA and -1 ACC for 2 turns), Expose weakness (Hero -1 DEF and -1 MDEF for 1 turn), and Smite (7 magical damage). Non-damaging hexes apply directly without a hit roll, immediately affecting later attackers in the same enemy phase. Smite uses the universal 3d6 attack roll under MACG-3D6™, Hero MDEF instead of DEF, then Divine Protection and Block. DEF and MDEF after penalties cannot drop below zero; ACC/EVA remain signed modifiers under the existing hit system.
 
 Hex duration counts subsequent hero turns: a hex is active immediately, stays through the stated number of hero turns and their following enemy phases, then expires before the next hero hand. Thus Expose weakness remains active for Witch's next Smite. Recasting the same named hex from the same creature refreshes its duration without stacking; different creatures' hexes accumulate independently. Timed hexes are combat-local, separate from persistent poison/blindness/crippled status names and the existing Ghoul/Troll modifiers. They expire by duration even if their source is defeated.
 

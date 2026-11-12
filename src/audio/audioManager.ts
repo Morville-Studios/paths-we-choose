@@ -177,6 +177,81 @@ export class AudioManager {
       this.currentTrackId = null;
     }
   }
+
+  private sfxContext: AudioContext | null = null;
+
+  public playSlashSound(): void {
+    if (this.muted || typeof window === 'undefined') return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!this.sfxContext) {
+        this.sfxContext = new AudioCtx();
+      }
+      if (this.sfxContext.state === 'suspended') {
+        this.sfxContext.resume().catch(() => {});
+      }
+      const ctx = this.sfxContext;
+      const now = ctx.currentTime;
+
+      // 1. Blade whoosh / white noise burst through bandpass filter
+      const bufferSize = Math.floor(ctx.sampleRate * 0.18);
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.04));
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(3200, now);
+      filter.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+      filter.Q.setValueAtTime(2.5, now);
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(this.volume * 0.9, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      noise.start(now);
+
+      // 2. Metallic slice / blade impact tone
+      const osc = ctx.createOscillator();
+      const oscGain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.exponentialRampToValueAtTime(140, now + 0.12);
+
+      oscGain.gain.setValueAtTime(this.volume * 0.45, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+      osc.connect(oscGain);
+      oscGain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.15);
+
+      // 3. Low impact thud
+      const thud = ctx.createOscillator();
+      const thudGain = ctx.createGain();
+      thud.type = 'sine';
+      thud.frequency.setValueAtTime(150, now);
+      thud.frequency.exponentialRampToValueAtTime(45, now + 0.1);
+
+      thudGain.gain.setValueAtTime(this.volume * 0.6, now);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+      thud.connect(thudGain);
+      thudGain.connect(ctx.destination);
+      thud.start(now);
+      thud.stop(now + 0.12);
+    } catch (e) {
+      console.warn('[AudioManager] playSlashSound failed:', e);
+    }
+  }
 }
 
 export const audioManager = new AudioManager();

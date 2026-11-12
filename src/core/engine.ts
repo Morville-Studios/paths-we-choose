@@ -1,3 +1,4 @@
+import { appendGameLog, createTimestamp } from './log';
 import { CLASS_CATALOG, STARTING_BASE_STATS } from '../data/classes';
 import { createBossMonstersForMission } from '../data/monsters';
 import {
@@ -23,7 +24,7 @@ import {
   drawTreasureUntilLevel,
 } from './deck';
 import {
-  attemptCombatFlee,
+  attemptCombatFlee, computeFleeNetAcc, firstLivingMonsterIndex,
   createCombatSession,
   endPlayerCombatTurn,
   playCombatCardFromHand,
@@ -64,6 +65,8 @@ import {
   AdventureCard,
   BoardNodeStatus,
   ClassId,
+  ActiveCombatState,
+  CombatAttackRollSummary,
   CombatVictoryState,
   GridCoord,
   MonsterCard,
@@ -113,6 +116,7 @@ export function createInitialState(seed = 'default'): RunState {
     pathHistory: [],
     activeHook: { type: 'NONE' },
     bannerMessage: '',
+    gameLog: [],
     welcomePreparing: false,
     currentMusic: 'start-screen',
     audioScene: 'intro',
@@ -205,6 +209,10 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     treasureReshuffleCount: 0,
     board,
     pathHistory: [startCoord],
+    gameLog: [
+      `[${createTimestamp(undefined)}] 🗺️ Embarked on Scenario 1: ${STAGE_1_MISSION_NAME} as a ${classDef.name}.`,
+      `[${createTimestamp(undefined)}] 🎴 Dealt initial adventure board (9 cards). Starting with 4 Stat Points and 20 Gold.`,
+    ],
     bannerMessage: 'Prepare for your journey.',
     welcomePreparing: true,
   });
@@ -301,6 +309,15 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
     }
   }
 
+  const time = createTimestamp(state.logTimestamp);
+  const card = chosen.card;
+  const pathLogs = [
+    `[${time}] 🗺️ Turn ${turn}: Chose path ${card.name} (Row ${R}, Col ${C}).`,
+  ];
+  if (R + 2 <= state.maxTurns) {
+    pathLogs.push(`[${time}] 🎴 Dealt 3 Adventure cards to the horizon (Turn ${turn + 2}).`);
+  }
+
   let next: RunState = {
     ...state,
     turn,
@@ -311,11 +328,11 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
     reshuffleCount: reshuffles,
     playerPosition: { col: C, row: R },
     pathHistory: [...state.pathHistory, { col: C, row: R }],
+    gameLog: appendGameLog(state, pathLogs),
     bannerMessage: 'Choose your next path.',
   };
 
   // 4. Resolve the tile
-  const card = chosen.card;
   if (card.hasHostile) {
     next = startMonsterCombat(next, card.level, card.terrain, card);
   } else if (card.hasVillage) {
@@ -343,6 +360,7 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
             outcome: 'combat',
           },
         },
+        gameLog: appendGameLog(next, `[${time}] ⚔️ Explored ${card.name}: Rolled ${rollLabel} — Enemy encountered!`),
         bannerMessage: `Explored ${card.name}: Rolled ${rollLabel} (≤ Lvl ${card.level}) — Enemy encountered!`,
       };
     } else if (exploration.outcome === 'treasure') {
@@ -392,6 +410,7 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
             outcome: 'safe',
           },
         },
+        gameLog: appendGameLog(next, `[${time}] 🍃 Explored ${card.name}: Rolled ${rollLabel} — The wilderness path is peaceful.`),
         bannerMessage: `Explored ${card.name}: Rolled ${rollLabel}. The wilderness path is peaceful.`,
       };
     }
@@ -460,6 +479,7 @@ function beginCombat(state: RunState, monsters: MonsterCard[]): RunState {
     ...state,
     rngState: nextState,
     activeHook: { type: 'COMBAT', combat },
+    gameLog: appendGameLog(state, combat.combatLog),
     bannerMessage: monsters.some((m) => m.isBoss) ? `The boss ${names} blocks your path!` : `${names} attack!`,
   });
 }
@@ -482,6 +502,8 @@ function handleCombatVictory(
     baseGold: number;
     luckyCharmGold: number;
     hasLuckyCharm?: boolean;
+    lastAttackRolls?: CombatAttackRollSummary[];
+    finalCombatState?: ActiveCombatState;
   }
 ): RunState {
   const boss = defeated.find((m) => m.isBoss);
@@ -498,6 +520,8 @@ function handleCombatVictory(
     bossTitle,
     stageNumber: mission,
     canContinue: mission === 1,
+    lastAttackRolls: victoryDetails.lastAttackRolls,
+    finalCombatState: victoryDetails.finalCombatState,
   };
 
   const luckyText = victoryDetails.hasLuckyCharm
@@ -510,6 +534,7 @@ function handleCombatVictory(
       type: 'VICTORY',
       victory,
     },
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🏆 Victory! Defeated ${defeated.map((m) => m.name).join(' + ')}! Claimed +${victoryDetails.statPointsEarned} SP and +${victoryDetails.goldEarned} Gold${luckyText}!`),
     bannerMessage: `Victory! Defeated ${defeated.map((m) => m.name).join(' + ')}! Claimed +${victoryDetails.statPointsEarned} SP and +${victoryDetails.goldEarned} Gold${luckyText}!`,
   });
 }
@@ -532,6 +557,7 @@ export function confirmCombatVictory(state: RunState): RunState {
         stageNumber: mission,
         canContinue: victory.canContinue,
       },
+      gameLog: appendGameLog(cleared, `[${createTimestamp(state.logTimestamp)}] 👑 ${bossTitle} is defeated. ${missionName} complete!`),
       bannerMessage: `${bossTitle} is defeated. ${missionName} complete!`,
     });
   }
@@ -601,6 +627,7 @@ export function startNextMission(state: RunState): RunState {
       ? { ...state.playerResources, hp: maxHp, maxHp }
       : null,
     activeHook: { type: 'NONE' },
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🌟 Advanced to Scenario ${mission}: ${missionName}!`),
     bannerMessage: `Embarked on ${missionName}. Choose your next path.`,
   });
 }
@@ -622,7 +649,7 @@ export function attemptFlee(state: RunState): RunState {
   return attemptCombatFlee(state);
 }
 
-export { getFleeThreshold };
+export { getFleeThreshold, computeFleeNetAcc, firstLivingMonsterIndex };
 
 // ---------------------------------------------------------------------------
 // Shrine wrappers (Base Stat upgrades are only possible while standing at a Shrine)

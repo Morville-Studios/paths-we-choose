@@ -62,7 +62,7 @@ import {
   getMonsterIntent,
   BASE_HIT_THRESHOLD,
 } from '../core/combat';
-import { roll2D6 } from '../core/rng';
+import { roll2D6, roll3D6 } from '../core/rng';
 import { drawEncounterMonsters, drawMonsterCardWithReshuffle, buildStage2AdventureDeck } from '../core/deck';
 import { MONSTER_TEMPLATES, createBossMonstersForMission } from '../data/monsters';
 import { ADVENTURE_CARD_CATALOG, STAGE_2_MISSION_NAME } from '../data/stages';
@@ -122,12 +122,12 @@ function stepAuto(state: RunState): RunState {
 describe('stats', () => {
   it('fighter and wizard start with the documented effective stats and HP', () => {
     const f = start('fighter');
-    expect(f.playerResources?.maxHp).toBe(14);
+    expect(f.playerResources?.maxHp).toBe(16);
     expect(f.playerResources?.statPoints).toBe(4);
     expect(f.welcomePreparing).toBe(true);
 
     const w = start('wizard');
-    expect(w.playerResources?.maxHp).toBe(12);
+    expect(w.playerResources?.maxHp).toBe(14);
     expect(w.playerResources?.statPoints).toBe(4);
     expect(w.welcomePreparing).toBe(true);
   });
@@ -151,7 +151,7 @@ describe('stats', () => {
     s = upgradeBaseStat(s, 'str'); // 2 -> 3 costs 9 SP
     expect(s.playerBaseStats.str).toBe(3);
     expect(s.playerResources?.statPoints).toBe(0); // 9 - 9 = 0
-    expect(s.playerResources?.maxHp).toBe(14);
+    expect(s.playerResources?.maxHp).toBe(16);
     expect(canUpgradeBaseStat(s, 'str')).toBe(false); // needs 16 SP
   });
 });
@@ -254,11 +254,17 @@ describe('movement and conservation', () => {
         const combat = s.activeHook.combat;
         s = {
           ...s,
+          rngState: 1, // seed 1 rolls [4, 2, 4] = 10 (guaranteed hit in 3d6)
           activeHook: {
             type: 'COMBAT',
             combat: {
               ...combat,
-              monsters: combat.monsters.map((m, idx) => ({ ...m, hp: idx === 0 ? 1 : 0, block: 0 })),
+              monsters: combat.monsters.map((m, idx) => ({
+                ...m,
+                hp: idx === 0 ? 1 : 0,
+                block: 0,
+                monster: { ...m.monster, eva: 0 },
+              })),
             },
           },
         };
@@ -350,7 +356,7 @@ describe('village', () => {
     s = { ...s, playerResources: { ...s.playerResources!, hp: 3, gold: 10 } };
     s = villageDoRest(s);
     expect(s.playerResources?.hp).toBe(s.playerResources?.maxHp);
-    expect(s.playerResources?.gold).toBe(4);
+    expect(s.playerResources?.gold).toBe(3);
     expect(s.activeHook.type).toBe('VILLAGE');
   });
 
@@ -400,7 +406,7 @@ describe('village', () => {
     };
     const rested = villageDoRest(s);
     expect(rested.playerResources?.hp).toBe(s.playerResources!.maxHp);
-    expect(rested.playerResources?.gold).toBe(14);
+    expect(rested.playerResources?.gold).toBe(13);
     expect(rested.statusEffects).toEqual(['poison', 'crippled']);
     expect(rested.activeHook.type).toBe('VILLAGE');
   });
@@ -441,10 +447,10 @@ describe('village', () => {
       sellPrice: 4,
       statBonus: { str: 1 },
     });
-    expect(preview.before.str).toBe(3);
-    expect(preview.after.str).toBe(4);
-    expect(preview.maxHpBefore).toBe(14);
-    expect(preview.maxHpAfter).toBe(14);
+    expect(preview.before.str).toBe(4);
+    expect(preview.after.str).toBe(5);
+    expect(preview.maxHpBefore).toBe(16);
+    expect(preview.maxHpAfter).toBe(16);
   });
 
   it('training has published costs, consumes prepared offers, and remains reversible', () => {
@@ -573,9 +579,9 @@ describe('shrine', () => {
     // Pick Blessing of Strength: grants +1 STR blessing bonus, which raises effective STR to 4 and Max HP from 16 to 18
     s = shrineChoosePrayerOption(s, 'blessing_str');
     expect(s.playerBlessingBonuses.str).toBe(1);
-    expect(getEffectiveStatsFromState(s).str).toBe(4);
-    expect(s.playerResources?.maxHp).toBe(14);
-    expect(s.playerResources?.hp).toBe(14);
+    expect(getEffectiveStatsFromState(s).str).toBe(5);
+    expect(s.playerResources?.maxHp).toBe(16);
+    expect(s.playerResources?.hp).toBe(16);
 
     // Shrine is now marked as prayed and cannot pray again
     if (s.activeHook.type !== 'SHRINE') throw new Error('expected shrine');
@@ -674,7 +680,7 @@ describe('shrine', () => {
 
     // Normal hit with 3 DMG would deal 3 HP loss. With Fighter 3 STR (1 DEF) + Divine Protection (1), damage reduction is 2 (3 - 2 = 1 HP loss: 14 -> 13).
     const after = endTurn(s);
-    expect(after.playerResources?.hp).toBe(13);
+    expect(after.playerResources?.hp).toBe(15);
   });
 
   it('temporary map blessings and divine protection do not carry over to the next map', () => {
@@ -686,7 +692,7 @@ describe('shrine', () => {
       playerResources: { ...s.playerResources!, maxHp: 18, hp: 18 },
     };
 
-    expect(getEffectiveStatsFromState(s).str).toBe(4);
+    expect(getEffectiveStatsFromState(s).str).toBe(5);
     expect(s.divineProtection).toBe(1);
 
     // Clear map blessings
@@ -694,9 +700,9 @@ describe('shrine', () => {
     expect(cleared.playerBlessingBonuses).toEqual({ str: 0, dex: 0, agi: 0, int: 0, cha: 0, vit: 0 });
     expect(cleared.divineProtection).toBe(0);
     // Effective STR reverts to 3, Max HP reverts to 16, and HP is reclamped to 16
-    expect(getEffectiveStatsFromState(cleared).str).toBe(3);
-    expect(cleared.playerResources?.maxHp).toBe(14);
-    expect(cleared.playerResources?.hp).toBe(14);
+    expect(getEffectiveStatsFromState(cleared).str).toBe(4);
+    expect(cleared.playerResources?.maxHp).toBe(16);
+    expect(cleared.playerResources?.hp).toBe(16);
   });
 
   it('automatically grants a random boon upon entering a shrine without needing to pray', () => {
@@ -739,8 +745,8 @@ describe('shrine', () => {
     s = firstBoon.nextState;
     expect(s.activeBlessingId).toBe('blessing_str');
     expect(s.playerBlessingBonuses.str).toBe(1);
-    expect(getEffectiveStatsFromState(s).str).toBe(4);
-    expect(s.playerResources?.maxHp).toBe(14);
+    expect(getEffectiveStatsFromState(s).str).toBe(5);
+    expect(s.playerResources?.maxHp).toBe(16);
 
     // Second shrine grants Blessing of Agility
     const secondBoon = applySingleShrineBoon(s, 'blessing_agi');
@@ -752,8 +758,8 @@ describe('shrine', () => {
     // New AGI blessing is 1
     expect(s.playerBlessingBonuses.agi).toBe(1);
     // Max HP reverted from 18 to 16
-    expect(s.playerResources?.maxHp).toBe(14);
-    expect(s.playerResources?.hp).toBe(14);
+    expect(s.playerResources?.maxHp).toBe(16);
+    expect(s.playerResources?.hp).toBe(16);
   });
 });
 
@@ -776,7 +782,7 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
     expect(ramram?.spawnTerrains).toEqual(['grasslands']);
     expect(ramram?.statPointReward).toBe(1);
     expect(ramram?.goldReward).toBe(2);
-    expect(ramram?.maxHp).toBe(6);
+    expect(ramram?.maxHp).toBe(8);
 
     const rattler = s.monsterDeck.find((m) => m.templateId === 'rattler');
     expect(rattler).toBeDefined();
@@ -784,7 +790,7 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
     expect(rattler?.spawnTerrains).toEqual(['forest']);
     expect(rattler?.statPointReward).toBe(2);
     expect(rattler?.goldReward).toBe(4);
-    expect(rattler?.maxHp).toBe(7);
+    expect(rattler?.maxHp).toBe(10);
     expect(rattler?.def).toBe(1);
   });
 
@@ -842,9 +848,9 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
     expect(bullwarks[0].level).toBe(3);
     expect(bullwarks[0].spawnTerrains).toEqual(['swamp', 'forest']);
     expect(bullwarks[0].def).toBe(2);
-    expect(bullwarks[0].eva).toBe(0);
-    expect(bullwarks[0].acc).toBe(1);
-    expect(bullwarks[0].maxHp).toBe(14);
+    expect(bullwarks[0].eva).toBe(3);
+    expect(bullwarks[0].acc).toBe(3);
+    expect(bullwarks[0].maxHp).toBe(16);
     expect(bullwarks[0].goldReward).toBe(8);
     expect(bullwarks[0].statPointReward).toBe(4);
 
@@ -852,9 +858,9 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
     expect(treeSnappers.length).toBe(3);
     expect(treeSnappers[0].level).toBe(2);
     expect(treeSnappers[0].spawnTerrains).toEqual(['swamp', 'forest']);
-    expect(treeSnappers[0].def).toBe(1);
-    expect(treeSnappers[0].acc).toBe(1);
-    expect(treeSnappers[0].maxHp).toBe(8);
+    expect(treeSnappers[0].def).toBe(2);
+    expect(treeSnappers[0].acc).toBe(2);
+    expect(treeSnappers[0].maxHp).toBe(12);
     expect(treeSnappers[0].goldReward).toBe(4);
     expect(treeSnappers[0].statPointReward).toBe(2);
     expect(treeSnappers[0].creatureType).toBe('Reptile');
@@ -1071,18 +1077,18 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
 
   it('Basilisk Turn 1 Stalk grants +2 EVA for 1 turn against player attacks', () => {
     const treeSnapper = { ...MONSTER_TEMPLATES.tree_snapper, id: 'm_snapper' };
-    expect(treeSnapper.maxHp).toBe(8);
+    expect(treeSnapper.maxHp).toBe(12);
     expect(treeSnapper.goldReward).toBe(4);
     expect(treeSnapper.statPointReward).toBe(2);
-    expect(treeSnapper.acc).toBe(1);
-    expect(treeSnapper.eva).toBe(1);
-    expect(treeSnapper.def).toBe(1);
+    expect(treeSnapper.acc).toBe(2);
+    expect(treeSnapper.eva).toBe(2);
+    expect(treeSnapper.def).toBe(2);
     expect(treeSnapper.creatureType).toBe('Reptile');
     expect(treeSnapper.abilities).toHaveLength(0);
 
     const cm: CombatMonster = {
       monster: treeSnapper,
-      hp: 8,
+      hp: 12,
       block: 0,
       patternIndex: 0, // Turn 1: Stalk
     };
@@ -1117,7 +1123,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
 
   it('Blob Ooze Bump deals 3 DMG and restores 1 HP', () => {
     const slime = { ...MONSTER_TEMPLATES.pink_slime, id: 'm_slime' };
-    expect(slime.maxHp).toBe(4);
+    expect(slime.maxHp).toBe(8);
     expect(slime.goldReward).toBe(2);
     expect(slime.statPointReward).toBe(1);
     expect(slime.acc).toBe(0);
@@ -1243,88 +1249,90 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
     expect(had7).toBe(true);
   });
 
-  it('evaluates attack rolls with ACC vs EVA, snake eyes miss and boxcars critical', () => {
-    // 3 ACC vs 2 EVA -> net ACC = +1, needs 4+ on 2d6 to hit
-    // Search for a roll that gives total = 6
+  it('evaluates attack rolls with MACG-3D6: ACC vs EVA expanding range, Diabolic rolls (3 & 18) always miss, no crits', () => {
+    // 3 ACC vs 2 EVA -> net ACC = +1, expands hit range to [9..12] on 3d6
     let s = 1;
-    let found6 = false;
-    let foundSnakeEyes = false;
-    let foundBoxcars = false;
+    let foundHit = false;
+    let foundDiabolic3 = false;
+    let foundDiabolic18 = false;
 
-    for (let i = 0; i < 500; i++) {
+    for (let i = 0; i < 2000; i++) {
       const currentState = s;
-      const { die1, die2, total, nextState } = roll2D6(s);
+      const { total, isTriples, nextState } = roll3D6(s);
       s = nextState;
 
-      if (die1 === 1 && die2 === 1) {
-        // Snake eyes with +10 net ACC must STILL be a total miss!
-        const evalSnake = evaluateAttackRoll(currentState, 12, 2);
-        expect(evalSnake.isSnakeEyes).toBe(true);
-        expect(evalSnake.isHit).toBe(false);
-        expect(evalSnake.isCrit).toBe(false);
-        foundSnakeEyes = true;
+      if (total === 3) {
+        // Diabolic roll 3 (1,1,1) always guarantees a miss even with net ACC +7
+        const eval3 = evaluateAttackRoll(currentState, 10, 1);
+        expect(eval3.isDiabolic).toBe(true);
+        expect(eval3.isHit).toBe(false);
+        expect(eval3.isCrit).toBe(false);
+        foundDiabolic3 = true;
       }
 
-      if (die1 === 6 && die2 === 6) {
-        // Boxcars with -10 net ACC must STILL be a critical hit!
-        const evalBox = evaluateAttackRoll(currentState, 0, 10);
-        expect(evalBox.isBoxcars).toBe(true);
-        expect(evalBox.isHit).toBe(true);
-        expect(evalBox.isCrit).toBe(true);
-        foundBoxcars = true;
+      if (total === 18) {
+        // Diabolic roll 18 (6,6,6) always guarantees a miss even with net ACC +7
+        const eval18 = evaluateAttackRoll(currentState, 10, 1);
+        expect(eval18.isDiabolic).toBe(true);
+        expect(eval18.isHit).toBe(false);
+        expect(eval18.isCrit).toBe(false);
+        foundDiabolic18 = true;
       }
 
-      if (total === 6 && die1 !== die2) {
-        // 3 ACC vs 2 EVA (+1 net ACC): total 6 + 1 = 7 >= 5 -> HIT!
+      if (total === 10 && !isTriples) {
+        // 3 ACC vs 2 EVA (+1 net ACC): Tier 5 hit range [6..15] -> roll 10 is a HIT!
         const evalHit = evaluateAttackRoll(currentState, 3, 2);
-        expect(evalHit.total).toBe(6);
+        expect(evalHit.total).toBe(10);
         expect(evalHit.netAcc).toBe(1);
-        expect(evalHit.neededRoll).toBe(4);
+        expect(evalHit.minHitRoll).toBe(6);
+        expect(evalHit.maxHitRoll).toBe(15);
         expect(evalHit.isHit).toBe(true);
-        found6 = true;
+        expect(evalHit.isDiabolic).toBe(false);
+        expect(evalHit.isCrit).toBe(false);
+        foundHit = true;
       }
     }
 
-    expect(found6).toBe(true);
-    expect(foundSnakeEyes).toBe(true);
-    expect(foundBoxcars).toBe(true);
+    expect(foundHit).toBe(true);
+    expect(foundDiabolic3).toBe(true);
+    expect(foundDiabolic18).toBe(true);
   });
 
   it('class defaults: Warrior/Fighter and Wizard stat bonuses, ACC, EVA, and CHA', () => {
     const fighter = start('fighter');
     const fEff = getEffectiveStatsFromState(fighter);
-    expect(fEff.dex).toBe(2); // 1 base + 1 class (secondary)
-    expect(getPlayerAcc(fEff)).toBe(1); // 1 per 2 DEX (floor(2/2) = 1)
-    expect(fEff.agi).toBe(1); // 1 base + 0 class
-    expect(fEff.vit).toBe(2); // 1 base + 1 class (secondary)
-    expect(getPlayerEva(fEff)).toBe(0); // 1 per 2 AGI (floor(1/2) = 0)
-    expect(fEff.str).toBe(3); // 1 base + 2 class (primary)
-    expect(fEff.cha).toBe(1); // 1 base + 0 class
+    expect(fEff.dex).toBe(3); // 1 innate + 1 base + 1 class (secondary)
+    expect(getPlayerAcc(fEff)).toBe(3); // 1 ACC per 1 DEX = 3
+    expect(fEff.agi).toBe(2); // 1 innate + 1 base + 0 class
+    expect(fEff.vit).toBe(3); // 1 innate + 1 base + 1 class (secondary)
+    expect(getPlayerEva(fEff)).toBe(2); // 1 EVA per 1 AGI = 2
+    expect(fEff.str).toBe(4); // 1 innate + 1 base + 2 class (primary)
+    expect(fEff.cha).toBe(2); // 1 innate + 1 base + 0 class
 
     const wizard = start('wizard');
     const wEff = getEffectiveStatsFromState(wizard);
-    expect(wEff.int).toBe(3); // 1 base + 2 class (primary)
-    expect(wEff.dex).toBe(2); // 1 base + 1 class (secondary)
-    expect(getPlayerAcc(wEff)).toBe(1); // 1 per 2 DEX (floor(2/2) = 1)
-    expect(wEff.cha).toBe(2); // 1 base + 1 class (secondary)
-    expect(wEff.agi).toBe(1); // 1 base + 0 class
-    expect(getPlayerEva(wEff)).toBe(0); // 1 per 2 AGI (floor(1/2) = 0)
+    expect(wEff.int).toBe(4); // 1 base + 2 class (primary)
+    expect(wEff.dex).toBe(3); // 1 base + 1 class (secondary)
+    expect(getPlayerAcc(wEff)).toBe(3); // 1 ACC per 1 DEX = 3
+    expect(wEff.cha).toBe(3); // 1 base + 1 class (secondary)
+    expect(wEff.agi).toBe(2); // 1 base + 0 class
+    expect(getPlayerEva(wEff)).toBe(2); // 1 EVA per 1 AGI = 2
   });
 
-  it('1 EVA per 2 AGI and 1 ACC per 2 DEX scaling rules', () => {
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(0); // floor(1/2) = 0
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 2, int: 1, cha: 1, vit: 1 })).toBe(1); // floor(2/2) = 1
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 3, int: 1, cha: 1, vit: 1 })).toBe(1); // floor(3/2) = 1
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 4, int: 1, cha: 1, vit: 1 })).toBe(2); // floor(4/2) = 2
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 5, int: 1, cha: 1, vit: 1 })).toBe(2); // floor(5/2) = 2
-    expect(getPlayerEva({ str: 1, dex: 1, agi: 6, int: 1, cha: 1, vit: 1 })).toBe(3); // floor(6/2) = 3
+  it('1 EVA per 1 AGI and 1 ACC per 1 DEX scaling rules', () => {
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(1);
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 2, int: 1, cha: 1, vit: 1 })).toBe(2);
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 3, int: 1, cha: 1, vit: 1 })).toBe(3);
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 4, int: 1, cha: 1, vit: 1 })).toBe(4);
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 5, int: 1, cha: 1, vit: 1 })).toBe(5);
+    expect(getPlayerEva({ str: 1, dex: 1, agi: 6, int: 1, cha: 1, vit: 1 })).toBe(6);
 
-    expect(getPlayerAcc({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(0); // floor(1/2) = 0
-    expect(getPlayerAcc({ str: 1, dex: 2, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(1); // floor(2/2) = 1
-    expect(getPlayerAcc({ str: 1, dex: 3, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(1); // floor(3/2) = 1
-    expect(getPlayerAcc({ str: 1, dex: 4, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(2); // floor(4/2) = 2
-    expect(getPlayerAcc({ str: 1, dex: 5, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(2); // floor(5/2) = 2
-    expect(getPlayerAcc({ str: 1, dex: 6, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(3); // floor(6/2) = 3
+    expect(getPlayerAcc({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(1);
+    expect(getPlayerAcc({ str: 1, dex: 2, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(2);
+    expect(getPlayerAcc({ str: 1, dex: 3, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(3);
+    expect(getPlayerAcc({ str: 1, dex: 4, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(4);
+    expect(getPlayerAcc({ str: 1, dex: 5, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(5);
+    expect(getPlayerAcc({ str: 1, dex: 6, agi: 1, int: 1, cha: 1, vit: 1 })).toBe(6);
   });
 
   it('DEX increases ATK by 1 per 3 DEX, and AGI increases DEF by 1 per 3 AGI', () => {
@@ -1360,12 +1368,9 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
     expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 19 })).toBe(12);
     expect(getPlayerCritThreshold({ str: 1, dex: 1, agi: 1, int: 1, cha: 1, vit: 20 })).toBe(12);
 
-    const prob12 = computeHitProbability(7, 12);
-    expect(prob12.critPercent).toBe(2.8); // 1 in 36
-    const prob11 = computeHitProbability(7, 11);
-    expect(prob11.critPercent).toBe(8.3); // 3 in 36
-    const prob10 = computeHitProbability(7, 10);
-    expect(prob10.critPercent).toBe(16.7); // 6 in 36
+    const probFull = computeHitProbability(7);
+    expect(probFull.critPercent).toBe(0);
+    expect(probFull.diabolicPercent).toBe(0.9);
   });
 
   it('upgrades Base DEX at Shrines using Stat Points and applies Blessing of Dexterity', () => {
@@ -1380,8 +1385,8 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
     s = upgradeBaseStat(s, 'dex');
     expect(s.playerBaseStats.dex).toBe(2);
     expect(s.playerResources?.statPoints).toBe(1); // 5 - 4 = 1
-    expect(getEffectiveStatsFromState(s).dex).toBe(3); // 2 base + 1 class = 3
-    expect(getPlayerAcc(getEffectiveStatsFromState(s))).toBe(1); // floor(3/2) = 1
+    expect(getEffectiveStatsFromState(s).dex).toBe(4); // 2 base + 1 class = 3
+    expect(getPlayerAcc(getEffectiveStatsFromState(s))).toBe(4); // 1 ACC per 1 DEX = 4
 
     // Altar Blessing of Dexterity
     s = {
@@ -1392,11 +1397,11 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
     };
     s = shrineChoosePrayerOption(s, 'blessing_dex');
     expect(s.playerBlessingBonuses?.dex).toBe(1);
-    expect(getEffectiveStatsFromState(s).dex).toBe(4); // 2 base + 1 class + 1 blessing = 4
-    expect(getPlayerAcc(getEffectiveStatsFromState(s))).toBe(2); // floor(4/2) = 2
+    expect(getEffectiveStatsFromState(s).dex).toBe(5); // 2 base + 1 class + 1 blessing = 4
+    expect(getPlayerAcc(getEffectiveStatsFromState(s))).toBe(5); // 1 ACC per 1 DEX = 5
   });
 
-  it('player attack performs 2d6 hit check against target monster EVA and updates lastAttackRoll', () => {
+  it('player attack performs 3d6 hit check against target monster EVA and updates lastAttackRoll', () => {
     let s = start('fighter');
     const goblinCard = { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
     const meleeCard = { ...COMBAT_CARD_CATALOG.melee_atk, instanceId: 'test_melee' };
@@ -1433,9 +1438,12 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
       expect(combat.lastAttackRoll?.die1).toBeLessThanOrEqual(6);
       expect(combat.lastAttackRoll?.die2).toBeGreaterThanOrEqual(1);
       expect(combat.lastAttackRoll?.die2).toBeLessThanOrEqual(6);
-      // Net ACC = 1 base Hero ACC (DEX 2) - 1 Goblin EVA = 0 -> Needed roll = 5.
+      expect(combat.lastAttackRoll?.die3).toBeGreaterThanOrEqual(1);
+      expect(combat.lastAttackRoll?.die3).toBeLessThanOrEqual(6);
+      // Net ACC = 3 Hero ACC (DEX 3) - 3 Goblin EVA = 0 -> Tier 4 Hit Range [7..14].
       expect(combat.lastAttackRoll?.netAcc).toBe(0);
-      expect(combat.lastAttackRoll?.neededRoll).toBe(5);
+      expect(combat.lastAttackRoll?.minHitRoll).toBe(7);
+      expect(combat.lastAttackRoll?.maxHitRoll).toBe(14);
 
       if (combat.lastAttackRoll?.isHit) {
         expect(combat.monsters[0].hp).toBeLessThan(8);
@@ -1454,25 +1462,57 @@ describe('2x 1d6 (2d6) combat rolls, DEX, ACC and EVA mechanics', () => {
     const eff = computeCardEffect({ ...melee, instanceId: 'm1' }, effStats);
     expect(eff.accBonus).toBe(0);
 
-    // Standard baseline (needed roll 5): 30/36 = 83.3%
-    expect(BASE_HIT_THRESHOLD).toBe(5);
-    const p5 = computeHitProbability(5);
-    expect(p5.hitCombos).toBe(30);
-    expect(p5.hitPercent).toBe(83.3);
+    // Baseline (+0 Net ACC): Tier 4 -> range [7..14] -> 176/216 = 81.5%
+    expect(BASE_HIT_THRESHOLD).toBe(10);
+    const p0 = computeHitProbability(0);
+    expect(p0.hitCombos).toBe(176);
+    expect(p0.hitPercent).toBe(81.5);
+    expect(p0.minHitRoll).toBe(7);
+    expect(p0.maxHitRoll).toBe(14);
 
-    // Needed roll 4: 33/36 = 91.7%
-    const p4 = computeHitProbability(4);
-    expect(p4.hitCombos).toBe(33);
-    expect(p4.hitPercent).toBe(91.7);
+    // Net ACC +1: Tier 5 -> range [6..15] -> 196/216 = 90.7%
+    const p1 = computeHitProbability(1);
+    expect(p1.hitCombos).toBe(196);
+    expect(p1.hitPercent).toBe(90.7);
+    expect(p1.minHitRoll).toBe(6);
+    expect(p1.maxHitRoll).toBe(15);
 
-    // Snake eyes (1,1) always misses even on needed 2
+    // Net ACC +2: Tier 6 -> range [5..16] -> 208/216 = 96.3%
     const p2 = computeHitProbability(2);
-    expect(p2.hitCombos).toBe(35); // 35/36 hits (only snake eyes misses)
+    expect(p2.hitCombos).toBe(208);
+    expect(p2.hitPercent).toBe(96.3);
+    expect(p2.minHitRoll).toBe(5);
+    expect(p2.maxHitRoll).toBe(16);
 
-    // Boxcars (6,6) always crits even on needed 12
-    const p12 = computeHitProbability(12);
-    expect(p12.hitCombos).toBe(1);
-    expect(p12.hitPercent).toBe(2.8);
+    // Net ACC +7 (>= +3): Tier 7 -> range [4..17] -> 214/216 = 99.1% (3 and 18 are Diabolic misses)
+    const p7 = computeHitProbability(7);
+    expect(p7.hitCombos).toBe(214);
+    expect(p7.hitPercent).toBe(99.1);
+    expect(p7.diabolicPercent).toBe(0.9);
+    expect(p7.minHitRoll).toBe(4);
+    expect(p7.maxHitRoll).toBe(17);
+
+    // Negative Net ACC:
+    // Net ACC -1: Tier 3 -> range [8..13] -> 146/216 = 67.6%
+    const pm1 = computeHitProbability(-1);
+    expect(pm1.hitCombos).toBe(146);
+    expect(pm1.hitPercent).toBe(67.6);
+    expect(pm1.minHitRoll).toBe(8);
+    expect(pm1.maxHitRoll).toBe(13);
+
+    // Net ACC -2: Tier 2 -> range [9..12] -> 104/216 = 48.1% (e.g. 3 ACC vs 5 EVA)
+    const pm2 = computeHitProbability(-2);
+    expect(pm2.hitCombos).toBe(104);
+    expect(pm2.hitPercent).toBe(48.1);
+    expect(pm2.minHitRoll).toBe(9);
+    expect(pm2.maxHitRoll).toBe(12);
+
+    // Net ACC -3 (<= -3): Tier 1 Sure Hit Rolls -> range [10..11] -> 54/216 = 25.0%
+    const pm3 = computeHitProbability(-3);
+    expect(pm3.hitCombos).toBe(54);
+    expect(pm3.hitPercent).toBe(25.0);
+    expect(pm3.minHitRoll).toBe(10);
+    expect(pm3.maxHitRoll).toBe(11);
   });
 });
 
@@ -1525,14 +1565,14 @@ describe('Game start preparation dialog and 4 starting Stat Points', () => {
     expect(s.playerResources?.statPoints).toBe(4);
     expect(s.welcomePreparing).toBe(true);
     expect(s.playerBaseStats.str).toBe(1);
-    expect(s.playerResources?.maxHp).toBe(14);
+    expect(s.playerResources?.maxHp).toBe(16);
 
     // Upgrade VIT right away in preparation: Base 1 -> 2 costs (1+1)^2 = 4 SP
     const upgraded = welcomeUpgradeStat(s, 'vit');
     expect(upgraded.playerBaseStats.vit).toBe(2);
     expect(upgraded.playerResources?.statPoints).toBe(0); // 4 - 4 = 0
-    expect(upgraded.playerResources?.maxHp).toBe(16);
-    expect(upgraded.playerResources?.hp).toBe(16);
+    expect(upgraded.playerResources?.maxHp).toBe(18);
+    expect(upgraded.playerResources?.hp).toBe(18);
 
     // Dismiss preparation dialog to begin journey
     const ready = dismissWelcomePrepare(upgraded);
@@ -1894,13 +1934,13 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     expect(s.equippedGear.accessory?.name).toBe('Beast Ring');
     expect(s.backpack).toHaveLength(1);
     // Ring gives +1 STR; Max HP remains 14 (10 + VIT 2 * 2)
-    expect(s.playerResources?.maxHp).toBe(14);
+    expect(s.playerResources?.maxHp).toBe(16);
 
     // Unequip accessory by instanceId
     s = unequipItem(s, 'test_ring');
     expect(s.equippedGear.accessory).toBeNull();
     expect(s.backpack).toHaveLength(2);
-    expect(s.playerResources?.maxHp).toBe(14);
+    expect(s.playerResources?.maxHp).toBe(16);
   });
 
   it('prevents equipping and unequipping during combat', () => {
@@ -1946,14 +1986,14 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     const s = start('rogue');
     expect(s.playerClass).toBe('rogue');
     const eff = getEffectiveStatsFromState(s);
-    expect(eff.str).toBe(2);
-    expect(eff.dex).toBe(2);
-    expect(eff.agi).toBe(3);
-    expect(eff.int).toBe(1);
-    expect(eff.cha).toBe(1);
-    expect(eff.vit).toBe(1);
-    expect(s.playerResources?.maxHp).toBe(12); // 10 + 1*2 = 12
-    expect(s.playerResources?.hp).toBe(12);
+    expect(eff.str).toBe(3);
+    expect(eff.dex).toBe(3);
+    expect(eff.agi).toBe(4);
+    expect(eff.int).toBe(2);
+    expect(eff.cha).toBe(2);
+    expect(eff.vit).toBe(2);
+    expect(s.playerResources?.maxHp).toBe(14); // 10 + 2*2 = 14
+    expect(s.playerResources?.hp).toBe(14);
     expect(s.playerMasterDeck).toHaveLength(10);
     const meleeCount = s.playerMasterDeck.filter((c) => c.id === 'melee_atk').length;
     const shieldCount = s.playerMasterDeck.filter((c) => c.id === 'shield_def').length;
@@ -2078,12 +2118,12 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       },
     };
 
-    // Test every pair face 1..6 (including Snake Eyes 1+1 and Boxcars 6+6)
+    // Test every pair face 1..6 on 3d6
     for (let targetFace = 1; targetFace <= 6; targetFace++) {
       let pairRng = 1;
       for (let testRng = 1; testRng < 5000; testRng++) {
-        const roll = roll2D6(testRng);
-        if (roll.die1 === targetFace && roll.die2 === targetFace) {
+        const roll = roll3D6(testRng);
+        if (roll.isPair && roll.matchingDie === targetFace) {
           pairRng = testRng;
           break;
         }
@@ -2091,7 +2131,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       const played = playCard({ ...s, rngState: pairRng }, 'card_steal_test', 0);
       expect(played.playerResources?.gold).toBe(10 + targetFace);
       if (played.activeHook.type === 'COMBAT') {
-        expect(played.activeHook.combat.combatLog.some((l) => l.includes(`[Steal] Rolled a pair [${targetFace}, ${targetFace}]! Snatched +${targetFace} Gold`))).toBe(true);
+        expect(played.activeHook.combat.combatLog.some((l) => l.includes('[Steal] Rolled matching dice') && l.includes(`Snatched +${targetFace} Gold`))).toBe(true);
       }
     }
   });
@@ -2127,14 +2167,14 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       accessory: null,
     });
     expect(combatGear).toMatchObject({ acc: 1, atk: 2, def: 2, eva: 1 });
-    expect(getPlayerAcc(getEffectiveStatsFromState(start('fighter')), combatGear.acc)).toBe(2);
+    expect(getPlayerAcc(getEffectiveStatsFromState(start('fighter')), combatGear.acc)).toBe(4); // 3 DEX + 1 gear.acc = 4
   });
 
   it('Dagger PEN bypasses natural monster DEF for physical attacks before Block', () => {
     const daggerPlus = { ...SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_dagger_plus')!, instanceId: 'dagger-plus-test' };
     const melee = { ...COMBAT_CARD_CATALOG.melee_atk, instanceId: 'penetrating-melee' };
     const seed = Array.from({ length: 1000 }, (_, i) => i + 1).find((candidate) => {
-      const roll = evaluateAttackRoll(candidate, 20, 0, 12);
+      const roll = evaluateAttackRoll(candidate, 1, 0, 18);
       return roll.isHit && !roll.isCrit;
     })!;
     let state = startAdventure('fighter', 'penetration-test');
@@ -2145,7 +2185,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [{ monster: { ...MONSTER_TEMPLATES.goblin, id: 'armored-goblin', def: 2, maxHp: 5 }, hp: 5, block: 1, patternIndex: 0 }],
+          monsters: [{ monster: { ...MONSTER_TEMPLATES.goblin, id: 'armored-goblin', def: 2, eva: 0, maxHp: 10 }, hp: 10, block: 1, patternIndex: 0 }],
           combatTurn: 1,
           playerAp: 3,
           playerMaxAp: 3,
@@ -2162,8 +2202,8 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     const next = playCard(state, melee.instanceId, 0);
     if (next.activeHook.type !== 'COMBAT') throw new Error('Expected battle to continue');
     const roll = next.activeHook.combat.lastAttackRoll!;
-    expect(roll).toMatchObject({ damagePenetrated: 2, damageDefReduced: 0, damageBlocked: 1, damageDealt: 4 });
-    expect(next.activeHook.combat.monsters[0].hp).toBe(1);
+    expect(roll).toMatchObject({ damagePenetrated: 2, damageDefReduced: 0, damageBlocked: 1, damageDealt: 6 });
+    expect(next.activeHook.combat.monsters[0].hp).toBe(4);
     expect(next.activeHook.combat.combatLog.join(' ')).toContain('2 Goblin DEF bypassed by PEN');
   });
 
@@ -2298,17 +2338,17 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       expect(bosses[0].templateId).toBe('troll_healer');
       expect(bosses[0].name).toBe('Troll Healer');
       expect(bosses[0].isBoss).toBe(true);
-      expect(bosses[0]).toMatchObject({ level: 4, maxHp: 25, mdef: 2, eva: 1, statPointReward: 8, goldReward: 16 });
+      expect(bosses[0]).toMatchObject({ level: 4, maxHp: 25, mdef: 3, eva: 2, statPointReward: 8, goldReward: 16 });
 
       expect(bosses[1].templateId).toBe('troll_hexer');
       expect(bosses[1].name).toBe('Troll Hexer');
       expect(bosses[1].isBoss).toBe(true);
-      expect(bosses[1]).toMatchObject({ level: 4, maxHp: 25, mdef: 2, eva: 1, statPointReward: 8, goldReward: 16 });
+      expect(bosses[1]).toMatchObject({ level: 4, maxHp: 25, def: 2, mdef: 2, eva: 2, statPointReward: 8, goldReward: 16 });
 
       expect(bosses[2].templateId).toBe('troll_brute');
       expect(bosses[2].name).toBe('Troll Warrior');
       expect(bosses[2].isBoss).toBe(true);
-      expect(bosses[2]).toMatchObject({ level: 4, maxHp: 25, def: 2, eva: 1, statPointReward: 8, goldReward: 16 });
+      expect(bosses[2]).toMatchObject({ level: 4, maxHp: 25, def: 3, mdef: 1, eva: 2, statPointReward: 8, goldReward: 16 });
     });
 
     it('Troll Healer casts Troll Mending healing damaged troll for 10 HP', () => {
@@ -2791,13 +2831,13 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
   });
 
   describe('Ghoul Creature and Growl Debuff', () => {
-    it('defines Ghoul with 10 HP, 1 MDEF, 2 EVA, 1 ACC, Forest/Swamp terrains, and Growl + Mad Dash pattern', () => {
+    it('defines Ghoul with 12 HP, 2 MDEF, 3 EVA, 1 ACC, Forest/Swamp terrains, and Growl + Mad Dash pattern', () => {
       const ghoul = MONSTER_TEMPLATES.ghoul;
       expect(ghoul).toBeDefined();
       expect(ghoul.name).toBe('Ghoul');
-      expect(ghoul.maxHp).toBe(10);
-      expect(ghoul.mdef).toBe(1);
-      expect(ghoul.eva).toBe(2);
+      expect(ghoul.maxHp).toBe(12);
+      expect(ghoul.mdef).toBe(2);
+      expect(ghoul.eva).toBe(3);
       expect(ghoul.acc).toBe(1);
       expect(ghoul.def).toBe(0);
       expect(ghoul.spawnTerrains).toContain('forest');

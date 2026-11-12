@@ -1,9 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="520" height="120" viewBox="0 0 520 120" role="img" aria-labelledby="title desc">
-  <title id="title">Morville Studios Games</title>
-  <desc id="desc">The official Morville Studios mark with the Games division name.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="470" height="120" viewBox="0 0 470 120" role="img" aria-labelledby="title">
+  <title id="title">Morville Studios</title>
   <g fill="#f1efe8" transform="translate(2 1) scale(1.1)">
     <path d="M0 21 18 34v48L0 96V21ZM29 0l20 14v53L39 78 29 68V0Zm31 25 20-15v76l-20 14V25Z"/>
   </g>
   <text x="112" y="66" fill="#f1efe8" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="700" letter-spacing="6">MORVILLE</text>
-  <text x="116" y="101" fill="#8296ff" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="7">STUDIOS · GAMES</text>
+  <text x="116" y="101" fill="#8296ff" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="10">STUDIOS</text>
 </svg>

@@ -4,13 +4,13 @@ Generated from src/data by scripts/sync-doc-catalogs.cjs. Do not edit these tabl
 
 ## Classes
 
-Effective stats below are Base + Class, before preparation upgrades, gear or blessings. Stat order: STR / DEX / AGI / INT / CHA / VIT.
+Effective stats below include the Innate +1 baseline (1 Innate + Base + Class), before preparation upgrades, gear or blessings. Stat order: STR / DEX / AGI / INT / CHA / VIT.
 
 | Class | Primary | Secondary | Class bonuses | Effective stats | Max HP | Starter deck | Passive |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Fighter | str | vit, dex | 2 / 1 / 0 / 0 / 0 / 1 | 3 / 2 / 1 / 1 / 1 / 2 | 14 | 8× Slash, 2× Defend | Gain +1 ATK bonus when HP is 50% or below Max HP. If 25% or below, gain +2 ATK bonus instead. |
-| Wizard | int | dex, cha | 0 / 1 / 0 / 2 / 1 / 0 | 1 / 2 / 1 / 3 / 2 / 1 | 12 | 8× Fireball ATK, 2× Force Field DEF | When you end turn in battle with unused Action Points, they carry over to your next battle turn. |
-| Rogue | agi | dex, str | 1 / 1 / 2 / 0 / 0 / 0 | 2 / 2 / 3 / 1 / 1 / 1 | 12 | 8× Slash, 2× Defend | Whenever you roll a 2d6 to perform an attack hit check and it is a pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6), you immediately gain Gold equal to the doubled number (e.g. 1+1 grants +1 Gold, 5+5 grants +5 Gold, 6+6 grants +6 Gold; even Snake Eyes steals +1 Gold). |
+| Fighter | str | vit, dex | 2 / 1 / 0 / 0 / 0 / 1 | 4 / 3 / 2 / 2 / 2 / 3 | 16 | 8× Slash, 2× Defend | Gain +1 ATK bonus when HP is 50% or below Max HP. If 25% or below, gain +2 ATK bonus instead. |
+| Wizard | int | dex, cha | 0 / 1 / 0 / 2 / 1 / 0 | 2 / 3 / 2 / 4 / 3 / 2 | 14 | 8× Fireball ATK, 2× Force Field DEF | When you end turn in battle with unused Action Points, they carry over to your next battle turn. |
+| Rogue | agi | dex, str | 1 / 1 / 2 / 0 / 0 / 0 | 3 / 3 / 4 / 2 / 2 / 2 | 14 | 8× Slash, 2× Defend | Whenever you roll a 2d6 to perform an attack hit check and it is a pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6), you immediately gain Gold equal to the doubled number (e.g. 1+1 grants +1 Gold, 5+5 grants +5 Gold, 6+6 grants +6 Gold; even Snake Eyes steals +1 Gold). |
 
 ## Ordinary Monsters
 
@@ -18,24 +18,24 @@ Physical ordinary-creature supply: **76 cards**. Common types have 6 copies, Unc
 
 | Collector ID | Template ID | Name | Type | Rarity | Supply | Main terrain | Stage 1 deck | Stage 1 Void | Stage 2 deck | Level | HP | DEF | MDEF | ACC | EVA | SP | Gold | Terrains | Pattern | Abilities |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| mon1grs-01 | goblin | Goblin | Goblinoid | common | 6 | grasslands | 6 | 0 | 0 | 1 | 6 | 0 | 0 | 1 | 1 | 1 | 2 | grasslands, forest, swamp | 1. Slash: 4 physical damage<br>2. Cautious Poke: 3 physical damage; +2 Block | None |
-| mon1grs-02 | pink_slime | Blob | Ooze | uncommon | 4 | grasslands | 4 | 0 | 0 | 1 | 4 | 1 | 1 | 0 | 0 | 1 | 2 | grasslands, forest | 1. Ooze Bump: 3 physical damage; +1 HP<br>2. Acid Glob: 4 physical damage | None |
-| mon1grs-03 | fighting_beetle | Pincer | Insect | uncommon | 4 | grasslands | 4 | 0 | 0 | 1 | 5 | 1 | 0 | 0 | 0 | 1 | 2 | grasslands, forest | 1. Shell Guard: 3 physical damage; +1 DEF for 1 turn(s)<br>2. Horn Charge: 4 physical damage | None |
-| mon1grs-04 | wild_dog | Scavenger | Beast | uncommon | 4 | grasslands | 4 | 0 | 0 | 1 | 6 | 0 | 0 | 2 | 2 | 1 | 2 | grasslands, forest | 1. Savage Bite: 4 physical damage<br>2. Lunging Bite: 3 physical damage; +1 ACC for 1 turn(s) | None |
-| mon1grs-05 | ramram | Ramram | Beast | rare | 3 | grasslands | 3 | 0 | 0 | 1 | 6 | 0 | 0 | 2 | 1 | 1 | 2 | grasslands | 1. Headbutt: 4 physical damage<br>2. Sturdy Horn Guard: 3 physical damage; +2 Block | None |
-| mon1grs-06 | stalker | Stalker | Unspecified | uncommon | 4 | grasslands | 4 | 0 | 0 | 2 | 8 | 0 | 0 | 1 | 2 | 2 | 4 | grasslands, forest | 1. Sprint: +1 EVA for 2 turn(s); +1 ACC for 2 turn(s)<br>2. Pounce: 6 physical damage | Skittish: Each hit immediately grants +1 EVA for the rest of the hero turn.; Sprint grants +1 EVA and +1 ACC for 2 turns; refreshing does not stack. |
-| mon2frs-01 | rattler | Rattler | Reptile | rare | 3 | forest | 2 | 1 | 3 | 2 | 7 | 1 | 0 | 3 | 1 | 2 | 4 | forest | 1. Venom Strike: 5 physical damage<br>2. Coil & Strike: 4 physical damage; +2 Block | None |
-| mon2frs-02 | tree_snapper | Basilisk | Reptile | uncommon | 4 | forest | 3 | 1 | 4 | 2 | 8 | 1 | 0 | 1 | 1 | 2 | 4 | swamp, forest | 1. Stalk: +2 EVA for 1 turn(s)<br>2. Snapping Jaws: 6 physical damage | None |
+| mon1grs-01 | goblin | Goblin | Goblinoid | common | 6 | grasslands | 6 | 0 | 0 | 1 | 6 | 0 | 0 | 2 | 3 | 1 | 2 | grasslands, forest, swamp | 1. Slash: 4 physical damage<br>2. Cautious Poke: 3 physical damage; +2 Block | None |
+| mon1grs-02 | pink_slime | Blob | Ooze | uncommon | 4 | grasslands | 4 | 0 | 0 | 1 | 8 | 1 | 1 | 0 | 0 | 1 | 2 | grasslands, forest | 1. Ooze Bump: 3 physical damage; +1 HP<br>2. Acid Glob: 4 physical damage | None |
+| mon1grs-03 | fighting_beetle | Pincer | Insect | uncommon | 4 | grasslands | 4 | 0 | 0 | 1 | 6 | 1 | 0 | 1 | 1 | 1 | 2 | grasslands, forest | 1. Shell Guard: 3 physical damage; +1 DEF for 1 turn(s)<br>2. Horn Charge: 4 physical damage | None |
+| mon1grs-04 | wild_dog | Scavenger | Beast | uncommon | 4 | grasslands | 4 | 0 | 0 | 1 | 6 | 0 | 0 | 2 | 3 | 1 | 2 | grasslands, forest | 1. Savage Bite: 4 physical damage<br>2. Lunging Bite: 3 physical damage; +1 ACC for 1 turn(s) | None |
+| mon1grs-05 | ramram | Ramram | Beast | rare | 3 | grasslands | 3 | 0 | 0 | 1 | 8 | 0 | 0 | 3 | 1 | 1 | 2 | grasslands | 1. Headbutt: 4 physical damage<br>2. Sturdy Horn Guard: 3 physical damage; +2 Block | None |
+| mon1grs-06 | stalker | Stalker | Unspecified | uncommon | 4 | grasslands | 4 | 0 | 0 | 2 | 10 | 0 | 0 | 3 | 4 | 2 | 4 | grasslands, forest | 1. Sprint: +1 EVA for 2 turn(s); +1 ACC for 2 turn(s)<br>2. Pounce: 6 physical damage | Skittish: Each hit immediately grants +1 EVA for the rest of the hero turn.; Sprint grants +1 EVA and +1 ACC for 2 turns; refreshing does not stack. |
+| mon2frs-01 | rattler | Rattler | Reptile | rare | 3 | forest | 2 | 1 | 3 | 2 | 10 | 1 | 1 | 4 | 2 | 2 | 4 | forest | 1. Venom Strike: 5 physical damage<br>2. Coil & Strike: 4 physical damage; +2 Block | None |
+| mon2frs-02 | tree_snapper | Basilisk | Reptile | uncommon | 4 | forest | 3 | 1 | 4 | 2 | 12 | 2 | 0 | 2 | 2 | 2 | 4 | swamp, forest | 1. Stalk: +2 EVA for 1 turn(s)<br>2. Snapping Jaws: 6 physical damage | None |
 | mon2frs-03 | zombie | Zombie | Undead | common | 6 | forest | 4 | 2 | 6 | 2 | 7 | 1 | 1 | 0 | 0 | 2 | 4 | swamp, cave, forest | 1. Regenerate: +3 HP<br>2. Rotting Claw: 5 physical damage | Lifesteal (Attacks restore HP equal to unblocked damage dealt) |
-| mon2frs-04 | ghoul | Ghoul | Undead | uncommon | 4 | forest | 3 | 1 | 4 | 2 | 10 | 0 | 1 | 1 | 2 | 2 | 4 | forest, swamp | 1. Growl: -1 Hero EVA for 2 turns<br>2. Mad Dash: 6 physical damage | None |
-| mon2frs-05 | bullwark | Bullwark | Beast | uncommon | 4 | forest | 3 | 1 | 4 | 3 | 14 | 2 | 0 | 1 | 0 | 4 | 8 | swamp, forest | 1. Chaotic Impulse: random +1 ATK or ACC for 1 turn(s)<br>2. Heavy Charge: 7 physical damage | Chaotic Impulse grants either +1 ATK or +1 ACC for its next turn. |
-| mon3smp-01 | leech | Leech | Undead | uncommon | 4 | swamp | 1 | 3 | 3 | 4 | 18 | 1 | 3 | 2 | 2 | 8 | 16 | swamp, cave | 1. Soul Drain: 8 magical damage; drain 50% HP damage<br>2. Channel: +2 Block; +2 HP; every 3 casts revive one discarded zombie | Soul Drain restores 50% of HP damage dealt (rounded down).; Every third Channel returns one Zombie from the monster discard pile at full HP; it acts next round. |
-| mon3smp-02 | creeper | Creeper | Undead | rare | 3 | swamp | 1 | 2 | 2 | 3 | 12 | 2 | 1 | 1 | 0 | 4 | 8 | swamp | 1. Submerge: +3 Block; +3 HP<br>2. Ambush: 7 physical damage | Resilient: Whenever defeated, roll 1d6. On a 6, return to life with 6 HP. |
-| mon3smp-03 | assassin | Assasin | Human | common | 6 | swamp | 2 | 4 | 4 | 3 | 13 | 1 | 1 | 2 | 3 | 4 | 8 | swamp, cave, underground | 1. Poison Dart: 3 physical damage; ignore 3 DEF; poison on hit<br>2. Piercing Strike: 7 physical damage; ignore 2 DEF | Poison Dart poisons on hit: 1 HP damage at each subsequent hero End Turn until cleansed; does not stack.; Piercing Strike ignores up to 2 Hero DEF. |
-| mon3smp-04 | witch | Witch | Unspecified | uncommon | 4 | swamp | 1 | 3 | 3 | 3 | 14 | 1 | 3 | 1 | 1 | 4 | 8 | swamp, cave | 1. Blinding Hex: -1 Hero EVA, -1 Hero ACC for 2 turns<br>2. Expose weakness: -1 Hero DEF, -1 Hero MDEF for 1 turns<br>3. Smite: 7 magical damage | Regen1: Regain 1 HP at the end of each turn, up to Max HP. |
-| mon4cav-01 | phalanx | Phalanx | Arachnid | rare | 3 | cave | 0 | 3 | 1 | 4 | 20 | 3 | 0 | 1 | 2 | 8 | 16 | cave | 1. Blinding Web: 6 physical damage; -1 Hero ACC, -2 Hero EVA for 1 turns on hit<br>2. Double Smash: 8 physical damage; 2 separate hits | None |
-| mon4cav-02 | cultist_mage | Cultist Mage | Human | common | 6 | cave | 0 | 6 | 2 | 4 | 18 | 1 | 2 | 3 | 2 | 8 | 16 | cave, underground, underworld | 1. Soul Burn: 8 magical damage | None |
-| mon4cav-03 | lurker | Lurker | Wurm | uncommon | 4 | cave | 0 | 4 | 1 | 5 | 25 | 2 | 1 | 1 | 0 | 16 | 32 | cave, underground | 1. Drill: 10 physical damage<br>2. Shed: +12 HP; -2 DEF for 1 turn(s) | Acid Retaliation: After a successful player attack while Lurker survives, deal 1 damage that ignores DEF and Block. |
+| mon2frs-04 | ghoul | Ghoul | Undead | uncommon | 4 | forest | 3 | 1 | 4 | 2 | 12 | 0 | 2 | 1 | 3 | 2 | 4 | forest, swamp | 1. Growl: -1 Hero EVA for 2 turns<br>2. Mad Dash: 6 physical damage | None |
+| mon2frs-05 | bullwark | Bullwark | Beast | uncommon | 4 | forest | 3 | 1 | 4 | 3 | 16 | 2 | 2 | 3 | 3 | 4 | 8 | swamp, forest | 1. Chaotic Impulse: random +1 ATK or ACC for 1 turn(s)<br>2. Heavy Charge: 7 physical damage | Chaotic Impulse grants either +1 ATK or +1 ACC for its next turn. |
+| mon3smp-01 | leech | Leech | Undead | uncommon | 4 | swamp | 1 | 3 | 3 | 4 | 18 | 1 | 3 | 3 | 2 | 8 | 16 | swamp, cave | 1. Soul Drain: 8 magical damage; drain 50% HP damage<br>2. Channel: +2 Block; +2 HP; every 3 casts revive one discarded zombie | Soul Drain restores 50% of HP damage dealt (rounded down).; Every third Channel returns one Zombie from the monster discard pile at full HP; it acts next round. |
+| mon3smp-02 | creeper | Creeper | Undead | rare | 3 | swamp | 1 | 2 | 2 | 3 | 14 | 2 | 2 | 3 | 3 | 4 | 8 | swamp | 1. Submerge: +3 Block; +3 HP<br>2. Ambush: 7 physical damage | Resilient: Whenever defeated, roll 1d6. On a 6, return to life with 6 HP. |
+| mon3smp-03 | assassin | Assasin | Human | common | 6 | swamp | 2 | 4 | 4 | 3 | 13 | 2 | 1 | 4 | 4 | 4 | 8 | swamp, cave, underground | 1. Poison Dart: 3 physical damage; ignore 3 DEF; poison on hit<br>2. Piercing Strike: 7 physical damage; ignore 2 DEF | Poison Dart poisons on hit: 1 HP damage at each subsequent hero End Turn until cleansed; does not stack.; Piercing Strike ignores up to 2 Hero DEF. |
+| mon3smp-04 | witch | Witch | Unspecified | uncommon | 4 | swamp | 1 | 3 | 3 | 3 | 14 | 1 | 3 | 4 | 2 | 4 | 8 | swamp, cave | 1. Blinding Hex: -1 Hero EVA, -1 Hero ACC for 2 turns<br>2. Expose weakness: -1 Hero DEF, -1 Hero MDEF for 1 turns<br>3. Smite: 7 magical damage | Regen1: Regain 1 HP at the end of each turn, up to Max HP. |
+| mon4cav-01 | phalanx | Phalanx | Arachnid | rare | 3 | cave | 0 | 3 | 1 | 4 | 20 | 3 | 2 | 4 | 5 | 8 | 16 | cave | 1. Blinding Web: 6 physical damage; -1 Hero ACC, -2 Hero EVA for 1 turns on hit<br>2. Double Smash: 8 physical damage; 2 separate hits | None |
+| mon4cav-02 | cultist_mage | Cultist Mage | Human | common | 6 | cave | 0 | 6 | 2 | 4 | 18 | 2 | 3 | 5 | 4 | 8 | 16 | cave, underground, underworld | 1. Soul Burn: 8 magical damage | None |
+| mon4cav-03 | lurker | Lurker | Wurm | uncommon | 4 | cave | 0 | 4 | 1 | 5 | 25 | 4 | 3 | 4 | 4 | 16 | 32 | cave, underground | 1. Drill: 10 physical damage<br>2. Shed: +12 HP; -2 DEF for 1 turn(s) | Acid Retaliation: After a successful player attack while Lurker survives, deal 1 damage that ignores DEF and Block. |
 
 ## Bosses
 
@@ -43,10 +43,10 @@ Bosses are spawned separately and excluded from ordinary-deck conservation. Stag
 
 | Name | Template | Level | HP | DEF | MDEF | ACC | EVA | SP | Gold | Pattern | Abilities |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Grundy | goblin_chieftain | 5 | 30 | 1 | 1 | 1 | 1 | 16 | 32 | 1. Call Goblin: tutor one goblin from Monster Deck into play; if tutor misses, return one discarded goblin to top of Monster Deck<br>2. Beef up!: +4 Block; +1 DEF for 1 turn(s)<br>3. Goblin March: 6 physical damage; +1 damage per living goblin | Goblin Warlord: Calls Goblins from the hidden Monster Deck and grows stronger with each Goblin in play. |
-| Troll Healer | troll_healer | 4 | 25 | 1 | 2 | 2 | 1 | 8 | 16 | 1. Troll Mending: +2 Block | Troll Mending (Heals a random troll for 10 HP each round) |
-| Troll Hexer | troll_hexer | 4 | 25 | 1 | 2 | 2 | 1 | 8 | 16 | 1. Troll Hex: +2 Block<br>2. Cursed Recoil: 2 magical damage; +2 damage per active Hero debuff | Hex Curse (Casts a stacking random 5-turn debuff: -1 ACC, +1 DMG taken, or -1 EVA) |
-| Troll Warrior | troll_brute | 4 | 25 | 2 | 0 | 3 | 1 | 8 | 16 | 1. Troll Smash: 6 physical damage | Relentless Assault (Attacks hero for 6 DMG each round) |
+| Grundy | goblin_chieftain | 5 | 30 | 3 | 1 | 3 | 3 | 16 | 32 | 1. Call Goblin: tutor one goblin from Monster Deck into play; if tutor misses, return one discarded goblin to top of Monster Deck<br>2. Beef up!: +4 Block; +1 DEF for 1 turn(s)<br>3. Goblin March: 6 physical damage; +1 damage per living goblin | Goblin Warlord: Calls Goblins from the hidden Monster Deck and grows stronger with each Goblin in play. |
+| Troll Healer | troll_healer | 4 | 25 | 1 | 3 | 3 | 2 | 8 | 16 | 1. Troll Mending: +2 Block | Troll Mending (Heals a random troll for 10 HP each round) |
+| Troll Hexer | troll_hexer | 4 | 25 | 2 | 2 | 3 | 2 | 8 | 16 | 1. Troll Hex: +2 Block<br>2. Cursed Recoil: 2 magical damage; +2 damage per active Hero debuff | Hex Curse (Casts a stacking random 5-turn debuff: -1 ACC, +1 DMG taken, or -1 EVA) |
+| Troll Warrior | troll_brute | 4 | 25 | 3 | 1 | 4 | 2 | 8 | 16 | 1. Troll Smash: 6 physical damage | Relentless Assault (Attacks hero for 6 DMG each round) |
 
 ## Adventure Decks
 

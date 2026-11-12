@@ -17,7 +17,7 @@ function grundyBattle(monsterDeck: MonsterCard[], monsterDiscard: MonsterCard[] 
 describe('Grundy boss rules', () => {
   it('uses the requested Level 5 stats and reward inscription', () => {
     expect(createBossMonsterCard()).toMatchObject({
-      name: 'Grundy', level: 5, maxHp: 30, def: 1, mdef: 1, acc: 1, eva: 1,
+      name: 'Grundy', level: 5, maxHp: 30, def: 3, mdef: 1, acc: 3, eva: 3,
       goldReward: 32, statPointReward: 16,
     });
   });

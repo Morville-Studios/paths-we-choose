@@ -55,15 +55,15 @@ describe('Fighter skill cards', () => {
   it('uses derived ATK and DEF for the renamed cards and their upgrades', () => {
     const state = startAdventure('fighter', 'fighter-scaling');
     const stats = getEffectiveStatsFromState(state);
-    expect(computeCardEffect(card('melee_atk', 'melee'), stats).damage).toBe(4); // 3 + 1 ATK
+    expect(computeCardEffect(card('melee_atk', 'melee'), stats).damage).toBe(6); // 3 + 3 ATK
     expect(computeCardEffect(card('shield_def', 'shield'), stats).block).toBe(4); // 4 + 0 DEF
-    expect(computeCardEffect(card('heavy_cleave', 'high'), stats).damage).toBe(2); // 1 ATK + 1 ACC
-    expect(computeCardEffect(card('high_strike_plus', 'high-plus'), stats).damage).toBe(3); // 2 × 1 ATK + 1 ACC
-    expect(computeCardEffect(card('heavy_cleave', 'high-debuffed'), stats, undefined, 0, 0, -1).damage).toBe(1); // live -1 ACC debuff
+    expect(computeCardEffect(card('heavy_cleave', 'high'), stats).damage).toBe(6); // 3 ATK + 3 ACC
+    expect(computeCardEffect(card('high_strike_plus', 'high-plus'), stats).damage).toBe(9); // 2 × 3 ATK + 3 ACC
+    expect(computeCardEffect(card('heavy_cleave', 'high-debuffed'), stats, undefined, 0, 0, -1).damage).toBe(5); // live -1 ACC debuff
     expect(computeCardEffect(card('battle_focus', 'fortify'), stats).block).toBe(3); // 3 + 0 DEF
     expect(computeCardEffect(card('fortify_plus', 'fortify-plus'), stats).block).toBe(4); // 4 + 2 × 0 DEF
-    expect(computeCardEffect(card('whirlwind', 'whirlwind'), stats).damage).toBe(2); // 1 + 1 ATK
-    expect(computeCardEffect(card('whirlwind_plus', 'whirlwind-plus'), stats).damage).toBe(4); // 2 + 2 × 1 ATK
+    expect(computeCardEffect(card('whirlwind', 'whirlwind'), stats).damage).toBe(4); // 1 + 3 ATK
+    expect(computeCardEffect(card('whirlwind_plus', 'whirlwind-plus'), stats).damage).toBe(8); // 2 + 2 × 3 ATK
     expect(computeCardEffect(card('iron_parry', 'parry'), stats)).toMatchObject({ block: 5, evasionBonus: 1 });
     expect(computeCardEffect(card('parry_plus', 'parry-plus'), stats)).toMatchObject({ block: 7, evasionBonus: 2 });
   });
@@ -151,8 +151,9 @@ describe('Fighter skill cards', () => {
     const finalSmash = card('final_smash', 'final');
     const fuel = card('melee_atk', 'fuel');
     const state = combatState([finalSmash, fuel]);
+    state.rngState = 1;
     const result = playCard(state, finalSmash.instanceId, 0, [fuel.instanceId]);
     if (result.activeHook.type !== 'COMBAT') throw new Error('combat should continue');
-    expect(result.activeHook.combat.combatLog.find((entry) => entry.includes('Played Final Smash'))).toContain('11 DMG');
+    expect(result.activeHook.combat.combatLog.find((entry) => entry.includes('Played Final Smash'))).toContain('15 DMG');
   });
 });

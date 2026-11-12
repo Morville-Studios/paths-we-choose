@@ -10,36 +10,56 @@ Ordinary creatures come from a finite **76-card physical supply** in the public 
 
 **The Paths We Choose** blends the tactical node-pathing and deckbuilding combat of *Slay the Spire* with classic tabletop dungeon-crawl mechanics, `2x 1d6` (2d6) probability rolls, equipment slots, and attribute archetypes (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`).
 
-An in-game **How to Play** guide explains the core loop in short, plain-language sections for players age 10 and above. It is available from the title screen before starting and from the persistent `📖 Guide` control in the game HUD.
+An in-game **How to Play** guide explains the core loop in short, plain-language sections for players age 10 and above. It is available from the title screen before starting and from the persistent `📖 Guide` control in the game HUD. The guide features an AD&D-inspired two-page tome layout with chapter ribbons (I. The Journey, II. Hero & Stats, III. The Village, IV. Shrines & Void, V. MACG-3D6™ Combat, and VI. Bestiary). **Chapter VI: The Monstrous Compendium** presents full TCG creature cards for all 22 monsters grouped by their primary territory (defined deterministically by the lowest territory tier symbol on the card: Grasslands 1, Forest 2, Swamp 3, Cave 4) and Legendary Bosses, sorted strictly by `LOWEST_TERRITORY_TIER, ENEMY_LEVEL, ENEMY_NAME`; clicking any creature card opens the full inspection modal showing encounter profiles, cycling AI intents, rewards, and lore.
 
 ### Core Design Pillars
-1. **Two-Row Pyramid Lookahead (Strategic Vision Cone)**:
-   - The player always sees **3 active rows on the board**:
+1. **Morville Adventure Card Game Path Generator™ (MACG-PG™) — 3-Row Pyramid Vision Cone**:
+   - The game's pathing system is powered by the trademarked **Morville Adventure Card Game Path Generator™ (MACG-PG™)**, a proprietary board game strategy mechanic developed by **Morville Studios**.
+   - Unlike full-tree Directed Acyclic Graphs (DAGs) found in traditional roguelike deckbuilders, MACG-PG™ generates a dynamic, localized **1 → 2 → 3 brick-offset sliding vision cone** directly from a 30-card physical Adventure Deck:
      1. **Current Row (`Row R`)**: The tile the player token is currently on (plus any unchosen/unreachable sibling tiles from that row).
-     2. **Next Choice Row (`Row R + 1`)**: The **2 immediate forward tiles** the player can step onto next (plus 1 unreachable tile on the far side from the previous turn's lookahead).
-     3. **Lookahead Row (`Row R + 2`)**: **3 tiles above the next row**—intersecting the leftmost, middle (shared), and rightmost paths of the 2 choices below them.
+     2. **Next Choice Row (`Row R + 1`)**: The **2 immediate forward tiles** the player can step onto next (plus 1 unreachable tile on the far side from the previous turn's lookahead) at offsets `C - 0.5` and `C + 0.5`.
+     3. **Lookahead Row (`Row R + 2`)**: **3 tiles above the next row** (`C - 1.0`, `C`, and `C + 1.0`)—where the central tile `(C, R + 2)` is intrinsically shared by both forward choices below it, naturally creating branching and reconverging paths without crossing line edges.
+   - **Lagging Discard & 9-Card Board Footprint**: Stepping to `Row R` sweeps `Row R - 1` into the Adventure Discard pile, preserving a tabletop-friendly 9-card maximum board layout and recycling cards when the Adventure Deck depletes.
 2. **Stat-Driven Evolution, Primary/Secondary Archetypes & Shrine Conversion**:
    - There are **no character levels or XP bars**—your attributes (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) directly define your hero's growth!
-   - Every character begins with **Base `1`** in all 6 stats, plus their **Class Stat Bonuses** (1 Primary stat with `+2`, 2 Secondary stats with `+1` each, and others with `+0`):
-     - **Fighter**: Primary `STR (+2)`, Secondary `VIT (+1), DEX (+1)` -> Starting Effective `STR 3, DEX 2, AGI 1, INT 1, CHA 1, VIT 2` (14 Max HP, 1 ACC, 0 EVA, 1 ATK, 0 DEF, 3 ACT).
-     - **Wizard**: Primary `INT (+2)`, Secondary `DEX (+1), CHA (+1)` -> Starting Effective `STR 1, DEX 2, AGI 1, INT 3, CHA 2, VIT 1` (12 Max HP, 1 ACC, 0 EVA, 1 MATK, 0 MDEF, 3 ACT).
-     - **Rogue**: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)` -> Starting Effective `STR 2, DEX 2, AGI 3, INT 1, CHA 1, VIT 1` (12 Max HP, 1 ACC, 1 EVA, 1 ATK, 1 DEF, 3 ACT).
+   - Every character begins with **Base `1`** in all 6 stats, along with an **Innate +1 Stat Bonus** on every attribute (`Effective Stat = 1 (Innate) + Base_Stat_Level + Class_Bonus + Blessing_Bonus + Gear_Bonus`), plus their **Class Stat Bonuses** (1 Primary stat with `+2`, 2 Secondary stats with `+1` each, and others with `+0`):
+     - **Fighter**: Primary `STR (+2)`, Secondary `VIT (+1), DEX (+1)` -> Starting Effective `STR 4, DEX 3, AGI 2, INT 2, CHA 2, VIT 3` (16 Max HP, 3 ACC, 2 EVA, 3 ATK, 0 DEF, 3 ACT).
+     - **Wizard**: Primary `INT (+2)`, Secondary `DEX (+1), CHA (+1)` -> Starting Effective `STR 2, DEX 3, AGI 2, INT 4, CHA 3, VIT 2` (14 Max HP, 3 ACC, 2 EVA, 2 MATK, 0 MDEF, 3 ACT).
+     - **Rogue**: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)` -> Starting Effective `STR 3, DEX 3, AGI 4, INT 2, CHA 2, VIT 2` (14 Max HP, 3 ACC, 4 EVA, 2 ATK, 1 DEF, 3 ACT).
    - **Charisma (`CHA`)**: Each point of Effective CHA reduces the prices of purchaseable goods in Village Shops by **5%** (e.g. 1 CHA = 5% off, 2 CHA = 10% off; minimum 1 Gold).
    - **Starting 4 Stat Points & Welcome Preparation Dialog**: Players start with **4 Stat Points (SP)** and are greeted with a preparation dialog on game start featuring the Shrine stat converter widget, allowing immediate Base Stat upgrades before stepping forward.
    - Defeating Monsters rewards **Stat Points (`SP`)** (inscribed directly on the Monster Card).
    - **Shrines (`hasShrine: true`)**: Players convert Stat Points into **Base Stats** at Shrines or during initial Turn 0 preparation. Upgrading a Base Stat from current level `B` to `B + 1` costs **`(B + 1) * (B + 1)` Stat Points**. A Shrine can raise a Base Stat only through **Shrine Level + 1**: Level 1 permits Base `1 -> 2`, Level 2 also permits `2 -> 3`, and Level 3 permits through Base 4. Multiple legal upgrades can be purchased while SP remains. The modal shows the stepped-on Shrine card and the reusable live character/stat panel beside the upgrade controls.
    - **Automatic Shrine Boon**: Upon arrival, the player receives one eligible random boon, replacing the previous blessing (Cleanse, Blessing of {Stat} for `+1` map stat, Divine Protection for `-1` damage taken, or Revitalize).
-3. **Tabletop 2d6 Combat Rolls, ACC & EVA System**:
-   - **Universal Hit Check**: Anything that performs an attack on a target (player attack cards, hybrid cards with damage, and monster attack intents) performs a **`2x 1d6` (2d6)** hit check.
-   - **Hit Check Math**: Needs a roll of $\text{neededRoll} = 5 - (\text{Attacker ACC} - \text{Target EVA})$ to hit.
-   - With no modifiers, rolls of **5 and above hit** (83.33%), while **4 and below miss** (16.67%).
-   - **Snake eyes (`1 + 1 = 2`)**: Total miss (automatic miss regardless of accuracy modifiers).
-   - **Critical Hits**: Rolling Boxcars (`6 + 6 = 12`, 2.8%) is an automatic critical hit applying **+50% bonus ATK damage** ($\lfloor \text{damage} \times 1.5 \rfloor$).
-   - **ACC vs. EVA Formulas**: `1 base ACC` per `2 DEX` plus direct gear ACC ($\lfloor\text{DEX}/2\rfloor + \text{gear.acc}$), `1 EVA` per `2 AGI` plus gear EVA ($\lfloor\text{AGI}/2\rfloor + \text{gear.eva}$). Defense cards can grant temporary round EVA bonuses.
+3. **Tabletop 3d6 Combat Rolls & MACG-3D6™ Success Roll Range System**:
+   - **Universal Hit Check**: Anything that performs an attack on a target (player attack cards, hybrid cards with damage, and monster attack intents) performs the **3d6 Success Roll Range** check under the **Morville Adventure Card Game "3d6 Success Roll Range Table Reference" (MACG-3D6™)**.
+   - **Sure Hit Rolls (Minimum Success Roll)**: 3d6 rolls range from 3 to 18 (216 combinations), naturally clustering around the center median of **10 and 11** (12.50% each, providing a **25.0% baseline hit chance** called the **Sure Hit Rolls** or **minimum success roll**).
+   - **1:1 DEX and AGI Scaling**: 1 point in DEX increases ACC by 1 (`ACC = DEX + gear.acc`), and 1 point in AGI increases EVA by 1 (`EVA = AGI + gear.eva`).
+   - **Net ACC Expansion**: Each point of positive Net ACC ($\text{attacker ACC} - \text{target EVA}$) expands the success window symmetrically outward by 1 on each side:
+     $$\text{Hit Range} = [\max(4, 10 - \text{bonus}) \dots \min(17, 11 + \text{bonus})]$$
+     where $\text{bonus} = \max(0, \text{attacker ACC} - \text{target EVA})$.
+   - **Diabolic Rolls (3 & 18 Always Miss)**: Rolls of **3** (1-1-1) and **18** (6-6-6) are **Diabolic Rolls**. They always guarantee a miss regardless of how high the character's ACC is, guaranteeing a 0.925% miss chance and capping maximum hit probability at **99.1%** (rolls 4–17, 214/216 combinations).
+   - **No Critical Hits or Extreme Spikes**: Traditional concepts of "critical hits", "snake eyes", and "box cars" are eliminated. Attacks deal transparent, predictable damage based on card/intent base values and stat scaling.
+   - **Visual Quick Time Event (QTE) Hit Check Bar**: The confirmation dialog and 3d6 Tabletop Dice Roll Modal feature an interactive QTE-style bar displaying green hit zones, red miss zones, Diabolic markings (`3 😈` and `😈 18`), and a custom raster token piece (`qte-token.png`) placed upon the rolled value.
+   - **ACC vs. EVA Formulas**: `1 ACC per 1 DEX` plus direct gear ACC ($\text{DEX} + \text{gear.acc}$), `1 EVA per 1 AGI` plus gear EVA ($\text{AGI} + \text{gear.eva}$). Defense cards can grant temporary round EVA bonuses.
    - **Physical ATK & DEF Formulas**: Physical ATK = $\lfloor\text{STR}/2\rfloor + \lfloor\text{DEX}/3\rfloor + \text{gear.atk}$; Physical DEF = $\lfloor\text{STR}/5\rfloor + \lfloor\text{VIT}/5\rfloor + \lfloor\text{AGI}/3\rfloor + \text{gear.def}$.
    - **Magical DEF Formula**: Magical DEF = $\lfloor\text{INT}/5\rfloor + \text{gear.mdef}$.
    - **Battle ACT (Max Action Points)**: Starts at 3 Base AP, increases by $+1$ for every 5 INT ($3 + \lfloor\text{INT}/5\rfloor$).
-   - **Critical Hit Threshold**: Fixed at `12` (Boxcars `6 + 6`, 2.8%).
+
+### 3d6 Success Roll Range Reference Table (MACG-3D6™)
+In tabletop board game strategy, 3d6 produces 216 combinations where rolls naturally gravitate toward the median of **10 and 11** (12.50% each, forming the combined **25.0% Sure Hit Rolls**). **Tier 4 (+0 Net ACC)** forms the middle baseline at **7 – 14 (81.5%)**. Positive Net ACC expands outward up to Tier 7 (99.1%), while negative Net ACC contracts inward down to Tier 1 (25.0% Sure Hit Rolls):
+
+| Tier | Net ACC | Roll Range | Probability |
+| :---: | :---: | :---: | :---: |
+| **Tier 1 (Sure Hit Rolls)** | &le; -3 | **10 – 11** | **25.0%** |
+| **Tier 2** | -2 | **9 – 12** | **48.1%** |
+| **Tier 3** | -1 | **8 – 13** | **67.6%** |
+| **Tier 4 (Baseline)** | +0 | **7 – 14** | **81.5%** |
+| **Tier 5** | +1 | **6 – 15** | **90.7%** |
+| **Tier 6** | +2 | **5 – 16** | **96.3%** |
+| **Tier 7** | &ge; +3 | **4 – 17** | **99.1%** |
+| **Diabolic Rolls 😈 (Always Miss)** | *Any* | **3 & 18** | **0.9%** |
+
 4. **Four Interlocking Decks (Adventure, Monster, Player Combat & Treasure)**:
    - **Adventure Deck (30 cards per Stage)**: Generates the 1 -> 2 -> 3 pyramid board with full-art physical raster land cards and a 9-card lagging row discard cycle. There is exactly one encounter level per terrain: Grassland 2, Forest 3, Swamp 4, Cave 5, Underground 6, and Underworld 7. The current catalog contains the first three terrains and is sorted by collector card number in the Deck Viewer.
      - **Stage 1 ("The Goblin King")**: 30 cards composed of Grassland (`advgrs-00` x3, `advgrs-01` x8, `advgrs-03` x3, `advgrs-04` x3), Forest (`advfrs-00` x2, `advfrs-01` x5, `advfrs-03` x2, `advfrs-04` x2), and Swamp (`advsmp-00` x1, `advsmp-01` x1).
@@ -60,30 +80,30 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 
 ### 2.1 Welcome Screen
 - Atmospheric full-screen presentation featuring **height-maximized background artwork** (`/background/start-screen.png`, spanning `100dvh` viewport height edge-to-edge).
-- Reusable **Morville Studios Games** brand lockup identifies the publishing division without replacing the parent Morville Studios identity.
+- Reusable **Morville Studios** brand lockup identifies the studio publisher.
 - Responsive split editorial hero presents **The Paths We Choose**, its browser-play value proposition, feature facts, and a three-card visual showcase; it collapses to a readable single column on narrow or short viewports.
 - Primary CTA: **Start Adventure** (transitions to Class Selection). Secondary CTA: **How to Play** (opens the reusable guide overlay).
 - Plays the looping intro soundtrack (`start-screen.mp3`), with fixed audio mute/unmute control.
 
 ### 2.2 Class Selection Screen
-- Every hero starts with **Base Stats `1` across all 6 attributes** (`STR 1, DEX 1, AGI 1, INT 1, CHA 1, VIT 1`) plus their **Class Stat Bonuses** (Primary `+2`, Secondary `+1` each):
+- Every hero starts with **Base Stats `1` across all 6 attributes** (`STR 1, DEX 1, AGI 1, INT 1, CHA 1, VIT 1`), an **Innate +1 Stat Bonus** on every attribute (`Effective Stat = 1 + Base + Class + Blessing + Gear`), and **1:1 DEX/AGI scaling** (`ACC = DEX + gear.acc`, `EVA = AGI + gear.eva`), plus their **Class Stat Bonuses** (Primary `+2`, Secondary `+1` each):
   - **Fighter**:
     - Archetype: Primary `STR (+2)`, Secondary `VIT (+1), DEX (+1)`
     - Class Stat Bonuses: `STR +2, DEX +1, AGI +0, INT +0, CHA +0, VIT +1`
-    - **Effective Starting Stats**: `STR 3, DEX 2, AGI 1, INT 1, CHA 1, VIT 2` -> **14 Max HP** (`10 + Effective VIT * 2`), **1 ACC**, **0 EVA**, **1 ATK**, **0 DEF**, **3 ACT**.
+    - **Effective Starting Stats**: `STR 4, DEX 3, AGI 2, INT 2, CHA 2, VIT 3` -> **16 Max HP** (`10 + Effective VIT * 2`), **3 ACC**, **2 EVA**, **3 ATK**, **0 DEF**, **3 ACT**.
     - **Class Passive `[Berzerk]`**: Gain `+1 ATK` bonus when HP is 50% or below Max HP; if 25% or below, gain `+2 ATK` bonus instead.
     - Starter Combat Deck (`10 cards`): **8x Slash** + **2x Defend**.
   - **Wizard**:
     - Archetype: Primary `INT (+2)`, Secondary `DEX (+1), CHA (+1)`
     - Class Stat Bonuses: `STR +0, DEX +1, AGI +0, INT +2, CHA +1, VIT +0`
-    - **Effective Starting Stats**: `STR 1, DEX 2, AGI 1, INT 3, CHA 2, VIT 1` -> **12 Max HP** (`10 + Effective VIT * 2`), **1 ACC**, **0 EVA**, **1 MATK**, **0 MDEF**, **3 ACT**.
+    - **Effective Starting Stats**: `STR 2, DEX 3, AGI 2, INT 4, CHA 3, VIT 2` -> **14 Max HP** (`10 + Effective VIT * 2`), **3 ACC**, **2 EVA**, **2 MATK**, **0 MDEF**, **3 ACT**.
     - **Class Passive `[Conserve]`**: When ending turn in battle with unused Action Points, those AP carry over to the next battle turn.
     - Starter Combat Deck (`10 cards`): **8x Fireball ATK** + **2x Force Field DEF**.
   - **Rogue**:
     - Archetype: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)`
     - Class Stat Bonuses: `STR +1, DEX +1, AGI +2, INT +0, CHA +0, VIT +0`
-    - **Effective Starting Stats**: `STR 2, DEX 2, AGI 3, INT 1, CHA 1, VIT 1` -> **12 Max HP** (`10 + Effective VIT * 2`), **1 ACC**, **1 EVA**, **1 ATK**, **1 DEF**, **3 ACT**.
-    - **Class Passive `[Steal]`**: Whenever rolling a 2d6 to perform an attack hit check and it is a pair (`1+1, 2+2, 3+3, 4+4, 5+5, 6+6`), immediately gain Gold equal to the doubled die number (e.g. `6+6` grants `+6 Gold`, `5+5` grants `+5 Gold`, and even Snake Eyes `1+1` steals `+1 Gold`).
+    - **Effective Starting Stats**: `STR 3, DEX 3, AGI 4, INT 2, CHA 2, VIT 2` -> **14 Max HP** (`10 + Effective VIT * 2`), **3 ACC**, **4 EVA**, **2 ATK**, **1 DEF**, **3 ACT**.
+    - **Class Passive `[Steal]`**: Whenever rolling 3d6 to perform an attack hit check and it contains a pair or triples (`1+1, 2+2, 3+3, 4+4, 5+5, 6+6`), immediately gain Gold equal to the matching die number (e.g. `6+6` grants `+6 Gold`, `5+5` grants `+5 Gold`, and `1+1` steals `+1 Gold`).
     - Starter Combat Deck (`10 cards`): **8x Slash** + **2x Defend**.
 - **3-Card Smooth Interactive Carousel**:
   - The screen presents an interactive 3D perspective carousel with the 3 classes (`Fighter`, `Wizard`, `Rogue`).
@@ -96,10 +116,13 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
   - **Hardware-Accelerated In-Place Transitions**: DOM elements and the side detail panel are updated in place (`updateClassCarouselDom`) so GPU transitions animate smoothly without re-rendering or screen tearing.
 
 ### 2.3 Play Area Screen & Character Sheet HUD
-1. **Top / Side HUD**:
-   - **Turn Tracker**: `Turn X / 15` (starts at `Turn 0`; increments by `+1` each move; reaching `Turn 15` triggers the Stage 1 Boss).
-   - **Vitality & Currency**: **HP Bar** (`currentHp / maxHp`), **Unspent Stat Points (`SP`)**, and **Gold** (rendered with dedicated `/icons/sp.png` and `/icons/gold.png` raster icons).
-   - **Character Sheet Panel & Hero Portrait**:
+1. **Top HUD & Boardgame Turn Tracker**:
+   - **Game Logo & Badges**: Features the official vector game logo (`/brand/paths-we-choose-logo.png`) paired with the scenario badge and active hero class badge on the left, divine protection/status indicators in the center, and persistent `📜 Log` and `📖 Guide` buttons on the right.
+   - **Boardgame Turn Tracker**: Physical boardgame-themed turn tracker strip featuring phase category bands (`Preparation`, `The Approach 1–4`, `The Wilds 5–9`, `Deep Dungeon 10–14`, `Stage Boss 15`), track nodes (`START` + `1`–`15`), connecting arrows, boss skull icon (`☠ 15`), and an animated tabletop adventurer meeple/standee marker tracking the hero party's position.
+2. **Character & Gear Left Sidebar**:
+   - **Hero Resources (Gold & SP)**: Positioned prominently at the top of the sidebar directly above the health bar, displaying current **Gold** and **Stat Points (`SP`)** with `/icons/gold.png` and `/icons/sp.png` chips.
+   - **Hero Vitals Card (HP Bar)**: Positioned directly above the hero portrait and stats, displaying the player's class name, live health numbers (`currentHp / maxHp`), and a graphical health bar.
+   - **Hero Portrait & Core Stats**:
      - Features the **Hero Portrait** on the left (`/cards/adventurers/*.jpg`) paired with the 6 core stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) stacked cleanly on the right with bold values and `ⓘ` info pills.
      - **Stat Info Modal (Right-Click / Long-Press / ⓘ)**: Right-clicking or holding down for 1s (or clicking `ⓘ`) on any stat opens the Stat Info Modal, displaying:
        1. **Effective Computation Breakdown**: `Effective Stat = Base + Class Bonus + Shrine Blessing + Gear`.
@@ -112,16 +135,14 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
      - **Permanent Backpack Section**: Permanently visible below equipment slots (`🎒 Backpack (${state.backpack.length})`), listing all unequipped gear with **Equip** buttons (or **Use** for consumables).
      - **Map Equipment Management**: Players can freely equip and unequip gear anytime while navigating the map outside combat. Equipping or unequipping items that modify attributes (like `Beast Ring +1 STR`) dynamically syncs vitals (Max HP) and clamps current HP cleanly.
      - **Combat Lock**: Equipping and unequipping is strictly disabled during active combat (`activeHook.type === 'COMBAT'`).
-   - **Deck Counters**:
-     - **Adventure Deck / Discard** (`25` / `0` at Turn 0, 30 adventure cards minus 5 initially dealt; Start Tile is separate).
-     - **Monster Deck / Discard** (`38` / `0` at Turn 0).
-     - **Player Combat Deck** (`10` cards badge).
+3. **Decks & Discards Right Sidebar**:
+   - Centralized, inspectable physical deck cards for **Adventure Cards**, **Monster Cards**, **Player Combat Deck**, **Treasure Cards**, **New Skills**, and **The Void**, each with live deck/discard pile counts and click/right-click pile inspection. Redundant legacy header links have been eliminated.
 
 ---
 
 ## 3. Village Tiles & the Village Menu
 
-5 of the cards in the Stage 1 Adventure Deck are **Village Cards** (3x `Grassland Village` at Level 1 and 2x `Forest Village` at Level 2, `hasVillage: true`). Swamp Village cards occur in Stage 2. Stepping onto a Village Card opens the **Village Menu** (Level 3 Swamp Village draws `5 + 3 = 8` cards, Forest Village draws `5 + 2 = 7` cards, and Grassland Village draws `5 + 1 = 6` cards):
+5 of the cards in the Stage 1 Adventure Deck are **Village Cards** (3x `Grassland Village` at Level 1 and 2x `Forest Village` at Level 2, `hasVillage: true`). Swamp Village cards occur in Stage 2. Stepping onto a Village Card activates the in-place **Village View Component**, which replaces the adventure board directly inside the center `.play-main` viewport rather than opening a screen-blocking dialog overlay. The hero's **Character & Gear** panel on the left and **Decks & Discards** on the right remain fully visible, inspectable, and interactive throughout the visit. Level 3 Swamp Village draws `5 + 3 = 8` cards, Forest Village draws `5 + 2 = 7` cards, and Grassland Village draws `5 + 1 = 6` cards:
 
 ### 3.1 Prepared Inventory & Navigation
 - The menu header shows the visited card's official art, name (for example, **Grassland Village**) and level.
@@ -278,27 +299,26 @@ In Stage 1, **Encounter cards have levels 2–4**, as defined in the [Adventure 
 - Grundy has 30 HP, 1 DEF, 1 MDEF, 1 ACC and 1 EVA, and grants 32 Gold plus 16 SP. His cycle is **Call Goblin** (tutor a Goblin from the Monster Deck into play; on failure, return a discarded Goblin to the top of the Monster Deck), **Beef up!** (+1 DEF for one turn and +4 Block), then **Goblin March** (6 physical damage +1 per living Goblin in play).
 - Defeating **Grundy** completes the Stage 1 Adventure in victory!
 
-### 5.4 Combat Turn Structure (*Slay the Spire* + Tabletop 2d6)
+### 5.4 Combat Turn Structure (*Slay the Spire* + Tabletop MACG-3D6™)
 1. **Player Turn (Draw 5 & INT-based AP)**:
    - Reset player temporary `block = 0` and round `bonusEva = 0`, refill **`3 + floor(INT/5)` AP** (Wizard also carries unused AP), discard every remaining hand card, then draw **5 cards** from `combatDrawPile` one at a time. Whenever a draw finds that pile empty, shuffle the action discard pile into a new draw pile and continue the same five-card draw. Played and discarded cards never leave the combat deck; Battle Flag remains in `inPlay` until destroyed.
    - **Pre-Play Action Confirmation Modal**: Clicking a card from hand does not immediately execute it. A responsive confirmation popup opens showing the source card and target card side-by-side (`Use {card} on {target}`). On desktop/large screens, a two-column layout places cards on the left and target selection, combat probabilities, and the **Confirm Use** button on the right, keeping all controls visible without scrolling:
-     - **Attack Cards**: Roll `2x 1d6` (2d6). Needs $5 - (\text{Player ACC} - \text{Target EVA})$ to hit. Snake eyes is an automatic miss; boxcars is an automatic critical dealing +50% ATK damage. INT-scaled spells are reduced by MDEF; physical attacks apply PEN against natural DEF before remaining DEF and Block. Fighter formulas are **Slash `3 + ATK` normal physical damage**, **High Strike `ATK + ACC`**, **High Strike + `2xATK + ACC`**, **Whirlwind `1 + ATK` to all**, and **Whirlwind + `2 + 2xATK` to all**. Slash and Defend do not add accuracy or evasion. The modal shows exact live values and hit odds.
+     - **Attack Cards**: Roll `3d6` using the **Morville Adventure Card Game "3d6 Success Roll Range Table Reference" (MACG-3D6™)**. The success window spans $[\max(4, 10 - \text{bonus}) \dots \min(17, 11 + \text{bonus})]$ where $\text{bonus} = \max(0, \text{Player ACC} - \text{Target EVA})$. Rolls of 3 and 18 are Diabolic rolls that always miss. There are no critical hits or 1.5x multipliers; attacks deal predictable card and stat damage. INT-scaled spells are reduced by MDEF; physical attacks apply PEN against natural DEF before remaining DEF and Block. Fighter formulas are **Slash `3 + ATK` normal physical damage**, **High Strike `ATK + ACC`**, **High Strike + `2xATK + ACC`**, **Whirlwind `1 + ATK` to all**, and **Whirlwind + `2 + 2xATK` to all**. Slash and Defend do not add accuracy or evasion. The modal shows the interactive QTE hit check bar with exact live values and hit odds.
      - **Defense Cards**: Grant their printed temporary **Block** and, only when their card text says so, temporary round **EVA**. **Defend grants `4 + DEF` Block for the turn**, **Fortify grants `3 + DEF`**, and **Fortify + grants `4 + 2xDEF`**. Defend grants no EVA.
      - **Skills, All-Enemy Attacks & Enchantments**: A confirmation modal presents any required discard selection before AP is committed. Eligible discard choices are compact mini cards showing the action art, name, AP cost, and selected state; the card being played is excluded. Whirlwind confirmation shows every living target and each target's separate hit threshold/probability; resolution rolls independently for each. Battle Flag costs 1 AP without regaining AP on play, remains in the visible **In play** zone for the battle, and triggers its card draw whenever another card's AP-granting effect resolves.
    - **Resolving Stack**: A played action leaves the hand and remains on the Stack until its entire effect finishes. Costs such as Battlecry's selected discards enter discard first; printed draws resolve next; AP gains and Battle Flag draws resolve afterward; only then does the played card move from the Stack to discard (or `inPlay`). A card can never redraw itself during its own resolution.
    - Clicking **Confirm Use** spends the AP and executes the action; **Cancel** returns to card selection without spending AP.
-   - **Permanent FLEE Action (2 AP)**: A `Flee` card is always available beside the hand and is never drawn, discarded, or shuffled. After confirmation, roll `1d6`; if the roll is $\le \lfloor\text{AGI} / 2\rfloor$ (minimum 1) the hero escapes, combat ends with **no rewards**, and the encountered monsters go to the monster discard pile. On failure, the 2 AP is spent and combat continues. Stage Bosses cannot be fled from.
-2. **Monster Turn (`2d6` Attack Roll & Pattern Execution)**:
-   - Each living monster rolls **`2d6`** against the player's EVA: $\text{neededRoll} = 5 - (\text{Monster ACC} - \text{Player EVA})$.
-   - **Snake eyes (`1 + 1 = 2`)**: Automatic miss.
-   - **Boxcars (`6 + 6 = 12`)**: Automatic critical hit (+50% monster ATK damage).
+   - **FLEE Action Button (2 AP)**: A dedicated `Flee (2 AP)` button is positioned alongside `End Turn` directly below the action selection. Clicking it opens a confirmation dialog presenting the full-size `Flee` card, breakdown of Hero EVA vs. Total Living Enemies' ACC, Net Modifier, and MACG-3D6™ Success Roll Range and QTE bar. Upon confirmation, a Tabletop 3d6 hit check is performed: Net Modifier = $\text{Player EVA} - \sum \text{Living Enemies ACC}$ evaluated under the MACG-3D6™ table (e.g. Net $\le -3$ is Tier 1, 25.0% Sure Hit Rolls 10–11; Diabolic Rolls 3 and 18 always fail). On success, the hero escapes to the map with **no rewards** (encountered monsters go to monster discard). On failure, 2 AP is spent and battle continues. Stage Bosses cannot be fled from.
+2. **Monster Turn (`3d6` Attack Roll & Pattern Execution)**:
+   - Each living monster rolls **`3d6`** against the player's EVA: Success window is $[\max(4, 10 - \text{bonus}) \dots \min(17, 11 + \text{bonus})]$ where $\text{bonus} = \max(0, \text{Monster ACC} - \text{Player EVA})$.
+   - **Diabolic Rolls (`3` and `18`)**: Automatic miss regardless of Monster ACC.
    - **On Miss**: `0` damage taken (`DODGED!`).
    - **On Hit**: Damage is absorbed first by **Hero Natural DEF** ($\lfloor\text{STR}/5\rfloor + \lfloor\text{VIT}/5\rfloor + \lfloor\text{AGI}/3\rfloor + \text{gear.def}$), reduced by `divineProtection`, absorbed by temporary `playerBlock`, and any remainder reduces `playerResources.hp`.
    - **Explicit Absorption Logging**: Log entries explicitly state the absorbed damage amount (e.g. `2 absorbed by Hero DEF, 0 blocked, 4 HP damage`).
-   - **Dice Banner Detail**: The 2d6 outcome banner details DEF absorption (e.g. `🎯 HIT! (4 DMG, 2 absorbed by Hero DEF)`).
-3. **Hero Character, Vitals & Backpack Sidebar in Combat (`.combat-hero-sidebar`)**:
-   - The battle view features a dedicated 3-column layout on desktop:
-     - **Left Column (`.combat-hero-sidebar`)**: Displays Hero portrait, prominent HP / Max HP graphical bar, 6 core stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) with right-click inspection, prominent derived stats chips (**DEF**, **ATK**, **ACC**, **EVA**, **BLK**, **AP**), and Backpack items with active `Use` buttons for consumables.
+   - **Dice Banner Detail**: The 3d6 outcome banner details DEF absorption (e.g. `🎯 HIT! (4 DMG, 2 absorbed by Hero DEF)`) and embeds the visual QTE hit check bar with token marker.
+3. **Canonical Reusable Hero Character, Vitals & Gear Sidebar (`playerInfoWidgetHtml`)**:
+   - The battle view reuses the canonical `playerInfoWidgetHtml` component (`.player-info-widget`, titled *Character & Gear*), ensuring complete consistency between map exploration and active combat:
+     - **Left Column**: Displays Hero portrait, prominent HP / Max HP graphical bar with live Block (`(+X 🛡️)`), 6 core stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) with right-click inspection, prominent derived stats chips (**DEF**, **ATK**, **ACC**, **EVA**, **BLK**, **AP**), and Backpack items with active `Use` buttons for consumables.
      - **Center Column (`.combat-main-col`)**: Active monster row, dice roll banner, player hand, draw/discard piles, and End Turn button.
      - **Right Column (`.combat-log-sidebar`)**: Scrollable Battle Log with real-time timestamps and Blue (Hero) / Red (Enemy) actor badges.
    - Using a consumable (e.g. `Health Potion`) during battle immediately heals the player and records a timestamped log entry (`🧪 Used Health Potion: restored +X HP`).
@@ -318,6 +338,12 @@ In Stage 1, **Encounter cards have levels 2–4**, as defined in the [Adventure 
      - The player reviews their spoils and presses the golden **OK** button to return to map navigation.
      - Smoothly transitions `activeHook` to `'NONE'` and resumes the map area exploration soundtrack (`map-area.mp3`).
      - For Stage Boss victories (e.g. Turn 15 Grundy), the button reads `OK &mdash; Proceed &rarr;`, which transitions smoothly into the Stage Complete screen (`ON_STAGE_COMPLETE`).
+   - **RPG Combat Damage Feedback & Defeat Transitions**:
+     - **Web Audio API Synthesized Slash**: Every damage impact plays an instant synthesized RPG sword slash SFX.
+     - **Violent Card Shake Animation (`.is-damage-shaking`)**: Struck monster units violently vibrate and shake on impact.
+     - **Floating Damage Combat Numbers (`.combat-floating-damage`)**: Struck monsters burst glowing floating damage numbers (e.g. `-6` or `🛡️ BLOCKED`) that float upward and fade out over 1.1s.
+     - **Defeat & Death Greying Out**: Dead monsters desaturate smoothly with a stamped `DEFEATED` banner, smoothly transferring carousel focus to the next living enemy.
+     - **Delayed Victory Modal for Final Foe**: When the final enemy falls, the victory modal is deferred for ~1150ms to allow the full death animation and slash sound to play before revealing the victory spoils.
 6. **Battle State Combat Log Sidebar, Timestamps & Actor Badges**:
    - **Split Layout Architecture**: In battle state, the combat dialog is laid out side-by-side with the main combat stage on the left (`.combat-main-col`) and a dedicated Battle Log sidebar on the right (`.combat-log-sidebar`).
    - **Timestamps**: Every action taken during combat logs a timestamp (`[HH:MM:SS]`) using monospace typography (`.combat-log-time`).
@@ -446,7 +472,7 @@ Eligible physical copies are conserved; nothing is created to fill stock. If no 
 
 ## Battle hand carousel and revised full-size creature template
 
-The battle hand uses one centered, fully readable action card with dimmed flanking previews. Browse using chevrons, numbered selectors, Q/E keys, or horizontal swipes. Browsing updates existing nodes in place and never spends AP. Tapping the center card opens the existing confirmation; Flee occupies its own separate slot. A/D and left/right arrows retain enemy targeting. End Turn resets hand selection; selection clamps safely after playing a card. Empty hands retain End Turn. Inspect/confirmation overlays suspend hand navigation; reduced-motion settings disable transitions.
+The battle hand uses one centered, fully readable action card with dimmed flanking previews. Browse using chevrons, numbered selectors, Q/E keys, or horizontal swipes. Browsing updates existing nodes in place and never spends AP. Tapping the center card opens the existing confirmation; Flee is accessed via the dedicated Flee button alongside End Turn below the carousel. A/D and left/right arrows retain enemy targeting. End Turn resets hand selection; selection clamps safely after playing a card. Empty hands retain End Turn. Inspect/confirmation overlays suspend hand navigation; reduced-motion settings disable transitions.
 
 Full-size creature cards in battle and inspection share one header/footer template: first header line is level at left, CREATURE/BOSS CREATURE and subtype inline, with spawn icons at right. Second line holds the name at left and collector number at right. The rules textbox contains abilities and patterns without a duplicate derived-stat row. The bottom dock shows printed Max HP plus icon/value pairs only for positive DEF, MDEF, ACC and EVA; zero-valued combat stats are omitted. Live battle ACC/EVA include temporary buffs and highlight positive bonuses; HP/Block remain live in the external combat dock. Compact pile cards retain their simplified art-first template.
 

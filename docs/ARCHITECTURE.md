@@ -19,7 +19,7 @@ Strict TypeScript, Vite, DOM and CSS form the current web application. There is 
 - `src/ui/actionCard.ts`: the canonical Action card face, live effect text and shared action-effect calculation used by hands, decks, training, confirmations and inspection.
 - `src/ui/adventureCard.ts` and `src/ui/terrainPresentation.ts`: the canonical compact Land card and the single terrain label/icon/set/CSS mapping used by map, pile and event views.
 - `src/ui/grouping.ts`: stable one-pass repeated-card grouping used by every pile viewer.
-- `src/ui/brand.ts` and `src/ui/publicAsset.ts`: canonical Morville Studios Games presentation and deployment-base-aware public asset URLs.
+- `src/ui/brand.ts` and `src/ui/publicAsset.ts`: canonical Morville Studios brand presentation and deployment-base-aware public asset URLs.
 - `src/ui/cardArt.ts`, `src/ui/icons.ts` and `src/ui/styles.css`: art lookup, icon helpers and responsive presentation.
 - `src/audio/audioManager.ts`: HTML audio and gesture unlock. `src/core/audio.ts` determines the track without browser APIs.
 - `src/updates.ts`: production release polling and player-controlled reload.
@@ -30,6 +30,48 @@ Strict TypeScript, Vite, DOM and CSS form the current web application. There is 
 The application supplies a seed and an optional `RunState.logTimestamp` formatted HH:MM:SS. Store transitions stamp this field using an injectable clock outside core. Combat session creation receives the timestamp explicitly; direct core callers without it use 00:00:00. With identical state, seed and observational inputs, logs and gameplay output replay identically. The clock never changes RNG outcomes. Failed/no-op store transitions preserve the existing state reference and do not publish an update.
 
 All game rules remain in core. Catalog tables are generated with `npm run docs:sync`; production builds run `npm run docs:check` and fail if the tables drift.
+
+## Component-based frontend architecture (Native ES6+ & Zero Framework Runtime)
+
+The application does **not use React, Vue, or any external UI framework runtime**. Instead, it implements a modern **Pure Functional Component & Unidirectional Data Flow pattern** built directly on native ECMAScript 6+ standards and strict TypeScript:
+
+1. **Pure Functional UI Components**:
+   - Every UI element is an exported, pure TypeScript function that accepts typed state/props and returns a declarative HTML string using native **ES6 Template Literals** (e.g. `` `${val}` ``):
+     - `playerInfoWidgetHtml(state, config)`: Reusable Character & Gear panel (composed across Map sidebar, Shrine modal, and Turn 0 preparation dialog).
+     - `villageViewHtml(state, village, ui)`: In-place village component replacing the adventure board in `.play-main`.
+     - `deckPilesPanelHtml(state, config)`: Unified deck/discard piles viewer (reused in full on the map and sharded in combat).
+     - `turnTrackerHtml(state)`: Tabletop physical boardgame turn tracker strip.
+     - `renderActionCardHtml`, `fullCreatureCardHtml`, `renderAdventureCardHtml`: Physical TCG card visual components.
+2. **Why Native JS/TS Components Over Frameworks?**:
+   - **Zero Runtime Overhead**: 0 KB framework baggage ensures lightning-fast startup and instant First Contentful Paint (FCP).
+   - **Deterministic & Lightweight Testing**: Components can be unit-tested with standard string assertions without complex test harnesses, virtual DOM shims, or JSDOM ceremony.
+   - **Capacitor & Mobile Webview Optimization**: No virtual DOM reconciliation cycles or memory leak hazards on low-end iOS/Android devices.
+   - **Standard Longevity**: Built on standard ECMAScript template literals and DOM APIs that will run identically years from now without framework churn.
+3. **Unidirectional Data Flow**:
+   - State is held immutably in a single store (`RunState`). User interactions trigger top-level **Event Delegation** via `data-action` attributes in `src/main.ts`. Handlers invoke pure core transitions in `src/core/`, which return a new `RunState` and trigger a top-level render re-evaluation.
+4. **Targeted In-Place DOM Transitions**:
+   - High-frequency animations (such as the 3D Adventurer class carousel and Monster carousel) use targeted in-place DOM updates (`updateClassCarouselDom`, `updateMonsterCarouselDom`) to modify classes and transform styles without destroying nodes, preserving hardware-accelerated CSS transitions.
+
+## Data-oriented deck modeling vs. mutable OOP classes
+
+In tabletop game development, decks and cards are often conceived in classical OOP terms (`class Deck { shuffle() { this.cards.sort(...) } }`). Our architecture deliberately adopts a **Data-Oriented and Functional pattern** instead:
+
+1. **Decks as Plain Typed Arrays (`T[]`)**:
+   - Every card pile in `RunState`—`adventureDeck`, `monsterDeck`, `playerMasterDeck`, `treasureDeck`, `newSkillsDeck`, and the physical `monsterVoid`—is a plain, typed JavaScript array (`T[]`).
+2. **Pure Deterministic Operations**:
+   - Operations like `shuffleArray(array, rngState)` take array inputs and a numeric PRNG seed, returning `{ shuffled: T[], nextState: number }` without in-place mutation.
+   - **100% Seeded Replayability**: Given the same seed, any adventure, card draft, or combat hit check reproduces identically on every platform.
+3. **Frictionless Serialization (Save / Load)**:
+   - Because all state objects are plain data structures without class methods or hidden prototype closures, saving and restoring the entire game state is standard `JSON.stringify(state)` and `JSON.parse(string)`.
+4. **Uniform Pile Abstraction (`PileType`)**:
+   - Decks, graveyards, and the Void share a unified `PileType` union (`'adventure_deck' | 'monster_deck' | 'void_deck' | ...`), allowing generic components like `deckPilesPanelHtml` and `pileModal` to inspect and display any card collection uniformly.
+
+## Composition over inheritance
+
+1. **Type & Data Level**:
+   - TypeScript interface inheritance is used extensively (`interface CombatCardDef extends BaseCard`) to share data contracts while enforcing strict compilation safety.
+2. **UI & Presentation Level**:
+   - Visual components avoid rigid class inheritance hierarchies (`class Card extends BaseUIComponent`), employing **Functional Composition** instead. Highly customizable base templates (`baseCardHtml`, `deckPilesPanelHtml`, `playerInfoWidgetHtml`) are composed and configured with props and slots to create specialized card faces, modals, and screen sections.
 
 ## Reusable deck panels
 
@@ -43,7 +85,7 @@ Pile viewers use the generic `groupByCount` helper. It groups each physical pile
 
 ## Modal stack and input ownership
 
-Preparation, combat, confirmation, village, shrine, exploration, victory, guide, and informational overlays can be nested. Card, stat, and pile inspection backdrops use the shared `inspection-backdrop` layer above every gameplay modal, so an inspection cannot open invisibly behind the active hook. While an inspection, pile viewer, guide, card confirmation, or flee confirmation is open, carousel keyboard and swipe input do not reach gameplay underneath it. Escape closes the topmost informational layer first, revealing any underlying confirmation or gameplay modal without leaving queued inspection state.
+Preparation, combat, confirmation, shrine, exploration, victory, guide, and informational overlays can be nested (Village operates as an in-place view component replacing the board in `.play-main`, keeping Character & Gear and Decks sidebars active without a modal backdrop). Card, stat, and pile inspection backdrops use the shared `inspection-backdrop` layer above every gameplay view, so an inspection cannot open invisibly behind the active hook. While an inspection, pile viewer, guide, card confirmation, or flee confirmation is open, carousel keyboard and swipe input do not reach gameplay underneath it. Escape closes the topmost informational layer first, revealing any underlying confirmation or gameplay view without leaving queued inspection state.
 
 ## State machine
 
@@ -86,7 +128,7 @@ Flee is disabled for bosses. The current public continuation is Stage 1 to Stage
 
 ## Formula and flow invariants
 
-- Effective attribute = Base + Class + Blessing + Equipped Gear.
+- Effective attribute = 1 (Innate) + Base + Class + Blessing + Equipped Gear. Every attribute receives an innate +1 baseline so leveling Base from 1 to 2 scales effective power smoothly (2 -> 3, a +50% progression rather than a jarring 100% jump).
 - Upgrading Base B to B+1 costs `(B+1)^2` SP, only during initial preparation or at a Shrine. A Shrine caps the target Base at Shrine Level + 1; Turn 0 preparation has no Shrine-level cap. No character level or XP exists.
 - ACC = floor(DEX/2) + gear ACC, plus card and temporary accuracy modifiers. Iron Sword + currently grants +1 direct ACC; DEX equipment affects the base calculation.
 - EVA = floor(AGI/2) + gear EVA + temporary EVA.
@@ -96,6 +138,27 @@ Flee is disabled for bosses. The current public continuation is Stage 1 to Stage
 - One eligible shrine boon is granted on arrival. A new blessing replaces the old one; map favors clear upon acknowledging boss victory. The Shrine overlay shows the stepped-on card/lore and reuses the same `playerInfoWidgetHtml` component as the Map. Stat choice is transient UI state: selecting never mutates the run, unaffordable choices show missing SP, and confirmed Upgrade/Leave actions alone invoke core transitions. No manual three-option prayer choice is needed.
 - Village Rest uses selectable one-Gold ticks that heal 2 HP (the final **Full** tick heals the remainder). Rest is disabled at full HP and does not cleanse statuses.
 - Village entry pre-draws Shop and Train inventories. Shop/Train always return to the main menu without rerolls; services remain available until the player leaves. Training shows current Gold/SP in a dedicated sidebar and requires confirmation before learning or destroying a card.
+
+
+## Unified Adventure Chronicle (Game Log) & In-Place Battle Component
+
+1. **In-Place Battle Component (Zero Full-Screen Dialog Overkill)**:
+   - Rather than popping up a modal dialog that dims the viewport and re-renders duplicate copies of the hero's vitals, stats, backpack, and action piles, combat renders directly as an in-place component view in `.play-main` (swapping out the board map, mirroring the Village component pattern).
+   - The main 3-column dashboard layout remains active and stable:
+     - **Left Sidebar (`.play-sidebar` / `.is-combat-hero`)**: Renders the canonical `combatHeroSidebarHtml` containing live Hero HP, Block indicator, active hexes/status debuffs, core 6 attributes, derived combat chips (DEF, ATK, ACC, EVA), and backpack with usable consumables (e.g. Health Potions).
+     - **Center Column (`.play-main` / `.is-combat-main`)**: Houses `combatViewHtml`, containing the 3D monster carousel, intent/HP dock, 2d6 dice outcome banner, player vitals line, combat hand carousel, in-play enchantments, and Flee & End Turn action buttons.
+     - **Right Sidebar (`.play-sidebar-right` / `.is-combat-right`)**: Displays `combatRightSidebarHtml`, presenting the Action Deck draw and discard piles alongside the live stream of the Battle Log.
+   - The top HUD remains intact, showing the official game logo, Scenario, Hero Class, Divine Protection, and the boardgame Turn Tracker (1 to 15). Gold and SP are placed in the Character sidebar above the health bar.
+
+2. **Unified Single-Log Chronicle (`state.gameLog`)**:
+   - The entire run is chronicled in a single, continuous, ordered array of log entries (`state.gameLog`).
+   - Every significant adventure event is recorded with an explicit boundary timestamp `[HH:MM:SS]` and semantic category icon:
+     - **Journey & Map**: Initial embarkation, deal of 9 starting Adventure cards, path selection (`🗺️ Turn X: Chose path...`), and new lookahead deals (`🎴 Dealt 3 Adventure cards to the horizon...`).
+     - **Wilderness Exploration**: Undiscovered terrain 1d6 dice rolls, creature ambushes, and discovered treasure items.
+     - **Village Life**: Arriving at villages, resting at the inn (HP restored & Gold spent), buying/selling gear, equipping/unequipping items, learning skills from trainers, and purging cards to the Void.
+     - **Sacred Shrines**: Divine boons granted and Base Stat upgrades purchased with Stat Points.
+     - **Combat & Battle**: Encounter start, Action card draws each round, cards played, 3d6 MACG-3D6™ hit/miss dice rolls, damage dealt, Hero natural DEF absorption, divine protection reductions, shield blocks, applied hexes/debuffs, life drains, monster defeats, combat victory rewards (+SP and +Gold), and flee attempts.
+   - Players can review the entire adventure history at any moment by clicking the HUD `📜 Log (N)` button, clicking `View All` in the Game Log widget below the main viewport, or pressing `L` on the keyboard, opening the dedicated full-page **Adventure Chronicle** modal (`gameLogModal`).
 
 ## Four-deck conservation and ownership
 

@@ -16,6 +16,7 @@ import {
   getMonsterCarouselClass,
   updateMonsterCarouselDom,
   victoryModal,
+  renderQteHitCheckBarHtml,
 } from '../ui/render';
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
@@ -78,30 +79,95 @@ describe('Render Play Area and Shop Layout', () => {
     expect(welcomeGuide).toContain('[Steal]');
   });
 
-  it('renders an AD&D-inspired rulebook with interactive page turning across 5 chapters', () => {
+  it('renders an AD&D-inspired rulebook with interactive page turning across 6 chapters including Bestiary', () => {
     const page1Html = renderWelcome(true, 1);
     expect(page1Html).toContain('guide-book-tome');
+    expect(page1Html).toContain('guide-spread-viewport');
+    expect(page1Html).toContain('guide-book-spine-gutter');
     expect(page1Html).toContain('guide-parchment-spread');
     expect(page1Html).toContain('guide-ribbon-bar');
     expect(page1Html).toContain('guide-page-medallion');
-    expect(page1Html).toContain('PAGE 1 OF 5');
+    expect(page1Html).toContain('PAGE 1 OF 6');
     expect(page1Html).toContain('guide-book-page is-active" data-page="1"');
     expect(page1Html).toContain('data-action="guide-jump-page" data-page="1"');
     expect(page1Html).toContain('data-action="guide-jump-page" data-page="5"');
+    expect(page1Html).toContain('data-action="guide-jump-page" data-page="6"');
+
+    const page2Html = renderWelcome(true, 2);
+    expect(page2Html).toContain('PAGE 2 OF 6');
+    expect(page2Html).toContain('MACG-3D6');
+    expect(page2Html).toContain('qte-bar-container');
+    expect(page2Html).toContain('/icons/qte-token.png');
+    expect(page2Html).toContain('adnd-prob-table');
+    expect(page2Html).not.toContain('Combat Note');
+    expect(page2Html).toContain('MACG-3D6™ SUCCESS ROLL RANGE TABLE REFERENCE');
+    expect(page2Html).toContain('<b>Tier 1</b> <small>(&le; -3 Net ACC · Sure Hit Rolls)</small>');
+    expect(page2Html).toContain('<b>Tier 2</b>');
+    expect(page2Html).toContain('<b>Tier 3</b>');
+    expect(page2Html).toContain('<b>Tier 4</b>');
+    expect(page2Html).toContain('<b>Tier 5</b>');
+    expect(page2Html).toContain('<b>Tier 6</b>');
+    expect(page2Html).toContain('<b>Tier 7</b>');
+    expect(page2Html).toContain('<b>Diabolic Rolls</b> 😈 <small>(Always Miss)</small>');
+    expect(page2Html).toContain('<b>0.9%</b>');
+    expect(page2Html).toContain('10 &ndash; 11');
+    expect(page2Html).toContain('4 &ndash; 17');
 
     const page3Html = renderWelcome(true, 3);
-    expect(page3Html).toContain('PAGE 3 OF 5');
+    expect(page3Html).toContain('PAGE 3 OF 6');
     expect(page3Html).toContain('guide-book-page is-active" data-page="3"');
 
     const page5Html = renderWelcome(true, 5);
-    expect(page5Html).toContain('PAGE 5 OF 5');
+    expect(page5Html).toContain('PAGE 5 OF 6');
     expect(page5Html).toContain('guide-book-page is-active" data-page="5"');
+    expect(page5Html).toContain('data-action="guide-jump-page" data-page="6"');
+
+    // Page 6: Monstrous Compendium / Bestiary
+    const page6Html = renderWelcome(true, 6);
+    expect(page6Html).toContain('PAGE 6 OF 6');
+    expect(page6Html).toContain('guide-book-page is-active" data-page="6"');
+    expect(page6Html).toContain('CHAPTER VI: THE MONSTROUS COMPENDIUM');
+    expect(page6Html).toContain('Grasslands Dwellers');
+    expect(page6Html).toContain('Forest Predators');
+    expect(page6Html).toContain('Swamp Horrors');
+    expect(page6Html).toContain('Cave Denizens');
+    expect(page6Html).toContain('Legendary Bosses');
+    expect(page6Html).toContain('data-action="inspect-monster"');
+    expect(page6Html).toContain('data-inspect-kind="monster"');
+    expect(page6Html).toContain('data-monster-id="goblin"');
+    expect(page6Html).toContain('data-monster-id="stalker"');
+    expect(page6Html).toContain('data-monster-id="goblin_chieftain"');
+    expect(page6Html).toContain('Inspect Info');
+
+    // Verify lowest territory symbol grouping: Stalker (grasslands/forest) is in Grasslands Dwellers, not Cave Denizens
+    const grasslandsSection = page6Html.match(/Grasslands Dwellers[\s\S]*?Forest Predators/)?.[0] ?? '';
+    expect(grasslandsSection).toContain('data-monster-id="stalker"');
+    expect(grasslandsSection).toContain('data-monster-id="pink_slime"');
+    expect(grasslandsSection).toContain('data-monster-id="goblin"');
+
+    const caveSection = page6Html.match(/Cave Denizens[\s\S]*?Legendary Bosses/)?.[0] ?? '';
+    expect(caveSection).not.toContain('data-monster-id="stalker"');
+    expect(caveSection).not.toContain('data-monster-id="witch"');
+    expect(caveSection).not.toContain('data-monster-id="assassin"');
+    expect(caveSection).toContain('data-monster-id="phalanx"');
+    expect(caveSection).toContain('data-monster-id="cultist_mage"');
+    expect(caveSection).toContain('data-monster-id="lurker"');
+
+    // Inspecting a monster card from the guide opens the card-inspect-modal
+    const inspectedGuideHtml = renderWelcome(true, 6, {
+      kind: 'monster',
+      monster: { ...MONSTER_TEMPLATES.goblin, id: 'inspect_goblin' },
+    });
+    expect(inspectedGuideHtml).toContain('card-inspect-modal');
+    expect(inspectedGuideHtml).toContain('Goblin (Monster Card Reference)');
+    expect(inspectedGuideHtml).toContain('Back to Game');
   });
 
   it('renders shop layout with sidebar and main content', () => {
     let state = startAdventure('fighter', 'test-seed');
     state = {
       ...state,
+      welcomePreparing: false,
       activeHook: {
         type: 'VILLAGE',
         village: {
@@ -125,14 +191,15 @@ describe('Render Play Area and Shop Layout', () => {
     expect(bodyHtml).toContain('play-layout');
     expect(bodyHtml).toContain('play-sidebar');
     expect(bodyHtml).toContain('play-main');
-    expect(bodyHtml).toContain('modal village-modal is-shop');
+    expect(bodyHtml).toContain('village-view');
+    expect(bodyHtml).toContain('is-shop');
+    expect(bodyHtml).not.toContain('modal-backdrop');
     expect(bodyHtml).toContain('shop-layout');
-    expect(bodyHtml).toContain('shop-sidebar');
     expect(bodyHtml).toContain('shop-main');
     expect(bodyHtml).toContain('Character & Gear');
     expect(bodyHtml).not.toContain('Done shopping');
     expect(bodyHtml).not.toContain('Current stats');
-    expect(bodyHtml.match(/class="player-info-widget"/g)).toHaveLength(2); // Map + Shop reuse the same component.
+    expect(bodyHtml.match(/class="player-info-widget"/g)).toHaveLength(1);
     expect(bodyHtml).toContain('Backpack');
 
     // Card art is rendered in the shop options
@@ -283,7 +350,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('creature-stat-footer');
     expect(html).not.toContain('creature-stats-row');
     expect(html).not.toContain('data-creature-stat="def"');
-    expect(html).toContain('aria-label="EVA: 1"');
+    expect(html).toContain('aria-label="EVA: 3"');
 
     // Interactive Combat Status Dock below card (NEXT move & live HP bar)
     expect(html).toContain('creature-combat-dock');
@@ -350,15 +417,16 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).not.toContain('tcg-hp-pill');
     // Live HP bar in combat dock and creature stats (DEF, EVA) with icons
     expect(html).toContain('hp-bar creature-hp-bar');
-    expect(html).toContain('5 / 5 HP');
+    expect(html).toContain('6 / 6 HP');
     expect(html).toContain('creature-stat-footer');
     expect(html).not.toContain('creature-stats-row');
     expect(html).toContain('aria-label="DEF: 1"');
-    expect(html).not.toContain('data-creature-stat="eva"');
+    expect(html).toContain('aria-label="EVA: 1"');
+    expect(html).not.toContain('data-creature-stat="mdef"');
     expect(html).toContain('+1');
     expect(html).toContain('+2');
     // Live HP in the lower-right PT badge
-    expect(html).toContain('HP <b>5</b>');
+    expect(html).toContain('HP <b>6</b>');
     // Raster art for Pincer
     expect(html).toContain('/cards/creatures/fighting_beetle.jpg');
   });
@@ -403,10 +471,10 @@ describe('Render Play Area and Shop Layout', () => {
 
     const html = renderPlayArea(state, ui);
     expect(html).toContain('Ramram');
-    // HP bar showing 4 / 6 HP with block shield indicator
+    // HP bar showing 4 / 8 HP with block shield indicator
     expect(html).toContain('hp-bar creature-hp-bar');
-    expect(html).toContain('4 / 6 HP (+3 &#128737;)');
-    expect(html).toContain('style="width: 67%"');
+    expect(html).toContain('4 / 8 HP (+3 &#128737;)');
+    expect(html).toContain('style="width: 50%"');
     // Creature stats: DEF 0, EVA 1
     expect(html).toContain('creature-stat-footer');
     expect(html).not.toContain('creature-stats-row');
@@ -438,7 +506,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Effect &amp; Live Calculation');
     expect(html).toContain('Normal Damage Formula');
     expect(html).toContain('3 Base DMG + ATK');
-    expect(html).toContain('Hero Calculation: 3 + 1 = <b>4 DMG</b>');
+    expect(html).toContain('Hero Calculation: 3 + 3 = <b>6 DMG</b>');
     expect(html).not.toContain('This card is designed to be printed');
     expect(html).not.toContain('Tabletop Offline Rules &amp; Stat Scaling');
 
@@ -471,7 +539,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(monsterHtml).toContain('Cycling AI Attack Pattern');
     expect(monsterHtml).toContain('Savage Bite');
     expect(monsterHtml).toContain('Lunging Bite');
-    expect(monsterHtml).toContain('Tabletop 2d6 Combat Rules');
+    expect(monsterHtml).toContain('3d6 QTE Combat Rules');
     expect(monsterHtml).toContain('Swift hunter of the plains grass');
     expect(monsterHtml).toContain('mon1grs-04');
   });
@@ -795,9 +863,28 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('data-board-key="1.0,2"');
   });
 
-  it('renders tabletop 2d6 combat dice banner when lastAttackRoll is present', () => {
+  it('renders tabletop 3d6 combat dice modal and QTE bar when pendingDiceRolls is present', () => {
     let state = startAdventure('fighter', 'test-seed');
     const goblinCard = { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
+
+    const roll = {
+      attackerName: 'Hero',
+      targetName: 'Goblin',
+      actionName: 'Slash',
+      die1: 4,
+      die2: 3,
+      die3: 3,
+      total: 10,
+      netAcc: 1,
+      neededRoll: 9,
+      minHitRoll: 9,
+      maxHitRoll: 12,
+      isHit: true,
+      isCrit: false,
+      isSnakeEyes: false,
+      damageDealt: 4,
+      damageBlocked: 0,
+    };
 
     state = {
       ...state,
@@ -814,21 +901,7 @@ describe('Render Play Area and Shop Layout', () => {
           playerAp: 3,
           playerMaxAp: 3,
           combatLog: [],
-          lastAttackRoll: {
-            attackerName: 'Hero',
-            targetName: 'Goblin',
-            actionName: 'Slash',
-            die1: 4,
-            die2: 3,
-            total: 7,
-            netAcc: 1,
-            neededRoll: 6,
-            isHit: true,
-            isCrit: false,
-            isSnakeEyes: false,
-            damageDealt: 4,
-            damageBlocked: 0,
-          },
+          lastAttackRoll: roll,
         },
       },
     };
@@ -838,18 +911,24 @@ describe('Render Play Area and Shop Layout', () => {
       showDeck: false,
       villageTab: 'buy',
       targetIndex: 0,
+      pendingDiceRolls: [{ roll, settled: true }],
     };
 
     const html = renderPlayArea(state, ui);
-    expect(html).toContain('combat-dice-banner is-hit');
+    expect(html).toContain('dice-roll-modal');
     expect(html).toContain('Hero');
     expect(html).toContain('Goblin');
-    expect(html).toContain('dice-die">🎲 4');
-    expect(html).toContain('dice-die">🎲 3');
-    expect(html).toContain('dice-total">7');
-    expect(html).toContain('(vs 6+ needed)');
+    expect(html).toContain('dice-die" data-final="4">🎲 4');
+    expect(html).toContain('dice-die" data-final="3">🎲 3');
+    expect(html).toContain('dice-total');
+    expect(html).toContain('10');
+    expect(html).toContain('Hit Range:');
+    expect(html).toContain('9–12');
     expect(html).toContain('HIT! (4 DMG)');
-    expect(html).toContain('TARGET (Roll 5+ · 83.3%)');
+    expect(html).toContain('Apply');
+    expect(html).toContain('TARGET (Hit: 7–14 · 81.5%)');
+    expect(html).toContain('qte-bar-container');
+    expect(html).toContain('/icons/qte-token.png');
   });
 
   it('renders card confirmation modal for attack card (Slash on Goblin) with source/target cards, stats, probability and confirm button', () => {
@@ -906,16 +985,17 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Hero ACC');
     expect(html).toContain('Target EVA');
     expect(html).toContain('Net ACC');
-    expect(html).toContain('Dice Target');
-    // Fighter has 1 DEX ACC (floor(2/2)) vs 1 Goblin EVA = 0 Net ACC -> Need 5+.
-    expect(html).toContain('🎲 <b>5+</b>');
+    expect(html).toContain('Hit Range');
+    // Fighter has 3 default ACC vs 3 Goblin EVA = +0 Net ACC -> Tier 4 Hit Range 7–14
+    expect(html).toContain('🎯 <b>7–14</b>');
+    expect(html).toContain('qte-bar-container');
 
     // Show probability to hit
     expect(html).toContain('Hit Probability');
-    expect(html).toContain('83.3%');
-    expect(html).toContain('30 of 36 combinations');
-    expect(html).toContain('Boxcars Critical');
-    expect(html).toContain('Snake Eyes Auto-Miss');
+    expect(html).toContain('81.5%');
+    expect(html).toContain('176 of 216 combinations');
+    expect(html).toContain('Diabolic Rolls');
+    expect(html).toContain('Sure Hit Rolls');
 
     // Confirm button and Cancel button below
     expect(html).toContain('data-action="confirm-play-card"');
@@ -1025,7 +1105,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('[Berzerk]');
     expect(html).toContain('stat-select-icon');
     expect(html).toContain('CHA');
-    expect(html).toContain('14 Max HP'); // Fighter
+    expect(html).toContain('16 Max HP'); // Fighter
     expect(html).toContain('/cards/adventurers/fighter.jpg');
     expect(html).toContain('/cards/adventurers/wizard.jpg');
     expect(html).toContain('/cards/adventurers/rogue.jpg');
@@ -1035,14 +1115,14 @@ describe('Render Play Area and Shop Layout', () => {
     expect(htmlWiz).toContain('PRIMARY: INT (+2)');
     expect(htmlWiz).toContain('SECONDARY: DEX, CHA (+1)');
     expect(htmlWiz).toContain('[Conserve]');
-    expect(htmlWiz).toContain('12 Max HP');
+    expect(htmlWiz).toContain('14 Max HP');
 
     // Rogue active class shows Rogue info in detail panel
     const htmlRog = renderClassSelect({ selectedClass: 'rogue', showDeck: false, villageTab: 'buy', targetIndex: 0 });
     expect(htmlRog).toContain('PRIMARY: AGI (+2)');
     expect(htmlRog).toContain('SECONDARY: DEX, STR (+1)');
     expect(htmlRog).toContain('[Steal]');
-    expect(htmlRog).toContain('12 Max HP');
+    expect(htmlRog).toContain('14 Max HP');
   });
 
   it('renders interactive 3-card class selection carousel with instructions and sidebar embark button', () => {
@@ -1171,6 +1251,35 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html.indexOf('welcome-prepare-backdrop')).toBeLessThan(html.indexOf('inspection-backdrop stat-inspect-backdrop'));
   });
 
+  it('renders game logo in the header and places Gold and SP in the Character sidebar above health bar', () => {
+    let state = startAdventure('fighter', 'test-header-brand-and-resources');
+    state = { ...state, welcomePreparing: false };
+    const html = renderPlayArea(state, {
+      selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0,
+    });
+
+    // 1. Logo in game header
+    expect(html).toContain('hud-logo-col');
+    expect(html).toContain('hud-game-logo');
+    expect(html).toContain('paths-we-choose-logo.png');
+
+    // 2. Header does not have Gold and SP chips
+    const headerHtml = html.split('</header>')[0];
+    expect(headerHtml).not.toContain('hud-res-chip');
+    expect(headerHtml).not.toContain('20 Gold');
+    expect(headerHtml).not.toContain('4 SP');
+
+    // 3. Gold and SP appear in Character sidebar above health bar
+    expect(html).toContain('hero-sidebar-resources');
+    expect(html).toContain('hero-res-chip gold');
+    expect(html).toContain('hero-res-chip sp');
+    expect(html).toContain('20 Gold');
+    expect(html).toContain('4 SP');
+    const resourcesIndex = html.indexOf('hero-sidebar-resources');
+    const hpTrackIndex = html.indexOf('hero-sidebar-hp-track');
+    expect(resourcesIndex).toBeLessThan(hpTrackIndex);
+  });
+
   it('renders item inspection modal with standard 5:7 physical TCG card', () => {
     const state = startAdventure('fighter', 'test-inspect-item');
     const sword = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_iron_sword')!;
@@ -1282,8 +1391,11 @@ describe('Render Play Area and Shop Layout', () => {
   it('renders welcome start screen with height-maximized background and card container', () => {
     const html = renderWelcome();
     expect(html).toContain('class="screen welcome"');
-    expect(html).toContain('class="welcome-card"');
-    expect(html).toContain('The Paths<br/>We Choose');
+    expect(html).toContain('class="welcome-card-showcase"');
+    expect(html).toContain('class="welcome-floating-logo-wrap"');
+    expect(html).toContain('class="welcome-game-logo"');
+    expect(html).toContain('class="welcome-bottom-tray"');
+    expect(html).toContain('alt="The Paths We Choose"');
     expect(html).toContain('data-action="start"');
     expect(html).toContain('Start Adventure');
   });
@@ -1394,7 +1506,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('stat-inspect-modal');
     expect(html).toContain('Strength (STR) Attribute Profile');
     expect(html).toContain('Effective Stat Value Breakdown');
-    expect(html).toContain('Effective STR = Base (1) + Class Bonus (+2)');
+    expect(html).toContain('Effective STR = Innate (1) + Base (1) + Class Bonus (+2)');
     expect(html).toContain('Martial Scaling:');
     expect(html).toContain('Physical Attack (ATK):');
     expect(html).toContain('Physical Defense (DEF):');
@@ -1885,19 +1997,19 @@ describe('Render Play Area and Shop Layout', () => {
 
     const html = renderPlayArea(state, ui);
 
-    // 1. Hero sidebar exists in combat
-    expect(html).toContain('combat-hero-sidebar');
-    expect(html).toContain('combat-hero-hp-bar');
-    expect(html).toContain('10 / 16 HP');
+    // 1. Hero sidebar exists in combat via canonical reusable player-info-widget
+    expect(html).toContain('player-info-widget');
+    expect(html).toContain('Character & Gear');
+    expect(html).toContain('hero-sidebar-vitals-card');
+    expect(html).toContain('<b>10</b> / 16 HP');
 
     // 2. Natural DEF chip is visible in the combat hero sidebar
     expect(html).toContain('DEF');
     expect(html).toContain('ATK');
 
     // 3. Backpack section with consumable Health Potion has a "Use" button
-    expect(html).toContain('combat-backpack-card');
+    expect(html).toContain('backpack-box');
     expect(html).toContain('Health Potion');
-    expect(html).toContain('use-consumable-btn');
     expect(html).toContain('data-action="use-item"');
     expect(html).toContain('data-id="test_combat_potion"');
   });
@@ -2006,9 +2118,12 @@ describe('Render Play Area and Shop Layout', () => {
             actionName: 'Heavy Charge',
             die1: 5,
             die2: 4,
-            total: 9,
+            die3: 2,
+            total: 11,
             netAcc: 2,
             neededRoll: 5,
+            minHitRoll: 8,
+            maxHitRoll: 13,
             isHit: true,
             isCrit: false,
             isSnakeEyes: false,
@@ -2025,14 +2140,22 @@ describe('Render Play Area and Shop Layout', () => {
       showDeck: false,
       villageTab: 'buy',
       targetIndex: 0,
+      pendingDiceRolls: [
+        {
+          roll: state.activeHook.type === 'COMBAT' ? state.activeHook.combat.lastAttackRoll! : ({} as any),
+          settled: true,
+        },
+      ],
     };
 
     const html = renderPlayArea(state, ui);
 
     // Shows absorbed by Hero DEF in dice outcome badge
+    expect(html).toContain('dice-roll-modal');
     expect(html).toContain('absorbed by Hero DEF');
     expect(html).toContain('4 DMG');
     expect(html).toContain('2 absorbed by Hero DEF');
+    expect(html).toContain('Apply');
   });
 
   it('enforces universal bottom-docked info textbox layout across all card types', () => {
@@ -2296,7 +2419,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Active Boons &amp; Combat Enhancements');
     expect(html).toContain('Cycling AI Attack Pattern');
     expect(html).toContain('Lore &amp; Flavor Text');
-    expect(html).toContain('Tabletop 2d6 Combat Rules');
+    expect(html).toContain('3d6 QTE Combat Rules');
 
     // Ensure the footer is inside the modal
     expect(html).toContain('<div class="inspect-footer">');
@@ -2386,6 +2509,69 @@ describe('Render Play Area and Shop Layout', () => {
 
       const html = victoryModal(mockVictory);
       expect(html).toContain('OK &mdash; Proceed &rarr;');
+    });
+  });
+
+  describe('QTE Hit Check Bar (MACG-3D6™)', () => {
+    it('renders hit check bar with Diabolic slots (3 & 18), Sure Hit Rolls core (10-11), and Rolls tag', () => {
+      const html = renderQteHitCheckBarHtml({
+        minHitRoll: 9,
+        maxHitRoll: 12,
+        hitPercent: 48.1,
+      });
+
+      expect(html).toContain('qte-bar-container');
+      expect(html).toContain('Hit Range: <b>9 – 12</b> <span class="qte-rolls-tag">Rolls</span>');
+      expect(html).toContain('<b>48.1%</b> chance');
+
+      // Visual track zones
+      expect(html).toContain('qte-zone diabolic left');
+      expect(html).toContain('qte-zone diabolic right');
+      expect(html).toContain('qte-zone miss left');
+      expect(html).toContain('qte-zone miss right');
+      expect(html).toContain('qte-zone hit');
+      expect(html).toContain('qte-zone sure-hit');
+      expect(html).toContain('qte-center-notch');
+
+      // Ruler markings (3, 9, 10-11, 12, 18)
+      expect(html).toContain('mark-diabolic mark-min');
+      expect(html).toContain('>3<');
+      expect(html).toContain('mark-hit-min');
+      expect(html).toContain('>9<');
+      expect(html).toContain('mark-sure-hit');
+      expect(html).toContain('>10-11<');
+      expect(html).toContain('mark-hit-max');
+      expect(html).toContain('>12<');
+      expect(html).toContain('mark-diabolic mark-max');
+      expect(html).toContain('>18<');
+    });
+
+    it('renders Tier 1 (10-11) without redundant 10 or 11 outer bound marks', () => {
+      const html = renderQteHitCheckBarHtml({
+        minHitRoll: 10,
+        maxHitRoll: 11,
+        hitPercent: 25.0,
+      });
+
+      expect(html).toContain('>3<');
+      expect(html).toContain('>10-11<');
+      expect(html).toContain('>18<');
+      expect(html).not.toContain('mark-hit-min');
+      expect(html).not.toContain('mark-hit-max');
+    });
+
+    it('renders rolled token when rolledTotal is provided', () => {
+      const html = renderQteHitCheckBarHtml({
+        minHitRoll: 9,
+        maxHitRoll: 12,
+        rolledTotal: 10,
+        isHit: true,
+      });
+
+      expect(html).toContain('qte-token-anchor');
+      expect(html).toContain('/icons/qte-token.png');
+      expect(html).toContain('qte-token-label">10</span>');
+      expect(html).toContain('token-hit');
     });
   });
 });

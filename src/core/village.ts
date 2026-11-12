@@ -1,4 +1,4 @@
-import { createTimestamp } from './combat';
+import { appendGameLog, createTimestamp } from './log';
 import { drawNewSkillsWithReshuffle, drawTreasureCardsWithReshuffle } from './deck';
 import { coordToKey } from './grid';
 import { reconcileRunNewSkills } from './newSkills';
@@ -82,6 +82,7 @@ export function prepareVillage(state: RunState, coord: GridCoord, turn: number):
         trainOptions: trainDraw.drawn,
       },
     },
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🏡 Arrived at ${tile?.name ?? 'Village'}. Services are available.`),
   };
 }
 
@@ -155,6 +156,7 @@ export function villageRest(state: RunState, requestedTicks?: number): RunState 
       gold: state.playerResources.gold - eligibility.cost,
       hp: state.playerResources.hp + eligibility.hpRestored,
     },
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🛏️ Rested at Village: restored ${eligibility.hpRestored} HP for ${eligibility.cost} Gold.`),
     bannerMessage: `Rested for ${eligibility.ticks} ${eligibility.ticks === 1 ? 'tick' : 'ticks'}: restored ${eligibility.hpRestored} HP for ${eligibility.cost} Gold.`,
   };
 }
@@ -221,6 +223,7 @@ export function equipItem(state: RunState, instanceId: string): RunState {
     ...state,
     equippedGear: { ...state.equippedGear, [slot]: item },
     backpack: nextBackpack,
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🛡️ Equipped ${item.name}.`),
     bannerMessage: `Equipped ${item.name}.`,
   };
   return syncVitals(state, next);
@@ -243,6 +246,7 @@ export function unequipItem(state: RunState, slotOrInstanceId: string): RunState
     ...state,
     equippedGear: { ...state.equippedGear, [slot]: null },
     backpack: [...state.backpack, current],
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🛡️ Unequipped ${current.name} to backpack.`),
     bannerMessage: `Unequipped ${current.name} to backpack.`,
   };
   return syncVitals(state, next);
@@ -276,6 +280,7 @@ export function buyItem(state: RunState, itemIdentifier: string): RunState {
       gold: state.playerResources.gold - cost,
     },
     backpack: [...state.backpack, item],
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🛒 Bought ${item.name} for ${cost} Gold.`),
     bannerMessage: `Bought ${item.name} for ${cost} Gold.`,
   };
   if (item.category === 'consumable') return paid;
@@ -307,6 +312,7 @@ export function sellItem(state: RunState, instanceId: string): RunState {
       ...(next.playerResources as NonNullable<RunState['playerResources']>),
       gold: (next.playerResources?.gold ?? 0) + item.sellPrice,
     },
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 💰 Sold ${item.name} for ${item.sellPrice} Gold.`),
     bannerMessage: `Sold ${item.name} for ${item.sellPrice} Gold.`,
   };
   return syncVitals(state, next);
@@ -340,6 +346,7 @@ export function useConsumable(state: RunState, instanceId: string): RunState {
           ],
         },
       },
+      gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🧪 Used ${item.name}: restored +${healGained} HP (${hp}/${state.playerResources.maxHp} HP).`),
       bannerMessage: `Used ${item.name}: restored ${healGained} HP.`,
     };
   }
@@ -348,6 +355,7 @@ export function useConsumable(state: RunState, instanceId: string): RunState {
     ...state,
     backpack: nextBackpack,
     playerResources: { ...state.playerResources, hp },
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🧪 Used ${item.name}: restored +${healGained} HP (${hp}/${state.playerResources.maxHp} HP).`),
     bannerMessage: `Used ${item.name}: restored ${healGained} HP.`,
   };
 }
@@ -402,6 +410,7 @@ export function villageTrainRemove(state: RunState, instanceId: string): RunStat
     voidCards: [...(state.voidCards ?? []), card],
     playerResources: { ...state.playerResources, gold: state.playerResources.gold - cost },
     trainRemovalCount: (state.trainRemovalCount ?? 0) + 1,
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🔥 Purged ${card.name} to the Void for ${cost} Gold.`),
     bannerMessage: `Destroyed ${card.name} for ${cost} Gold and sent it to the Void. Next destruction costs ${cost + 1} Gold.`,
   };
 }
@@ -428,6 +437,7 @@ export function villageTrainDraft(state: RunState, offerInstanceId: string): Run
       ...state.playerMasterDeck,
       { ...offer, instanceId: `${offer.id}_trained_t${state.turn}` },
     ],
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 📜 Learned skill: ${offer.name} for ${cost.gold} Gold and ${cost.statPoints} SP.`),
     bannerMessage: `Learned ${offer.name} for ${cost.gold} Gold and ${cost.statPoints} SP.`,
   };
 }

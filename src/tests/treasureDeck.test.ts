@@ -284,7 +284,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     expect(discardModalHtml).toContain('This pile is empty');
   });
 
-  it('HUD displays treasure deck and discard counter', () => {
+  it('sidebar displays treasure deck and discard counter', () => {
     const s = startAdventure('fighter', 'seed-hud-treasure');
     const ui: UiState = {
       selectedClass: 'fighter',
@@ -293,7 +293,10 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
       targetIndex: 0,
     };
     const html = renderPlayArea(s, ui);
-    expect(html).toContain('Treasure 42 / 0 discard');
+    expect(html).toContain('Treasure Cards');
+    expect(html).toContain('data-pile-group="treasure"');
+    expect(html).toContain('data-pile="treasure_deck"');
+    expect(html).toContain('data-pile="treasure_discard"');
   });
 
   it('renders full-art physical TCG item card according to layout specifications', () => {

@@ -43,8 +43,8 @@ export interface CombatGearBonuses {
 }
 
 export interface DerivedCombatStats {
-  acc: number;    // floor(DEX / 2) + gear.acc
-  eva: number;    // floor(AGI / 2) + gear.eva
+  acc: number;    // DEX + gear.acc (1 ACC per 1 DEX)
+  eva: number;    // AGI + gear.eva (1 EVA per 1 AGI)
   atk: number;    // floor(STR / 2) + floor(DEX / 3) + gear.atk
   def: number;    // floor(STR / 5) + floor(VIT / 5) + floor(AGI / 3) + gear.def
   matk: number;   // floor(INT / 2) + gear.matk
@@ -240,15 +240,21 @@ export interface CombatMonster {
 export interface CombatAttackRollSummary {
   attackerName: string;
   targetName: string;
+  targetIndex?: number;
   actionName: string;
   die1: number;
   die2: number;
+  die3?: number;
   total: number;
   netAcc: number;
   neededRoll: number;
+  minHitRoll?: number;
+  maxHitRoll?: number;
   isHit: boolean;
+  isDiabolic?: boolean;
   isCrit: boolean;
   isSnakeEyes: boolean;
+  isTriples?: boolean;
   damageDealt: number;
   damageBlocked: number;
   defenseType?: 'DEF' | 'MDEF';
@@ -277,6 +283,7 @@ export interface ActiveCombatState {
   inPlay?: CombatCardDef[];      // Battle-long enchantments; destroyed cards move to discardPile
   combatLog: string[];
   lastAttackRoll?: CombatAttackRollSummary;
+  lastAttackRolls?: CombatAttackRollSummary[];
   lastFleeRoll?: {
     roll: number;
     threshold: number;
@@ -394,6 +401,8 @@ export interface CombatVictoryState {
   bossTitle?: string;
   stageNumber?: number;
   canContinue?: boolean;
+  lastAttackRolls?: CombatAttackRollSummary[];
+  finalCombatState?: ActiveCombatState;
 }
 
 export interface EncounterClearState {
@@ -410,7 +419,7 @@ export type ActiveHook =
   | { type: 'ENCOUNTER_CLEAR'; encounter: EncounterClearState }
   | { type: 'VICTORY'; victory: CombatVictoryState }
   | { type: 'ON_STAGE_COMPLETE'; turn: number; bossDefeated: string; stageNumber?: number; canContinue?: boolean }
-  | { type: 'ON_GAME_OVER'; turn: number; defeatedBy: string };
+  | { type: 'ON_GAME_OVER'; turn: number; defeatedBy: string; lastAttackRolls?: CombatAttackRollSummary[] };
 
 export interface RunState {
   /** Explicit observational input supplied by the application boundary for replayable logs. */
@@ -458,6 +467,8 @@ export interface RunState {
   pathHistory: GridCoord[];
   activeHook: ActiveHook;
   bannerMessage: string;
+  /** Single unified adventure and combat chronicle for the run. */
+  gameLog?: string[];
   welcomePreparing: boolean;
   currentMusic: MusicTrackId;
   audioScene: GameAudioScene;

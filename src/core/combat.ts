@@ -1,10 +1,11 @@
-import { roll1D6, roll2D6, rollInt, shuffleArray } from './rng';
+import { roll1D6, roll3D6, rollInt, shuffleArray } from './rng';
+import { appendGameLog, createTimestamp } from './log';
+export { createTimestamp };
 import { syncAudioState } from './audio';
 import {
   computeCombatGearBonuses,
   getEffectiveStatsFromState,
   getFighterBerzerkBonus,
-  getFleeThreshold,
   getPlayerAcc,
   getPlayerAtk,
   getPlayerAct,
@@ -29,7 +30,7 @@ import {
 export const PLAYER_MAX_AP = 3;
 export const PLAYER_HAND_SIZE = 5;
 export const FLEE_AP_COST = 2; // Permanent FLEE action: never drawn, discarded, or shuffled
-export const BASE_HIT_THRESHOLD = 5; // Standard 2d6 hit target (5 and above is a hit)
+export const BASE_HIT_THRESHOLD = 10; // Standard 3d6 MACG-3D6 median hit target (10-11 Sure Hit Rolls / minimum success roll)
 export const MONSTER_BASE_HIT_THRESHOLD = BASE_HIT_THRESHOLD;
 
 export function getHeroStatDebuffMods(combat: Pick<ActiveCombatState, 'heroStatDebuffs'>) {
@@ -68,9 +69,6 @@ function applyIntentHeroStatDebuff(
   return { nextEffects: [...nextEffects.filter(isDifferent), effect], effect };
 }
 
-export function createTimestamp(timestamp = '00:00:00'): string {
-  return timestamp;
-}
 
 export interface ComputedCardEffect {
   damage: number;
@@ -130,102 +128,122 @@ export interface HitProbability {
   hitCombos: number;
   totalCombos: number;
   hitPercent: number;
+  diabolicPercent: number;
   critPercent: number;
   snakeEyesPercent: number;
+  minHitRoll: number;
+  maxHitRoll: number;
+  bonus: number;
 }
 
 /**
- * Calculates the exact 2d6 hit probability against a needed target roll (out of 36 combinations).
- * Accounts for Snake Eyes (1+1=2) as an automatic total miss and rolls >= critThreshold as critical hits.
+ * Calculates the exact 3d6 Success Roll Range hit probability (MACG-3D6™).
+ * - Roll range: 3 to 18 (216 combinations).
+ * - Tier 4 (+0 Net ACC) is the baseline center at [7..14] (81.5% probability).
+ * - Each +1 Net ACC expands outward: Tier 5 (+1 Net ACC) [6..15], Tier 6 (+2 Net ACC) [5..16], Tier 7 (>= +3 Net ACC) [4..17] (99.1% max).
+ * - Negative Net ACC contracts inward: Tier 3 (-1 Net ACC) [8..13], Tier 2 (-2 Net ACC) [9..12], Tier 1 (<= -3 Net ACC) [10..11] (25.0% Sure Hit Rolls).
+ * - Rolls of 3 and 18 are "Diabolic rolls" and always guarantee a miss regardless of ACC.
+ * - Hit Range: [max(4, 10 - expansion) .. min(17, 11 + expansion)] where expansion = clamp(0, 6, 3 + netAcc).
  */
-export function computeHitProbability(neededRoll: number, critThreshold = 12): HitProbability {
+export function computeHitProbability(netAcc: number, _critThreshold = 18): HitProbability {
+  const expansion = Math.max(0, Math.min(6, 3 + netAcc));
+  const minHitRoll = Math.max(4, 10 - expansion);
+  const maxHitRoll = Math.min(17, 11 + expansion);
+
   let hitCombos = 0;
-  let critCombos = 0;
   for (let d1 = 1; d1 <= 6; d1++) {
     for (let d2 = 1; d2 <= 6; d2++) {
-      if (d1 === 1 && d2 === 1) {
-        // Snake eyes always misses
-        continue;
-      }
-      const sum = d1 + d2;
-      if (sum >= critThreshold) {
-        // Critical hit always hits & crits
-        critCombos++;
-        hitCombos++;
-        continue;
-      }
-      if (sum >= neededRoll) {
-        hitCombos++;
+      for (let d3 = 1; d3 <= 6; d3++) {
+        const sum = d1 + d2 + d3;
+        // Diabolic rolls (3 and 18) are excluded from hitCombos
+        if (sum >= minHitRoll && sum <= maxHitRoll && sum !== 3 && sum !== 18) {
+          hitCombos++;
+        }
       }
     }
   }
-  const hitPercent = Math.round((hitCombos / 36) * 1000) / 10;
-  const critPercent = Math.round((critCombos / 36) * 1000) / 10;
+
+  const hitPercent = Math.round((hitCombos / 216) * 1000) / 10;
+  const diabolicPercent = Math.round((2 / 216) * 1000) / 10; // 0.9%
   return {
     hitCombos,
-    totalCombos: 36,
+    totalCombos: 216,
     hitPercent,
-    critPercent,
-    snakeEyesPercent: 2.8,
+    diabolicPercent,
+    critPercent: 0,
+    snakeEyesPercent: 0,
+    minHitRoll,
+    maxHitRoll,
+    bonus: expansion,
   };
 }
 
 export interface CombatAttackRoll {
   die1: number;
   die2: number;
+  die3: number;
   total: number;
+  isDiabolic: boolean;
   isSnakeEyes: boolean;
   isBoxcars: boolean;
+  isTriples: boolean;
+  isPair: boolean;
+  matchingDie?: number;
   attackerAcc: number;
   targetEva: number;
   netAcc: number;
   neededRoll: number;
+  minHitRoll: number;
+  maxHitRoll: number;
   isHit: boolean;
   isCrit: boolean;
   nextState: number;
 }
 
 /**
- * Evaluates an attack using 2x 1d6 (2d6).
- * - Total range: 2 - 12 (geared towards 7).
- * - Rolls of 5 and above hit; 4 and below miss.
- * - Snake eyes (1+1=2) is an automatic total miss regardless of modifiers.
- * - Rolls >= critThreshold (default 12) are critical hits applying +50% bonus ATK damage.
- * - Net accuracy = Attacker ACC - Target EVA. Modifiers adjust required roll: roll + netAcc >= 5.
+ * Evaluates an attack using the 3d6 Quick Time Event (QTE) Distance / Hit Check Bar.
+ * - Total range: 3 to 18 (216 combinations).
+ * - Tier 4 (+0 Net ACC) is the baseline center at [7..14] (81.5% probability).
+ * - Each +1 Net ACC expands outward up to Tier 7 (>= +3 Net ACC) at [4..17] (99.1% max).
+ * - Negative Net ACC contracts inward down to Tier 1 (<= -3 Net ACC) at [10..11] (25.0% Sure Hit Rolls).
+ * - Rolls of 3 and 18 are Diabolic rolls that always miss.
  */
 export function evaluateAttackRoll(
   rngState: number,
   attackerAcc: number,
   targetEva: number,
-  critThreshold = 12
+  _critThreshold = 18
 ): CombatAttackRoll {
-  const { die1, die2, total, isSnakeEyes, isBoxcars, nextState } = roll2D6(rngState);
+  const { die1, die2, die3, total, isTriples, isPair, matchingDie, nextState } = roll3D6(rngState);
   const netAcc = attackerAcc - targetEva;
-  const neededRoll = BASE_HIT_THRESHOLD - netAcc;
+  const expansion = Math.max(0, Math.min(6, 3 + netAcc));
+  // Diabolic rolls: 3 and 18 always guarantee a miss regardless of character ACC
+  const isDiabolic = total === 3 || total === 18;
+  const minHitRoll = Math.max(4, 10 - expansion);
+  const maxHitRoll = Math.min(17, 11 + expansion);
 
-  let isHit = false;
-  let isCrit = false;
-
-  if (isSnakeEyes) {
-    isHit = false;
-    isCrit = false;
-  } else if (total >= critThreshold) {
-    isHit = true;
-    isCrit = true;
-  } else {
-    isHit = total + netAcc >= BASE_HIT_THRESHOLD;
-  }
+  const isHit = !isDiabolic && total >= minHitRoll && total <= maxHitRoll;
+  const isCrit = false;
+  const isSnakeEyes = false;
+  const isBoxcars = false;
 
   return {
     die1,
     die2,
+    die3,
     total,
+    isDiabolic,
     isSnakeEyes,
     isBoxcars,
+    isTriples,
+    isPair,
+    matchingDie,
     attackerAcc,
     targetEva,
     netAcc,
-    neededRoll,
+    neededRoll: minHitRoll,
+    minHitRoll,
+    maxHitRoll,
     isHit,
     isCrit,
     nextState,
@@ -352,6 +370,8 @@ export function playCombatCardFromHand(
       baseGold: number;
       luckyCharmGold: number;
       hasLuckyCharm?: boolean;
+      lastAttackRolls?: CombatAttackRollSummary[];
+      finalCombatState?: ActiveCombatState;
     }
   ) => RunState,
   discardedCardInstanceIds: string[] = []
@@ -404,6 +424,7 @@ export function playCombatCardFromHand(
   let nextRng = state.rngState;
   const monsters = combat.monsters.map((m) => ({ ...m }));
   let lastAttackRoll: CombatAttackRollSummary | undefined = undefined;
+  const heroAttackRolls: CombatAttackRollSummary[] = [];
   let nextGold = state.playerResources?.gold ?? 0;
   let nextHeroHp = state.playerResources.hp;
   let heroKilledBy: string | null = null;
@@ -431,12 +452,12 @@ export function playCombatCardFromHand(
       const attackRoll = evaluateAttackRoll(nextRng, playerAcc, monsterEva, playerCritThreshold);
       nextRng = attackRoll.nextState;
 
-      // Rogue: [Steal] passive triggers on ANY pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6), including Snake Eyes, gaining Gold equal to the doubled die face
-      if (state.playerClass === 'rogue' && attackRoll.die1 === attackRoll.die2) {
-        const stolenGold = attackRoll.die1;
+      // Rogue: [Steal] passive triggers on ANY pair or triples in 3d6, gaining Gold equal to the matching die face
+      if (state.playerClass === 'rogue' && attackRoll.isPair && attackRoll.matchingDie) {
+        const stolenGold = attackRoll.matchingDie;
         nextGold += stolenGold;
         logEntries.push(
-          `[${createTimestamp(state.logTimestamp)}] 💰 [Steal] Rolled a pair [${attackRoll.die1}, ${attackRoll.die2}]! Snatched +${stolenGold} Gold (Total: ${nextGold} Gold).`
+          `[${createTimestamp(state.logTimestamp)}] 💰 [Steal] Rolled matching dice [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}]! Snatched +${stolenGold} Gold (Total: ${nextGold} Gold).`
         );
       }
 
@@ -456,8 +477,7 @@ export function playCombatCardFromHand(
       const berzerkNote = berzerkBonus > 0 ? ` (incl. +${berzerkBonus} from [Berzerk])` : '';
 
       if (attackRoll.isHit) {
-        const baseDmg = effect.damage;
-        const finalDmg = attackRoll.isCrit ? Math.floor(baseDmg * 1.5) : baseDmg;
+        const finalDmg = effect.damage;
         // Physical PEN bypasses natural monster DEF before temporary Block. Magical
         // attacks always resolve against MDEF and do not receive physical PEN.
         const isMagicalAttack = card.damageScalingStat === 'int';
@@ -481,15 +501,13 @@ export function playCombatCardFromHand(
           logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Skittish: gains +${bonus} EVA for the rest of this hero turn.`);
         }
 
-        const critLabel = attackRoll.die1 === 6 && attackRoll.die2 === 6 ? 'BOXCARS CRIT' : 'CRITICAL HIT';
-        const critText = attackRoll.isCrit ? ` [${critLabel}! +50% ATK DMG]` : '';
         const netSign = attackRoll.netAcc >= 0 ? '+' : '';
         const absorbParts: string[] = [];
         if (damagePenetrated > 0) absorbParts.push(`${damagePenetrated} ${t.monster.name} DEF bypassed by PEN`);
         if (damageDefReduced > 0) absorbParts.push(`${damageDefReduced} absorbed by ${t.monster.name} ${isMagicalAttack ? 'MDEF' : 'DEF'}`);
         if (damageBlocked > 0) absorbParts.push(`${damageBlocked} blocked`);
         logEntries.push(
-          `[${createTimestamp(state.logTimestamp)}] ⚔️ Played ${card.name} on ${t.monster.name}: rolled 2d6 = [${attackRoll.die1}, ${attackRoll.die2}] = ${attackRoll.total} (${netSign}${attackRoll.netAcc} net ACC${accBonusNote} vs ${monsterEva} EVA -> needed ${attackRoll.neededRoll}+)${critText} -> 🎯 HIT! ${finalDmg} DMG${berzerkNote}${
+          `[${createTimestamp(state.logTimestamp)}] ⚔️ Played ${card.name} on ${t.monster.name}: rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc}${accBonusNote}) -> 🎯 HIT! ${finalDmg} DMG${berzerkNote}${
             absorbParts.length > 0 ? ` (${absorbParts.join(', ')})` : ''
           } -> ${damageDealt} HP damage to ${t.monster.name}${t.hp <= 0 ? ' — Defeated!' : ''}.`
         );
@@ -517,36 +535,38 @@ export function playCombatCardFromHand(
           if (nextHeroHp <= 0) heroKilledBy = `${t.monster.name}'s Acid Retaliation`;
         }
       } else {
-        if (attackRoll.isSnakeEyes) {
-          logEntries.push(
-            `[${createTimestamp(state.logTimestamp)}] ⚔️ Played ${card.name} on ${t.monster.name}: rolled 2d6 = [1, 1] = 2 (🐍 SNAKE EYES! Total miss!) -> 💨 Missed ${t.monster.name}!`
-          );
-        } else {
-          const netSign = attackRoll.netAcc >= 0 ? '+' : '';
-          logEntries.push(
-            `[${createTimestamp(state.logTimestamp)}] ⚔️ Played ${card.name} on ${t.monster.name}: rolled 2d6 = [${attackRoll.die1}, ${attackRoll.die2}] = ${attackRoll.total} (${netSign}${attackRoll.netAcc} net ACC${accBonusNote} vs ${monsterEva} EVA -> needed ${attackRoll.neededRoll}+) -> 💨 Missed ${t.monster.name}!`
-          );
-        }
+        const netSign = attackRoll.netAcc >= 0 ? '+' : '';
+        const diabolicNote = attackRoll.isDiabolic ? ' [😈 DIABOLIC ROLL! Automatic Miss]' : '';
+        logEntries.push(
+          `[${createTimestamp(state.logTimestamp)}] ⚔️ Played ${card.name} on ${t.monster.name}: rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc}${accBonusNote})${diabolicNote} -> 💨 Missed ${t.monster.name} (rolled ${attackRoll.total}${attackRoll.isDiabolic ? ' - Diabolic miss!' : ' outside range'})!`
+        );
       }
 
       lastAttackRoll = {
         attackerName: 'Hero',
         targetName: t.monster.name,
+        targetIndex: target,
         actionName: card.name,
         die1: attackRoll.die1,
         die2: attackRoll.die2,
+        die3: attackRoll.die3,
         total: attackRoll.total,
         netAcc: attackRoll.netAcc,
-        neededRoll: attackRoll.neededRoll,
+        neededRoll: attackRoll.minHitRoll,
+        minHitRoll: attackRoll.minHitRoll,
+        maxHitRoll: attackRoll.maxHitRoll,
         isHit: attackRoll.isHit,
-        isCrit: attackRoll.isCrit,
-        isSnakeEyes: attackRoll.isSnakeEyes,
+        isDiabolic: attackRoll.isDiabolic,
+        isCrit: false,
+        isSnakeEyes: false,
+        isTriples: false,
         damageDealt,
         damageBlocked,
         defenseType: card.damageScalingStat === 'int' ? 'MDEF' : 'DEF',
         damageDefReduced,
         damagePenetrated,
       };
+      heroAttackRolls.push(lastAttackRoll);
     }
     }
   }
@@ -606,6 +626,7 @@ export function playCombatCardFromHand(
     inPlay,
     combatLog: [...combat.combatLog, ...logEntries],
     lastAttackRoll: lastAttackRoll ?? combat.lastAttackRoll,
+    lastAttackRolls: heroAttackRolls.length > 0 ? heroAttackRolls : (combat.lastAttackRolls ?? []),
     lastFleeRoll: undefined,
   };
 
@@ -615,6 +636,7 @@ export function playCombatCardFromHand(
       rngState: nextRng,
       playerResources: { ...state.playerResources, hp: 0, gold: nextGold },
       activeHook: { type: 'ON_GAME_OVER', turn: state.turn, defeatedBy: heroKilledBy },
+      gameLog: appendGameLog(state, logEntries),
       bannerMessage: `You were defeated by ${heroKilledBy} on Turn ${state.turn}.`,
     });
   }
@@ -643,6 +665,7 @@ export function playCombatCardFromHand(
         gold: nextGold + totalGold,
       },
       monsterDiscard: [...state.monsterDiscard, ...defeated.filter((m) => !m.isBoss)],
+      gameLog: appendGameLog(state, logEntries),
       bannerMessage: `Defeated ${defeated.map((m) => m.name).join(' + ')}! Earned +${totalSp} Stat Point${
         totalSp === 1 ? '' : 's'
       } and +${totalGold} Gold${luckyText}!`,
@@ -654,6 +677,8 @@ export function playCombatCardFromHand(
       baseGold,
       luckyCharmGold,
       hasLuckyCharm,
+      lastAttackRolls: heroAttackRolls,
+      finalCombatState: updatedCombat,
     };
 
     return onCombatVictory(stateAfterRewards, defeated, victoryDetails);
@@ -669,7 +694,15 @@ export function playCombatCardFromHand(
       type: 'COMBAT',
       combat: updatedCombat,
     },
+        gameLog: appendGameLog(state, logEntries),
   };
+}
+
+export function computeFleeNetAcc(playerEva: number, livingMonsters: CombatMonster[]): number {
+  const totalEnemyAcc = livingMonsters
+    .filter((m) => m.hp > 0)
+    .reduce((sum, m) => sum + (m.monster.acc ?? 0), 0);
+  return playerEva - totalEnemyAcc;
 }
 
 export function attemptCombatFlee(state: RunState): RunState {
@@ -687,23 +720,56 @@ export function attemptCombatFlee(state: RunState): RunState {
   }
 
   const effectiveStats = getEffectiveStatsFromState(state);
-  const threshold = getFleeThreshold(effectiveStats);
-  const { roll, nextState: nextRng } = roll1D6(state.rngState);
+  const combatGear = computeCombatGearBonuses(state.equippedGear);
+  const heroDebuffs = getHeroStatDebuffMods(combat);
+  const playerEva = getPlayerEva(effectiveStats, combat.playerEvasionMod + heroDebuffs.eva, combatGear.eva);
 
-  const isSuccess = roll <= threshold;
+  const livingMonsters = combat.monsters.filter((m) => m.hp > 0);
+  const netFlee = computeFleeNetAcc(playerEva, livingMonsters);
+
+  const hitProb = computeHitProbability(netFlee);
+  const { die1, die2, die3, total: rollTotal, nextState: nextRng } = roll3D6(state.rngState);
+
+  const isDiabolic = rollTotal === 3 || rollTotal === 18;
+  const isSuccess = !isDiabolic && rollTotal >= hitProb.minHitRoll && rollTotal <= hitProb.maxHitRoll;
   const time = createTimestamp(state.logTimestamp);
+
+  const fleeRollSummary: CombatAttackRollSummary = {
+    attackerName: 'Hero',
+    targetName: livingMonsters.map((m) => m.monster.name).join(', ') || 'Enemies',
+    actionName: 'Flee',
+    die1,
+    die2,
+    die3,
+    total: rollTotal,
+    netAcc: netFlee,
+    neededRoll: hitProb.minHitRoll,
+    minHitRoll: hitProb.minHitRoll,
+    maxHitRoll: hitProb.maxHitRoll,
+    isHit: isSuccess,
+    isDiabolic,
+    isCrit: false,
+    isSnakeEyes: false,
+    damageDealt: 0,
+    damageBlocked: 0,
+  };
 
   if (isSuccess) {
     // Escaped battle! Encountered monsters go to the monster discard pile.
     const monstersToDiscard = combat.monsters.map((m) => m.monster);
 
-    return syncAudioState({
+    const nextState = syncAudioState({
       ...state,
       rngState: nextRng,
       monsterDiscard: [...state.monsterDiscard, ...monstersToDiscard],
-      activeHook: { type: 'NONE' },
-      bannerMessage: `🏃 Escaped from battle! Rolled 1d6 = ${roll} (needed ≤ ${threshold}). No rewards collected.`,
+      activeHook: { type: 'NONE', lastAttackRolls: [fleeRollSummary] } as any,
+      gameLog: appendGameLog(
+        state,
+        `[${time}] 🏃 Escaped from battle! Rolled 3d6 [${die1}, ${die2}, ${die3}] = ${rollTotal} (Hit Range: ${hitProb.minHitRoll}–${hitProb.maxHitRoll}, Net: ${netFlee >= 0 ? `+${netFlee}` : netFlee}). No rewards collected.`
+      ),
+      bannerMessage: `🏃 Escaped from battle! Rolled 3d6 = ${rollTotal} (Hit Range: ${hitProb.minHitRoll}–${hitProb.maxHitRoll}). No rewards collected.`,
     });
+    return nextState;
   }
 
   // Escape failed! 2 AP consumed.
@@ -712,12 +778,13 @@ export function attemptCombatFlee(state: RunState): RunState {
     playerAp: combat.playerAp - FLEE_AP_COST,
     combatLog: [
       ...combat.combatLog,
-      `[${time}] 🏃 Attempted to flee: rolled 1d6 = ${roll} (needed ≤ ${threshold}) -> Failed to escape!`,
+      `[${time}] 🏃 Attempted to flee: rolled 3d6 [${die1}, ${die2}, ${die3}] = ${rollTotal} (Hit Range: ${hitProb.minHitRoll}–${hitProb.maxHitRoll}, Net: ${netFlee >= 0 ? `+${netFlee}` : netFlee}) -> Failed to escape!`,
     ],
-    lastAttackRoll: undefined,
+    lastAttackRoll: fleeRollSummary,
+    lastAttackRolls: [fleeRollSummary],
     lastFleeRoll: {
-      roll,
-      threshold,
+      roll: rollTotal,
+      threshold: hitProb.minHitRoll,
       success: false,
     },
   };
@@ -729,6 +796,10 @@ export function attemptCombatFlee(state: RunState): RunState {
       type: 'COMBAT',
       combat: updatedCombat,
     },
+    gameLog: appendGameLog(
+      state,
+      `[${time}] 🏃 Attempted to flee: rolled 3d6 [${die1}, ${die2}, ${die3}] = ${rollTotal} (Hit Range: ${hitProb.minHitRoll}–${hitProb.maxHitRoll}, Net: ${netFlee >= 0 ? `+${netFlee}` : netFlee}) -> Failed to escape!`
+    ),
   };
 }
 
@@ -760,6 +831,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
   let playerBlock = combat.playerBlock;
   let killedBy: string | null = null;
   let lastMonsterAttackRoll: CombatAttackRollSummary | undefined = undefined;
+  const monsterAttackRolls: CombatAttackRollSummary[] = [];
 
   let nextRoundAccMod = 0;
   let nextRoundVulnerableMod = 0;
@@ -1031,16 +1103,11 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       let protReduction = 0;
 
       if (!attackRoll.isHit) {
-        if (attackRoll.isSnakeEyes) {
-          logEntries.push(
-            `[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} uses ${intent.label} (${intent.damage} DMG): rolled 2d6 = [1, 1] = 2 (🐍 SNAKE EYES! Total miss!) -> 💨 DODGED!`
-          );
-        } else {
-          const netSign = attackRoll.netAcc >= 0 ? '+' : '';
-          logEntries.push(
-            `[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} uses ${intent.label} (${intent.damage} DMG): rolled 2d6 = [${attackRoll.die1}, ${attackRoll.die2}] = ${attackRoll.total} (${netSign}${attackRoll.netAcc} net ACC vs ${playerEva} EVA -> needed ${attackRoll.neededRoll}+) -> 💨 DODGED!`
-          );
-        }
+        const netSign = attackRoll.netAcc >= 0 ? '+' : '';
+        const diabolicNote = attackRoll.isDiabolic ? ' [😈 DIABOLIC ROLL! Automatic Miss]' : '';
+        logEntries.push(
+          `[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} uses ${intent.label} (${intent.damage} DMG): rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc} vs ${playerEva} EVA)${diabolicNote} -> 💨 DODGED!`
+        );
       } else {
         if (intent.poisonOnHit && !statusEffects.includes('poison')) {
           statusEffects.push('poison');
@@ -1057,11 +1124,8 @@ export function endPlayerCombatTurn(state: RunState): RunState {
         }
         const protection = state.divineProtection ?? 0;
         const vulnerable = (combat.playerVulnerableMod ?? 0) + getHeroDamageTakenDebuff({ heroStatDebuffs: activeHexes });
-        const rawDmg = intent.damage === 0 ? 0 : attackRoll.isCrit
-          ? Math.floor(intent.damage * 1.5)
-          : intent.damage;
+        const rawDmg = intent.damage;
         const baseDmg = intent.damage > 0 ? rawDmg + vulnerable : 0;
-        const critNote = attackRoll.isCrit ? ' [BOXCARS CRIT! +50% DMG]' : '';
         const vulnNote = vulnerable > 0 ? ` [+${vulnerable} Hex Vuln]` : '';
         defReduction = Math.min(heroDef, baseDmg);
         const defReduced = Math.max(0, baseDmg - heroDef);
@@ -1078,7 +1142,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
         const defAbsorbText = defReduction > 0 ? `${defReduction} absorbed by Hero ${defenseType}, ` : '';
         const protAbsorbText = protReduction > 0 ? `${protReduction} reduced by Divine Prot, ` : '';
         logEntries.push(
-          `[${createTimestamp(state.logTimestamp)}] ⚔️ ${name} uses ${intent.label} (${intent.damage} DMG${vulnNote}${defNote}${protNote}): rolled 2d6 = [${attackRoll.die1}, ${attackRoll.die2}] = ${attackRoll.total} (${netSign}${attackRoll.netAcc} net ACC vs ${playerEva} EVA -> needed ${attackRoll.neededRoll}+)${critNote} -> 🩸 HIT! (${defAbsorbText}${protAbsorbText}${damageBlocked} blocked, ${damageDealt} HP damage).`
+          `[${createTimestamp(state.logTimestamp)}] ⚔️ ${name} uses ${intent.label} (${intent.damage} DMG${vulnNote}${defNote}${protNote}): rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc} vs ${playerEva} EVA) -> 🩸 HIT! (${defAbsorbText}${protAbsorbText}${damageBlocked} blocked, ${damageDealt} HP damage).`
         );
         if (playerHp <= 0) killedBy = name;
 
@@ -1101,18 +1165,24 @@ export function endPlayerCombatTurn(state: RunState): RunState {
         actionName: intent.label,
         die1: attackRoll.die1,
         die2: attackRoll.die2,
+        die3: attackRoll.die3,
         total: attackRoll.total,
         netAcc: attackRoll.netAcc,
-        neededRoll: attackRoll.neededRoll,
+        neededRoll: attackRoll.minHitRoll,
+        minHitRoll: attackRoll.minHitRoll,
+        maxHitRoll: attackRoll.maxHitRoll,
         isHit: attackRoll.isHit,
-        isCrit: attackRoll.isCrit,
-        isSnakeEyes: attackRoll.isSnakeEyes,
+        isDiabolic: attackRoll.isDiabolic,
+        isCrit: false,
+        isSnakeEyes: false,
+        isTriples: false,
         damageDealt,
         damageBlocked,
         defenseType,
         damageDefReduced: defReduction,
         damageProtReduced: protReduction,
       };
+      monsterAttackRolls.push(lastMonsterAttackRoll);
       }
     }
     if (cm.monster.endTurnRegen && cm.hp > 0) {
@@ -1131,7 +1201,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       monsterDiscard,
       statusEffects,
       playerResources: { ...state.playerResources, hp: 0 },
-      activeHook: { type: 'ON_GAME_OVER', turn: state.turn, defeatedBy: killedBy },
+      activeHook: { type: 'ON_GAME_OVER', turn: state.turn, defeatedBy: killedBy, lastAttackRolls: monsterAttackRolls },
       bannerMessage: `You were defeated by ${killedBy} on Turn ${state.turn}.`,
     });
   }
@@ -1170,6 +1240,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     discardPile: nextDraw.discardPile,
     combatLog: [...combat.combatLog, ...logEntries],
     lastAttackRoll: lastMonsterAttackRoll ?? combat.lastAttackRoll,
+    lastAttackRolls: monsterAttackRolls,
     lastFleeRoll: undefined,
   };
 
@@ -1181,5 +1252,6 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     statusEffects,
     playerResources: { ...state.playerResources, hp: playerHp },
     activeHook: { type: 'COMBAT', combat: nextCombat },
+    gameLog: appendGameLog(state, [...logEntries, `[${createTimestamp(state.logTimestamp)}] 🃏 Combat Turn ${nextCombat.combatTurn}: Drew ${nextDraw.drawn.length} Action cards.`]),
   });
 }

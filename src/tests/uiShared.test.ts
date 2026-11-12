@@ -7,7 +7,7 @@ import { renderActionCardHtml } from '../ui/actionCard';
 import { getAdventureCardName, renderAdventureCardHtml } from '../ui/adventureCard';
 import { groupByCount } from '../ui/grouping';
 import { getTerrainPresentation } from '../ui/terrainPresentation';
-import { studioBrandHtml } from '../ui/brand';
+import { gameLogoHtml, studioBrandHtml } from '../ui/brand';
 import { publicAsset } from '../ui/publicAsset';
 
 describe('shared UI presentation helpers', () => {
@@ -46,7 +46,7 @@ describe('shared UI presentation helpers', () => {
     expect(html).toContain('tcg-inspect-card');
     expect(html).toContain('full-inspect-art');
     expect(html).toContain('<span class="tcg-name action-name">Slash</span>');
-    expect(html).toContain('Deal <b>4</b> Normal DMG');
+    expect(html).toContain('Deal <b>6</b> Normal DMG');
     expect(html).toContain('GRS · #012/021');
   });
 
@@ -64,11 +64,17 @@ describe('shared UI presentation helpers', () => {
     expect(html).toContain('Lvl 5');
   });
 
-  it('uses the canonical Morville Studios Games lockup and deployment-aware public assets', () => {
+  it('uses the canonical Morville Studios lockup and deployment-aware public assets', () => {
     expect(publicAsset('/cards/adventurers/fighter.jpg')).toBe('/cards/adventurers/fighter.jpg');
     const brand = studioBrandHtml();
     expect(brand).toContain('morville-studios-games-lockup-on-dark.svg');
-    expect(brand).toContain('alt="Morville Studios Games"');
+    expect(brand).toContain('alt="Morville Studios"');
     expect(brand).toContain('https://morvillestudios.com/');
+  });
+
+  it('renders the tabletop AD&D style game logo', () => {
+    const logo = gameLogoHtml();
+    expect(logo).toContain('paths-we-choose-logo.png');
+    expect(logo).toContain('alt="The Paths We Choose"');
   });
 });

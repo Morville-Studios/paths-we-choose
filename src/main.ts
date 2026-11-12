@@ -56,7 +56,7 @@ import {
   hasBlockingUiOverlay,
   updateHandCarouselDom,
 } from './ui/render';
-import { ClassId } from './core/types';
+import { ClassId, CombatAttackRollSummary, CombatMonster, RunState } from './core/types';
 
 function newSeed(): string {
   return Date.now().toString(36);
@@ -77,7 +77,11 @@ const ui: UiState = {
   inspectedPile: null,
 };
 
+let isVictoryTransitioning = false;
+let isCombatAnimating = false;
+
 function setCombatTarget(newTarget: number): void {
+  if (isCombatAnimating) return;
   ui.targetIndex = newTarget;
   if (ui.pendingCardPlay) {
     ui.pendingCardPlay.targetIndex = newTarget;
@@ -98,7 +102,7 @@ function setCombatTarget(newTarget: number): void {
 }
 
 function navigateCombatTarget(direction: -1 | 1): void {
-  if (hasBlockingUiOverlay(ui)) return;
+  if (hasBlockingUiOverlay(ui) || isCombatAnimating) return;
   const s = store.get();
   if (s.activeHook?.type !== 'COMBAT') return;
   const combat = s.activeHook.combat;
@@ -121,14 +125,14 @@ function navigateCombatTarget(direction: -1 | 1): void {
 
 function selectHandCard(index: number): void {
   const state = store.get();
-  if (state.activeHook.type !== 'COMBAT' || hasBlockingUiOverlay(ui)) return;
+  if (state.activeHook.type !== 'COMBAT' || hasBlockingUiOverlay(ui) || isCombatAnimating) return;
   ui.handIndex = getHandCarouselIndex(index, state.activeHook.combat.hand.length);
   if (!updateHandCarouselDom(root, ui.handIndex)) render();
 }
 
 function navigateHand(direction: -1 | 1): void {
   const state = store.get();
-  if (state.activeHook.type !== 'COMBAT') return;
+  if (state.activeHook.type !== 'COMBAT' || isCombatAnimating) return;
   const count = state.activeHook.combat.hand.length;
   if (count < 2) return;
   selectHandCard((getHandCarouselIndex(ui.handIndex ?? 0, count) + direction + count) % count);
@@ -165,7 +169,7 @@ function render(): void {
   const audioBtnHtml = ui.showGuide ? '' : `<button class="audio-btn ${isMuted ? 'muted' : ''}" data-action="toggle-audio" title="${isMuted ? 'Unmute Music' : 'Mute Music'}" aria-label="Toggle Music">${isMuted ? '🔇' : '🔊'}</button>`;
 
   if (s.screen === 'welcome') {
-    root.innerHTML = renderWelcome(Boolean(ui.showGuide), ui.guidePage ?? 1) + audioBtnHtml;
+    root.innerHTML = renderWelcome(Boolean(ui.showGuide), ui.guidePage ?? 1, ui.inspectedCard, ui.inspectedStat, s) + audioBtnHtml;
   } else if (s.screen === 'class_select') {
     if (!ui.selectedClass) ui.selectedClass = 'fighter';
     const updated = updateClassCarouselDom(root, ui.selectedClass);
@@ -182,6 +186,7 @@ function render(): void {
 }
 
 store.subscribe((state) => {
+  if (isCombatAnimating) return;
   render();
   audioManager.sync(state);
 });
@@ -533,9 +538,336 @@ root.addEventListener('pointercancel', () => {
   clearLongPress();
 });
 
+
+let diceRollInterval: ReturnType<typeof setInterval> | null = null;
+let diceRollTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function clearDiceAnimation(): void {
+  if (diceRollInterval !== null) {
+    clearInterval(diceRollInterval);
+    diceRollInterval = null;
+  }
+  if (diceRollTimeout !== null) {
+    clearTimeout(diceRollTimeout);
+    diceRollTimeout = null;
+  }
+}
+
+function startDiceAnimation(): void {
+  clearDiceAnimation();
+  if (!ui.pendingDiceRolls || ui.pendingDiceRolls.length === 0) return;
+  const current = ui.pendingDiceRolls[0];
+  if (current.settled) return;
+
+  diceRollInterval = setInterval(() => {
+    const diceElems = root.querySelectorAll<HTMLElement>('.dice-bounce-container.is-rolling .tabletop-die');
+    diceElems.forEach((el) => {
+      el.textContent = '🎲 ' + (Math.floor(Math.random() * 6) + 1);
+    });
+    const totalElem = root.querySelector<HTMLElement>('.dice-bounce-container.is-rolling .die-total-value');
+    if (totalElem) {
+      totalElem.textContent = String(Math.floor(Math.random() * 16) + 3);
+    }
+  }, 45);
+
+  diceRollTimeout = setTimeout(() => {
+    settleActiveDiceRoll();
+  }, 650);
+}
+
+function settleActiveDiceRoll(): void {
+  clearDiceAnimation();
+  if (!ui.pendingDiceRolls || ui.pendingDiceRolls.length === 0) return;
+  const current = ui.pendingDiceRolls[0];
+  if (!current.settled) {
+    current.settled = true;
+    render();
+  }
+}
+
+function applyMonsterDefeatToDom(targetIdx: number, maxHp: number): void {
+  const monsterUnit = root.querySelector<HTMLElement>(`.combat-monster-unit[data-id="${targetIdx}"]`);
+  if (!monsterUnit) return;
+
+  monsterUnit.classList.remove('is-selected-unit', 'selected');
+  monsterUnit.classList.add('is-dead-unit', 'is-defeat-animating');
+
+  const card = monsterUnit.querySelector<HTMLElement>('.tcg-creature');
+  if (card) {
+    card.classList.remove('is-targeted');
+    card.classList.add('is-dead');
+    if (!card.querySelector('.tcg-dead-banner')) {
+      const banner = document.createElement('div');
+      banner.className = 'tcg-dead-banner';
+      banner.textContent = 'DEFEATED';
+      card.appendChild(banner);
+    }
+    card.querySelector('.tcg-shield-overlay')?.remove();
+  }
+
+  const badgeTop = monsterUnit.querySelector<HTMLElement>('.combat-target-badge-top');
+  if (badgeTop) {
+    badgeTop.className = 'combat-target-spacer';
+    badgeTop.textContent = '';
+  }
+
+  const dock = monsterUnit.querySelector<HTMLElement>('.creature-combat-dock');
+  if (dock) {
+    dock.classList.add('is-dead');
+    const intentVal = dock.querySelector<HTMLElement>('.dock-intent-val');
+    if (intentVal) {
+      intentVal.innerHTML = '<span class="intent-dead">Defeated</span>';
+    }
+    const hpFill = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-fill');
+    if (hpFill) {
+      hpFill.style.width = '0%';
+    }
+    const hpText = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-text');
+    if (hpText) {
+      hpText.textContent = `0 / ${maxHp} HP`;
+    }
+  }
+}
+
+function applyMonsterSurvivingHpToDom(targetIdx: number, currentHp: number, maxHp: number, block = 0): void {
+  const monsterUnit = root.querySelector<HTMLElement>(`.combat-monster-unit[data-id="${targetIdx}"]`);
+  if (!monsterUnit) return;
+
+  const pct = Math.max(0, Math.min(100, Math.round((currentHp / maxHp) * 100)));
+  const dock = monsterUnit.querySelector<HTMLElement>('.creature-combat-dock');
+  if (dock) {
+    const hpFill = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-fill');
+    if (hpFill) {
+      hpFill.style.width = `${pct}%`;
+    }
+    const hpText = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-text');
+    if (hpText) {
+      hpText.innerHTML = `${currentHp} / ${maxHp} HP${block > 0 ? ` (+${block} &#128737;)` : ''}`;
+    }
+  }
+
+  const card = monsterUnit.querySelector<HTMLElement>('.tcg-creature');
+  if (card) {
+    const shieldOverlay = card.querySelector<HTMLElement>('.tcg-shield-overlay');
+    if (block > 0) {
+      if (shieldOverlay) {
+        shieldOverlay.innerHTML = `&#128737; ${block} Block`;
+      } else {
+        const newShield = document.createElement('div');
+        newShield.className = 'tcg-shield-overlay';
+        newShield.innerHTML = `&#128737; ${block} Block`;
+        card.appendChild(newShield);
+      }
+    } else if (shieldOverlay) {
+      shieldOverlay.remove();
+    }
+  }
+}
+
+function triggerMonsterDamageEffects(targetIdx: number, damage: number, blocked: number): void {
+  const monsterUnit = root.querySelector<HTMLElement>(`.combat-monster-unit[data-id="${targetIdx}"]`);
+  if (!monsterUnit) return;
+
+  monsterUnit.querySelectorAll('.combat-floating-damage').forEach((el) => el.remove());
+  monsterUnit.classList.remove('is-damage-shaking');
+  void monsterUnit.offsetWidth;
+  monsterUnit.classList.add('is-damage-shaking');
+
+  const floatEl = document.createElement('div');
+  floatEl.className = 'combat-floating-damage' + (damage === 0 && blocked > 0 ? ' is-blocked' : '');
+  floatEl.textContent = damage > 0 ? `-${damage}` : `🛡️ BLOCKED`;
+  monsterUnit.appendChild(floatEl);
+
+  setTimeout(() => {
+    monsterUnit.classList.remove('is-damage-shaking');
+    floatEl.remove();
+  }, 1100);
+}
+
+function applyNextDiceRoll(): void {
+  if (isVictoryTransitioning || isCombatAnimating) return;
+  clearDiceAnimation();
+  if (!ui.pendingDiceRolls || ui.pendingDiceRolls.length === 0) return;
+  const current = ui.pendingDiceRolls[0];
+  if (!current.settled) {
+    settleActiveDiceRoll();
+    return;
+  }
+  ui.pendingDiceRolls.shift();
+  const nextStateToSet = current.nextState;
+
+  const roll = current.roll;
+  const isHeroAttack = roll.attackerName === 'Hero';
+  const targetIdx = roll.targetIndex ?? ui.targetIndex;
+  const isHit = roll.isHit;
+  const damage = roll.damageDealt;
+  const blocked = roll.damageBlocked;
+  const shouldPlayDamageVfx = isHeroAttack && isHit && (damage > 0 || blocked > 0);
+
+  // If there are more pending rolls, advance to the next roll
+  if (ui.pendingDiceRolls.length > 0) {
+    ui.pendingDiceRolls[0].settled = false;
+    if (nextStateToSet) {
+      store.set(nextStateToSet);
+    }
+    render();
+    if (shouldPlayDamageVfx) {
+      audioManager.playSlashSound();
+      triggerMonsterDamageEffects(targetIdx, damage, blocked);
+    }
+    startDiceAnimation();
+    return;
+  }
+
+  // All pending dice rolls completed
+  ui.pendingDiceRolls = null;
+
+  if (!nextStateToSet) {
+    render();
+    return;
+  }
+
+  // If no damage VFX is needed (e.g. attack missed or 0 damage/block)
+  if (!shouldPlayDamageVfx) {
+    store.set(nextStateToSet);
+    ui.targetIndex = targetIdx;
+    render();
+    return;
+  }
+
+  // Determine pre-damage monster state and final combat state
+  const s = store.get();
+  const combatBefore = s.activeHook?.type === 'COMBAT' ? s.activeHook.combat : undefined;
+  const monsterBefore = combatBefore?.monsters[targetIdx];
+
+  const isVictory = nextStateToSet.activeHook?.type === 'VICTORY';
+  const finalCombatState = nextStateToSet.activeHook?.type === 'COMBAT'
+    ? nextStateToSet.activeHook.combat
+    : (nextStateToSet.activeHook as any)?.victory?.finalCombatState;
+
+  const monsterAfter = finalCombatState?.monsters[targetIdx];
+  const isDead = Boolean(monsterAfter && monsterAfter.hp <= 0);
+  const maxHp = monsterAfter?.monster.maxHp ?? monsterBefore?.monster.maxHp ?? 10;
+
+  isCombatAnimating = true;
+
+  // Step 1: Return to battle screen with target monster STILL ALIVE and CENTERED
+  const initialCombat = finalCombatState
+    ? {
+        ...finalCombatState,
+        monsters: finalCombatState.monsters.map((m: CombatMonster, idx: number) =>
+          idx === targetIdx && monsterBefore
+            ? { ...m, hp: Math.max(1, monsterBefore.hp), block: monsterBefore.block }
+            : m
+        ),
+      }
+    : undefined;
+
+  const step1State: RunState = {
+    ...nextStateToSet,
+    activeHook: {
+      type: 'COMBAT',
+      combat: initialCombat ?? finalCombatState,
+    },
+  };
+
+  store.set(step1State);
+  ui.targetIndex = targetIdx;
+  render();
+
+  // Play slash sound and violent card shake with floating damage
+  audioManager.playSlashSound();
+  triggerMonsterDamageEffects(targetIdx, damage, blocked);
+
+  // Step 2: After the violent damage shake completes (520ms)
+  setTimeout(() => {
+    if (!isDead && monsterAfter) {
+      // Monster survived: update HP bar to surviving HP, keep target centered
+      applyMonsterSurvivingHpToDom(targetIdx, monsterAfter.hp, maxHp, monsterAfter.block ?? 0);
+      store.set(nextStateToSet);
+
+      setTimeout(() => {
+        isCombatAnimating = false;
+        render();
+      }, 400);
+      return;
+    }
+
+    // Monster died: apply greyout animation in DOM while keeping it CENTERED
+    applyMonsterDefeatToDom(targetIdx, maxHp);
+
+    const deadTargetCombat = {
+      ...finalCombatState,
+      monsters: finalCombatState.monsters.map((m: CombatMonster, idx: number) =>
+        idx === targetIdx ? { ...m, hp: 0, block: 0 } : m
+      ),
+    };
+    const dyingState: RunState = {
+      ...nextStateToSet,
+      activeHook: {
+        type: 'COMBAT',
+        combat: deadTargetCombat,
+      },
+    };
+    store.set(dyingState);
+
+    // Step 3: After greyout animation completes (750ms later, total 1270ms)
+    setTimeout(() => {
+      if (isVictory) {
+        // All enemies defeated: display victory modal
+        isCombatAnimating = false;
+        isVictoryTransitioning = true;
+        store.set(nextStateToSet);
+        render();
+        isVictoryTransitioning = false;
+      } else {
+        // Living enemies remain: smoothly rotate carousel to next available living enemy
+        const livingNext = firstLivingMonsterIndex(finalCombatState);
+        if (livingNext >= 0) {
+          ui.targetIndex = livingNext;
+        }
+        store.set(nextStateToSet);
+        const stats = getEffectiveStatsFromState(nextStateToSet);
+        const combatGear = computeCombatGearBonuses(nextStateToSet.equippedGear);
+        const playerAcc = getPlayerAcc(stats, combatGear.acc);
+        const updated = updateMonsterCarouselDom(
+          root,
+          finalCombatState,
+          ui.targetIndex,
+          playerAcc,
+          getPlayerCritThreshold(stats)
+        );
+        if (!updated) {
+          render();
+        }
+
+        setTimeout(() => {
+          isCombatAnimating = false;
+          render();
+        }, 350); // wait for 0.3s CSS carousel transition
+      }
+    }, 750);
+  }, 520);
+}
+
 // Keyboard shortcuts
 window.addEventListener('keydown', (ev) => {
+  if (isVictoryTransitioning || isCombatAnimating) return;
   const s = store.get();
+  if (ui.pendingDiceRolls && ui.pendingDiceRolls.length > 0) {
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      applyNextDiceRoll();
+      return;
+    }
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      settleActiveDiceRoll();
+      return;
+    }
+    return;
+  }
+
 
   if (ev.key === 'Escape') {
     if (ui.inspectedCard || ui.inspectedStat) {
@@ -561,6 +893,9 @@ window.addEventListener('keydown', (ev) => {
     } else if (ui.showGuide) {
       ui.showGuide = false;
       render();
+    } else if (ui.showLog) {
+      ui.showLog = false;
+      render();
     }
     return;
   }
@@ -575,16 +910,23 @@ window.addEventListener('keydown', (ev) => {
     }
     if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D' || ev.key === 'PageDown') {
       ev.preventDefault();
-      ui.guidePage = Math.min(5, (ui.guidePage ?? 1) + 1);
+      ui.guidePage = Math.min(6, (ui.guidePage ?? 1) + 1);
       render();
       return;
     }
-    if (['1', '2', '3', '4', '5'].includes(ev.key)) {
+    if (['1', '2', '3', '4', '5', '6'].includes(ev.key)) {
       ev.preventDefault();
       ui.guidePage = parseInt(ev.key, 10);
       render();
       return;
     }
+  }
+
+  if ((ev.key === 'l' || ev.key === 'L') && s.screen === 'play_area' && !hasBlockingUiOverlay(ui)) {
+    ev.preventDefault();
+    ui.showLog = true;
+    render();
+    return;
   }
 
   if (s.screen === 'class_select') {
@@ -649,6 +991,7 @@ window.addEventListener('keydown', (ev) => {
 // ---------------------------------------------------------------------------
 
 root.addEventListener('click', (ev) => {
+  if (isVictoryTransitioning || isCombatAnimating) return;
   if (handSwipeConsumed) {
     handSwipeConsumed = false;
     return;
@@ -778,19 +1121,33 @@ root.addEventListener('click', (ev) => {
         render();
       }
       break;
+    case 'open-log':
+      ui.showLog = true;
+      render();
+      break;
+    case 'close-log':
+      ui.showLog = false;
+      render();
+      break;
+    case 'close-log-backdrop':
+      if (ev.target === target) {
+        ui.showLog = false;
+        render();
+      }
+      break;
     case 'guide-prev-page':
       ui.guidePage = Math.max(1, (ui.guidePage ?? 1) - 1);
       render();
       break;
     case 'guide-next-page':
-      ui.guidePage = Math.min(5, (ui.guidePage ?? 1) + 1);
+      ui.guidePage = Math.min(6, (ui.guidePage ?? 1) + 1);
       render();
       break;
     case 'guide-jump-page': {
       const pageAttr = target.getAttribute('data-page');
       if (pageAttr) {
         const pNum = parseInt(pageAttr, 10);
-        if (pNum >= 1 && pNum <= 5) {
+        if (pNum >= 1 && pNum <= 6) {
           ui.guidePage = pNum;
           render();
         }
@@ -868,11 +1225,41 @@ root.addEventListener('click', (ev) => {
       }
       break;
     }
+    case 'apply-dice-roll':
+      applyNextDiceRoll();
+      break;
+    case 'skip-or-apply-dice':
+      if (ui.pendingDiceRolls && ui.pendingDiceRolls.length > 0) {
+        if (!ui.pendingDiceRolls[0].settled) {
+          settleActiveDiceRoll();
+        } else if (ev.target === target) {
+          applyNextDiceRoll();
+        }
+      }
+      break;
     case 'confirm-play-card':
       if (ui.pendingCardPlay) {
         const { cardInstanceId, targetIndex, discardedCardInstanceIds = [] } = ui.pendingCardPlay;
         ui.pendingCardPlay = null;
-        store.update((s) => playCard(s, cardInstanceId, targetIndex, discardedCardInstanceIds));
+        let evaluatedNext: RunState | null = null;
+        store.update((s: RunState) => {
+          evaluatedNext = playCard(s, cardInstanceId, targetIndex, discardedCardInstanceIds);
+          const rolls: CombatAttackRollSummary[] = (evaluatedNext.activeHook?.type === 'COMBAT' ? evaluatedNext.activeHook.combat.lastAttackRolls : (evaluatedNext.activeHook as any)?.victory?.lastAttackRolls) ?? [];
+          return rolls.length > 0 ? s : evaluatedNext;
+        });
+        if (evaluatedNext) {
+          const finalState: RunState = evaluatedNext;
+          const rolls: CombatAttackRollSummary[] = (finalState.activeHook?.type === 'COMBAT' ? finalState.activeHook.combat.lastAttackRolls : (finalState.activeHook as any)?.victory?.lastAttackRolls) ?? [];
+          if (rolls.length > 0) {
+            ui.pendingDiceRolls = rolls.map((r: CombatAttackRollSummary, i: number) => ({
+              roll: r,
+              nextState: i === rolls.length - 1 ? finalState : undefined,
+              settled: false,
+            }));
+            render();
+            startDiceAnimation();
+          }
+        }
       }
       break;
     case 'toggle-card-discard': {
@@ -970,10 +1357,29 @@ root.addEventListener('click', (ev) => {
     case 'village-back':
       store.update(villageGoBack);
       break;
-    case 'end-turn':
+    case 'end-turn': {
       ui.handIndex = 0;
-      store.update(endTurn);
+      let evaluatedNext: RunState | null = null;
+      store.update((s: RunState) => {
+        evaluatedNext = endTurn(s);
+        const rolls: CombatAttackRollSummary[] = (evaluatedNext.activeHook?.type === 'COMBAT' ? evaluatedNext.activeHook.combat.lastAttackRolls : ((evaluatedNext.activeHook as any)?.lastAttackRolls)) ?? [];
+        return rolls.length > 0 ? s : evaluatedNext;
+      });
+      if (evaluatedNext) {
+        const finalState: RunState = evaluatedNext;
+        const rolls: CombatAttackRollSummary[] = (finalState.activeHook?.type === 'COMBAT' ? finalState.activeHook.combat.lastAttackRolls : ((finalState.activeHook as any)?.lastAttackRolls)) ?? [];
+        if (rolls.length > 0) {
+          ui.pendingDiceRolls = rolls.map((r: CombatAttackRollSummary, i: number) => ({
+            roll: r,
+            nextState: i === rolls.length - 1 ? finalState : undefined,
+            settled: false,
+          }));
+          render();
+          startDiceAnimation();
+        }
+      }
       break;
+    }
     case 'village-rest':
       store.update((s) => villageDoRest(s, ui.villageRestTicks));
       break;
@@ -1050,10 +1456,33 @@ root.addEventListener('click', (ev) => {
       }
       break;
     }
-    case 'confirm-flee':
+    case 'confirm-flee': {
       ui.pendingFlee = false;
-      store.update(attemptFlee);
+      let evaluatedNext: RunState | null = null;
+      store.update((s: RunState) => {
+        evaluatedNext = attemptFlee(s);
+        const rolls: CombatAttackRollSummary[] = (evaluatedNext.activeHook?.type === 'COMBAT'
+          ? evaluatedNext.activeHook.combat.lastAttackRolls
+          : ((evaluatedNext.activeHook as any)?.lastAttackRolls)) ?? [];
+        return rolls.length > 0 ? s : evaluatedNext;
+      });
+      if (evaluatedNext) {
+        const finalState: RunState = evaluatedNext;
+        const rolls: CombatAttackRollSummary[] = (finalState.activeHook?.type === 'COMBAT'
+          ? finalState.activeHook.combat.lastAttackRolls
+          : ((finalState.activeHook as any)?.lastAttackRolls)) ?? [];
+        if (rolls.length > 0) {
+          ui.pendingDiceRolls = rolls.map((r: CombatAttackRollSummary, i: number) => ({
+            roll: r,
+            nextState: i === rolls.length - 1 ? finalState : undefined,
+            settled: false,
+          }));
+          render();
+          startDiceAnimation();
+        }
+      }
       break;
+    }
     case 'cancel-flee':
       ui.pendingFlee = false;
       render();

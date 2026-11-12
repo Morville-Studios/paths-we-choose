@@ -13,7 +13,8 @@ describe('battle hand and creature presentation', () => {
     expect(html).toContain('hand-carousel-unit is-center" data-hand-index="3"');
     expect(html.match(/data-hand-dot /g)).toHaveLength(5);
     expect(html).toContain('data-action="prev-hand-card"');
-    expect(html).toContain('flee-card-slot');
+    expect(html).toContain('data-action="flee-card"');
+    expect(html).not.toContain('flee-card-slot');
     expect(getHandCarouselIndex(4, 3)).toBe(2);
     expect(getHandCarouselIndex(3, 0)).toBe(0);
   });
@@ -39,8 +40,8 @@ describe('battle hand and creature presentation', () => {
     expect(footer).not.toContain('mon1grs-06');
     expect(footer).not.toContain('data-creature-stat="def"');
     expect(footer).not.toContain('data-creature-stat="mdef"');
-    expect(footer).toContain('aria-label="ACC: 1"');
-    expect(footer).toContain('aria-label="EVA: 2"');
+    expect(footer).toContain('aria-label="ACC: 3"');
+    expect(footer).toContain('aria-label="EVA: 4"');
     expect(html).not.toContain('creature-stats-row');
   });
 
@@ -61,5 +62,89 @@ describe('battle hand and creature presentation', () => {
     const footer = html.match(/<footer class="tcg-footer creature-stat-footer">[\s\S]*?<\/footer>/)![0];
     expect(footer).toContain('aria-label="MDEF: 3"');
     expect(footer).toContain('aria-label="DEF: 1"');
+  });
+
+  it('renders tabletop 3d6 dice roll modal in both rolling and settled states', () => {
+    const state = startAdventure('fighter', 'dice-modal-test');
+    state.activeHook = {
+      type: 'COMBAT',
+      combat: createCombatSession([{ ...MONSTER_TEMPLATES.goblin, id: 'goblin' }], state.playerMasterDeck, state.rngState).combat,
+    };
+
+    const roll = {
+      attackerName: 'Hero',
+      targetName: 'Goblin',
+      actionName: 'Slash',
+      die1: 5,
+      die2: 4,
+      die3: 2,
+      total: 11,
+      netAcc: 2,
+      neededRoll: 8,
+      minHitRoll: 8,
+      maxHitRoll: 13,
+      isHit: true,
+      isCrit: false,
+      isSnakeEyes: false,
+      damageDealt: 3,
+      damageBlocked: 0,
+    };
+
+    // 1. Rolling state
+    const rollingUi: UiState = {
+      ...ui,
+      pendingDiceRolls: [{ roll, settled: false }],
+    };
+    const rollingHtml = renderPlayArea(state, rollingUi);
+    expect(rollingHtml).toContain('dice-roll-modal');
+    expect(rollingHtml).toContain('is-rolling');
+    expect(rollingHtml).toContain('Rolling 3d6...');
+    expect(rollingHtml).toContain('disabled');
+
+    // 2. Settled state
+    const settledUi: UiState = {
+      ...ui,
+      pendingDiceRolls: [{ roll, settled: true }],
+    };
+    const settledHtml = renderPlayArea(state, settledUi);
+    expect(settledHtml).toContain('dice-roll-modal');
+    expect(settledHtml).toContain('is-settled');
+    expect(settledHtml).toContain('dice-die" data-final="5">🎲 5');
+    expect(settledHtml).toContain('dice-die" data-final="4">🎲 4');
+    expect(settledHtml).toContain('dice-die" data-final="2">🎲 2');
+    expect(settledHtml).toContain('qte-bar-container');
+    expect(settledHtml).toContain('HIT! (3 DMG)');
+    expect(settledHtml).toContain('data-action="apply-dice-roll"');
+    expect(settledHtml).not.toContain('event.stopPropagation()');
+    expect(settledHtml).not.toContain('disabled');
+    expect(settledHtml).not.toContain('confirm-target-picker');
+    expect(settledHtml).not.toContain('CRIT Triples');
+  });
+
+  it('keeps target monster centered even when defeated during damage/greyout animation until carousel rotates', () => {
+    const state = startAdventure('fighter', 'target-center-test');
+    const combat = createCombatSession(
+      [
+        { ...MONSTER_TEMPLATES.goblin, id: 'goblin_0' },
+        { ...MONSTER_TEMPLATES.stalker, id: 'stalker_1' },
+      ],
+      state.playerMasterDeck,
+      state.rngState
+    ).combat;
+    // Set goblin (target 0) to 0 HP (defeated)
+    combat.monsters[0].hp = 0;
+    state.activeHook = { type: 'COMBAT', combat };
+
+    // With targetIndex: 0, goblin remains centered in the carousel
+    const target0Ui: UiState = { ...ui, targetIndex: 0 };
+    const html0 = renderPlayArea(state, target0Ui);
+    const unit0Match = html0.match(/<div class="combat-monster-unit[^>]*data-id="0"[^>]*>/);
+    expect(unit0Match).not.toBeNull();
+    expect(unit0Match![0]).toContain('is-center');
+    expect(unit0Match![0]).toContain('is-dead-unit');
+
+    const unit1Match = html0.match(/<div class="combat-monster-unit[^>]*data-id="1"[^>]*>/);
+    expect(unit1Match).not.toBeNull();
+    expect(unit1Match![0]).toContain('is-next');
   });
 });

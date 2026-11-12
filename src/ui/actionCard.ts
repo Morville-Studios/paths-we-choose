@@ -2,7 +2,6 @@ import { computeCardEffect, getHeroStatDebuffMods } from '../core/combat';
 import {
   computeCombatGearBonuses,
   getFighterBerzerkBonus,
-  getFleeThreshold,
 } from '../core/stats';
 import { CharacterStats, CombatCardDef, RunState } from '../core/types';
 import { getActionCardIllustration } from './cardArt';
@@ -46,7 +45,7 @@ export function getActionCardText(
   state?: RunState,
 ): string {
   if (card.id === 'action_flee') {
-    return `Roll 1d6 &le; <b>${getFleeThreshold(stats)}</b> to escape<br/>No rewards`;
+    return `3d6 Escape Check (Hero EVA &minus; Enemy ACC)<br/>No rewards`;
   }
   const effect = getActionCardEffect(card, stats, state);
   const parts: string[] = [];
