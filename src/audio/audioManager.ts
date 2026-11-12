@@ -8,6 +8,7 @@ export interface AudioManagerOptions {
 
 export class AudioManager {
   private tracks: Map<string, HTMLAudioElement> = new Map();
+  private activeFades: Map<HTMLAudioElement, any> = new Map();
   private currentTrackId: MusicTrackId = null;
   private volume: number = 0.5;
   private muted: boolean = false;
@@ -28,6 +29,7 @@ export class AudioManager {
       'start-screen': publicAsset('audio/start-screen.mp3'),
       'map-area': publicAsset('audio/map-area.mp3'),
       'battle-normal': publicAsset('audio/battle-normal.mp3'),
+      'victory': publicAsset('audio/victory.mp3'),
     };
 
     for (const [id, url] of Object.entries(trackUrls)) {
@@ -80,6 +82,12 @@ export class AudioManager {
   public setMuted(muted: boolean): void {
     this.muted = muted;
     if (this.muted) {
+      for (const [audio, timer] of this.activeFades.entries()) {
+        clearInterval(timer);
+        audio.pause();
+        audio.volume = this.volume;
+      }
+      this.activeFades.clear();
       if (this.currentTrackId) {
         const audio = this.tracks.get(this.currentTrackId);
         if (audio) audio.pause();
@@ -102,8 +110,92 @@ export class AudioManager {
   public setVolume(volume: number): void {
     this.volume = Math.max(0, Math.min(1, volume));
     for (const audio of this.tracks.values()) {
-      audio.volume = this.volume;
+      if (!this.activeFades.has(audio)) {
+        audio.volume = this.volume;
+      }
     }
+  }
+
+  private cancelFade(audio: HTMLAudioElement): void {
+    const timer = this.activeFades.get(audio);
+    if (timer !== undefined) {
+      clearInterval(timer);
+      this.activeFades.delete(audio);
+    }
+  }
+
+  public fadeOutAndStop(audio: HTMLAudioElement, durationMs: number = 800): void {
+    this.cancelFade(audio);
+    if (typeof window === 'undefined') {
+      audio.pause();
+      try { audio.currentTime = 0; } catch {}
+      return;
+    }
+    const startVolume = audio.volume;
+    if (startVolume <= 0 || audio.paused) {
+      audio.pause();
+      try { audio.currentTime = 0; } catch {}
+      audio.volume = this.volume;
+      return;
+    }
+
+    const stepMs = 30;
+    const totalSteps = Math.max(1, Math.floor(durationMs / stepMs));
+    let step = 0;
+
+    const timer = setInterval(() => {
+      step++;
+      const ratio = Math.max(0, 1 - step / totalSteps);
+      try {
+        audio.volume = startVolume * ratio;
+      } catch {}
+
+      if (step >= totalSteps || audio.paused) {
+        clearInterval(timer);
+        this.activeFades.delete(audio);
+        audio.pause();
+        try {
+          audio.currentTime = 0;
+        } catch {}
+        audio.volume = this.volume;
+      }
+    }, stepMs);
+
+    this.activeFades.set(audio, timer);
+  }
+
+  public fadeIn(audio: HTMLAudioElement, durationMs: number = 800): void {
+    this.cancelFade(audio);
+    if (typeof window === 'undefined') {
+      audio.volume = this.volume;
+      return;
+    }
+    const targetVolume = this.volume;
+    if (targetVolume <= 0) {
+      audio.volume = 0;
+      return;
+    }
+
+    audio.volume = 0;
+    const stepMs = 30;
+    const totalSteps = Math.max(1, Math.floor(durationMs / stepMs));
+    let step = 0;
+
+    const timer = setInterval(() => {
+      step++;
+      const ratio = Math.min(1, step / totalSteps);
+      try {
+        audio.volume = targetVolume * ratio;
+      } catch {}
+
+      if (step >= totalSteps || audio.paused) {
+        clearInterval(timer);
+        this.activeFades.delete(audio);
+        audio.volume = targetVolume;
+      }
+    }, stepMs);
+
+    this.activeFades.set(audio, timer);
   }
 
   public sync(state: RunState): void {
@@ -121,15 +213,22 @@ export class AudioManager {
       return;
     }
 
-    // Stop and rewind previous track
-    if (this.currentTrackId) {
-      const prevAudio = this.tracks.get(this.currentTrackId);
+    const prevTrackId = this.currentTrackId;
+
+    // Stop previous track (fade out if it was victory)
+    if (prevTrackId) {
+      const prevAudio = this.tracks.get(prevTrackId);
       if (prevAudio) {
-        prevAudio.pause();
-        try {
-          prevAudio.currentTime = 0;
-        } catch {
-          // ignore if currentTime reset fails before metadata loaded
+        if (prevTrackId === 'victory') {
+          this.fadeOutAndStop(prevAudio, 800);
+        } else {
+          this.cancelFade(prevAudio);
+          prevAudio.pause();
+          try {
+            prevAudio.currentTime = 0;
+          } catch {
+            // ignore if currentTime reset fails before metadata loaded
+          }
         }
       }
     }
@@ -150,10 +249,18 @@ export class AudioManager {
       return;
     }
 
+    this.cancelFade(nextAudio);
+
     try {
       nextAudio.currentTime = 0;
     } catch {
       // ignore
+    }
+
+    if (prevTrackId === 'victory' && nextTrack === 'map-area') {
+      this.fadeIn(nextAudio, 800);
+    } else {
+      nextAudio.volume = this.volume;
     }
 
     const playPromise = nextAudio.play();
@@ -166,6 +273,14 @@ export class AudioManager {
   }
 
   public stopAll(): void {
+    for (const [audio, timer] of this.activeFades.entries()) {
+      clearInterval(timer);
+      audio.pause();
+      try { audio.currentTime = 0; } catch {}
+      audio.volume = this.volume;
+    }
+    this.activeFades.clear();
+
     if (this.currentTrackId) {
       const audio = this.tracks.get(this.currentTrackId);
       if (audio) {
@@ -173,6 +288,7 @@ export class AudioManager {
         try {
           audio.currentTime = 0;
         } catch {}
+        audio.volume = this.volume;
       }
       this.currentTrackId = null;
     }

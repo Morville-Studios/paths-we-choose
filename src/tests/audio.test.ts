@@ -162,6 +162,28 @@ describe('Audio Scene & Music State Tracking', () => {
       audioState: 'none',
     });
 
+    // Play area - Victory
+    const playAreaVictory: RunState = {
+      ...base,
+      screen: 'play_area',
+      activeHook: {
+        type: 'VICTORY',
+        victory: {
+          defeatedMonsters: [],
+          statPointsEarned: 1,
+          goldEarned: 2,
+          baseGold: 2,
+          luckyCharmGold: 0,
+          isBoss: false,
+        },
+      },
+    };
+    expect(determineActiveAudio(playAreaVictory)).toEqual({
+      currentMusic: 'victory',
+      audioScene: 'victory',
+      audioState: 'victory',
+    });
+
     // Play area - Stage Complete
     const playAreaStageComplete: RunState = {
       ...base,
@@ -307,8 +329,8 @@ describe('Audio Scene & Music State Tracking', () => {
 
       const afterWin = playCard(inCombat, attackCard.instanceId, 0);
       expect(afterWin.activeHook.type).toBe('VICTORY');
-      expect(afterWin.currentMusic).toBe(null);
-      expect(afterWin.audioScene).toBe('none');
+      expect(afterWin.currentMusic).toBe('victory');
+      expect(afterWin.audioScene).toBe('victory');
 
       const afterConfirm = confirmCombatVictory(afterWin);
       expect(afterConfirm.activeHook.type).toBe('NONE');
@@ -375,6 +397,47 @@ describe('Audio Scene & Music State Tracking', () => {
     const state = createInitialState('test');
     mgr.sync(state);
     expect(mgr.getCurrentTrack()).toBe('start-screen');
+
+    mgr.stopAll();
+    expect(mgr.getCurrentTrack()).toBeNull();
+  });
+
+  it('AudioManager supports victory track and fade-out/fade-in methods', () => {
+    const mgr = new AudioManager();
+    const state: RunState = {
+      ...createInitialState('test'),
+      screen: 'play_area',
+      activeHook: {
+        type: 'VICTORY',
+        victory: {
+          defeatedMonsters: [],
+          statPointsEarned: 1,
+          goldEarned: 2,
+          baseGold: 2,
+          luckyCharmGold: 0,
+          isBoss: false,
+        },
+      },
+      currentMusic: 'victory',
+      audioScene: 'victory',
+      audioState: 'victory',
+    };
+    mgr.sync(state);
+    expect(mgr.getCurrentTrack()).toBe('victory');
+
+    const fakeAudio = {
+      volume: 0.5,
+      paused: false,
+      pause() { this.paused = true; },
+      play() { this.paused = false; return Promise.resolve(); },
+      currentTime: 10,
+    };
+
+    mgr.fadeOutAndStop(fakeAudio as unknown as HTMLAudioElement, 100);
+    expect(fakeAudio.paused).toBe(true);
+
+    mgr.fadeIn(fakeAudio as unknown as HTMLAudioElement, 100);
+    expect(fakeAudio.volume).toBe(0.5);
 
     mgr.stopAll();
     expect(mgr.getCurrentTrack()).toBeNull();

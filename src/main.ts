@@ -1,4 +1,6 @@
 import './ui/styles.css';
+import { gameLanguageControl, getGameLocale, setGameLocale, type GameLocale } from './i18n';
+import { localizeGameTree, observeLocalizedGame } from './i18n/presentation';
 import { startUpdateMonitor } from './updates';
 import {
   attemptFlee,
@@ -39,6 +41,7 @@ import { ADVENTURE_CARD_CATALOG } from './data/stages';
 import { toGridKey } from './core/grid';
 import { firstLivingMonsterIndex } from './core/combat';
 import { computeCombatGearBonuses, getEffectiveStatsFromState, getPlayerAcc, getPlayerCritThreshold } from './core/stats';
+import { syncAudioState } from './core/audio';
 import { Store } from './state/store';
 import { reconcileRunNewSkills } from './core/newSkills';
 import { audioManager } from './audio/audioManager';
@@ -63,6 +66,16 @@ function newSeed(): string {
 }
 
 const root = document.getElementById('app') as HTMLElement;
+const languageControl = gameLanguageControl();
+document.body.append(languageControl);
+languageControl.querySelector('select')?.addEventListener('change', event => {
+  setGameLocale((event.target as HTMLSelectElement).value as GameLocale);
+  root.replaceChildren();
+  render();
+  const updateNotice = document.querySelector('.release-notice');
+  if (updateNotice) localizeGameTree(updateNotice);
+});
+observeLocalizedGame(root);
 const store = new Store(createInitialState(newSeed()));
 startUpdateMonitor(() => {
   const state = store.get();
@@ -160,6 +173,8 @@ root.addEventListener('pointerup', ev => {
 });
 
 function render(): void {
+  const languageSelect = languageControl.querySelector('select');
+  if (languageSelect) languageSelect.value = getGameLocale();
   const s = store.get();
   // Preserve scroll of scrollable containers across re-renders
   const scroll = new Map<string, number>();
@@ -179,6 +194,8 @@ function render(): void {
   } else {
     root.innerHTML = renderPlayArea(s, ui) + audioBtnHtml;
   }
+
+  localizeGameTree(root);
 
   root.querySelectorAll<HTMLElement>('.modal, .sheet').forEach((el, i) => {
     el.scrollTop = scroll.get(String(i)) ?? 0;
@@ -763,13 +780,13 @@ function applyNextDiceRoll(): void {
       }
     : undefined;
 
-  const step1State: RunState = {
+  const step1State: RunState = syncAudioState({
     ...nextStateToSet,
     activeHook: {
       type: 'COMBAT',
       combat: initialCombat ?? finalCombatState,
     },
-  };
+  });
 
   store.set(step1State);
   ui.targetIndex = targetIdx;
@@ -802,13 +819,13 @@ function applyNextDiceRoll(): void {
         idx === targetIdx ? { ...m, hp: 0, block: 0 } : m
       ),
     };
-    const dyingState: RunState = {
+    const dyingState: RunState = syncAudioState({
       ...nextStateToSet,
       activeHook: {
         type: 'COMBAT',
         combat: deadTargetCombat,
       },
-    };
+    });
     store.set(dyingState);
 
     // Step 3: After greyout animation completes (750ms later, total 1270ms)
@@ -955,6 +972,14 @@ window.addEventListener('keydown', (ev) => {
       const seed = newSeed();
       clearTransientUiForNewAdventure();
       store.set(startAdventure(current, seed));
+      return;
+    }
+  }
+
+  if (s.screen === 'play_area' && s.activeHook?.type === 'VICTORY') {
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      store.update(confirmCombatVictory);
       return;
     }
   }

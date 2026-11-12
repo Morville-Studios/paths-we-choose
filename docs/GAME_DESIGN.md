@@ -12,6 +12,8 @@ Ordinary creatures come from a finite **76-card physical supply** in the public 
 
 An in-game **How to Play** guide explains the core loop in short, plain-language sections for players age 10 and above. It is available from the title screen before starting and from the persistent `📖 Guide` control in the game HUD. The guide features an AD&D-inspired two-page tome layout with chapter ribbons (I. The Journey, II. Hero & Stats, III. The Village, IV. Shrines & Void, V. MACG-3D6™ Combat, and VI. Bestiary). **Chapter VI: The Monstrous Compendium** presents full TCG creature cards for all 22 monsters grouped by their primary territory (defined deterministically by the lowest territory tier symbol on the card: Grasslands 1, Forest 2, Swamp 3, Cave 4) and Legendary Bosses, sorted strictly by `LOWEST_TERRITORY_TIER, ENEMY_LEVEL, ENEMY_NAME`; clicking any creature card opens the full inspection modal showing encounter profiles, cycling AI intents, rewards, and lore.
 
+Players can switch between English, Traditional Chinese, Simplified Chinese, Japanese, and Korean from the title screen or during play. Browser language sets the first-visit default when supported, and an explicit player choice is saved. Cards, creature lore, combat text, and the handbook follow the chosen language without changing the current run.
+
 ### Core Design Pillars
 1. **Morville Adventure Card Game Path Generator™ (MACG-PG™) — 3-Row Pyramid Vision Cone**:
    - The game's pathing system is powered by the trademarked **Morville Adventure Card Game Path Generator™ (MACG-PG™)**, a proprietary board game strategy mechanic developed by **Morville Studios**.
@@ -411,8 +413,8 @@ All game cards (Adventure Lands, Monster Creatures, Player Actions, Items & Equi
 The game features dynamic, looped audio tracking synchronized with game state:
 
 - **State Tracking (`currentMusic` & `audioScene`)**:
-  - `currentMusic: 'start-screen' | 'map-area' | 'battle-normal' | null`
-  - `audioScene: 'intro' | 'map' | 'battle' | 'none'`
+  - `currentMusic: 'start-screen' | 'map-area' | 'battle-normal' | 'victory' | null`
+  - `audioScene: 'intro' | 'map' | 'battle' | 'victory' | 'none'`
 - **Start Screen (`/audio/start-screen.mp3`)**:
   - Plays on the welcome/start screen (`screen: 'welcome'`, `audioScene: 'intro'`).
   - Loops continuously.
@@ -424,7 +426,9 @@ The game features dynamic, looped audio tracking synchronized with game state:
   - Plays when an encounter begins (`activeHook.type: 'COMBAT'`, `audioScene: 'battle'`).
   - Loops continuously.
   - Stops immediately when battle completes (victory, defeat, or stage boss completion).
-  - On combat victory, returning to map navigation resumes `map-area.mp3`.
+- **Victory Fanfare (`/audio/victory.mp3`)**:
+  - Plays when hostiles are defeated and the victory rewards dialog is displayed (`activeHook.type: 'VICTORY'`, `audioScene: 'victory'`).
+  - Smoothly fades out and stops when the player exits the victory dialog, gracefully fading back into map exploration music (`map-area.mp3`) or silence on stage complete.
 - **Autoplay Handling & Player Controls**:
   - Encapsulated in `AudioManager` (`src/audio/audioManager.ts`).
   - Modern browser autoplay restrictions are gracefully handled with a user gesture unlock listener (`pointerdown`, `click`, `keydown`).

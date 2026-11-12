@@ -23,6 +23,7 @@ Strict TypeScript, Vite, DOM and CSS form the current web application. There is 
 - `src/ui/cardArt.ts`, `src/ui/icons.ts` and `src/ui/styles.css`: art lookup, icon helpers and responsive presentation.
 - `src/audio/audioManager.ts`: HTML audio and gesture unlock. `src/core/audio.ts` determines the track without browser APIs.
 - `src/updates.ts`: production release polling and player-controlled reload.
+- `src/i18n/`: browser language selection, saved player preference, bundled translations, and presentation-only translation. English catalog values and state identifiers remain canonical so switching languages during a run never changes rules or random outcomes.
 - `src/tests/`: core, deck, audio, rendering, release-check and individual-creature coverage. Use `npm test` for current suite totals.
 
 ## Determinism
@@ -30,6 +31,10 @@ Strict TypeScript, Vite, DOM and CSS form the current web application. There is 
 The application supplies a seed and an optional `RunState.logTimestamp` formatted HH:MM:SS. Store transitions stamp this field using an injectable clock outside core. Combat session creation receives the timestamp explicitly; direct core callers without it use 00:00:00. With identical state, seed and observational inputs, logs and gameplay output replay identically. The clock never changes RNG outcomes. Failed/no-op store transitions preserve the existing state reference and do not publish an update.
 
 All game rules remain in core. Catalog tables are generated with `npm run docs:sync`; production builds run `npm run docs:check` and fail if the tables drift.
+
+## Localization
+
+The web game offers English, Traditional Chinese, Simplified Chinese, Japanese, and Korean. An explicit `?lang=` choice takes precedence over the saved preference, then the browser's ordered languages; unsupported languages fall back to English. The player can change language while playing. The UI rebuilds from the same `RunState` and translates presentation text and accessibility labels, including card catalog text and handbook content. Localization must stay outside `src/core/`; core logs and card identifiers remain deterministic English source data. Bundled locale data is generated during authoring and requires no translation network call from a player's browser.
 
 ## Component-based frontend architecture (Native ES6+ & Zero Framework Runtime)
 
@@ -174,7 +179,7 @@ Spell/ability searches use one bounded current-deck pass and return null/fizzled
 
 ## Audio states
 
-Welcome loops start-screen. Class selection and play_area/NONE use map-area. COMBAT uses battle-normal. Village, Shrine, Exploration, EncounterClear, Victory, GameOver and StageComplete are silent. HTML audio ownership, mute/volume and autoplay unlock remain in AudioManager; scene selection remains pure in core/audio.ts.
+Welcome loops start-screen. Class selection and play_area/NONE use map-area. COMBAT uses battle-normal. VICTORY plays victory.mp3 while rewards are displayed, and fades/stops upon exiting the victory dialog. Village, Shrine, Exploration, EncounterClear, GameOver and StageComplete are silent. HTML audio ownership, mute/volume and autoplay unlock remain in AudioManager; scene selection remains pure in core/audio.ts.
 
 ## Cloudflare releases and cache freshness
 

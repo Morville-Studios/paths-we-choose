@@ -6,13 +6,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run docs:check && tsc && vite build",
+    "build": "npm run docs:check && npm run i18n:check && tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "seo:assets": "node scripts/generateSeoShare.cjs",
     "docs:sync": "node scripts/sync-doc-catalogs.cjs",
-    "docs:check": "node scripts/sync-doc-catalogs.cjs --check"
+    "docs:check": "node scripts/sync-doc-catalogs.cjs --check",
+    "i18n:check": "node scripts/check-locales.cjs"
   },
   "devDependencies": {
     "sharp": "^0.35.5",

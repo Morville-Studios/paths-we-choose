@@ -1,0 +1,77 @@
+import type { GameLocale } from './locale';
+
+type Translations = Record<Exclude<GameLocale, 'en'>, Record<string, string>>;
+
+// Game-specific vocabulary needs editorial translations rather than generic
+// machine translations (for example, a card deck is not a wooden floor).
+const rows: Array<[string, string, string, string, string]> = [
+  ['The Paths We Choose', '抉擇之路', '抉择之路', '選択の道', '선택의 길'],
+  ["The Paths We Choose — Player's Handbook", '抉擇之路 — 玩家手冊', '抉择之路 — 玩家手册', '選択の道 — プレイヤーズハンドブック', '선택의 길 — 플레이어 핸드북'],
+  ['Start Adventure', '開始冒險', '开始冒险', '冒険を始める', '모험 시작'],
+  ['How to Play', '遊戲說明', '游戏说明', '遊び方', '게임 방법'],
+  ['Choose your class', '選擇職業', '选择职业', 'クラスを選ぶ', '직업 선택'],
+  ['Embark', '踏上旅程', '踏上旅程', '出発する', '모험 떠나기'],
+  ['Fighter', '戰士', '战士', '戦士', '전사'],
+  ['Wizard', '法師', '法师', '魔法使い', '마법사'],
+  ['Rogue', '盜賊', '盗贼', 'ローグ', '도적'],
+  ['Class', '職業', '职业', 'クラス', '직업'],
+  ['Classes', '職業', '职业', 'クラス', '직업'],
+  ['Adventurer', '冒險者', '冒险者', '冒険者', '모험가'],
+  ['Monster', '怪物', '怪物', 'モンスター', '몬스터'],
+  ['Monsters', '怪物', '怪物', 'モンスター', '몬스터'],
+  ['Boss', '首領', '首领', 'ボス', '보스'],
+  ['Battle', '戰鬥', '战斗', '戦闘', '전투'],
+  ['Combat', '戰鬥', '战斗', '戦闘', '전투'],
+  ['Village', '村莊', '村庄', '村', '마을'],
+  ['Shrine', '神殿', '神殿', '神殿', '신전'],
+  ['Void', '虛空', '虚空', '虚無', '공허'],
+  ['Gold', '金幣', '金币', 'ゴールド', '골드'],
+  ['Stat Points', '屬性點', '属性点', '能力ポイント', '능력치 포인트'],
+  ['Action Points', '行動點', '行动点', '行動ポイント', '행동력'],
+  ['Deck', '牌組', '卡组', 'デッキ', '덱'],
+  ['Draw Pile', '抽牌堆', '抽牌堆', '山札', '뽑기 더미'],
+  ['Discard Pile', '棄牌堆', '弃牌堆', '捨て札', '버린 카드 더미'],
+  ['Hand', '手牌', '手牌', '手札', '손패'],
+  ['Backpack', '背包', '背包', 'バックパック', '배낭'],
+  ['Weapon', '武器', '武器', '武器', '무기'],
+  ['Armor', '護甲', '护甲', '防具', '방어구'],
+  ['Accessory', '飾品', '饰品', '装飾品', '장신구'],
+  ['Shop', '商店', '商店', '店', '상점'],
+  ['Train', '訓練', '训练', '訓練', '훈련'],
+  ['Rest', '休息', '休息', '休息', '휴식'],
+  ['Equip', '裝備', '装备', '装備', '장착'],
+  ['Unequip', '卸下', '卸下', '装備解除', '장착 해제'],
+  ['Use', '使用', '使用', '使用', '사용'],
+  ['Buy', '購買', '购买', '購入', '구매'],
+  ['Sell', '出售', '出售', '売却', '판매'],
+  ['Cancel', '取消', '取消', 'キャンセル', '취소'],
+  ['Confirm', '確認', '确认', '確認', '확인'],
+  ['Close', '關閉', '关闭', '閉じる', '닫기'],
+  ['Continue', '繼續', '继续', '続ける', '계속'],
+  ['End Turn', '結束回合', '结束回合', 'ターン終了', '턴 종료'],
+  ['Flee', '逃跑', '逃跑', '逃走', '도주'],
+  ['Victory', '勝利', '胜利', '勝利', '승리'],
+  ['Defeated', '已擊敗', '已击败', '撃破', '처치됨'],
+  ['Map', '地圖', '地图', 'マップ', '지도'],
+  ['Turn', '回合', '回合', 'ターン', '턴'],
+  ['Level', '等級', '等级', 'レベル', '레벨'],
+  ['Common', '普通', '普通', 'コモン', '일반'],
+  ['Uncommon', '非凡', '非凡', 'アンコモン', '고급'],
+  ['Rare', '稀有', '稀有', 'レア', '희귀'],
+  ['Forest', '森林', '森林', '森', '숲'],
+  ['Grasslands', '草原', '草原', '草原', '초원'],
+  ['Swamp', '沼澤', '沼泽', '沼地', '늪'],
+  ['Cave', '洞穴', '洞穴', '洞窟', '동굴'],
+  ['⚔️ Tabletop Stat Mechanics', '⚔️ 桌上遊戲屬性規則', '⚔️ 桌面游戏属性规则', '⚔️ 卓上ゲームの能力値ルール', '⚔️ 테이블톱 능력치 규칙'],
+  ['⚜ Villages, treasure, and decks', '⚜ 村莊、寶藏與牌組', '⚜ 村庄、宝藏与卡组', '⚜ 村・宝・デッキ', '⚜ 마을, 보물과 덱'],
+];
+
+export const EDITORIAL_OVERRIDES: Translations = {
+  'zh-Hant': {}, 'zh-Hans': {}, ja: {}, ko: {},
+};
+for (const [english, hant, hans, ja, ko] of rows) {
+  EDITORIAL_OVERRIDES['zh-Hant'][english] = hant;
+  EDITORIAL_OVERRIDES['zh-Hans'][english] = hans;
+  EDITORIAL_OVERRIDES.ja[english] = ja;
+  EDITORIAL_OVERRIDES.ko[english] = ko;
+}

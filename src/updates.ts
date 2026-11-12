@@ -1,4 +1,5 @@
 declare const __BUILD_ID__: string;
+import { localizePlayerText } from './i18n/presentation';
 
 /** Failed requests or SPA fallback HTML must never masquerade as a release. */
 export async function findNewRelease(currentBuildId: string): Promise<string | null> {
@@ -33,12 +34,12 @@ export function startUpdateMonitor(hasActiveRun: () => boolean): void {
     notice.className = 'release-notice';
     notice.setAttribute('role', 'status');
     const message = document.createElement('span');
-    message.textContent = 'A game update is available. Reload when you are ready.';
+    message.textContent = localizePlayerText('A game update is available. Reload when you are ready.');
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = 'Reload to update';
+    button.textContent = localizePlayerText('Reload to update');
     button.addEventListener('click', () => {
-      if (hasActiveRun() && !window.confirm('Reload to update? Your current adventure is not saved and will be lost. You can cancel and finish playing first.')) return;
+      if (hasActiveRun() && !window.confirm(localizePlayerText('Reload to update? Your current adventure is not saved and will be lost. You can cancel and finish playing first.'))) return;
       window.location.reload();
     });
     notice.append(message, button);

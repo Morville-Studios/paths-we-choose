@@ -12,6 +12,7 @@ npm run dev
 npm test
 npm run docs:sync   # regenerate tables after changing src/data
 npm run docs:check  # verify generated catalogs
+npm run i18n:check  # verify bundled translation coverage
 npm run seo:assets  # regenerate the 1200x630 social preview
 npm run build      # catalog check, TypeScript check and Vite build
 npm run preview
@@ -39,5 +40,7 @@ Explore a three-row offset-brick board with two forward choices and three lookah
 Combat draws five cards and uses `3 + floor(INT/5)` maximum AP, 3d6 attack checks under the **Morville Adventure Card Game "3d6 Success Roll Range Table Reference" (MACG-3D6™)** with 10–11 Sure Hit Rolls (25.0% baseline), ACC versus EVA range expansion, Diabolic rolls (3 & 18 always miss), and interactive QTE hit check bars without random critical hit multipliers. Played actions remain on a resolving Stack until all costs, draws, AP gains and triggers finish, so a card cannot redraw itself. PEN on equipment bypasses the same amount of an enemy's natural DEF for physical hero attacks before Block; magical attacks use MDEF and do not gain PEN. Village training draws learnable cards from a visible, finite New Skills Deck, confirms purchases and destruction, and sends destroyed physical cards to the Void. Starter cards remain exclusive to the initial 8/2 deck and each non-starter class skill has two physical copies. A plain-language **How to Play** guide is available from the title screen and from the in-game HUD. The Turn 15 tile always resolves and is acknowledged before Grundy or the three Cult of Trolls bosses appear.
 
 Cards use full-art illustrations at a 5:7 ratio. Right-click or long-press inspects rules and live stats. Keyboard and touch navigation are supported. Class selection and map navigation share the map soundtrack; combat has its own track.
+
+The language picker offers English, Traditional Chinese, Simplified Chinese, Japanese, and Korean. On a first visit the game follows the browser's preferred supported language; the player's selection is remembered locally. English remains the fallback. Changing language during a run keeps the current game state.
 
 Runs currently live in memory. Updates are announced in-app and reloading an active run requires confirmation because progress is not saved. The public build is branded for Morville Studios Games, carries crawlable game metadata, and resolves runtime assets correctly beneath its canonical `/games/the-paths-we-choose/` route. Cloudflare release verification, persistence and native packaging remain launch work; see architecture, branding and roadmap documentation.

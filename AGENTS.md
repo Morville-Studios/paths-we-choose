@@ -216,7 +216,7 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
       - **Defeated Foes**: Cards with raster art thumbnails, creature subtypes, levels, and inscribed SP/Gold rewards.
       - **Loot Cards Grid**: Large cards showcasing inscribed **Stat Points (`+X SP`)** for Sacred Shrine upgrades and **Gold Spoils (`+Y Gold`)** with base, Rogue `[Steal]` spoils, and Goldstar breakdown.
     - **Interactive Return Action**:
-      - Regular battles provide an `OK — Return to Map →` button (`data-action="confirm-victory"`), returning the player to map navigation (`activeHook.type = 'NONE'`) and resuming the map soundtrack (`map-area.mp3`).
+      - Regular battles provide an `OK — Return to Map →` button (`data-action="confirm-victory"`), returning the player to map navigation (`activeHook.type = 'NONE'`) while smoothly fading out `victory.mp3` and resuming the map soundtrack (`map-area.mp3`).
       - Stage Boss battles provide an `OK — Proceed →` button transitioning directly to the Stage Complete screen (`ON_STAGE_COMPLETE`).
 - **Classic RPG Equipment Slots, Consumables Bag, Village Rest Cost & Shop Comparison**:
   - **Starting Gold**: Players begin every adventure with **20 Gold** (`gold: 20`).
@@ -350,11 +350,12 @@ Catalog tables: [docs/CATALOGS.md](docs/CATALOGS.md) are generated from `src/dat
   - **Reusable Border Templates**: Grassland creatures and lands have vibrant **green outer and inner borders** (`#2d7a3e` outer frame, `#4ade80` inner trim, `tcg-template-grassland`); Forest lands have deep **emerald pine borders** (`#059669` outer frame, `#34d399` inner trim, `tcg-template-forest`); Stage 1 Boss has a radiant **gold metallic frame** (`tcg-template-boss`); Action cards have **crimson/ruby** (Attack, `tcg-template-attack`) and **azure/sapphire** (Defense, `tcg-template-defense`) frames; Item/Equipment cards have a rich **gold & bronze frame** (`tcg-template-item`).
   - **Card Inspection (Right-Click & 2s Long-Press)**: Right-clicking or holding down for 2 seconds on any card opens the Card Info Modal, showing the full physical print layout with exact tabletop stat scaling formulas (`Base + ⌊STAT / 2⌋`), live character calculations, full lore flavor text, monster cycling AI moves, and land board rules.
 - **Audio State Machine & Looped Soundtrack Management**:
-  - **Game State Audio Tracking**: `RunState` strictly tracks both `currentMusic` (`'start-screen' | 'map-area' | 'battle-normal' | null`) and `audioScene` / `audioState` (`'intro' | 'map' | 'battle' | 'none'`).
+  - **Game State Audio Tracking**: `RunState` strictly tracks both `currentMusic` (`'start-screen' | 'map-area' | 'battle-normal' | 'victory' | null`) and `audioScene` / `audioState` (`'intro' | 'map' | 'battle' | 'victory' | 'none'`).
   - **Start Screen (`start-screen.mp3`)**: Plays on the welcome start screen in loop mode.
   - **Map Area (`map-area.mp3`)**: Starts on the character selection screen (`screen === 'class_select'`) and continues seamlessly into map navigation (`screen === 'play_area' && activeHook.type === 'NONE'`); stops immediately when exiting map navigation (entering battle, village, or shrine).
-  - **Battle Normal (`battle-normal.mp3`)**: Plays when an encounter starts in loop mode (`activeHook.type === 'COMBAT'`); stops immediately when battle completes (victory, defeat, or stage completion). Returning to map navigation resumes `map-area.mp3`.
-  - **Browser Audio & Autoplay Unlock (`src/audio/audioManager.ts`)**: Pure core logic in `src/core/audio.ts` calculates active track and scene. Browser audio elements, loop settings, mute toggling, volume clamping, and autoplay gesture unlock listeners are safely encapsulated in `AudioManager`.
+  - **Battle Normal (`battle-normal.mp3`)**: Plays when an encounter starts in loop mode (`activeHook.type === 'COMBAT'`); stops immediately when battle completes (victory, defeat, or stage completion).
+  - **Victory Fanfare (`victory.mp3`)**: Plays when hostiles are defeated and the victory rewards dialog is displayed (`activeHook.type === 'VICTORY'`). Smoothly fades out and stops when the player exits the victory dialog, crossfading into `map-area.mp3` or silence on stage complete.
+  - **Browser Audio & Autoplay Unlock (`src/audio/audioManager.ts`)**: Pure core logic in `src/core/audio.ts` calculates active track and scene. Browser audio elements, loop settings, mute toggling, volume clamping, smooth fade-out/fade-in, and autoplay gesture unlock listeners are safely encapsulated in `AudioManager`.
 - **Right Sidebar Decks & Discards & Multiplier Pile Modals**:
   - The right sidebar features dedicated interactive TCG card-pile controls for:
     1. **Adventure Deck & Discard**: Card counts and pile widgets for advancing through the pyramid path.

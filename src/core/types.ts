@@ -376,8 +376,8 @@ export interface PlacedCardNode {
 
 export type GameScreen = 'welcome' | 'class_select' | 'play_area';
 
-export type MusicTrackId = 'start-screen' | 'map-area' | 'battle-normal' | null;
-export type GameAudioScene = 'intro' | 'map' | 'battle' | 'none';
+export type MusicTrackId = 'start-screen' | 'map-area' | 'battle-normal' | 'victory' | null;
+export type GameAudioScene = 'intro' | 'map' | 'battle' | 'victory' | 'none';
 
 export type ExplorationOutcome = 'combat' | 'treasure' | 'safe';
 
