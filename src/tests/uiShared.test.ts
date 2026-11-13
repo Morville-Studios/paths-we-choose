@@ -8,6 +8,7 @@ import { getAdventureCardName, renderAdventureCardHtml } from '../ui/adventureCa
 import { groupByCount } from '../ui/grouping';
 import { getTerrainPresentation } from '../ui/terrainPresentation';
 import { gameLogoHtml, studioBrandHtml } from '../ui/brand';
+import { getItemRasterArtPath } from '../ui/cardArt';
 import { publicAsset } from '../ui/publicAsset';
 
 describe('shared UI presentation helpers', () => {
@@ -46,7 +47,7 @@ describe('shared UI presentation helpers', () => {
     expect(html).toContain('tcg-inspect-card');
     expect(html).toContain('full-inspect-art');
     expect(html).toContain('<span class="tcg-name action-name">Slash</span>');
-    expect(html).toContain('Deal <b>6</b> Normal DMG');
+    expect(html).toContain('Deal <b>7</b> Normal DMG');
     expect(html).toContain('GRS · #012/021');
   });
 
@@ -76,5 +77,25 @@ describe('shared UI presentation helpers', () => {
     const logo = gameLogoHtml();
     expect(logo).toContain('paths-we-choose-logo.png');
     expect(logo).toContain('alt="The Paths We Choose"');
+  });
+
+  it('equips class starting gear and maps dagger & health potion art paths', () => {
+    const fighter = startAdventure('fighter', 'starter-f');
+    const rogue = startAdventure('rogue', 'starter-r');
+    const wizard = startAdventure('wizard', 'starter-w');
+
+    expect(fighter.equippedGear.weapon?.id).toBe('lvl1_iron_sword');
+    expect(fighter.equippedGear.armor?.id).toBe('lvl1_chainmail');
+    expect(rogue.equippedGear.weapon?.id).toBe('lvl1_dagger');
+    expect(rogue.equippedGear.armor?.id).toBe('lvl1_leather_gear');
+    expect(wizard.equippedGear.weapon?.id).toBe('lvl1_apprentice_staff');
+    expect(wizard.equippedGear.armor?.id).toBe('lvl1_robe');
+    expect(getItemRasterArtPath('lvl1_dagger')).toBe('/cards/items/dagger.jpg');
+    expect(getItemRasterArtPath('lvl2_dagger_plus')).toBe('/cards/items/dagger.jpg');
+    expect(getItemRasterArtPath('lvl2_focus_ring')).toBe('/cards/items/focus_ring.jpg');
+    expect(getItemRasterArtPath('lvl1_health_potion')).toBe('/cards/items/health_potion1.jpg');
+    expect(getItemRasterArtPath('lvl2_health_potion_plus')).toBe('/cards/items/health_potion2.jpg');
+    expect(getItemRasterArtPath('lvl3_health_potion_plus_plus')).toBe('/cards/items/health_potion3.jpg');
+    expect(getItemRasterArtPath('lvl4_health_potion_plus_plus_plus')).toBe('/cards/items/health_potion4.jpg');
   });
 });

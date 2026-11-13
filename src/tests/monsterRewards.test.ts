@@ -2,20 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { createCombatSession, evaluateAttackRoll, playCombatCardFromHand } from '../core/combat';
 import { startAdventure } from '../core/engine';
 import { CombatCardDef, MonsterCard, RunState } from '../core/types';
-import { MONSTER_TEMPLATES, createBossMonsterCard, createMission2BossCards } from '../data/monsters';
+import { MONSTER_TEMPLATES, createBossMonsterCard, createMission2BossCards, createMission3BossCard } from '../data/monsters';
 
 describe('level-based monster reward inscriptions', () => {
   it.each(Object.values(MONSTER_TEMPLATES))('$name grants the level-based SP and Gold rewards', monster => {
-    const expectedSp = [1, 2, 4, 8, 16, 32][monster.level - 1];
+    const isBoss = !!monster.isBoss;
+    const baseGold = monster.level * 5;
+    const baseSp = monster.level + 1;
+    const expectedGold = isBoss ? baseGold * 2 : baseGold;
+    const expectedSp = isBoss ? baseSp * 2 : baseSp;
     expect(monster.statPointReward).toBe(expectedSp);
-    expect(monster.goldReward).toBe(expectedSp * 2);
+    expect(monster.goldReward).toBe(expectedGold);
   });
 
   it('spawns bosses with the same reward rule', () => {
-    expect(createBossMonsterCard()).toMatchObject({ name: 'Grundy', level: 5, statPointReward: 16, goldReward: 32 });
+    expect(createBossMonsterCard()).toMatchObject({ name: 'Grundy', level: 5, statPointReward: 12, goldReward: 50 });
     for (const monster of createMission2BossCards()) {
-      expect(monster).toMatchObject({ level: 4, statPointReward: 8, goldReward: 16 });
+      expect(monster).toMatchObject({ level: 4, statPointReward: 10, goldReward: 40 });
     }
+    expect(createMission3BossCard()).toMatchObject({ name: 'Fallen King', level: 7, statPointReward: 16, goldReward: 70 });
   });
 
   it('awards every defeated card inscription once, before player victory bonuses', () => {

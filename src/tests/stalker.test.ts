@@ -19,14 +19,14 @@ function battle(state: RunState) {
 function seedFor(hit: boolean, eva: number): number {
   for (let seed = 1; seed < 10000; seed++) {
     const roll = evaluateAttackRoll(seed, 3, eva);
-    if (roll.isHit === hit && !roll.isCrit) return seed;
+    if (roll.isHit === hit) return seed;
   }
   throw new Error('No seed');
 }
 
 describe('Stalker', () => {
   it('uses the supplied stats, art, terrain and Skittish rule', () => {
-    expect(stalker).toMatchObject({ statPointReward: 2, goldReward: 4, level: 2, cardNumber: 'mon1grs-06', maxHp: 10, def: 0, eva: 4, acc: 3, spawnTerrains: ['grasslands', 'forest'] });
+    expect(stalker).toMatchObject({ statPointReward: 3, goldReward: 10, level: 2, cardNumber: 'mon1grs-06', maxHp: 10, def: 0, eva: 4, acc: 3, spawnTerrains: ['grasslands', 'forest'] });
     const html = cardInspectModal({ kind: 'monster', monster: stalker, currentHp: 10 }, setup());
     for (const value of ['/cards/creatures/stalker.jpg', 'Sprint', 'Pounce', 'Skittish', '2 turns']) expect(html).toContain(value);
   });

@@ -38,23 +38,23 @@ $$\text{Final Price} = \max\Big(1, \text{round}\big(\text{Base Price} \times (1 
   - `2 CHA` (Wizard default): $10\%$ discount (e.g. 20g item costs 18g; 10g costs 9g; 8g costs 7g).
   - `4 CHA`: $20\%$ discount (e.g. 20g item costs 16g; 10g costs 8g).
 
-### 1.4 Starting 4 Stat Points & Welcome Preparation Dialog
-- Players start every adventure with **4 Stat Points (`statPoints: 4`)**.
+### 1.4 Starting 10 Stat Points & Welcome Preparation Dialog
+- Players start every adventure with **10 Stat Points (`statPoints: 10`)**.
 - On game start (Turn 0), players are greeted with a preparation modal dialog welcoming the adventurer and providing the exact same Stat Point converter widget used in Shrines.
-- Players may immediately allocate their 4 SP toward Base Stats (e.g., upgrading Base VIT from 1 to 2 costs 4 SP, immediately raising Effective VIT and Max HP by +2) before stepping onto the path. Clicking **Begin Journey** closes the dialog.
+- Players must allocate their 10 SP toward Base Stats (e.g., upgrading Base VIT from 1 to 2 costs 10 SP, immediately raising Effective VIT and Max HP by +2) before stepping onto the path. The **Begin Journey** button remains disabled until the 10 starting SP is spent.
 
-### 1.5 Base Stat Upgrade Cost Formula: `(currentBaseStat + 1)²`
+### 1.5 Base Stat Upgrade Cost Formula: `currentBaseStat × 10`
 Players earn **Stat Points (`statPoints`)** inscribed directly on defeated Monster Cards.
 - Base Stat upgrades can **only be performed at Shrines** (`hasShrine: true`) and during the initial **Welcome Preparation Dialog**. A Shrine caps the target Base value at **Shrine Level + 1**: Level 1 permits Base `1 -> 2`, Level 2 also permits `2 -> 3`, and Level 3 also permits `3 -> 4`. The preparation dialog is not tied to a Shrine card and has no Shrine-level cap. Outside of these flows, the character sheet is read-only.
 - Only **Base Stats** are upgraded with Stat Points (Class Stat Bonuses and Gear Bonuses do not increase the upgrade cost!).
-- To increase a **Base Stat** from current level `B` to `B + 1`, the required cost in Stat Points is computed as `(currentBaseStat + 1) multiplied by itself`:
-  $$\text{Upgrade Cost}(B \to B + 1) = (B + 1)^2$$
+- To increase a **Base Stat** from current level `B` to `B + 1`, the required cost in Stat Points is computed as `currentBaseStat multiplied by 10`:
+  $$\text{Upgrade Cost}(B \to B + 1) = B \times 10$$
 - **Upgrade Cost Progression Table**:
-  - `Base 1 -> Base 2`: costs **`4` Stat Points** ($2 \times 2 = 4$)
-  - `Base 2 -> Base 3`: costs **`9` Stat Points** ($3 \times 3 = 9$)
-  - `Base 3 -> Base 4`: costs **`16` Stat Points** ($4 \times 4 = 16$)
-  - `Base 4 -> Base 5`: costs **`25` Stat Points** ($5 \times 5 = 25$)
-  - `Base 5 -> Base 6`: costs **`36` Stat Points** ($6 \times 6 = 36$)
+  - `Base 1 -> Base 2`: costs **`10` Stat Points** ($1 \times 10 = 10$)
+  - `Base 2 -> Base 3`: costs **`20` Stat Points** ($2 \times 10 = 20$)
+  - `Base 3 -> Base 4`: costs **`30` Stat Points** ($3 \times 10 = 30$)
+  - `Base 4 -> Base 5`: costs **`40` Stat Points** ($4 \times 10 = 40$)
+  - `Base 5 -> Base 6`: costs **`50` Stat Points** ($5 \times 10 = 50$)
 - *Note on `VIT` Upgrades*: Whenever Effective `VIT` increases by `+1` (via Base Stat upgrade, Blessing, or equipping a `+VIT` item), both `maxHp` and `hp` increase by **`+2 HP`**.
 
 ### 1.6 Automatic Sacred Shrine Boons & Single Blessing Invariant (Map-Temporary)
@@ -111,7 +111,7 @@ To keep the character sidebar uncluttered, stat rows display only essential attr
 - **Dedicated Stat Info Modal**: Right-clicking (or holding for 1s on touch, or clicking `ⓘ`) on any stat row opens the modal displaying:
   1. **Effective Stat Breakdown**: `Effective Stat = Base + Class Archetype Bonus + Shrine Blessing + Equipped Gear`.
   2. **Derived Bonus Stats & Scaling Rules**: Live player values and exact tabletop formulas (Max HP, ATK, DEF, ACC, EVA, MATK, MDEF, CHA discount).
-  3. **Shrine Upgrade Evolution Box**: Target Base level, `(currentBase + 1)²` SP formula, player's current SP balance, and ready/needed status chip. Upgrades are performed at Shrines or during Turn 0 preparation.
+  3. **Shrine Upgrade Evolution Box**: Target Base level, `currentBase * 10` SP formula, player's current SP balance, and ready/needed status chip. Upgrades are performed at Shrines or during Turn 0 preparation.
 
 ### 2.2 Village Shop Inventory Visibility, Treasure Deck & Live Comparison Preview
 When entering a Village:
@@ -135,12 +135,12 @@ See the generated [Shop and Treasure catalog](CATALOGS.md#shop-and-treasure) for
 
 ### 2.4 Derived Combat Stat Formulas
 - **Physical ATK**: $\text{Hero ATK} = \lfloor \text{Effective STR} / 2 \rfloor + \lfloor \text{Effective DEX} / 3 \rfloor + \text{gear.atk}$
-- **Physical DEF**: $\text{Hero DEF} = \lfloor \text{Effective STR} / 5 \rfloor + \lfloor \text{Effective VIT} / 5 \rfloor + \lfloor \text{Effective AGI} / 3 \rfloor + \text{gear.def}$
+- **Physical DEF**: $\text{Hero DEF} = \lfloor (\text{Effective STR} + \text{Effective AGI} + \text{Effective VIT}) / 5 \rfloor + \text{gear.def}$
   - When non-magical monster physical attacks hit, damage is reduced by: $\max(0, \text{baseDamage} - \text{Hero DEF} - \text{Divine Protection})$
 - **Magical ATK (MATK)**: $\text{Hero MATK} = \lfloor \text{Effective INT} / 2 \rfloor + \text{gear.matk}$
 - **Magical DEF (MDEF)**: $\text{Hero MDEF} = \lfloor \text{Effective INT} / 5 \rfloor + \text{gear.mdef}$
-- **Hero ACC**: $\text{Hero ACC} = \lfloor \text{Effective DEX} / 2 \rfloor + \text{gear.acc}$
-- **Hero EVA**: $\text{Hero EVA} = \lfloor \text{Effective AGI} / 2 \rfloor + \text{gear.eva} + \text{temporaryBonusEVA}$
+- **Hero ACC**: $\text{Hero ACC} = \text{Effective DEX} + \text{gear.acc}$
+- **Hero EVA**: $\text{Hero EVA} = \text{Effective AGI} + \text{gear.eva} + \text{temporaryBonusEVA}$
 - **Physical PEN**: `Hero PEN = gear.pen`. On a physical hero attack, PEN bypasses the same amount of the target's natural DEF (minimum 0), before remaining DEF and temporary Block apply. PEN never affects magical attacks or MDEF.
 
 ---
@@ -149,7 +149,7 @@ See the generated [Shop and Treasure catalog](CATALOGS.md#shop-and-treasure) for
 
 ### 3.1 Starter & Village-Trainable Combat Cards
 Every card dynamically scales with the player's **Effective Stats** (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`).
-Starting effective stats (before preparation upgrades, gear, or blessings) are `Fighter: STR 3, DEX 2, AGI 1, INT 1, CHA 1, VIT 2 -> 1 ACC, 0 EVA`; `Wizard: STR 1, DEX 2, AGI 1, INT 3, CHA 2, VIT 1 -> 1 ACC, 0 EVA`; `Rogue: STR 2, DEX 2, AGI 3, INT 1, CHA 1, VIT 1 -> 1 ACC, 1 EVA`. Each has a 10-card starter deck as listed in section 1.2:
+Starting effective stats (before preparation upgrades, gear, or blessings) include the universal Innate +1: `Fighter: STR 4, DEX 3, AGI 2, INT 2, CHA 2, VIT 3 -> 3 ACC, 2 EVA`; `Wizard: STR 2, DEX 3, AGI 2, INT 4, CHA 3, VIT 2 -> 3 ACC, 2 EVA`; `Rogue: STR 3, DEX 3, AGI 4, INT 2, CHA 2, VIT 2 -> 3 ACC, 4 EVA`. Each has a 10-card starter deck as listed in section 1.2:
 
 Base card fields, class train pools and starter lists are in [CATALOGS.md](CATALOGS.md#combat-cards). The data fields are not complete effective damage formulas:
 
@@ -161,7 +161,7 @@ Base card fields, class train pools and starter lists are in [CATALOGS.md](CATAL
 
 - The Fighter has 8 non-starter skill types (16 physical New Skills cards): **High Strike**, **Parry**, **Fortify**, **Whirlwind**, **Battlecry**, **Battle Flag**, **Adrenalin**, and **Final Smash**. `Heavy Cleave`, `Iron Parry`, and `Battle Focus` are the retained collector IDs for High Strike, Parry, and Fortify respectively. The five `+` cards are **Void upgrades**, never trainable New Skills cards.
 - **The Void and skill upgrades**: The Void is a public not-in-play card zone shown in the sidebar. Its catalog templates are inexhaustible and contain **Parry +**, **Fortify +**, **Whirlwind +**, **Battlecry +**, and **High Strike +**, every Boss card, and the two Adventurer cards for classes not selected by the current player. It also holds physical cards destroyed during Training. At a Level 2+ Shrine, an owned 1 AP base card may be replaced with its matching Void `+` upgrade for **10 Gold + 2 SP**, even when that upgrade remains 1 AP (High Strike +). At a Level 3+ Shrine, a defined 2 AP to 3 AP route costs **30 Gold + 6 SP**. The upgrade template is not consumed.
-- Fighter card formulas use the already-derived live `ATK`, `DEF`, and `ACC` values: **Slash** `3 + ATK` normal physical damage; **Defend** `4 + DEF` Block for the turn; **High Strike** (1 AP) `ATK + ACC`; **High Strike +** (1 AP) `2 × ATK + ACC`; **Fortify** `3 + DEF`; **Fortify +** `4 + 2 × DEF`; **Whirlwind** `1 + ATK`; **Whirlwind +** (2 AP) `2 + 2 × ATK`.
+- Fighter card formulas use the already-derived live `ATK`, `DEF`, and `ACC` values: **Slash** `3 + ATK` normal physical damage; **Defend** `4 + DEF` Block for the turn; **High Strike** (1 AP) `ATK + ACC`; **High Strike +** (1 AP) `2 × ATK + ACC`; **Fortify** `5 + ⌊DEF / 2⌋` Block; **Fortify +** `4 + 2 × DEF`; **Parry** `1 + ⌊AGI / 2⌋` Block and `+2 EVA`; **Whirlwind** `1 + ATK`; **Whirlwind +** (2 AP) `2 + 2 × ATK`.
 - Whirlwind and Whirlwind + attack every living enemy, performing a separate seeded 3d6 hit check, defense reduction, and Block reduction for each target under MACG-3D6™. Their confirmation displays every living target, not only the currently selected monster, with each target's own hit range and probability. Both impose `-1 ACC`.
 - A card with a discard rule opens a confirmation selection: Battlecry and Battlecry + require exactly two other cards; Adrenalin and Final Smash permit any number of other cards, including zero. Each eligible discard is a compact visual card option with its action art, name, AP cost, and selected marker; the card currently being played is never selectable. Battlecry draws 3 and regains 1 AP; Battlecry + draws 4 and regains 2 AP; Adrenalin regains 1 AP per selected discard; Final Smash deals `6 + 2 × ATK + 3 × selected discards`.
 - Battle Flag is a battle-long enchantment. It costs 1 AP and enters the battle's `inPlay` zone instead of the action discard pile, but does **not** regain AP or draw a card when played. Each active Battle Flag draws one card whenever another card effect grants AP. No current monster effect destroys enchantments; if an effect later destroys one, it moves to the action discard pile.
@@ -207,7 +207,7 @@ Combat uses the **Morville Adventure Card Game "3d6 Success Roll Range Table Ref
 
 ### 4.1 Physical Supply, Rarity and Main Terrain
 
-The ordinary catalog has 18 creature types and 76 physical cards. **Common** types have 6 copies (Goblin, Zombie, Assasin, Cultist Mage), **Rare** types have 3 (Ramram, Rattler, Creeper, Phalanx), and every other ordinary type defaults to **Uncommon** with 4. Every physical copy has a unique runtime ID; collector IDs identify its type.
+The ordinary catalog has 22 creature types and 85 physical cards. **Common** types have 6 copies, **Rare** types have 3, and **Uncommon** types have 4 (see [CATALOGS.md](CATALOGS.md#ordinary-monsters) for exact per-type quantities). Every physical copy has a unique runtime ID; collector IDs identify its type.
 
 Terrain levels are Grassland 1, Forest 2, Swamp 3, Cave 4, Underground 5, and Underworld 6. A creature's **main terrain** is the lowest terrain level in its spawn eligibility. For Scenario Level `L`, setup pulls creatures whose main terrain is `L` through `L+2` from the Void, per type:
 
@@ -216,7 +216,7 @@ Terrain levels are Grassland 1, Forest 2, Swamp 3, Cave 4, Underground 5, and Un
 - main terrain `L+2`: `round(supply × 1/3)` copies;
 - every other copy remains in the public `monsterVoid` pile.
 
-Rounding is standard nearest-integer rounding per creature type. Scenario 1 therefore pulls all Grassland creatures, rounded two-thirds of each Forest type, and rounded one-third of each Swamp type: 45 Monster Deck cards and 31 ordinary cards in the Void. Scenario 2 pulls Forest/Swamp/Cave using the same bands: 37 cards and 39 in the Void. Starting the next scenario returns the previous ordinary deck/discard supply to the complete pool before making the new partition. Encounter terrain eligibility still uses `spawnTerrains`; main terrain controls setup only.
+Rounding is standard nearest-integer rounding per creature type. Scenario 1 therefore builds 45 Monster Deck cards and leaves 40 ordinary cards in the Void; Scenario 2 builds 37 cards and leaves 48 in the Void; Scenario 3 builds 30 cards and leaves 55 in the Void. Starting the next scenario returns the previous ordinary deck/discard supply to the complete pool before making the new partition. Encounter terrain eligibility still uses `spawnTerrains`; main terrain controls setup only.
 
 ### 4.2 Turn 15 Stage 1 Boss Card
 When the player reaches **Turn 15**, after resolving Row 15's tile, the **Stage 1 Boss** appears:
@@ -246,7 +246,7 @@ Every Monster and Combat Action card adheres to standard physical collectible ca
 5. **Card Type Line & Inscribed Rewards**:
    - The compact first header row displays level, type/subtype and spawn terrains.
    - Upper-left of artwork displays floating inscribed rewards (`+X Gold`, `+X SP`) with raster icons.
-   - Above the card frame floats the **Target Pill (`🎯 TARGET (Roll X+ · Y%)`)** when targeted, showing the exact 2d6 hit chance.
+   - Above the card frame floats the **Target Pill (`🎯 TARGET (Hit: X–Y · Z%)`)** when targeted, showing the exact 3d6 success range and hit chance.
 6. **Description / Text Area**:
    - Semi-transparent frosted glass text box displaying:
      - **Cyclic Attack Pattern Table**: Turn-by-turn move list (`Turn 1: Slash (3 DMG)`).
@@ -307,6 +307,25 @@ Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, `advsmp-00`, or `a
 - **Combat (`roll <= card.level`)**: Enemy ambush! Battle starts drawing hostiles matching the card's terrain and level.
 - **Safe (`other results`)**: Calm passage through the wilderness without hostiles or loot.
 
+### 5.4 Stage 3: "Tomb of the Fallen King" Deck Composition & Fallen King Encounter (30 Land Cards)
+
+- **Adventure Deck Composition (30 Cards)**:
+  - **17 Swamp**: 3 Undiscovered (`advsmp-00`), 8 Murky Swamp Hostile Lvl 3 (`advsmp-01`), 3 Village (`advsmp-03`), 3 Shrine (`advsmp-04`).
+  - **11 Cave**: 2 Undiscovered (`advcav-00`), 5 Dark Cavern Hostile Lvl 4 (`advcav-01`), 2 Village (`advcav-03`), 2 Shrine (`advcav-04`).
+  - **2 Underground**: 1 Undiscovered (`advund-00`), 1 Eerie Underground Hostile Lvl 5 (`advund-01`).
+- **Monster Deck (30 Cards in Deck • 55 in Void)**:
+  - **17 Swamp (~2/3 Supply)**: 6 Assassin, 4 Leech, 4 Witch, 3 Creeper.
+  - **10 Cave (~1/3 Supply)**: 4 Cultist Mage, 3 Lurker, 3 Phalanx.
+  - **3 Underground (~1/3 Supply)**: 2 Dark Orc, 1 Orc Shaman.
+- **Treasure Deck (42 Cards)**: Exactly 2 copies each of all treasure items Level 3 to 4.
+- **Turn 15 Boss: Fallen King**:
+  - Level 7 Undead Boss: 40 HP, 5 DEF, 5 MDEF, 6 ACC, 5 EVA, 16 SP, 70 Gold.
+  - Passive **[Unholy Aura]**: Heals all living Undead (including himself) by 3 HP at the start of his turn.
+  - **Turn 1: Summon Undead**: Summons a random Undead creature from the monster deck into play. If none remains in the deck, checks the monster discard pile FIFO and places the earliest discarded Undead creature on top of the monster deck.
+  - **Turn 2: Corrupted Blade**: Dual attack dealing 7 physical ATK (mitigated by hero DEF) and 7 magical MATK (mitigated by hero MDEF).
+- **Summoned Creature Token Rule**:
+  - Any summoned creature (from Grundy or Fallen King) is tagged with `isSummon: true` and displays an active summon token. Defeating a summoned minion awards **0 Gold and 0 SP**, and the card returns immediately to `monsterDiscard`.
+
 ### 5.3 Stage 2: "Cult of Trolls" Deck Composition & 3-Boss Encounter (30 Land Cards)
 - `advfrs-00` (Undiscovered Forest LVL2) &times; 3
 - `advfrs-01` (Forest Encounter LVL3) &times; 8
@@ -319,7 +338,7 @@ Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, `advsmp-00`, or `a
 - `advcav-00` (Undiscovered Cave LVL4) &times; 1
 - `advcav-01` (Cave Encounter LVL5) &times; 1
 - **Total**: 30 cards.
-- **Turn 15 Boss: Cult of Trolls (3 Trolls Active Simultaneously)**: all three are Level 4, have 25 HP, and grant 8 SP plus 16 Gold.
+- **Turn 15 Boss: Cult of Trolls (3 Trolls Active Simultaneously)**: all three are Level 4, have 25 HP, and grant 10 SP plus 40 Gold.
   1. **Troll Healer** (1 DEF, 2 MDEF, 2 ACC, 1 EVA): *Troll Mending* restores 10 HP to a random living damaged troll.
   2. **Troll Hexer** (1 DEF, 2 MDEF, 2 ACC, 1 EVA): alternates *Troll Hex* and *Cursed Recoil*. Troll Hex randomly adds one independently tracked five-turn debuff (`-1 ACC`, `+1 damage taken`, or `-1 EVA`); repeated casts stack. Cursed Recoil deals `2 + 2 × active negative Hero debuffs` MATK, so three active debuffs deal 8 MATK before Hero MDEF, protection and Block.
   3. **Troll Warrior** (2 DEF, 0 MDEF, 3 ACC, 1 EVA): *Troll Smash* deals 6 physical damage.
@@ -388,7 +407,7 @@ Adventure TerrainType is start/grasslands/forest/swamp/cave. Monster spawnTerrai
 
 ## Leech — mon3smp-01
 
-The Goblin King monster deck: 1 copy. Rewards: 8 SP and 16 Gold. Artwork: `/cards/creatures/leech.jpg`. Level 4; Swamp and Cave; 18 HP, 1 DEF, 2 EVA, 2 ACC, 3 MDEF.
+The Goblin King monster deck: 1 copy. Rewards: 5 SP and 20 Gold. Artwork: `/cards/creatures/leech.jpg`. Level 4; Swamp and Cave; 18 HP, 1 DEF, 2 EVA, 2 ACC, 3 MDEF.
 
 Alternates Soul Drain (8 magical damage, using the universal 3d6 attack roll under MACG-3D6™) and Channel (+2 HP capped at Max HP, +2 Block). Soul Drain uses Hero MDEF instead of DEF; Divine Protection and Block still apply. It heals half the actual HP lost by the hero, rounded down and capped at Leech Max HP; misses and fully absorbed hits heal nothing. Hero INT-scaled spell attacks use monster MDEF (default 0) instead of DEF; other attacks use DEF.
 
@@ -396,7 +415,7 @@ Each living Leech tracks its own completed Channel count. Every third Channel (n
 
 ## Creeper — mon3smp-02
 
-The Goblin King monster deck: 1 copy. Rewards: 4 SP and 8 Gold. Artwork: `/cards/creatures/creeper.jpg`. Level 3; Swamp only; 12 HP, 2 DEF, 0 EVA, 1 ACC, 1 MDEF.
+The Goblin King monster deck: 1 copy. Rewards: 4 SP and 15 Gold. Artwork: `/cards/creatures/creeper.jpg`. Level 3; Swamp only; 12 HP, 2 DEF, 0 EVA, 1 ACC, 1 MDEF.
 
 Alternates Submerge (regain 3 HP, capped at Max HP; gain 3 Block) and Ambush (7 physical damage, universal 3d6 attack check under MACG-3D6™; reduced by Hero DEF rather than MDEF, then Divine Protection and Block).
 
@@ -404,7 +423,7 @@ Resilient is a declarative on-defeat ability. After each lethal hero attack, con
 
 ## Assasin — mon3smp-03
 
-Display name Assasin, using the supplied artwork `/cards/creatures/assasin.jpg`. Level 3; Swamp, Cave, Underground; 13 HP, 1 DEF, 3 EVA, 2 ACC, 1 MDEF. The Goblin King monster deck: 2 copies; Rewards: 4 SP and 8 Gold.
+Display name Assasin, using the supplied artwork `/cards/creatures/assasin.jpg`. Level 3; Swamp, Cave, Underground; 13 HP, 1 DEF, 3 EVA, 2 ACC, 1 MDEF. The Goblin King monster deck: 2 copies; Rewards: 4 SP and 15 Gold.
 
 Alternates Poison Dart (3 physical damage ignoring up to 3 Hero DEF; universal 3d6 attack check under MACG-3D6™, applies poison on hit) and Piercing Strike (7 physical damage, ignores up to 2 Hero DEF). Piercing cannot reduce effective DEF below 0; MDEF does not absorb it. Divine Protection and Block still apply. Poison application requires a successful hit, and does not require HP damage or bypass the hit check.
 
@@ -414,7 +433,7 @@ Underground is recognized as a creature spawn tag and visible badge; no Undergro
 
 ## Stalker — mon1grs-06
 
-Level 2; Grasslands and Forest; 8 HP, 0 DEF, 2 EVA, 1 ACC. Artwork: `/cards/creatures/stalker.jpg`. As an Uncommon Grassland creature, Scenario 1 pulls all 4 copies; Rewards: 2 SP and 4 Gold.
+Level 2; Grasslands and Forest; 8 HP, 0 DEF, 2 EVA, 1 ACC. Artwork: `/cards/creatures/stalker.jpg`. As an Uncommon Grassland creature, Scenario 1 pulls all 4 copies; Rewards: 3 SP and 10 Gold.
 
 Alternates Sprint (+1 EVA and +1 ACC for 2 turns) and Pounce (6 physical damage with a normal 3d6 hit check under MACG-3D6™). Sprint applies during its monster turn and lasts through the next Pounce and the following hero action turn; it expires at the start of the monster turn after that. A new Sprint refreshes the bonuses without stacking. Existing one-turn creature buffs retain their original duration.
 
@@ -426,9 +445,9 @@ Creature types: **Leech — Undead**, **Creeper — Undead**, **Assasin — Huma
 
 These Cave-main ordinary cards use collector IDs `mon4cav-01` through `mon4cav-03`. They remain entirely in the Void during Scenario 1 because Cave is outside its Grassland/Forest/Swamp setup bands. Scenario 2 uses Cave as its highest band and pulls rounded one-third: 1 Phalanx, 2 Cultist Mages, and 1 Lurker.
 
-- **Phalanx** (`mon4cav-01`): Level 4 Arachnid, Cave only, 20 HP, 3 DEF, 2 EVA, 1 ACC, 8 SP/16 Gold. **Blinding Web** makes one normal physical attack for 6 damage; only a successful hit applies `-1 ACC` and `-2 EVA` to the Hero for one turn. **Double Smash** performs two separate 8-damage physical attacks; each consumes its own seeded 3d6 roll and applies DEF, Divine Protection, and the remaining Block independently.
-- **Cultist Mage** (`mon4cav-02`): Level 4 Human, Cave/Underground/Underworld, 18 HP, 1 DEF, 2 MDEF, 3 ACC, 2 EVA, 8 SP/16 Gold. **Soul Burn** is an 8 MATK attack and therefore uses Hero MDEF rather than DEF.
-- **Lurker** (`mon4cav-03`): Level 5 Wurm, Cave/Underground, 25 HP, 2 DEF, 1 MDEF, 16 SP/32 Gold. **Drill** deals 10 physical damage. **Shed** restores up to 12 HP and applies `-2 DEF` to Lurker for one turn; effective DEF clamps at zero. After every successful nonlethal Hero attack against it, Acid Retaliation deals 1 Hero HP damage, ignoring DEF, MDEF, and Block but still respecting Divine Protection. A miss or the attack that defeats Lurker causes no retaliation.
+- **Phalanx** (`mon4cav-01`): Level 4 Arachnid, Cave only, 20 HP, 3 DEF, 2 EVA, 1 ACC, 5 SP/20 Gold. **Blinding Web** makes one normal physical attack for 6 damage; only a successful hit applies `-1 ACC` and `-2 EVA` to the Hero for one turn. **Double Smash** performs two separate 8-damage physical attacks; each consumes its own seeded 3d6 roll and applies DEF, Divine Protection, and the remaining Block independently.
+- **Cultist Mage** (`mon4cav-02`): Level 4 Human, Cave/Underground/Underworld, 18 HP, 1 DEF, 2 MDEF, 3 ACC, 2 EVA, 5 SP/20 Gold. **Soul Burn** is an 8 MATK attack and therefore uses Hero MDEF rather than DEF.
+- **Lurker** (`mon4cav-03`): Level 5 Wurm, Cave/Underground, 25 HP, 2 DEF, 1 MDEF, 6 SP/25 Gold. **Drill** deals 10 physical damage. **Shed** restores up to 12 HP and applies `-2 DEF` to Lurker for one turn; effective DEF clamps at zero. After every successful nonlethal Hero attack against it, Acid Retaliation deals 1 Hero HP damage, ignoring DEF, MDEF, and Block. A miss or the attack that defeats Lurker causes no retaliation.
 
 ## Deck searches, fizzle and public graveyards
 
@@ -463,7 +482,7 @@ Stalker base EVA is 2. Sprint adds 1 EVA (total 3); an additional Skittish hit b
 
 ## Witch — mon3smp-04
 
-Witch (`mon3smp-04`), Level 3, Swamp/Cave, 14 HP, 1 DEF, 3 MDEF, 1 EVA, 1 ACC. Artwork: `/cards/creatures/witch.jpg`. Rewards: 4 SP and 8 Gold by the default level formula below. Stalker retains `mon1grs-06`. The Goblin King Stage 1 monster deck includes 1 Witch.
+Witch (`mon3smp-04`), Level 3, Swamp/Cave, 14 HP, 1 DEF, 3 MDEF, 1 EVA, 1 ACC. Artwork: `/cards/creatures/witch.jpg`. Rewards: 4 SP and 15 Gold by the default level formula below. Stalker retains `mon1grs-06`. The Goblin King Stage 1 monster deck includes 1 Witch.
 
 Witch cycles through Blinding Hex (Hero -1 EVA and -1 ACC for 2 turns), Expose weakness (Hero -1 DEF and -1 MDEF for 1 turn), and Smite (7 magical damage). Non-damaging hexes apply directly without a hit roll, immediately affecting later attackers in the same enemy phase. Smite uses the universal 3d6 attack roll under MACG-3D6™, Hero MDEF instead of DEF, then Divine Protection and Block. DEF and MDEF after penalties cannot drop below zero; ACC/EVA remain signed modifiers under the existing hit system.
 
@@ -473,14 +492,15 @@ Regen1 restores 1 HP after each completed living Witch turn, including hex turns
 
 ## Grundy — Stage 1 Boss
 
-Grundy is the Level 5 Goblin Warlord who appears after the Turn 15 tile in The Goblin King. He has 30 HP, 1 DEF, 1 MDEF, 1 ACC and 1 EVA, and grants 16 SP plus 32 Gold when defeated.
+Grundy is the Level 5 Goblin Warlord who appears after the Turn 15 tile in The Goblin King. He has 30 HP, 3 DEF, 1 MDEF, 3 ACC and 3 EVA, and grants 12 SP plus 50 Gold when defeated.
 
-His three-turn pattern is:
+Passive: *"Grundy's ATK and DEF increases for each other goblin creatures in play"*. A creature's ATK increases any non-magical turn damage they deal.
 
-1. **Call Goblin**: Search the hidden Monster draw pile for the first Goblin card, remove that physical card from the pile, and put it into play at full HP. The summoned Goblin begins acting on the next enemy turn. If no Goblin is in the draw pile, the log says Grundy's call falls on deaf ears. He then screams: if a Goblin exists in `monsterDiscard`, one physical Goblin card returns to the top of the Monster draw pile to be drawn next turn. If neither zone contains a Goblin, no card is created and the action ends.
-2. **Beef up!**: Grundy gains +1 DEF for one turn and +4 Block. The temporary DEF is included in live card stats and incoming physical-damage resolution, then expires at its defined turn boundary.
-3. **Goblin March**: Perform the universal 2d6 attack check, then deal `6 + number of living Goblins in play` physical damage before Hero DEF, Divine Protection and Block.
+His two-turn pattern is:
+
+1. **Call Goblin**: Search the hidden Monster draw pile for the first Goblin card, remove that physical card from the pile, put it into play at full HP, and shuffle the Monster Deck. The summoned Goblin begins acting on the next enemy turn. If no Goblin is found in the draw pile, retrieve the earliest discarded Goblin from `monsterDiscard` (First In, First Out) and place it on top of the Monster Deck. If neither zone contains a Goblin, the call finds no Goblin.
+2. **Goblin March**: Perform the universal MACG-3D6™ attack hit check, then deal 6 physical damage (amplified by Grundy's effective ATK) before Hero DEF, Divine Protection and Block.
 
 ## Default creature rewards
 
-Unless a creature explicitly specifies different rewards, its level factor is `2 ** (level - 1)`: Level 1 through 6 use factors 1, 2, 4, 8, 16 and 32. The inscription is `1 SP * factor` and `2 Gold * factor`, before player victory bonuses. Thus Level 3 grants 4 SP/8 Gold, Level 4 grants 8 SP/16 Gold, and Level 5 grants 16 SP/32 Gold. All current ordinary creatures and bosses use this formula; Grundy (Level 5) grants 16 SP/32 Gold and each Level 4 Troll grants 8 SP/16 Gold. Only an explicitly requested future exception should override it. `getDefaultMonsterRewards` in src/data/monsters.ts supplies reward inscriptions for every current monster template; combat awards the card's inscribed values.
+Default creature rewards scale by level: ordinary monsters grant `level * 5` Gold and `level + 1` SP (LVL 1: 5G/2SP, LVL 2: 10G/3SP, LVL 3: 15G/4SP, LVL 4: 20G/5SP, LVL 5: 25G/6SP, LVL 6: 30G/7SP, LVL 7: 35G/8SP). Boss creatures grant double rewards based on their level (`level * 10` Gold, `(level + 1) * 2` SP: LVL 4 Boss: 40G/10SP, LVL 5 Boss: 50G/12SP, LVL 7 Boss: 70G/16SP). `getDefaultMonsterRewards` in src/data/monsters.ts supplies reward inscriptions for every monster template; combat awards the card's inscribed values.

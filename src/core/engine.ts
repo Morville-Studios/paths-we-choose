@@ -5,15 +5,19 @@ import {
   createStartCard,
   STAGE_1_MAX_TURNS,
   STAGE_2_MAX_TURNS,
+  STAGE_3_MAX_TURNS,
   STAGE_1_SCENARIO_LEVEL,
   STAGE_2_SCENARIO_LEVEL,
+  STAGE_3_SCENARIO_LEVEL,
   STAGE_1_MISSION_NAME,
   STAGE_2_MISSION_NAME,
+  STAGE_3_MISSION_NAME,
 } from '../data/stages';
 import { determineActiveAudio, syncAudioState } from './audio';
 import {
   buildStage1AdventureDeck,
   buildStage2AdventureDeck,
+  buildStage3AdventureDeck,
   buildScenarioMonsterDeck,
   buildStage1MonsterDeck,
   buildStage1TreasureDeck,
@@ -22,6 +26,7 @@ import {
   drawAdventureCardWithReshuffle,
   drawEncounterMonsters,
   drawTreasureUntilLevel,
+  pullStartingTreasureCard,
 } from './deck';
 import {
   attemptCombatFlee, computeFleeNetAcc, firstLivingMonsterIndex,
@@ -179,7 +184,26 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     placeNode(board, c, draw(), 'lookahead', 0);
   }
 
-  const gear = { weapon: null, armor: null, accessory: null };
+  let treasureDeck = tr.deck;
+  const gear: { weapon: typeof treasureDeck[number] | null; armor: typeof treasureDeck[number] | null; accessory: typeof treasureDeck[number] | null } = {
+    weapon: null,
+    armor: null,
+    accessory: null,
+  };
+  const backpack: typeof treasureDeck = [];
+
+  for (const [slot, itemId] of [
+    ['weapon', classDef.startingGear.weaponId],
+    ['armor', classDef.startingGear.armorId],
+  ] as const) {
+    const pulled = pullStartingTreasureCard(treasureDeck, itemId);
+    treasureDeck = pulled.deck;
+    if (pulled.item) {
+      if (!gear[slot]) gear[slot] = pulled.item;
+      else backpack.push(pulled.item);
+    }
+  }
+
   const effective = computeEffectiveStats(STARTING_BASE_STATS, classDef.classBonuses, gear);
   const maxHp = calculateMaxHp(effective.vit);
 
@@ -191,10 +215,12 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     playerClass: classId,
     playerBaseStats: { ...STARTING_BASE_STATS },
     playerClassBonuses: { ...classDef.classBonuses },
+    equippedGear: gear,
+    backpack,
     currentMission: 1,
     missionName: STAGE_1_MISSION_NAME,
     scenarioLevel: STAGE_1_SCENARIO_LEVEL,
-    playerResources: { hp: maxHp, maxHp, statPoints: 4, gold: 20 },
+    playerResources: { hp: maxHp, maxHp, statPoints: 10, gold: 20 },
     playerMasterDeck: buildStarterCombatDeck(classId),
     newSkillsDeck: skills.deck,
     newSkillsDiscard: [],
@@ -204,21 +230,23 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     reshuffleCount: reshuffles,
     monsterDeck: mon.deck,
     monsterVoid: mon.void,
-    treasureDeck: tr.deck,
+    treasureDeck,
     treasureDiscard: [],
     treasureReshuffleCount: 0,
     board,
     pathHistory: [startCoord],
     gameLog: [
       `[${createTimestamp(undefined)}] 🗺️ Embarked on Scenario 1: ${STAGE_1_MISSION_NAME} as a ${classDef.name}.`,
-      `[${createTimestamp(undefined)}] 🎴 Dealt initial adventure board (9 cards). Starting with 4 Stat Points and 20 Gold.`,
+      `[${createTimestamp(undefined)}] 🎴 Dealt initial adventure board (9 cards). Starting with 10 Stat Points and 20 Gold.`,
     ],
     bannerMessage: 'Prepare for your journey.',
     welcomePreparing: true,
   });
 }
 
-export function dismissWelcomePrepare(state: RunState): RunState {
+export function dismissWelcomePrepare(state: RunState, force = false): RunState {
+  if (!state.welcomePreparing) return state;
+  if (!force && (state.playerResources?.statPoints ?? 0) >= 10) return state;
   return {
     ...state,
     welcomePreparing: false,
@@ -484,13 +512,34 @@ function beginCombat(state: RunState, monsters: MonsterCard[]): RunState {
   });
 }
 
-/** Called once a tile's event (if any) is fully resolved. Triggers the Turn 15 boss. */
+/** Called once a tile's event (if any) is fully resolved. Triggers the Turn 15 boss approach. */
 function afterTileResolved(state: RunState): RunState {
   if (state.turn >= state.maxTurns) {
     const bossMonsters = createBossMonstersForMission(state.currentMission ?? 1);
-    return beginCombat({ ...state, activeHook: { type: 'NONE' } }, bossMonsters);
+    const bossNames = bossMonsters.map((m) => m.name).join(' & ');
+    return syncAudioState({
+      ...state,
+      activeHook: {
+        type: 'BOSS_APPROACH',
+        bossMonsters,
+      },
+      bannerMessage: `⚔️ Turn 15 Complete! The Stage Boss ${bossNames} awaits! Prepare your equipment and potions, then click the Boss card to fight!`,
+    });
   }
   return syncAudioState({ ...state, activeHook: { type: 'NONE' } });
+}
+
+/** Transitions player from BOSS_APPROACH state into combat against the stage boss(es). */
+export function startBossCombat(state: RunState): RunState {
+  if (state.activeHook.type !== 'BOSS_APPROACH') {
+    if (state.turn >= state.maxTurns) {
+      const bossMonsters = createBossMonstersForMission(state.currentMission ?? 1);
+      return beginCombat({ ...state, activeHook: { type: 'NONE' } }, bossMonsters);
+    }
+    return state;
+  }
+  const bossMonsters = state.activeHook.bossMonsters;
+  return beginCombat({ ...state, activeHook: { type: 'NONE' } }, bossMonsters);
 }
 
 function handleCombatVictory(
@@ -519,7 +568,7 @@ function handleCombatVictory(
     isBoss: Boolean(boss),
     bossTitle,
     stageNumber: mission,
-    canContinue: mission === 1,
+    canContinue: mission === 1 || mission === 2,
     lastAttackRolls: victoryDetails.lastAttackRolls,
     finalCombatState: victoryDetails.finalCombatState,
   };
@@ -546,8 +595,8 @@ export function confirmCombatVictory(state: RunState): RunState {
   if (victory.isBoss) {
     const mission = victory.stageNumber ?? 1;
     const cleared = clearMapBlessings(state);
-    const bossTitle = victory.bossTitle ?? (mission === 1 ? 'Grundy' : 'Cult of Trolls');
-    const missionName = mission === 1 ? STAGE_1_MISSION_NAME : STAGE_2_MISSION_NAME;
+    const bossTitle = victory.bossTitle ?? (mission === 1 ? 'Grundy' : mission === 2 ? 'Cult of Trolls' : 'Fallen King');
+    const missionName = mission === 1 ? STAGE_1_MISSION_NAME : mission === 2 ? STAGE_2_MISSION_NAME : STAGE_3_MISSION_NAME;
     return syncAudioState({
       ...cleared,
       activeHook: {
@@ -565,15 +614,35 @@ export function confirmCombatVictory(state: RunState): RunState {
   return afterTileResolved(state);
 }
 
-/** Transitions player from Stage 1 into Stage 2 ("Cult of Trolls") */
+/** Transitions player from Stage 1 into Stage 2 ("Cult of Trolls") or Stage 3 ("Tomb of the Fallen King") */
 export function startNextMission(state: RunState): RunState {
   let rng = state.rngState;
   const mission = (state.currentMission ?? 1) + 1;
-  const missionName = mission === 2 ? STAGE_2_MISSION_NAME : `Stage ${mission}`;
-  const maxTurns = mission === 2 ? STAGE_2_MAX_TURNS : STAGE_1_MAX_TURNS;
-  const scenarioLevel = mission === 2 ? STAGE_2_SCENARIO_LEVEL : STAGE_1_SCENARIO_LEVEL;
+  const missionName =
+    mission === 2
+      ? STAGE_2_MISSION_NAME
+      : mission === 3
+      ? STAGE_3_MISSION_NAME
+      : `Stage ${mission}`;
+  const maxTurns =
+    mission === 3
+      ? STAGE_3_MAX_TURNS
+      : mission === 2
+      ? STAGE_2_MAX_TURNS
+      : STAGE_1_MAX_TURNS;
+  const scenarioLevel =
+    mission === 3
+      ? STAGE_3_SCENARIO_LEVEL
+      : mission === 2
+      ? STAGE_2_SCENARIO_LEVEL
+      : STAGE_1_SCENARIO_LEVEL;
 
-  const adv = mission === 2 ? buildStage2AdventureDeck(rng) : buildStage1AdventureDeck(rng);
+  const adv =
+    mission === 3
+      ? buildStage3AdventureDeck(rng)
+      : mission === 2
+      ? buildStage2AdventureDeck(rng)
+      : buildStage1AdventureDeck(rng);
   rng = adv.nextState;
   const monsters = buildScenarioMonsterDeck(scenarioLevel, rng);
   rng = monsters.nextState;

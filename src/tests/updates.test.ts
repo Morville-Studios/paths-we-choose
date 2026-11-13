@@ -10,7 +10,10 @@ describe('release checks', () => {
     const request = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ buildId: next }) });
     vi.stubGlobal('fetch', request);
     expect(await findNewRelease(current)).toBe(next);
-    expect(request).toHaveBeenCalledWith('/version.json', expect.objectContaining({ cache: 'no-store' }));
+    expect(request).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/version\.json\?t=/),
+      expect.objectContaining({ cache: 'no-store' })
+    );
   });
 
   it.each([null, {}, { buildId: current }, { buildId: 123 }, { buildId: '<html>' }])('ignores an unchanged or invalid manifest: %j', async (data) => {

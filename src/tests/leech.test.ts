@@ -9,7 +9,7 @@ const leech: MonsterCard = { ...MONSTER_TEMPLATES.leech, id: 'leech_test' };
 const zombie: MonsterCard = { ...MONSTER_TEMPLATES.zombie, id: 'discard_zombie' };
 const hitSeed = Array.from({ length: 1000 }, (_, i) => i + 1).find(seed => {
   const roll = evaluateAttackRoll(seed, 2, 2);
-  return roll.isHit && !roll.isCrit;
+  return roll.isHit;
 })!;
 
 function setup(): RunState {
@@ -17,6 +17,7 @@ function setup(): RunState {
   const { combat } = createCombatSession([leech], [], 1);
   return {
     ...state, rngState: hitSeed,
+    equippedGear: { weapon: null, armor: null, accessory: null },
     playerResources: { hp: 100, maxHp: 100, statPoints: 0, gold: 0 },
     activeHook: { type: 'COMBAT', combat: { ...combat, monsters: [{ monster: leech, hp: 5, block: 0, patternIndex: 0 }] } },
   };
@@ -29,7 +30,7 @@ function battle(state: RunState) {
 
 describe('Leech', () => {
   it('uses the requested profile, artwork, magical pattern and spawn terrains', () => {
-    expect(leech).toMatchObject({ statPointReward: 8, goldReward: 16, creatureType: 'Undead', cardNumber: 'mon3smp-01', level: 4, maxHp: 18, def: 1, mdef: 3, eva: 2, acc: 3, spawnTerrains: ['swamp', 'cave'] });
+    expect(leech).toMatchObject({ statPointReward: 5, goldReward: 20, creatureType: 'Undead', cardNumber: 'mon3smp-01', level: 4, maxHp: 18, def: 1, mdef: 3, eva: 2, acc: 3, spawnTerrains: ['swamp', 'cave'] });
     const html = cardInspectModal({ kind: 'monster', monster: leech, currentHp: 18 }, setup());
     expect(html).toContain('/cards/creatures/leech.jpg');
     expect(html).toContain('MDEF');
@@ -97,7 +98,7 @@ describe('Leech', () => {
     battle(state).hand = [{ id: 'spell', instanceId: 'spell', name: 'Spell', classId: 'wizard', cardType: 'attack', apCost: 1, baseDamage: 6, damageScalingStat: 'int', damageScalingDivisor: 100, baseBlock: 0 }];
     state.rngState = Array.from({ length: 1000 }, (_, i) => i + 1).find(seed => {
       const roll = evaluateAttackRoll(seed, 1, 2);
-      return roll.isHit && !roll.isCrit;
+      return roll.isHit;
     })!;
     const next = playCard(state, 'spell', 0);
     expect(battle(next).monsters[0].hp).toBe(15);

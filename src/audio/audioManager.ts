@@ -30,6 +30,7 @@ export class AudioManager {
       'map-area': publicAsset('audio/map-area.mp3'),
       'battle-normal': publicAsset('audio/battle-normal.mp3'),
       'victory': publicAsset('audio/victory.mp3'),
+      'shrine': publicAsset('audio/shrine.mp3'),
     };
 
     for (const [id, url] of Object.entries(trackUrls)) {
@@ -215,11 +216,11 @@ export class AudioManager {
 
     const prevTrackId = this.currentTrackId;
 
-    // Stop previous track (fade out if it was victory)
+    // Stop previous track (fade out if it was victory or shrine)
     if (prevTrackId) {
       const prevAudio = this.tracks.get(prevTrackId);
       if (prevAudio) {
-        if (prevTrackId === 'victory') {
+        if (prevTrackId === 'victory' || prevTrackId === 'shrine') {
           this.fadeOutAndStop(prevAudio, 800);
         } else {
           this.cancelFade(prevAudio);
@@ -235,7 +236,7 @@ export class AudioManager {
 
     this.currentTrackId = nextTrack;
 
-    // No music desired in this state (e.g. class select, village, shrine, game over)
+    // No music desired in this state (e.g. class select, village, game over)
     if (!nextTrack) {
       return;
     }
@@ -257,7 +258,12 @@ export class AudioManager {
       // ignore
     }
 
-    if (prevTrackId === 'victory' && nextTrack === 'map-area') {
+    if (
+      (prevTrackId === 'victory' || prevTrackId === 'shrine') &&
+      nextTrack === 'map-area'
+    ) {
+      this.fadeIn(nextAudio, 800);
+    } else if (nextTrack === 'shrine') {
       this.fadeIn(nextAudio, 800);
     } else {
       nextAudio.volume = this.volume;
@@ -366,6 +372,57 @@ export class AudioManager {
       thud.stop(now + 0.12);
     } catch (e) {
       console.warn('[AudioManager] playSlashSound failed:', e);
+    }
+  }
+
+  public playShieldSound(): void {
+    if (this.muted || typeof window === 'undefined') return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!this.sfxContext) {
+        this.sfxContext = new AudioCtx();
+      }
+      if (this.sfxContext.state === 'suspended') {
+        this.sfxContext.resume().catch(() => {});
+      }
+      const ctx = this.sfxContext;
+      const now = ctx.currentTime;
+
+      // Resonant metallic deflection / shield shimmer tone
+      const osc = ctx.createOscillator();
+      const oscGain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(780, now + 0.08);
+      osc.frequency.exponentialRampToValueAtTime(440, now + 0.25);
+
+      oscGain.gain.setValueAtTime(0.001, now);
+      oscGain.gain.linearRampToValueAtTime(this.volume * 0.45, now + 0.03);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+      osc.connect(oscGain);
+      oscGain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.38);
+
+      // Soft metallic chime harmonic
+      const chime = ctx.createOscillator();
+      const chimeGain = ctx.createGain();
+      chime.type = 'sine';
+      chime.frequency.setValueAtTime(1046.5, now + 0.02);
+      chime.frequency.exponentialRampToValueAtTime(1318.5, now + 0.12);
+
+      chimeGain.gain.setValueAtTime(0.001, now);
+      chimeGain.gain.linearRampToValueAtTime(this.volume * 0.25, now + 0.04);
+      chimeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+      chime.connect(chimeGain);
+      chimeGain.connect(ctx.destination);
+      chime.start(now + 0.02);
+      chime.stop(now + 0.32);
+    } catch (e) {
+      console.warn('[AudioManager] playShieldSound failed:', e);
     }
   }
 }

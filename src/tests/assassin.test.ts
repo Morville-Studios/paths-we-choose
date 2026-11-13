@@ -3,6 +3,7 @@ import { createCombatSession, endPlayerCombatTurn, evaluateAttackRoll } from '..
 import { startAdventure, villageDoRest } from '../core/engine';
 import { applySingleShrineBoon } from '../core/shrine';
 import { MonsterCard, RunState } from '../core/types';
+import { getEffectiveStatsFromState, getPlayerDef } from '../core/stats';
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { cardInspectModal } from '../ui/render';
 
@@ -16,7 +17,12 @@ function seedFor(hit: boolean): number {
 }
 function setup(): RunState {
   const state = startAdventure('fighter', 'assassin');
-  return { ...state, rngState: seedFor(true), activeHook: { type: 'COMBAT', combat: createCombatSession([assassin], [], 1).combat } };
+  return {
+    ...state,
+    equippedGear: { weapon: null, armor: null, accessory: null },
+    rngState: seedFor(true),
+    activeHook: { type: 'COMBAT', combat: createCombatSession([assassin], [], 1).combat },
+  };
 }
 function battle(state: RunState) {
   if (state.activeHook.type !== 'COMBAT') throw new Error('Expected combat');
@@ -25,7 +31,7 @@ function battle(state: RunState) {
 
 describe('Assassin poison and piercing attacks', () => {
   it('shows the profile, exact artwork filename, Underground badge and attack effects', () => {
-    expect(assassin).toMatchObject({ statPointReward: 4, goldReward: 8, level: 3, creatureType: 'Human', cardNumber: 'mon3smp-03', maxHp: 13, def: 2, eva: 4, acc: 4, mdef: 1, spawnTerrains: ['swamp', 'cave', 'underground'] });
+    expect(assassin).toMatchObject({ statPointReward: 4, goldReward: 15, level: 3, creatureType: 'Human', cardNumber: 'mon3smp-03', maxHp: 13, def: 2, eva: 4, acc: 4, mdef: 1, spawnTerrains: ['swamp', 'cave', 'underground'] });
     const html = cardInspectModal({ kind: 'monster', monster: assassin, currentHp: 13 }, setup());
     for (const text of ['/cards/creatures/assasin.jpg', 'Underground', 'Poison on hit', 'Ignore 2 DEF']) expect(html).toContain(text);
   });
@@ -45,9 +51,10 @@ describe('Assassin poison and piercing attacks', () => {
   it.each([0, 2, 4])('Poison Dart deals 3 physical damage ignoring up to 3 DEF (DEF %i)', def => {
     const state = setup();
     state.equippedGear.armor = { id: 'armor', instanceId: 'armor', name: 'Armor', category: 'armor', description: '', buyPrice: 0, sellPrice: 0, gearBonus: { def, mdef: 100 } };
+    const totalDef = getPlayerDef(getEffectiveStatsFromState(state), def);
     const next = endPlayerCombatTurn(state);
-    expect(next.playerResources?.hp).toBe(state.playerResources!.hp - (3 - Math.max(0, def - 3)));
-    expect(battle(next).lastAttackRoll).toMatchObject({ damageDealt: 3 - Math.max(0, def - 3), defenseType: 'DEF' });
+    expect(next.playerResources?.hp).toBe(state.playerResources!.hp - (3 - Math.max(0, totalDef - 3)));
+    expect(battle(next).lastAttackRoll).toMatchObject({ damageDealt: 3 - Math.max(0, totalDef - 3), defenseType: 'DEF' });
     expect(next.statusEffects).toEqual(['poison']);
     expect(assassin.name).toBe('Assasin');
   });
@@ -86,16 +93,17 @@ describe('Assassin poison and piercing attacks', () => {
     const state = setup();
     battle(state).monsters[0].patternIndex = 1;
     state.equippedGear.armor = { id: 'armor', instanceId: 'armor', name: 'Armor', category: 'armor', description: '', buyPrice: 0, sellPrice: 0, gearBonus: { def, mdef: 100 } };
+    const totalDef = getPlayerDef(getEffectiveStatsFromState(state), def);
     const next = endPlayerCombatTurn(state);
-    expect(battle(next).lastAttackRoll).toMatchObject({ damageDealt: 7 - Math.max(0, def - 2), damageDefReduced: Math.max(0, def - 2), defenseType: 'DEF' });
+    expect(battle(next).lastAttackRoll).toMatchObject({ damageDealt: 7 - Math.max(0, totalDef - 2), damageDefReduced: Math.max(0, totalDef - 2), defenseType: 'DEF' });
   });
 
-  it('keeps Block and Divine Protection effective against Piercing Strike', () => {
+  it('Piercing Strike ignores DEF granted by Divine Protection while Block absorbs damage', () => {
     const state = setup();
     battle(state).monsters[0].patternIndex = 1;
     battle(state).playerBlock = 2;
     state.divineProtection = 1;
-    expect(battle(endPlayerCombatTurn(state)).lastAttackRoll).toMatchObject({ damageDealt: 4, damageBlocked: 2, damageProtReduced: 1 });
+    expect(battle(endPlayerCombatTurn(state)).lastAttackRoll).toMatchObject({ damageDealt: 5, damageBlocked: 2, damageProtReduced: 0 });
   });
 
   it('is cured by shrine cleanse; village rest only restores HP', () => {

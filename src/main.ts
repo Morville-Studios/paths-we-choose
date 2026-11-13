@@ -1,65 +1,31 @@
 import './ui/styles.css';
+import { audioManager } from './audio/audioManager';
+import { ACTION_HANDLERS } from './app/actions';
+import { createCombatAnimator } from './app/combatAnimator';
+import { findInspectedCard } from './app/inspect';
+import type { ActionContext } from './app/types';
+import { firstLivingMonsterIndex } from './core/combat';
+import { confirmCombatVictory, createInitialState, startAdventure, startBossCombat } from './core/engine';
+import { computeCombatGearBonuses, getEffectiveStatsFromState, getPlayerAcc } from './core/stats';
+import type { StatKey } from './core/types';
 import { gameLanguageControl, getGameLocale, setGameLocale, type GameLocale } from './i18n';
 import { localizeGameTree, observeLocalizedGame } from './i18n/presentation';
-import { startUpdateMonitor } from './updates';
-import {
-  attemptFlee,
-  buyItem,
-  chooseCard,
-  confirmCombatVictory,
-  confirmEncounterClear,
-  confirmExplorationCombat,
-  confirmExplorationSafe,
-  createInitialState,
-  dismissWelcomePrepare,
-  endTurn,
-  finishVillage,
-  goToClassSelect,
-  leaveShrine,
-  playCard,
-  sellItem,
-  shrineDoChoosePrayer,
-  shrinePray,
-  shrineUpgradeStat,
-  shrineUpgradeSkill,
-  startAdventure,
-  startNextMission,
-  villageChooseShop,
-  villageChooseTrain,
-  villageDoRest,
-  villageDoTrainDraft,
-  villageDoTrainRemove,
-  villageGoBack,
-  welcomeUpgradeStat,
-} from './core/engine';
-import { equipItem, unequipItem, useConsumable } from './core/village';
-import { CombatCardDef, InspectedCardInfo, MonsterTemplateId, ShrinePrayerOptionId, StatKey } from './core/types';
-import { createCombatCardInstance, createFleeCard, FLEE_CARD_ID } from './data/combatCards';
-import { MONSTER_TEMPLATES } from './data/monsters';
-import { SHOP_ITEM_CATALOG } from './data/shopItems';
-import { ADVENTURE_CARD_CATALOG } from './data/stages';
-import { toGridKey } from './core/grid';
-import { firstLivingMonsterIndex } from './core/combat';
-import { computeCombatGearBonuses, getEffectiveStatsFromState, getPlayerAcc, getPlayerCritThreshold } from './core/stats';
-import { syncAudioState } from './core/audio';
+import { autosaveRun } from './state/saveStorage';
 import { Store } from './state/store';
-import { reconcileRunNewSkills } from './core/newSkills';
-import { audioManager } from './audio/audioManager';
 import {
   CLASS_CAROUSEL_ORDER,
-  getAdventureCardName,
+  getHandCarouselIndex,
+  hasBlockingUiOverlay,
   PileType,
   renderClassSelect,
   renderPlayArea,
   renderWelcome,
   UiState,
   updateClassCarouselDom,
-  updateMonsterCarouselDom,
-  getHandCarouselIndex,
-  hasBlockingUiOverlay,
   updateHandCarouselDom,
+  updateMonsterCarouselDom,
 } from './ui/render';
-import { ClassId, CombatAttackRollSummary, CombatMonster, RunState } from './core/types';
+import { startUpdateMonitor } from './updates';
 
 function newSeed(): string {
   return Date.now().toString(36);
@@ -68,7 +34,7 @@ function newSeed(): string {
 const root = document.getElementById('app') as HTMLElement;
 const languageControl = gameLanguageControl();
 document.body.append(languageControl);
-languageControl.querySelector('select')?.addEventListener('change', event => {
+languageControl.querySelector('select')?.addEventListener('change', (event) => {
   setGameLocale((event.target as HTMLSelectElement).value as GameLocale);
   root.replaceChildren();
   render();
@@ -76,11 +42,13 @@ languageControl.querySelector('select')?.addEventListener('change', event => {
   if (updateNotice) localizeGameTree(updateNotice);
 });
 observeLocalizedGame(root);
+
 const store = new Store(createInitialState(newSeed()));
 startUpdateMonitor(() => {
   const state = store.get();
   return state.screen === 'play_area' && state.activeHook.type !== 'ON_GAME_OVER';
 });
+
 const ui: UiState = {
   selectedClass: null,
   showDeck: false,
@@ -90,11 +58,58 @@ const ui: UiState = {
   inspectedPile: null,
 };
 
-let isVictoryTransitioning = false;
-let isCombatAnimating = false;
+function render(): void {
+  const languageSelect = languageControl.querySelector('select');
+  if (languageSelect) languageSelect.value = getGameLocale();
+  const s = store.get();
+
+  const scroll = new Map<string, number>();
+  root.querySelectorAll<HTMLElement>('.modal, .sheet').forEach((el, i) => scroll.set(String(i), el.scrollTop));
+
+  const isMuted = audioManager.isTrackMuted();
+  const audioBtnHtml = ui.showGuide
+    ? ''
+    : `<button class="audio-btn ${isMuted ? 'muted' : ''}" data-action="toggle-audio" title="${isMuted ? 'Unmute Music' : 'Mute Music'}" aria-label="Toggle Music">${isMuted ? '🔇' : '🔊'}</button>`;
+
+  if (s.screen === 'welcome') {
+    root.innerHTML =
+      renderWelcome(
+        Boolean(ui.showGuide),
+        ui.guidePage ?? 1,
+        ui.inspectedCard,
+        ui.inspectedStat,
+        s,
+        Boolean(ui.showSaves),
+        ui.pendingSaveAction ?? null
+      ) + audioBtnHtml;
+  } else if (s.screen === 'class_select') {
+    if (!ui.selectedClass) ui.selectedClass = 'fighter';
+    const updated = updateClassCarouselDom(root, ui.selectedClass);
+    if (!updated) {
+      root.innerHTML = renderClassSelect(ui) + audioBtnHtml;
+    }
+  } else {
+    root.innerHTML = renderPlayArea(s, ui) + audioBtnHtml;
+  }
+
+  localizeGameTree(root);
+
+  root.querySelectorAll<HTMLElement>('.modal, .sheet').forEach((el, i) => {
+    el.scrollTop = scroll.get(String(i)) ?? 0;
+  });
+}
+
+const combatAnimator = createCombatAnimator({ root, store, ui, render });
+
+store.subscribe((state) => {
+  autosaveRun(state);
+  if (combatAnimator.isAnimating()) return;
+  render();
+  audioManager.sync(state);
+});
 
 function setCombatTarget(newTarget: number): void {
-  if (isCombatAnimating) return;
+  if (combatAnimator.isAnimating()) return;
   ui.targetIndex = newTarget;
   if (ui.pendingCardPlay) {
     ui.pendingCardPlay.targetIndex = newTarget;
@@ -105,17 +120,15 @@ function setCombatTarget(newTarget: number): void {
   if (s.activeHook?.type === 'COMBAT' && !ui.inspectedCard && !ui.inspectedPile && !ui.showDeck) {
     const stats = getEffectiveStatsFromState(s);
     const playerAcc = getPlayerAcc(stats, computeCombatGearBonuses(s.equippedGear).acc);
-    const updated = updateMonsterCarouselDom(root, s.activeHook.combat, ui.targetIndex, playerAcc, getPlayerCritThreshold(stats));
-    if (!updated) {
-      render();
-    }
+    const updated = updateMonsterCarouselDom(root, s.activeHook.combat, ui.targetIndex, playerAcc);
+    if (!updated) render();
   } else {
     render();
   }
 }
 
 function navigateCombatTarget(direction: -1 | 1): void {
-  if (hasBlockingUiOverlay(ui) || isCombatAnimating) return;
+  if (hasBlockingUiOverlay(ui) || combatAnimator.isAnimating()) return;
   const s = store.get();
   if (s.activeHook?.type !== 'COMBAT') return;
   const combat = s.activeHook.combat;
@@ -138,320 +151,29 @@ function navigateCombatTarget(direction: -1 | 1): void {
 
 function selectHandCard(index: number): void {
   const state = store.get();
-  if (state.activeHook.type !== 'COMBAT' || hasBlockingUiOverlay(ui) || isCombatAnimating) return;
+  if (state.activeHook.type !== 'COMBAT' || hasBlockingUiOverlay(ui) || combatAnimator.isAnimating()) return;
   ui.handIndex = getHandCarouselIndex(index, state.activeHook.combat.hand.length);
   if (!updateHandCarouselDom(root, ui.handIndex)) render();
 }
 
 function navigateHand(direction: -1 | 1): void {
   const state = store.get();
-  if (state.activeHook.type !== 'COMBAT' || isCombatAnimating) return;
+  if (state.activeHook.type !== 'COMBAT' || combatAnimator.isAnimating()) return;
   const count = state.activeHook.combat.hand.length;
   if (count < 2) return;
   selectHandCard((getHandCarouselIndex(ui.handIndex ?? 0, count) + direction + count) % count);
 }
 
+// Pointer gestures: hand carousel swipe + long-press inspection (2s cards, 1s piles/stats)
 let handSwipe: { x: number; y: number } | null = null;
 let handSwipeConsumed = false;
-root.addEventListener('dragstart', ev => {
-  if ((ev.target as HTMLElement).closest('.hand-carousel-track')) ev.preventDefault();
-});
-root.addEventListener('pointerdown', ev => {
-  if ((ev.target as HTMLElement).closest('.hand-carousel-track')) handSwipe = { x: ev.clientX, y: ev.clientY };
-});
-root.addEventListener('pointercancel', () => { handSwipe = null; });
-root.addEventListener('pointerup', ev => {
-  if (!handSwipe) return;
-  const dx = ev.clientX - handSwipe.x;
-  const dy = ev.clientY - handSwipe.y;
-  handSwipe = null;
-  if (Math.abs(dx) < 40 || Math.abs(dx) <= Math.abs(dy)) return;
-  clearLongPress();
-  handSwipeConsumed = true;
-  navigateHand(dx < 0 ? 1 : -1);
-  window.setTimeout(() => { handSwipeConsumed = false; }, 250);
-});
-
-function render(): void {
-  const languageSelect = languageControl.querySelector('select');
-  if (languageSelect) languageSelect.value = getGameLocale();
-  const s = store.get();
-  // Preserve scroll of scrollable containers across re-renders
-  const scroll = new Map<string, number>();
-  root.querySelectorAll<HTMLElement>('.modal, .sheet').forEach((el, i) => scroll.set(String(i), el.scrollTop));
-
-  const isMuted = audioManager.isTrackMuted();
-  const audioBtnHtml = ui.showGuide ? '' : `<button class="audio-btn ${isMuted ? 'muted' : ''}" data-action="toggle-audio" title="${isMuted ? 'Unmute Music' : 'Mute Music'}" aria-label="Toggle Music">${isMuted ? '🔇' : '🔊'}</button>`;
-
-  if (s.screen === 'welcome') {
-    root.innerHTML = renderWelcome(Boolean(ui.showGuide), ui.guidePage ?? 1, ui.inspectedCard, ui.inspectedStat, s) + audioBtnHtml;
-  } else if (s.screen === 'class_select') {
-    if (!ui.selectedClass) ui.selectedClass = 'fighter';
-    const updated = updateClassCarouselDom(root, ui.selectedClass);
-    if (!updated) {
-      root.innerHTML = renderClassSelect(ui) + audioBtnHtml;
-    }
-  } else {
-    root.innerHTML = renderPlayArea(s, ui) + audioBtnHtml;
-  }
-
-  localizeGameTree(root);
-
-  root.querySelectorAll<HTMLElement>('.modal, .sheet').forEach((el, i) => {
-    el.scrollTop = scroll.get(String(i)) ?? 0;
-  });
-}
-
-store.subscribe((state) => {
-  if (isCombatAnimating) return;
-  render();
-  audioManager.sync(state);
-});
-
-// ---------------------------------------------------------------------------
-// Card Inspection (Right-Click or Long-Press for 2s)
-// ---------------------------------------------------------------------------
-
-function findInspectedCard(cardEl: HTMLElement): InspectedCardInfo | null {
-  const {
-    inspectKind,
-    cardId,
-    cardInstance,
-    monsterId,
-    monsterIndex,
-    nodeCol,
-    nodeRow,
-    boardKey,
-    adventureCardName,
-    adventureCardNumber,
-  } = cardEl.dataset;
-  const s = store.get();
-
-  if (inspectKind === 'action') {
-    // 1. Look up in active combat hand
-    if (s.activeHook.type === 'COMBAT') {
-      const fromHand = s.activeHook.combat.hand.find((c) => c.instanceId === cardInstance);
-      if (fromHand) return { kind: 'action', card: fromHand };
-    }
-    // 2. Look up in master deck
-    const fromDeck = s.playerMasterDeck.find((c) => c.instanceId === cardInstance);
-    if (fromDeck) return { kind: 'action', card: fromDeck };
-
-    // 3. Look up in learnable Skills piles.
-    const fromNewSkills = [...s.newSkillsDeck, ...s.newSkillsDiscard].find((c) => c.instanceId === cardInstance);
-    if (fromNewSkills) return { kind: 'action', card: fromNewSkills };
-
-    // 4. Look up in village train options
-    if (s.activeHook.type === 'VILLAGE') {
-      const fromTrain = s.activeHook.village.trainOptions.find((c) => c.instanceId === cardInstance);
-      if (fromTrain) return { kind: 'action', card: fromTrain };
-    }
-
-    // 5. Fallback to catalog instance
-    if (cardId === FLEE_CARD_ID) {
-      return { kind: 'action', card: createFleeCard(s.playerClass ?? 'fighter') };
-    }
-    if (cardId) {
-      try {
-        return { kind: 'action', card: createCombatCardInstance(cardId, 'inspect') };
-      } catch {}
-    }
-  } else if (inspectKind === 'monster') {
-    if (s.activeHook.type === 'COMBAT') {
-      const idx = Number(monsterIndex);
-      const cm = s.activeHook.combat.monsters[idx];
-      if (cm) {
-        const boons: { name: string; description: string; value: string }[] = [];
-        const bonus = cm.attackBonus ?? 0;
-        if (bonus > 0) {
-          const damagingIntent = cm.monster.pattern.find((intent) => intent.damage > 0);
-          const baseDamage = damagingIntent?.damage ?? 0;
-          boons.push({
-            name: cm.monster.templateId === 'bullwark' ? 'Chaotic Impulse' : 'Temporary Attack Boon',
-            value: `+${bonus} ATK`,
-            description: damagingIntent
-              ? `${damagingIntent.label} currently deals ${baseDamage + bonus} DMG (Base ${baseDamage} + ${bonus} Boon).`
-              : `Gains +${bonus} ATK while this temporary boon remains active.`,
-          });
-        }
-        if (cm.evaBonus && cm.evaBonus > 0) {
-          boons.push({
-            name: 'Stalking Evasion',
-            value: `+${cm.evaBonus} EVA`,
-            description: `Carefully stalks prey from concealment, gaining +${cm.evaBonus} EVA against incoming attacks this round.`,
-          });
-        }
-        if (cm.accBonus && cm.accBonus > 0) {
-          boons.push({
-            name: cm.monster.templateId === 'bullwark' ? 'Chaotic Impulse' : 'Lunging Accuracy',
-            value: `+${cm.accBonus} ACC`,
-            description: cm.monster.templateId === 'bullwark'
-              ? `Chaotic Impulse grants +${cm.accBonus} ACC to Bullwark's next action.`
-              : `Leaps forward with predatory precision, gaining +${cm.accBonus} ACC on attack rolls this round.`,
-          });
-        }
-        if (cm.block > 0) {
-          boons.push({
-            name: 'Active Block',
-            value: `+${cm.block} Block`,
-            description: `Absorbs incoming attack damage before creature HP is reduced.`,
-          });
-        }
-        return {
-          kind: 'monster',
-          monster: cm.monster,
-          currentHp: cm.hp,
-          block: cm.block,
-          attackBonus: cm.attackBonus,
-          accBonus: cm.accBonus,
-          evaBonus: cm.evaBonus,
-          activeBoons: boons,
-        };
-      }
-    }
-    if (monsterId && monsterId in MONSTER_TEMPLATES) {
-      const tpl = MONSTER_TEMPLATES[monsterId as MonsterTemplateId];
-      return { kind: 'monster', monster: { ...tpl, id: `monster_${monsterId}_inspect` } };
-    }
-  } else if (inspectKind === 'adventure') {
-    // 1. Check direct board key (e.g. "0.0,0", "-1.0,2", "0.5,1")
-    if (boardKey && s.board[boardKey]) {
-      return { kind: 'adventure', card: s.board[boardKey].card };
-    }
-    // 2. Convert col & row via toGridKey
-    if (nodeCol !== undefined && nodeRow !== undefined) {
-      const gridKey = toGridKey(Number(nodeCol), Number(nodeRow));
-      if (s.board[gridKey]) {
-        return { kind: 'adventure', card: s.board[gridKey].card };
-      }
-      const rawKey = `${nodeCol},${nodeRow}`;
-      if (s.board[rawKey]) {
-        return { kind: 'adventure', card: s.board[rawKey].card };
-      }
-    }
-    // 3. Search board by card ID
-    if (cardId) {
-      const foundNode = Object.values(s.board).find((n) => n.card.id === cardId);
-      if (foundNode) return { kind: 'adventure', card: foundNode.card };
-    }
-    // 4. Fallback to adventureDeck or adventureDiscard
-    if (adventureCardNumber) {
-      const fromDeck = s.adventureDeck.find((c) => c.cardNumber === adventureCardNumber);
-      if (fromDeck) return { kind: 'adventure', card: fromDeck };
-      const fromDiscard = s.adventureDiscard.find((c) => c.cardNumber === adventureCardNumber);
-      if (fromDiscard) return { kind: 'adventure', card: fromDiscard };
-      if (adventureCardNumber in ADVENTURE_CARD_CATALOG) {
-        const def = ADVENTURE_CARD_CATALOG[adventureCardNumber];
-        return {
-          kind: 'adventure',
-          card: {
-            id: `inspect_${def.cardCode}`,
-            name: def.name,
-            terrain: def.terrain,
-            level: def.level,
-            hasHostile: def.hasHostile,
-            hasVillage: def.hasVillage,
-            hasShrine: def.hasShrine,
-            revealed: true,
-            cardNumber: def.cardCode,
-            flavorText: def.flavorText,
-          },
-        };
-      }
-    }
-    if (adventureCardName) {
-      const fromDeck = s.adventureDeck.find((c) => (c.name || getAdventureCardName(c)) === adventureCardName);
-      if (fromDeck) return { kind: 'adventure', card: fromDeck };
-      const fromDiscard = s.adventureDiscard.find((c) => (c.name || getAdventureCardName(c)) === adventureCardName);
-      if (fromDiscard) return { kind: 'adventure', card: fromDiscard };
-    }
-  } else if (inspectKind === 'item') {
-    const { itemId, itemInstance } = cardEl.dataset;
-    // 1. Check active village shop stock
-    if (s.activeHook.type === 'VILLAGE' && s.activeHook.village.shopStock) {
-      const inStock = s.activeHook.village.shopStock.find(
-        (i) => (itemInstance && i.instanceId === itemInstance) || i.id === itemId
-      );
-      if (inStock) return { kind: 'item', item: inStock };
-    }
-    // 2. Check treasure deck and discard
-    if (itemInstance) {
-      const inDeck = s.treasureDeck.find((i) => i.instanceId === itemInstance);
-      if (inDeck) return { kind: 'item', item: inDeck };
-      const inDiscard = s.treasureDiscard.find((i) => i.instanceId === itemInstance);
-      if (inDiscard) return { kind: 'item', item: inDiscard };
-    }
-    // 3. Check equipped gear
-    if (itemInstance) {
-      for (const slot of ['weapon', 'armor', 'accessory'] as const) {
-        if (s.equippedGear[slot]?.instanceId === itemInstance) {
-          return { kind: 'item', item: s.equippedGear[slot]! };
-        }
-      }
-      // 4. Check backpack
-      const inBackpack = s.backpack.find((i) => i.instanceId === itemInstance);
-      if (inBackpack) return { kind: 'item', item: inBackpack };
-    }
-    // 5. Check catalog by ID
-    if (itemId) {
-      const cat = SHOP_ITEM_CATALOG.find((i) => i.id === itemId);
-      if (cat) return { kind: 'item', item: { ...cat, instanceId: itemInstance || `inspect_${cat.id}` } };
-    }
-  }
-
-  return null;
-}
-
-// Right Click to inspect full card details OR open deck/discard pile modal OR stat info modal
-root.addEventListener('contextmenu', (ev) => {
-  const target = ev.target as HTMLElement;
-
-  // 1. Right-click on a stat row to inspect stat computation & next SP cost
-  const statEl = target.closest<HTMLElement>('[data-inspect-stat]');
-  if (statEl) {
-    ev.preventDefault();
-    ev.stopPropagation();
-    const stat = statEl.dataset.inspectStat as StatKey;
-    if (stat) {
-      ui.inspectedStat = stat;
-      render();
-      return;
-    }
-  }
-
-  // 2. Right-click on a deck or discard pile
-  const pileEl = target.closest<HTMLElement>('[data-pile], [data-pile-default]');
-  if (pileEl) {
-    ev.preventDefault();
-    ev.stopPropagation();
-    const pile = (pileEl.dataset.pile ?? pileEl.dataset.pileDefault) as PileType;
-    if (pile) {
-      ui.inspectedPile = pile;
-      render();
-      return;
-    }
-  }
-
-  // 3. Right-click on an inspectable card
-  const cardEl = target.closest<HTMLElement>('[data-inspect-kind]');
-  if (!cardEl) return;
-  ev.preventDefault();
-  ev.stopPropagation();
-  const info = findInspectedCard(cardEl);
-  if (info) {
-    ui.inspectedCard = info;
-    render();
-  }
-});
-
-// Touch / Pointer Long Press (2s for cards, 1s for deck piles and stats)
 let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 let longPressTriggered = false;
 let longPressGeneration = 0;
 let startX = 0;
 let startY = 0;
 
-function clearLongPress() {
+function clearLongPress(): void {
   longPressGeneration += 1;
   if (longPressTimer) {
     clearTimeout(longPressTimer);
@@ -459,7 +181,7 @@ function clearLongPress() {
   }
 }
 
-function clearTransientUiForNewAdventure() {
+function clearTransientUiForNewAdventure(): void {
   clearLongPress();
   longPressTriggered = false;
   handSwipe = null;
@@ -474,10 +196,16 @@ function clearTransientUiForNewAdventure() {
   ui.pendingShrineAction = null;
   ui.selectedShrineStat = null;
   ui.showGuide = false;
+  ui.showSaves = false;
+  ui.pendingSaveAction = null;
   ui.handIndex = 0;
   ui.targetIndex = 0;
   ui.villageRestTicks = undefined;
 }
+
+root.addEventListener('dragstart', (ev) => {
+  if ((ev.target as HTMLElement).closest('.hand-carousel-track')) ev.preventDefault();
+});
 
 root.addEventListener('input', (ev) => {
   const target = ev.target as HTMLInputElement;
@@ -487,8 +215,12 @@ root.addEventListener('input', (ev) => {
 });
 
 root.addEventListener('pointerdown', (ev) => {
-  if (ev.button !== 0 && ev.pointerType === 'mouse') return;
   const target = ev.target as HTMLElement;
+  if (target.closest('.hand-carousel-track')) {
+    handSwipe = { x: ev.clientX, y: ev.clientY };
+  }
+
+  if (ev.button !== 0 && ev.pointerType === 'mouse') return;
   const pileEl = target.closest<HTMLElement>('[data-pile]');
   const cardEl = target.closest<HTMLElement>('[data-inspect-kind]');
   const statEl = target.closest<HTMLElement>('[data-inspect-stat]');
@@ -498,9 +230,9 @@ root.addEventListener('pointerdown', (ev) => {
   longPressTriggered = false;
   startX = ev.clientX;
   startY = ev.clientY;
+  const generation = ++longPressGeneration;
 
   if (statEl) {
-    const generation = ++longPressGeneration;
     longPressTimer = setTimeout(() => {
       if (generation !== longPressGeneration) return;
       longPressTimer = null;
@@ -512,7 +244,6 @@ root.addEventListener('pointerdown', (ev) => {
       }
     }, 1000);
   } else if (pileEl) {
-    const generation = ++longPressGeneration;
     longPressTimer = setTimeout(() => {
       if (generation !== longPressGeneration) return;
       longPressTimer = null;
@@ -524,12 +255,11 @@ root.addEventListener('pointerdown', (ev) => {
       }
     }, 1000);
   } else if (cardEl) {
-    const generation = ++longPressGeneration;
     longPressTimer = setTimeout(() => {
       if (generation !== longPressGeneration) return;
       longPressTimer = null;
       longPressTriggered = true;
-      const info = findInspectedCard(cardEl);
+      const info = findInspectedCard(store.get(), cardEl);
       if (info) {
         ui.inspectedCard = info;
         render();
@@ -540,351 +270,95 @@ root.addEventListener('pointerdown', (ev) => {
 
 root.addEventListener('pointermove', (ev) => {
   if (!longPressTimer) return;
-  const dx = Math.abs(ev.clientX - startX);
-  const dy = Math.abs(ev.clientY - startY);
-  if (dx > 10 || dy > 10) {
+  if (Math.abs(ev.clientX - startX) > 10 || Math.abs(ev.clientY - startY) > 10) {
     clearLongPress();
   }
 });
 
-root.addEventListener('pointerup', () => {
+root.addEventListener('pointerup', (ev) => {
   clearLongPress();
+  if (!handSwipe) return;
+  const dx = ev.clientX - handSwipe.x;
+  const dy = ev.clientY - handSwipe.y;
+  handSwipe = null;
+  if (Math.abs(dx) < 40 || Math.abs(dx) <= Math.abs(dy)) return;
+  handSwipeConsumed = true;
+  navigateHand(dx < 0 ? 1 : -1);
+  window.setTimeout(() => {
+    handSwipeConsumed = false;
+  }, 250);
 });
 
 root.addEventListener('pointercancel', () => {
+  handSwipe = null;
   clearLongPress();
 });
 
+// Right-click to inspect cards, deck/discard piles, or stats
+root.addEventListener('contextmenu', (ev) => {
+  const target = ev.target as HTMLElement;
 
-let diceRollInterval: ReturnType<typeof setInterval> | null = null;
-let diceRollTimeout: ReturnType<typeof setTimeout> | null = null;
-
-function clearDiceAnimation(): void {
-  if (diceRollInterval !== null) {
-    clearInterval(diceRollInterval);
-    diceRollInterval = null;
-  }
-  if (diceRollTimeout !== null) {
-    clearTimeout(diceRollTimeout);
-    diceRollTimeout = null;
-  }
-}
-
-function startDiceAnimation(): void {
-  clearDiceAnimation();
-  if (!ui.pendingDiceRolls || ui.pendingDiceRolls.length === 0) return;
-  const current = ui.pendingDiceRolls[0];
-  if (current.settled) return;
-
-  diceRollInterval = setInterval(() => {
-    const diceElems = root.querySelectorAll<HTMLElement>('.dice-bounce-container.is-rolling .tabletop-die');
-    diceElems.forEach((el) => {
-      el.textContent = '🎲 ' + (Math.floor(Math.random() * 6) + 1);
-    });
-    const totalElem = root.querySelector<HTMLElement>('.dice-bounce-container.is-rolling .die-total-value');
-    if (totalElem) {
-      totalElem.textContent = String(Math.floor(Math.random() * 16) + 3);
-    }
-  }, 45);
-
-  diceRollTimeout = setTimeout(() => {
-    settleActiveDiceRoll();
-  }, 650);
-}
-
-function settleActiveDiceRoll(): void {
-  clearDiceAnimation();
-  if (!ui.pendingDiceRolls || ui.pendingDiceRolls.length === 0) return;
-  const current = ui.pendingDiceRolls[0];
-  if (!current.settled) {
-    current.settled = true;
-    render();
-  }
-}
-
-function applyMonsterDefeatToDom(targetIdx: number, maxHp: number): void {
-  const monsterUnit = root.querySelector<HTMLElement>(`.combat-monster-unit[data-id="${targetIdx}"]`);
-  if (!monsterUnit) return;
-
-  monsterUnit.classList.remove('is-selected-unit', 'selected');
-  monsterUnit.classList.add('is-dead-unit', 'is-defeat-animating');
-
-  const card = monsterUnit.querySelector<HTMLElement>('.tcg-creature');
-  if (card) {
-    card.classList.remove('is-targeted');
-    card.classList.add('is-dead');
-    if (!card.querySelector('.tcg-dead-banner')) {
-      const banner = document.createElement('div');
-      banner.className = 'tcg-dead-banner';
-      banner.textContent = 'DEFEATED';
-      card.appendChild(banner);
-    }
-    card.querySelector('.tcg-shield-overlay')?.remove();
-  }
-
-  const badgeTop = monsterUnit.querySelector<HTMLElement>('.combat-target-badge-top');
-  if (badgeTop) {
-    badgeTop.className = 'combat-target-spacer';
-    badgeTop.textContent = '';
-  }
-
-  const dock = monsterUnit.querySelector<HTMLElement>('.creature-combat-dock');
-  if (dock) {
-    dock.classList.add('is-dead');
-    const intentVal = dock.querySelector<HTMLElement>('.dock-intent-val');
-    if (intentVal) {
-      intentVal.innerHTML = '<span class="intent-dead">Defeated</span>';
-    }
-    const hpFill = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-fill');
-    if (hpFill) {
-      hpFill.style.width = '0%';
-    }
-    const hpText = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-text');
-    if (hpText) {
-      hpText.textContent = `0 / ${maxHp} HP`;
-    }
-  }
-}
-
-function applyMonsterSurvivingHpToDom(targetIdx: number, currentHp: number, maxHp: number, block = 0): void {
-  const monsterUnit = root.querySelector<HTMLElement>(`.combat-monster-unit[data-id="${targetIdx}"]`);
-  if (!monsterUnit) return;
-
-  const pct = Math.max(0, Math.min(100, Math.round((currentHp / maxHp) * 100)));
-  const dock = monsterUnit.querySelector<HTMLElement>('.creature-combat-dock');
-  if (dock) {
-    const hpFill = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-fill');
-    if (hpFill) {
-      hpFill.style.width = `${pct}%`;
-    }
-    const hpText = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-text');
-    if (hpText) {
-      hpText.innerHTML = `${currentHp} / ${maxHp} HP${block > 0 ? ` (+${block} &#128737;)` : ''}`;
-    }
-  }
-
-  const card = monsterUnit.querySelector<HTMLElement>('.tcg-creature');
-  if (card) {
-    const shieldOverlay = card.querySelector<HTMLElement>('.tcg-shield-overlay');
-    if (block > 0) {
-      if (shieldOverlay) {
-        shieldOverlay.innerHTML = `&#128737; ${block} Block`;
-      } else {
-        const newShield = document.createElement('div');
-        newShield.className = 'tcg-shield-overlay';
-        newShield.innerHTML = `&#128737; ${block} Block`;
-        card.appendChild(newShield);
-      }
-    } else if (shieldOverlay) {
-      shieldOverlay.remove();
-    }
-  }
-}
-
-function triggerMonsterDamageEffects(targetIdx: number, damage: number, blocked: number): void {
-  const monsterUnit = root.querySelector<HTMLElement>(`.combat-monster-unit[data-id="${targetIdx}"]`);
-  if (!monsterUnit) return;
-
-  monsterUnit.querySelectorAll('.combat-floating-damage').forEach((el) => el.remove());
-  monsterUnit.classList.remove('is-damage-shaking');
-  void monsterUnit.offsetWidth;
-  monsterUnit.classList.add('is-damage-shaking');
-
-  const floatEl = document.createElement('div');
-  floatEl.className = 'combat-floating-damage' + (damage === 0 && blocked > 0 ? ' is-blocked' : '');
-  floatEl.textContent = damage > 0 ? `-${damage}` : `🛡️ BLOCKED`;
-  monsterUnit.appendChild(floatEl);
-
-  setTimeout(() => {
-    monsterUnit.classList.remove('is-damage-shaking');
-    floatEl.remove();
-  }, 1100);
-}
-
-function applyNextDiceRoll(): void {
-  if (isVictoryTransitioning || isCombatAnimating) return;
-  clearDiceAnimation();
-  if (!ui.pendingDiceRolls || ui.pendingDiceRolls.length === 0) return;
-  const current = ui.pendingDiceRolls[0];
-  if (!current.settled) {
-    settleActiveDiceRoll();
-    return;
-  }
-  ui.pendingDiceRolls.shift();
-  const nextStateToSet = current.nextState;
-
-  const roll = current.roll;
-  const isHeroAttack = roll.attackerName === 'Hero';
-  const targetIdx = roll.targetIndex ?? ui.targetIndex;
-  const isHit = roll.isHit;
-  const damage = roll.damageDealt;
-  const blocked = roll.damageBlocked;
-  const shouldPlayDamageVfx = isHeroAttack && isHit && (damage > 0 || blocked > 0);
-
-  // If there are more pending rolls, advance to the next roll
-  if (ui.pendingDiceRolls.length > 0) {
-    ui.pendingDiceRolls[0].settled = false;
-    if (nextStateToSet) {
-      store.set(nextStateToSet);
-    }
-    render();
-    if (shouldPlayDamageVfx) {
-      audioManager.playSlashSound();
-      triggerMonsterDamageEffects(targetIdx, damage, blocked);
-    }
-    startDiceAnimation();
-    return;
-  }
-
-  // All pending dice rolls completed
-  ui.pendingDiceRolls = null;
-
-  if (!nextStateToSet) {
-    render();
-    return;
-  }
-
-  // If no damage VFX is needed (e.g. attack missed or 0 damage/block)
-  if (!shouldPlayDamageVfx) {
-    store.set(nextStateToSet);
-    ui.targetIndex = targetIdx;
-    render();
-    return;
-  }
-
-  // Determine pre-damage monster state and final combat state
-  const s = store.get();
-  const combatBefore = s.activeHook?.type === 'COMBAT' ? s.activeHook.combat : undefined;
-  const monsterBefore = combatBefore?.monsters[targetIdx];
-
-  const isVictory = nextStateToSet.activeHook?.type === 'VICTORY';
-  const finalCombatState = nextStateToSet.activeHook?.type === 'COMBAT'
-    ? nextStateToSet.activeHook.combat
-    : (nextStateToSet.activeHook as any)?.victory?.finalCombatState;
-
-  const monsterAfter = finalCombatState?.monsters[targetIdx];
-  const isDead = Boolean(monsterAfter && monsterAfter.hp <= 0);
-  const maxHp = monsterAfter?.monster.maxHp ?? monsterBefore?.monster.maxHp ?? 10;
-
-  isCombatAnimating = true;
-
-  // Step 1: Return to battle screen with target monster STILL ALIVE and CENTERED
-  const initialCombat = finalCombatState
-    ? {
-        ...finalCombatState,
-        monsters: finalCombatState.monsters.map((m: CombatMonster, idx: number) =>
-          idx === targetIdx && monsterBefore
-            ? { ...m, hp: Math.max(1, monsterBefore.hp), block: monsterBefore.block }
-            : m
-        ),
-      }
-    : undefined;
-
-  const step1State: RunState = syncAudioState({
-    ...nextStateToSet,
-    activeHook: {
-      type: 'COMBAT',
-      combat: initialCombat ?? finalCombatState,
-    },
-  });
-
-  store.set(step1State);
-  ui.targetIndex = targetIdx;
-  render();
-
-  // Play slash sound and violent card shake with floating damage
-  audioManager.playSlashSound();
-  triggerMonsterDamageEffects(targetIdx, damage, blocked);
-
-  // Step 2: After the violent damage shake completes (520ms)
-  setTimeout(() => {
-    if (!isDead && monsterAfter) {
-      // Monster survived: update HP bar to surviving HP, keep target centered
-      applyMonsterSurvivingHpToDom(targetIdx, monsterAfter.hp, maxHp, monsterAfter.block ?? 0);
-      store.set(nextStateToSet);
-
-      setTimeout(() => {
-        isCombatAnimating = false;
-        render();
-      }, 400);
+  const statEl = target.closest<HTMLElement>('[data-inspect-stat]');
+  if (statEl) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const stat = statEl.dataset.inspectStat as StatKey;
+    if (stat) {
+      ui.inspectedStat = stat;
+      render();
       return;
     }
+  }
 
-    // Monster died: apply greyout animation in DOM while keeping it CENTERED
-    applyMonsterDefeatToDom(targetIdx, maxHp);
+  const pileEl = target.closest<HTMLElement>('[data-pile], [data-pile-default]');
+  if (pileEl) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const pile = (pileEl.dataset.pile ?? pileEl.dataset.pileDefault) as PileType;
+    if (pile) {
+      ui.inspectedPile = pile;
+      render();
+      return;
+    }
+  }
 
-    const deadTargetCombat = {
-      ...finalCombatState,
-      monsters: finalCombatState.monsters.map((m: CombatMonster, idx: number) =>
-        idx === targetIdx ? { ...m, hp: 0, block: 0 } : m
-      ),
-    };
-    const dyingState: RunState = syncAudioState({
-      ...nextStateToSet,
-      activeHook: {
-        type: 'COMBAT',
-        combat: deadTargetCombat,
-      },
-    });
-    store.set(dyingState);
+  const cardEl = target.closest<HTMLElement>('[data-inspect-kind]');
+  if (!cardEl) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  const info = findInspectedCard(store.get(), cardEl);
+  if (info) {
+    ui.inspectedCard = info;
+    render();
+  }
+});
 
-    // Step 3: After greyout animation completes (750ms later, total 1270ms)
-    setTimeout(() => {
-      if (isVictory) {
-        // All enemies defeated: display victory modal
-        isCombatAnimating = false;
-        isVictoryTransitioning = true;
-        store.set(nextStateToSet);
-        render();
-        isVictoryTransitioning = false;
-      } else {
-        // Living enemies remain: smoothly rotate carousel to next available living enemy
-        const livingNext = firstLivingMonsterIndex(finalCombatState);
-        if (livingNext >= 0) {
-          ui.targetIndex = livingNext;
-        }
-        store.set(nextStateToSet);
-        const stats = getEffectiveStatsFromState(nextStateToSet);
-        const combatGear = computeCombatGearBonuses(nextStateToSet.equippedGear);
-        const playerAcc = getPlayerAcc(stats, combatGear.acc);
-        const updated = updateMonsterCarouselDom(
-          root,
-          finalCombatState,
-          ui.targetIndex,
-          playerAcc,
-          getPlayerCritThreshold(stats)
-        );
-        if (!updated) {
-          render();
-        }
-
-        setTimeout(() => {
-          isCombatAnimating = false;
-          render();
-        }, 350); // wait for 0.3s CSS carousel transition
-      }
-    }, 750);
-  }, 520);
-}
-
-// Keyboard shortcuts
 window.addEventListener('keydown', (ev) => {
-  if (isVictoryTransitioning || isCombatAnimating) return;
+  if (combatAnimator.isTransitioningVictory() || combatAnimator.isAnimating()) return;
   const s = store.get();
+
   if (ui.pendingDiceRolls && ui.pendingDiceRolls.length > 0) {
     if (ev.key === 'Enter' || ev.key === ' ') {
       ev.preventDefault();
-      applyNextDiceRoll();
-      return;
-    }
-    if (ev.key === 'Escape') {
+      combatAnimator.applyNextDiceRoll();
+    } else if (ev.key === 'Escape') {
       ev.preventDefault();
-      settleActiveDiceRoll();
-      return;
+      combatAnimator.settleActiveDiceRoll();
     }
     return;
   }
 
+  if (s.activeHook.type === 'BOSS_APPROACH' && (ev.key === 'Enter' || ev.key === ' ')) {
+    ev.preventDefault();
+    store.update(startBossCombat);
+    return;
+  }
+
+  if (ui.pendingCardPlay && (ev.key === 'Enter' || ev.key === ' ')) {
+    ev.preventDefault();
+    combatAnimator.executeConfirmPlayCard();
+    return;
+  }
 
   if (ev.key === 'Escape') {
     if (ui.inspectedCard || ui.inspectedStat) {
@@ -907,6 +381,12 @@ window.addEventListener('keydown', (ev) => {
     } else if (ui.pendingShrineAction) {
       ui.pendingShrineAction = null;
       render();
+    } else if (ui.pendingSaveAction) {
+      ui.pendingSaveAction = null;
+      render();
+    } else if (ui.showSaves) {
+      ui.showSaves = false;
+      render();
     } else if (ui.showGuide) {
       ui.showGuide = false;
       render();
@@ -917,7 +397,6 @@ window.addEventListener('keydown', (ev) => {
     return;
   }
 
-  // AD&D Rulebook keyboard page turning
   if (ui.showGuide) {
     if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A' || ev.key === 'PageUp') {
       ev.preventDefault();
@@ -927,11 +406,11 @@ window.addEventListener('keydown', (ev) => {
     }
     if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D' || ev.key === 'PageDown') {
       ev.preventDefault();
-      ui.guidePage = Math.min(6, (ui.guidePage ?? 1) + 1);
+      ui.guidePage = Math.min(7, (ui.guidePage ?? 1) + 1);
       render();
       return;
     }
-    if (['1', '2', '3', '4', '5', '6'].includes(ev.key)) {
+    if (['1', '2', '3', '4', '5', '6', '7'].includes(ev.key)) {
       ev.preventDefault();
       ui.guidePage = parseInt(ev.key, 10);
       render();
@@ -953,20 +432,16 @@ window.addEventListener('keydown', (ev) => {
 
     if (ev.key === 'a' || ev.key === 'A' || ev.key === 'ArrowLeft') {
       ev.preventDefault();
-      const prevIdx = (activeIdx - 1 + CLASS_CAROUSEL_ORDER.length) % CLASS_CAROUSEL_ORDER.length;
-      ui.selectedClass = CLASS_CAROUSEL_ORDER[prevIdx];
+      ui.selectedClass = CLASS_CAROUSEL_ORDER[(activeIdx - 1 + CLASS_CAROUSEL_ORDER.length) % CLASS_CAROUSEL_ORDER.length];
       render();
       return;
     }
-
     if (ev.key === 'd' || ev.key === 'D' || ev.key === 'ArrowRight') {
       ev.preventDefault();
-      const nextIdx = (activeIdx + 1) % CLASS_CAROUSEL_ORDER.length;
-      ui.selectedClass = CLASS_CAROUSEL_ORDER[nextIdx];
+      ui.selectedClass = CLASS_CAROUSEL_ORDER[(activeIdx + 1) % CLASS_CAROUSEL_ORDER.length];
       render();
       return;
     }
-
     if (ev.key === 'Enter' || ev.key === ' ') {
       ev.preventDefault();
       const seed = newSeed();
@@ -976,12 +451,10 @@ window.addEventListener('keydown', (ev) => {
     }
   }
 
-  if (s.screen === 'play_area' && s.activeHook?.type === 'VICTORY') {
-    if (ev.key === 'Enter' || ev.key === ' ') {
-      ev.preventDefault();
-      store.update(confirmCombatVictory);
-      return;
-    }
+  if (s.screen === 'play_area' && s.activeHook?.type === 'VICTORY' && (ev.key === 'Enter' || ev.key === ' ')) {
+    ev.preventDefault();
+    store.update(confirmCombatVictory);
+    return;
   }
 
   if (s.screen === 'play_area' && s.activeHook?.type === 'COMBAT') {
@@ -993,30 +466,39 @@ window.addEventListener('keydown', (ev) => {
     }
     if (ev.key === 'a' || ev.key === 'A' || ev.key === 'ArrowLeft') {
       ev.preventDefault();
-      // With one target, target traversal has no effect. Reuse the familiar
-      // left controls for the hand carousel instead.
       const livingTargets = s.activeHook.combat.monsters.filter((monster) => monster.hp > 0).length;
       if (livingTargets <= 1) navigateHand(-1);
       else navigateCombatTarget(-1);
       return;
     }
-
     if (ev.key === 'd' || ev.key === 'D' || ev.key === 'ArrowRight') {
       ev.preventDefault();
       const livingTargets = s.activeHook.combat.monsters.filter((monster) => monster.hp > 0).length;
       if (livingTargets <= 1) navigateHand(1);
       else navigateCombatTarget(1);
-      return;
     }
   }
 });
 
-// ---------------------------------------------------------------------------
-// Click Handling
-// ---------------------------------------------------------------------------
+const actionContext: ActionContext = {
+  root,
+  store,
+  ui,
+  render,
+  newSeed,
+  clearTransientUiForNewAdventure,
+  setCombatTarget,
+  navigateCombatTarget,
+  selectHandCard,
+  navigateHand,
+  executeConfirmPlayCard: combatAnimator.executeConfirmPlayCard,
+  applyNextDiceRoll: combatAnimator.applyNextDiceRoll,
+  settleActiveDiceRoll: combatAnimator.settleActiveDiceRoll,
+  runTransitionWithDiceRolls: combatAnimator.runTransitionWithDiceRolls,
+};
 
 root.addEventListener('click', (ev) => {
-  if (isVictoryTransitioning || isCombatAnimating) return;
+  if (combatAnimator.isTransitioningVictory() || combatAnimator.isAnimating()) return;
   if (handSwipeConsumed) {
     handSwipeConsumed = false;
     return;
@@ -1028,496 +510,20 @@ root.addEventListener('click', (ev) => {
     return;
   }
 
-  // Side cards are previews, never actions. Handle their whole surface before
-  // generic action delegation so their card artwork cannot steal the click.
-  const handPreview = (ev.target as HTMLElement).closest<HTMLElement>('.hand-carousel-unit:not(.is-center)');
-  if (handPreview?.dataset.handIndex !== undefined) {
-    selectHandCard(Number(handPreview.dataset.handIndex));
+  const handUnit = (ev.target as HTMLElement).closest<HTMLElement>('.hand-carousel-unit:not(.is-center)');
+  if (handUnit?.dataset.handIndex !== undefined) {
+    selectHandCard(Number(handUnit.dataset.handIndex));
     return;
   }
 
   const target = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]');
   if (!target || (target as HTMLButtonElement).disabled) return;
   const { action, id, stat, col, row, pile } = target.dataset;
+  if (!action) return;
 
-  if (action === 'toggle-audio') {
-    audioManager.toggleMute();
-    render();
-    return;
-  }
-
-  if (action === 'open-pile') {
-    if ((pile || id) === 'new_skills_deck' || (pile || id) === 'new_skills_discard') {
-      store.update(reconcileRunNewSkills);
-    }
-    ui.inspectedPile = (pile || id) as PileType;
-    render();
-    return;
-  }
-
-  if (action === 'close-pile') {
-    ui.inspectedPile = null;
-    ui.showDeck = false;
-    render();
-    return;
-  }
-
-  if (action === 'close-pile-backdrop') {
-    if (ev.target === target) {
-      ui.inspectedPile = null;
-      ui.showDeck = false;
-      render();
-    }
-    return;
-  }
-
-  if (action === 'inspect-item') {
-    const cardEl = target.closest<HTMLElement>('[data-inspect-kind]') ?? target;
-    const info = findInspectedCard(cardEl);
-    if (info) {
-      ui.inspectedCard = info;
-      render();
-    }
-    return;
-  }
-
-  if (action === 'inspect-monster') {
-    const cardEl = target.closest<HTMLElement>('[data-inspect-kind="monster"]') ?? target;
-    const info = findInspectedCard(cardEl);
-    if (info) {
-      ui.inspectedCard = info;
-      render();
-    }
-    return;
-  }
-
-  if (action === 'close-inspect') {
-    ui.inspectedCard = null;
-    ui.inspectedStat = null;
-    render();
-    return;
-  }
-
-  if (action === 'close-inspect-backdrop') {
-    // Only close if clicking directly on the backdrop outside the modal
-    if (ev.target === target) {
-      ui.inspectedCard = null;
-      ui.inspectedStat = null;
-      render();
-    }
-    return;
-  }
-
-  if (action === 'prev-class') {
-    const current = ui.selectedClass ?? 'fighter';
-    const activeIdx = CLASS_CAROUSEL_ORDER.indexOf(current) >= 0 ? CLASS_CAROUSEL_ORDER.indexOf(current) : 0;
-    const prevIdx = (activeIdx - 1 + CLASS_CAROUSEL_ORDER.length) % CLASS_CAROUSEL_ORDER.length;
-    ui.selectedClass = CLASS_CAROUSEL_ORDER[prevIdx];
-    render();
-    return;
-  }
-
-  if (action === 'next-class') {
-    const current = ui.selectedClass ?? 'fighter';
-    const activeIdx = CLASS_CAROUSEL_ORDER.indexOf(current) >= 0 ? CLASS_CAROUSEL_ORDER.indexOf(current) : 0;
-    const nextIdx = (activeIdx + 1) % CLASS_CAROUSEL_ORDER.length;
-    ui.selectedClass = CLASS_CAROUSEL_ORDER[nextIdx];
-    render();
-    return;
-  }
-
-  switch (action) {
-    case 'start':
-      if (!ui.selectedClass) ui.selectedClass = 'fighter';
-      store.update(goToClassSelect);
-      break;
-    case 'open-guide':
-      ui.showGuide = true;
-      if (!ui.guidePage) ui.guidePage = 1;
-      render();
-      break;
-    case 'close-guide':
-      ui.showGuide = false;
-      render();
-      break;
-    case 'close-guide-backdrop':
-      if (ev.target === target) {
-        ui.showGuide = false;
-        render();
-      }
-      break;
-    case 'open-log':
-      ui.showLog = true;
-      render();
-      break;
-    case 'close-log':
-      ui.showLog = false;
-      render();
-      break;
-    case 'close-log-backdrop':
-      if (ev.target === target) {
-        ui.showLog = false;
-        render();
-      }
-      break;
-    case 'guide-prev-page':
-      ui.guidePage = Math.max(1, (ui.guidePage ?? 1) - 1);
-      render();
-      break;
-    case 'guide-next-page':
-      ui.guidePage = Math.min(6, (ui.guidePage ?? 1) + 1);
-      render();
-      break;
-    case 'guide-jump-page': {
-      const pageAttr = target.getAttribute('data-page');
-      if (pageAttr) {
-        const pNum = parseInt(pageAttr, 10);
-        if (pNum >= 1 && pNum <= 6) {
-          ui.guidePage = pNum;
-          render();
-        }
-      }
-      break;
-    }
-    case 'select-class':
-      if (id) {
-        ui.selectedClass = id as ClassId;
-        render();
-      }
-      break;
-    case 'embark': {
-      const chosen = ui.selectedClass ?? 'fighter';
-      const seed = newSeed();
-      clearTransientUiForNewAdventure();
-      store.set(startAdventure(chosen, seed));
-      break;
-    }
-    case 'next-mission':
-      store.update((s) => startNextMission(s));
-      break;
-    case 'restart':
-      ui.selectedClass = null;
-      store.set(createInitialState(newSeed()));
-      render();
-      break;
-    case 'choose':
-      ui.selectedShrineStat = null;
-      ui.pendingShrineAction = null;
-      store.update((s) => chooseCard(s, { col: Number(col), row: Number(row) }));
-      break;
-    case 'upgrade':
-      store.update((s) => shrineUpgradeStat(s, stat as StatKey));
-      break;
-    case 'inspect-stat':
-      ui.inspectedStat = (stat as StatKey) || null;
-      render();
-      break;
-    case 'equip':
-      store.update((s) => equipItem(s, id as string));
-      break;
-    case 'unequip':
-      store.update((s) => unequipItem(s, id as string));
-      break;
-    case 'use-item':
-      store.update((s) => useConsumable(s, id as string));
-      break;
-    case 'toggle-deck':
-      ui.showDeck = !ui.showDeck;
-      render();
-      break;
-    case 'prev-hand-card':
-      navigateHand(-1);
-      break;
-    case 'next-hand-card':
-      navigateHand(1);
-      break;
-    case 'select-hand-card':
-      selectHandCard(Number(id));
-      break;
-    case 'play-card': {
-      const curState = store.get();
-      if (curState.activeHook.type === 'COMBAT') {
-        const combat = curState.activeHook.combat;
-        const card = combat.hand.find((c: CombatCardDef) => c.instanceId === id);
-        if (card && combat.playerAp >= card.apCost) {
-          ui.pendingCardPlay = {
-            cardInstanceId: id as string,
-            targetIndex: ui.targetIndex,
-            discardedCardInstanceIds: [],
-          };
-          render();
-        }
-      }
-      break;
-    }
-    case 'apply-dice-roll':
-      applyNextDiceRoll();
-      break;
-    case 'skip-or-apply-dice':
-      if (ui.pendingDiceRolls && ui.pendingDiceRolls.length > 0) {
-        if (!ui.pendingDiceRolls[0].settled) {
-          settleActiveDiceRoll();
-        } else if (ev.target === target) {
-          applyNextDiceRoll();
-        }
-      }
-      break;
-    case 'confirm-play-card':
-      if (ui.pendingCardPlay) {
-        const { cardInstanceId, targetIndex, discardedCardInstanceIds = [] } = ui.pendingCardPlay;
-        ui.pendingCardPlay = null;
-        let evaluatedNext: RunState | null = null;
-        store.update((s: RunState) => {
-          evaluatedNext = playCard(s, cardInstanceId, targetIndex, discardedCardInstanceIds);
-          const rolls: CombatAttackRollSummary[] = (evaluatedNext.activeHook?.type === 'COMBAT' ? evaluatedNext.activeHook.combat.lastAttackRolls : (evaluatedNext.activeHook as any)?.victory?.lastAttackRolls) ?? [];
-          return rolls.length > 0 ? s : evaluatedNext;
-        });
-        if (evaluatedNext) {
-          const finalState: RunState = evaluatedNext;
-          const rolls: CombatAttackRollSummary[] = (finalState.activeHook?.type === 'COMBAT' ? finalState.activeHook.combat.lastAttackRolls : (finalState.activeHook as any)?.victory?.lastAttackRolls) ?? [];
-          if (rolls.length > 0) {
-            ui.pendingDiceRolls = rolls.map((r: CombatAttackRollSummary, i: number) => ({
-              roll: r,
-              nextState: i === rolls.length - 1 ? finalState : undefined,
-              settled: false,
-            }));
-            render();
-            startDiceAnimation();
-          }
-        }
-      }
-      break;
-    case 'toggle-card-discard': {
-      if (!ui.pendingCardPlay || !id) break;
-      const current = ui.pendingCardPlay.discardedCardInstanceIds ?? [];
-      ui.pendingCardPlay.discardedCardInstanceIds = current.includes(id)
-        ? current.filter((instanceId) => instanceId !== id)
-        : [...current, id];
-      render();
-      break;
-    }
-    case 'cancel-play-card':
-      ui.pendingCardPlay = null;
-      render();
-      break;
-    case 'close-confirm-backdrop':
-      if (ev.target === target) {
-        ui.pendingCardPlay = null;
-        render();
-      }
-      break;
-    case 'confirm-switch-target':
-      setCombatTarget(Number(id));
-      break;
-    case 'target':
-      setCombatTarget(Number(id));
-      break;
-    case 'prev-target':
-      navigateCombatTarget(-1);
-      break;
-    case 'next-target':
-      navigateCombatTarget(1);
-      break;
-    case 'welcome-upgrade':
-      store.update((s) => welcomeUpgradeStat(s, stat as StatKey));
-      break;
-    case 'shrine-upgrade':
-      store.update((s) => shrineUpgradeStat(s, stat as StatKey));
-      break;
-    case 'select-shrine-stat':
-      ui.selectedShrineStat = stat as StatKey;
-      render();
-      break;
-    case 'request-shrine-stat-upgrade':
-      if (stat) {
-        ui.selectedShrineStat = stat as StatKey;
-        ui.pendingShrineAction = { kind: 'upgrade-stat', stat: stat as StatKey };
-        render();
-      }
-      break;
-    case 'request-shrine-skill-upgrade':
-      if (id) {
-        ui.pendingShrineAction = { kind: 'upgrade-skill', sourceInstanceId: id };
-        render();
-      }
-      break;
-    case 'dismiss-welcome-dialog':
-      store.update(dismissWelcomePrepare);
-      break;
-    case 'shrine-pray':
-      store.update(shrinePray);
-      break;
-    case 'shrine-choose-prayer':
-      store.update((s) => shrineDoChoosePrayer(s, id as ShrinePrayerOptionId));
-      break;
-    case 'request-leave-shrine':
-      ui.pendingShrineAction = { kind: 'leave' };
-      render();
-      break;
-    case 'cancel-shrine-action':
-      ui.pendingShrineAction = null;
-      render();
-      break;
-    case 'cancel-shrine-action-backdrop':
-      if (ev.target === target) {
-        ui.pendingShrineAction = null;
-        render();
-      }
-      break;
-    case 'confirm-shrine-action': {
-      const pending = ui.pendingShrineAction;
-      ui.pendingShrineAction = null;
-      if (pending?.kind === 'upgrade-stat') {
-        store.update((s) => shrineUpgradeStat(s, pending.stat));
-      } else if (pending?.kind === 'upgrade-skill') {
-        store.update((s) => shrineUpgradeSkill(s, pending.sourceInstanceId));
-      } else if (pending?.kind === 'leave') {
-        ui.selectedShrineStat = null;
-        store.update(leaveShrine);
-      } else {
-        render();
-      }
-      break;
-    }
-    case 'village-back':
-      store.update(villageGoBack);
-      break;
-    case 'end-turn': {
-      ui.handIndex = 0;
-      let evaluatedNext: RunState | null = null;
-      store.update((s: RunState) => {
-        evaluatedNext = endTurn(s);
-        const rolls: CombatAttackRollSummary[] = (evaluatedNext.activeHook?.type === 'COMBAT' ? evaluatedNext.activeHook.combat.lastAttackRolls : ((evaluatedNext.activeHook as any)?.lastAttackRolls)) ?? [];
-        return rolls.length > 0 ? s : evaluatedNext;
-      });
-      if (evaluatedNext) {
-        const finalState: RunState = evaluatedNext;
-        const rolls: CombatAttackRollSummary[] = (finalState.activeHook?.type === 'COMBAT' ? finalState.activeHook.combat.lastAttackRolls : ((finalState.activeHook as any)?.lastAttackRolls)) ?? [];
-        if (rolls.length > 0) {
-          ui.pendingDiceRolls = rolls.map((r: CombatAttackRollSummary, i: number) => ({
-            roll: r,
-            nextState: i === rolls.length - 1 ? finalState : undefined,
-            settled: false,
-          }));
-          render();
-          startDiceAnimation();
-        }
-      }
-      break;
-    }
-    case 'village-rest':
-      store.update((s) => villageDoRest(s, ui.villageRestTicks));
-      break;
-    case 'village-shop':
-      ui.villageTab = 'buy';
-      store.update(villageChooseShop);
-      break;
-    case 'village-train':
-      store.update(villageChooseTrain);
-      break;
-    case 'village-leave':
-      ui.villageRestTicks = undefined;
-      ui.pendingTrainingAction = null;
-      store.update(finishVillage);
-      break;
-    case 'buy':
-      store.update((s) => buyItem(s, id as string));
-      break;
-    case 'sell':
-      store.update((s) => sellItem(s, id as string));
-      break;
-    case 'tab':
-      ui.villageTab = id as 'buy' | 'sell';
-      render();
-      break;
-    case 'train-draft':
-      ui.pendingTrainingAction = { kind: 'learn', cardInstanceId: id as string };
-      render();
-      break;
-    case 'train-remove':
-      ui.pendingTrainingAction = { kind: 'destroy', cardInstanceId: id as string };
-      render();
-      break;
-    case 'cancel-training-action':
-      ui.pendingTrainingAction = null;
-      render();
-      break;
-    case 'cancel-training-action-backdrop':
-      if (ev.target === target) {
-        ui.pendingTrainingAction = null;
-        render();
-      }
-      break;
-    case 'confirm-training-action': {
-      const pending = ui.pendingTrainingAction;
-      ui.pendingTrainingAction = null;
-      if (pending?.kind === 'learn') {
-        store.update((s) => villageDoTrainDraft(s, pending.cardInstanceId));
-      } else if (pending?.kind === 'destroy') {
-        store.update((s) => villageDoTrainRemove(s, pending.cardInstanceId));
-      } else {
-        render();
-      }
-      break;
-    }
-    case 'confirm-exploration-combat':
-      store.update(confirmExplorationCombat);
-      break;
-    case 'confirm-exploration-safe':
-      store.update(confirmExplorationSafe);
-      break;
-    case 'confirm-encounter-clear':
-      store.update(confirmEncounterClear);
-      break;
-    case 'confirm-victory':
-      store.update(confirmCombatVictory);
-      break;
-    case 'flee-card': {
-      const curState = store.get();
-      if (curState.activeHook.type === 'COMBAT' && curState.activeHook.combat.playerAp >= 2) {
-        ui.pendingCardPlay = null;
-        ui.pendingFlee = true;
-        render();
-      }
-      break;
-    }
-    case 'confirm-flee': {
-      ui.pendingFlee = false;
-      let evaluatedNext: RunState | null = null;
-      store.update((s: RunState) => {
-        evaluatedNext = attemptFlee(s);
-        const rolls: CombatAttackRollSummary[] = (evaluatedNext.activeHook?.type === 'COMBAT'
-          ? evaluatedNext.activeHook.combat.lastAttackRolls
-          : ((evaluatedNext.activeHook as any)?.lastAttackRolls)) ?? [];
-        return rolls.length > 0 ? s : evaluatedNext;
-      });
-      if (evaluatedNext) {
-        const finalState: RunState = evaluatedNext;
-        const rolls: CombatAttackRollSummary[] = (finalState.activeHook?.type === 'COMBAT'
-          ? finalState.activeHook.combat.lastAttackRolls
-          : ((finalState.activeHook as any)?.lastAttackRolls)) ?? [];
-        if (rolls.length > 0) {
-          ui.pendingDiceRolls = rolls.map((r: CombatAttackRollSummary, i: number) => ({
-            roll: r,
-            nextState: i === rolls.length - 1 ? finalState : undefined,
-            settled: false,
-          }));
-          render();
-          startDiceAnimation();
-        }
-      }
-      break;
-    }
-    case 'cancel-flee':
-      ui.pendingFlee = false;
-      render();
-      break;
-    case 'cancel-flee-backdrop':
-      if (ev.target === target) {
-        ui.pendingFlee = false;
-        render();
-      }
-      break;
+  const handler = ACTION_HANDLERS[action];
+  if (handler) {
+    handler(actionContext, { id, stat, col, row, pile }, target, ev);
   }
 });
 

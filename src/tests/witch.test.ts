@@ -11,7 +11,8 @@ const witch: MonsterCard = { ...MONSTER_TEMPLATES.witch, id: 'witch_test' };
 function setup(monsters = [witch]): RunState {
   const state = startAdventure('fighter', 'witch');
   const { combat } = createCombatSession(monsters, state.playerMasterDeck, state.rngState);
-  return { ...state, playerResources: { hp: 100, maxHp: 100, statPoints: 0, gold: 0 },
+  return { ...state, equippedGear: { weapon: null, armor: null, accessory: null },
+    playerResources: { hp: 100, maxHp: 100, statPoints: 0, gold: 0 },
     activeHook: { type: 'COMBAT', combat } };
 }
 
@@ -24,16 +25,16 @@ describe('Witch mechanics', () => {
   it('registers the confirmed collector ID, stats and default level rewards', () => {
     expect(witch).toMatchObject({ templateId: 'witch', cardNumber: 'mon3smp-04', level: 3,
       maxHp: 14, def: 1, mdef: 3, eva: 2, acc: 4, spawnTerrains: ['swamp', 'cave'],
-      statPointReward: 4, goldReward: 8, endTurnRegen: 1 });
+      statPointReward: 4, goldReward: 15, endTurnRegen: 1 });
     expect(MONSTER_TEMPLATES.stalker.cardNumber).toBe('mon1grs-06');
     expect(Object.values(MONSTER_TEMPLATES).map(m => m.cardNumber).filter(id => id === 'mon3smp-04')).toHaveLength(1);
   });
 
-  it('doubles default rewards at every level', () => {
-    expect([1, 2, 3, 4, 5, 6].map(getDefaultMonsterRewards)).toEqual([
-      { statPointReward: 1, goldReward: 2 }, { statPointReward: 2, goldReward: 4 },
-      { statPointReward: 4, goldReward: 8 }, { statPointReward: 8, goldReward: 16 },
-      { statPointReward: 16, goldReward: 32 }, { statPointReward: 32, goldReward: 64 },
+  it('scales default rewards linearly by level', () => {
+    expect([1, 2, 3, 4, 5, 6].map(level => getDefaultMonsterRewards(level))).toEqual([
+      { statPointReward: 2, goldReward: 5 }, { statPointReward: 3, goldReward: 10 },
+      { statPointReward: 4, goldReward: 15 }, { statPointReward: 5, goldReward: 20 },
+      { statPointReward: 6, goldReward: 25 }, { statPointReward: 7, goldReward: 30 },
     ]);
   });
   it('casts both hexes without hit rolls; keeps each for its stated hero turns', () => {
@@ -59,7 +60,7 @@ describe('Witch mechanics', () => {
     battle(state).playerBlock = 1;
     state.rngState = Array.from({ length: 1000 }, (_, i) => i + 1).find(seed => {
       const roll = evaluateAttackRoll(seed, 1, 1);
-      return roll.isHit && !roll.isCrit;
+      return roll.isHit;
     })!;
     const next = endPlayerCombatTurn(state);
     expect(battle(next).lastAttackRoll).toMatchObject({ defenseType: 'MDEF', damageDefReduced: 2, damageBlocked: 1, damageDealt: 4 });
@@ -96,7 +97,7 @@ describe('Witch mechanics', () => {
     battle(state).monsters[0].patternIndex = 1;
     state.rngState = Array.from({ length: 1000 }, (_, i) => i + 1).find(seed => {
       const roll = evaluateAttackRoll(seed, 2, 2);
-      return roll.isHit && !roll.isCrit;
+      return roll.isHit;
     })!;
     const next = endPlayerCombatTurn(state);
     expect(battle(next).lastAttackRoll).toMatchObject({ damageDealt: 4, damageDefReduced: 0, defenseType: 'DEF' });

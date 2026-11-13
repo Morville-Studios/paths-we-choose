@@ -38,6 +38,10 @@ export const CLASS_CATALOG: Record<ClassId, CharacterClassDef> = {
       'shield_def',
       'shield_def',
     ],
+    startingGear: {
+      weaponId: 'lvl1_iron_sword',
+      armorId: 'lvl1_chainmail',
+    },
     passive: {
       name: '[Berzerk]',
       description: 'Gain +1 ATK bonus when HP is 50% or below Max HP. If 25% or below, gain +2 ATK bonus instead.',
@@ -71,6 +75,10 @@ export const CLASS_CATALOG: Record<ClassId, CharacterClassDef> = {
       'force_field_def',
       'force_field_def',
     ],
+    startingGear: {
+      weaponId: 'lvl1_apprentice_staff',
+      armorId: 'lvl1_robe',
+    },
     passive: {
       name: '[Conserve]',
       description: 'When you end turn in battle with unused Action Points, they carry over to your next battle turn.',
@@ -104,9 +112,13 @@ export const CLASS_CATALOG: Record<ClassId, CharacterClassDef> = {
       'shield_def',
       'shield_def',
     ],
+    startingGear: {
+      weaponId: 'lvl1_dagger',
+      armorId: 'lvl1_leather_gear',
+    },
     passive: {
       name: '[Steal]',
-      description: 'Whenever you roll a 2d6 to perform an attack hit check and it is a pair (1+1, 2+2, 3+3, 4+4, 5+5, 6+6), you immediately gain Gold equal to the doubled number (e.g. 1+1 grants +1 Gold, 5+5 grants +5 Gold, 6+6 grants +6 Gold; even Snake Eyes steals +1 Gold).',
+      description: 'Whenever a 3d6 attack hit check contains a matching pair or triples, immediately gain Gold equal to the matching die face (for example, 6+6 grants +6 Gold, 5+5 grants +5 Gold, and 1+1 grants +1 Gold).',
     },
   },
 };

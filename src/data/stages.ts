@@ -2,11 +2,14 @@ import { AdventureCard, TerrainType } from '../core/types';
 
 export const STAGE_1_MAX_TURNS = 15;
 export const STAGE_2_MAX_TURNS = 15;
+export const STAGE_3_MAX_TURNS = 15;
 export const STAGE_1_SCENARIO_LEVEL = 1;
 export const STAGE_2_SCENARIO_LEVEL = 2;
+export const STAGE_3_SCENARIO_LEVEL = 3;
 
 export const STAGE_1_MISSION_NAME = 'The Goblin King';
 export const STAGE_2_MISSION_NAME = 'Cult of Trolls';
+export const STAGE_3_MISSION_NAME = 'Tomb of the Fallen King';
 
 export interface AdventureCardDefinition {
   cardCode: string;
@@ -35,6 +38,10 @@ export const ADVENTURE_CARD_ORDER: string[] = [
   'advsmp-04',
   'advcav-00',
   'advcav-01',
+  'advcav-03',
+  'advcav-04',
+  'advund-00',
+  'advund-01',
 ];
 
 export const ADVENTURE_CARD_CATALOG: Record<string, AdventureCardDefinition> = {
@@ -174,13 +181,54 @@ export const ADVENTURE_CARD_CATALOG: Record<string, AdventureCardDefinition> = {
   },
   'advcav-01': {
     cardCode: 'advcav-01',
-    name: 'Cave Encounter',
+    name: 'Dark Cavern',
     terrain: 'cave',
     level: 5,
     hasHostile: true,
     hasVillage: false,
     hasShrine: false,
     flavorText: 'A hostile cavern network where every scrape of stone may announce another predator.',
+  },
+  'advcav-03': {
+    cardCode: 'advcav-03',
+    name: 'Cave Village',
+    terrain: 'cave',
+    level: 4,
+    hasHostile: false,
+    hasVillage: true,
+    hasShrine: false,
+    flavorText: 'A secluded miners encampment nestled among glowing stalactites and subterranean trade routes.',
+  },
+  'advcav-04': {
+    cardCode: 'advcav-04',
+    name: 'Cave Shrine',
+    terrain: 'cave',
+    level: 4,
+    hasHostile: false,
+    hasVillage: false,
+    hasShrine: true,
+    flavorText: 'A crystalline altar hums with raw earthen energies deep beneath the mountain foundations.',
+  },
+  'advund-00': {
+    cardCode: 'advund-00',
+    name: 'Undiscovered Underground',
+    terrain: 'underground',
+    level: 5,
+    hasHostile: false,
+    hasVillage: false,
+    hasShrine: false,
+    isUndiscovered: true,
+    flavorText: 'An unexplored subterranean abyss plunging toward ancient forgotten sepulchers.',
+  },
+  'advund-01': {
+    cardCode: 'advund-01',
+    name: 'Eerie Underground',
+    terrain: 'underground',
+    level: 6,
+    hasHostile: true,
+    hasVillage: false,
+    hasShrine: false,
+    flavorText: 'Suffocating darkness where ancient royal dead and mutated horrors guard the fallen king\'s tomb.',
   },
 };
 
@@ -216,6 +264,20 @@ export const STAGE_2_DECK_COMPOSITION: Record<string, number> = {
   'advsmp-04': 2,
   'advcav-00': 1,
   'advcav-01': 1,
+};
+
+/** Exact 30-card composition for Stage 3: Tomb of the Fallen King */
+export const STAGE_3_DECK_COMPOSITION: Record<string, number> = {
+  'advsmp-00': 3,
+  'advsmp-01': 8,
+  'advsmp-03': 3,
+  'advsmp-04': 3,
+  'advcav-00': 2,
+  'advcav-01': 5,
+  'advcav-03': 2,
+  'advcav-04': 2,
+  'advund-00': 1,
+  'advund-01': 1,
 };
 
 export function createStartCard(): AdventureCard {

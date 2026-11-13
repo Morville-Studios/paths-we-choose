@@ -31,27 +31,6 @@ export function roll1D6(state: number): { roll: number; nextState: number } {
   return rollInt(state, 1, 6);
 }
 
-export function roll2D6(state: number): {
-  die1: number;
-  die2: number;
-  total: number;
-  isSnakeEyes: boolean;
-  isBoxcars: boolean;
-  nextState: number;
-} {
-  const r1 = rollInt(state, 1, 6);
-  const r2 = rollInt(r1.nextState, 1, 6);
-  const total = r1.roll + r2.roll;
-  return {
-    die1: r1.roll,
-    die2: r2.roll,
-    total,
-    isSnakeEyes: r1.roll === 1 && r2.roll === 1,
-    isBoxcars: r1.roll === 6 && r2.roll === 6,
-    nextState: r2.nextState,
-  };
-}
-
 export function roll3D6(state: number): {
   die1: number;
   die2: number;

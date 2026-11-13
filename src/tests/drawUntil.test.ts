@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { drawEncounterMonsters, drawMonsterCardWithReshuffle, drawTreasureCardsWithReshuffle, drawTreasureUntilLevel } from '../core/deck';
-import { chooseCard, confirmEncounterClear, getAvailableCoords, startAdventure } from '../core/engine';
+import { chooseCard, confirmEncounterClear, getAvailableCoords, startAdventure, startBossCombat } from '../core/engine';
 import { MonsterCard, RunState, ShopItemDef } from '../core/types';
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
@@ -153,8 +153,10 @@ describe('ability searches and recycling game mechanics', () => {
     const result = chooseCard(state, coord);
     expect(result.activeHook.type).toBe('ENCOUNTER_CLEAR');
     const continued = confirmEncounterClear(result);
-    if (continued.activeHook.type !== 'COMBAT') throw new Error('Expected boss combat after acknowledging encounter');
-    expect(continued.activeHook.combat.monsters[0].monster.templateId).toBe('goblin_chieftain');
+    expect(continued.activeHook.type).toBe('BOSS_APPROACH');
+    const bossCombat = startBossCombat(continued);
+    if (bossCombat.activeHook.type !== 'COMBAT') throw new Error('Expected boss combat after acknowledging encounter');
+    expect(bossCombat.activeHook.combat.monsters[0].monster.templateId).toBe('goblin_chieftain');
   });
 
   it('deck viewers disclose card counts in catalog order, not draw order; graveyards remain inspectable', () => {

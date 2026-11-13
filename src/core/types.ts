@@ -27,6 +27,10 @@ export interface CharacterClassDef {
   secondaryStats: [StatKey, StatKey];
   classBonuses: CharacterStats;
   starterCardIds: string[];
+  startingGear: {
+    weaponId: string;
+    armorId: string;
+  };
   passive: ClassPassiveDef;
 }
 
@@ -46,12 +50,11 @@ export interface DerivedCombatStats {
   acc: number;    // DEX + gear.acc (1 ACC per 1 DEX)
   eva: number;    // AGI + gear.eva (1 EVA per 1 AGI)
   atk: number;    // floor(STR / 2) + floor(DEX / 3) + gear.atk
-  def: number;    // floor(STR / 5) + floor(VIT / 5) + floor(AGI / 3) + gear.def
+  def: number;    // floor((STR + AGI + VIT) / 5) + gear.def
   matk: number;   // floor(INT / 2) + gear.matk
   mdef: number;   // floor(INT / 5) + gear.mdef
   pen: number;    // Gear-only physical DEF penetration
   act: number;    // 3 + floor(INT / 5) (Max Action Points in battle)
-  critThreshold?: number; // 12 (Boxcars 6+6 minimum 2d6 roll for critical hit)
   berzerkBonus?: number; // Fighter [Berzerk] ATK bonus
 }
 
@@ -81,7 +84,7 @@ export interface EquippedGear {
 export interface PlayerResources {
   hp: number;
   maxHp: number;      // 10 + (effectiveVit * 2)
-  statPoints: number; // Earned from Monster Cards; spent to upgrade Base Stats (cost = (currentBaseStat + 1)^2)
+  statPoints: number; // Earned from Monster Cards; spent to upgrade Base Stats (cost = currentBaseStat * 10)
   gold: number;
 }
 
@@ -132,6 +135,7 @@ export interface MonsterIntent {
   damage: number;
   block: number;
   damageType?: 'physical' | 'magical';
+  magicDamage?: number;
   poisonOnHit?: boolean;
   ignoreDef?: number;
   drainFraction?: number;
@@ -142,15 +146,19 @@ export interface MonsterIntent {
   evaBonus?: number;
   defBonus?: number;
   bonusDuration?: number;
-  /** Tutor one matching monster from the hidden draw pile directly into play. */
+  /** Summon one matching monster from the hidden draw pile directly into play (and shuffle the deck). */
   summonFromMonsterDeck?: MonsterTemplateId;
-  /** If the tutor misses, return one matching discard card to the top of the draw pile. */
+  /** If the summon misses, return one matching discard card (FIFO) to the top of the draw pile. */
   returnDiscardToMonsterDeckOnMiss?: MonsterTemplateId;
+  /** Summon any random undead creature from the monster draw pile directly into play. */
+  summonUndeadFromMonsterDeck?: boolean;
+  /** If undead summon misses, return one matching undead discard card (FIFO) to the top of the draw pile. */
+  returnUndeadDiscardToMonsterDeckOnMiss?: boolean;
   /** Dynamic damage added for each living matching creature currently in play. */
   damagePerCreatureInPlay?: { templateId: MonsterTemplateId; amount: number };
   /** Dynamic damage added for each currently active negative effect on the hero. */
   damagePerHeroDebuff?: number;
-  /** Resolve this intent as separate attacks, each with its own 2d6 hit check and mitigation. */
+  /** Resolve this intent as separate attacks, each with its own 3d6 hit check and mitigation. */
   hitCount?: number;
   heroEvaDebuff?: number;
   heroEvaDebuffDuration?: number;
@@ -180,10 +188,13 @@ export type MonsterTemplateId =
   | 'phalanx'
   | 'cultist_mage'
   | 'lurker'
+  | 'dark_orc'
+  | 'orc_shaman'
   | 'goblin_chieftain'
   | 'troll_healer'
   | 'troll_hexer'
-  | 'troll_brute';
+  | 'troll_brute'
+  | 'king_nezenheim';
 
 export type MonsterRarity = 'common' | 'uncommon' | 'rare';
 export type MonsterTerrain = 'grasslands' | 'forest' | 'swamp' | 'cave' | 'underground' | 'underworld';
@@ -195,10 +206,11 @@ export interface MonsterCard {
   level: number;
   isBoss?: boolean;
   maxHp: number;
+  atk?: number;            // Physical Attack (default 0)
   mdef?: number;           // Magical Defense (default 0)
   def?: number;            // Physical Defense (default 0)
-  acc?: number;            // 2d6 Accuracy (default 1)
-  eva?: number;            // 2d6 Evasion (default 0)
+  acc?: number;            // 3d6 MACG-3D6 Accuracy (default 1)
+  eva?: number;            // 3d6 MACG-3D6 Evasion (default 0)
   statPointReward: number; // Inscribed directly on Monster Card
   goldReward: number;      // Inscribed directly on Monster Card
   startingBlock?: number;
@@ -235,6 +247,8 @@ export interface CombatMonster {
   accBonus?: number;
   evaBonus?: number;
   defBonus?: number;
+  /** True if this creature was summoned into battle (awards no gold/SP and returns immediately to discard). */
+  isSummon?: boolean;
 }
 
 export interface CombatAttackRollSummary {
@@ -247,13 +261,10 @@ export interface CombatAttackRollSummary {
   die3?: number;
   total: number;
   netAcc: number;
-  neededRoll: number;
-  minHitRoll?: number;
-  maxHitRoll?: number;
+  minHitRoll: number;
+  maxHitRoll: number;
   isHit: boolean;
   isDiabolic?: boolean;
-  isCrit: boolean;
-  isSnakeEyes: boolean;
   isTriples?: boolean;
   damageDealt: number;
   damageBlocked: number;
@@ -271,7 +282,7 @@ export interface ActiveCombatState {
   playerAp: number;
   playerMaxAp: number;        // 3 AP
   playerBlock: number;
-  playerEvasionMod: number;   // Temporary round EVA bonus against monster 2d6 attack rolls
+  playerEvasionMod: number;   // Temporary round EVA bonus against monster 3d6 attack rolls
   playerEvaDebuffTurns?: number; // Multi-turn debuff counter reducing Hero EVA (e.g. from Ghoul Growl)
   playerAccMod?: number;      // Temporary round ACC modifier (e.g. from Hexer)
   playerVulnerableMod?: number; // Temporary round damage intake increase (e.g. from Hexer)
@@ -339,7 +350,7 @@ export interface ActiveShrineState {
   chosenOptionId?: ShrinePrayerOptionId;
 }
 
-export type TerrainType = 'start' | 'grasslands' | 'forest' | 'swamp' | 'cave';
+export type TerrainType = 'start' | 'grasslands' | 'forest' | 'swamp' | 'cave' | 'underground';
 
 export interface AdventureCard {
   id: string;
@@ -376,8 +387,8 @@ export interface PlacedCardNode {
 
 export type GameScreen = 'welcome' | 'class_select' | 'play_area';
 
-export type MusicTrackId = 'start-screen' | 'map-area' | 'battle-normal' | 'victory' | null;
-export type GameAudioScene = 'intro' | 'map' | 'battle' | 'victory' | 'none';
+export type MusicTrackId = 'start-screen' | 'map-area' | 'battle-normal' | 'victory' | 'shrine' | null;
+export type GameAudioScene = 'intro' | 'map' | 'battle' | 'victory' | 'shrine' | 'none';
 
 export type ExplorationOutcome = 'combat' | 'treasure' | 'safe';
 
@@ -411,13 +422,14 @@ export interface EncounterClearState {
 }
 
 export type ActiveHook =
-  | { type: 'NONE' }
+  | { type: 'NONE'; lastAttackRolls?: CombatAttackRollSummary[] }
   | { type: 'COMBAT'; combat: ActiveCombatState }
   | { type: 'VILLAGE'; village: ActiveVillageState }
   | { type: 'SHRINE'; shrine: ActiveShrineState }
   | { type: 'EXPLORATION'; exploration: ActiveExplorationState }
   | { type: 'ENCOUNTER_CLEAR'; encounter: EncounterClearState }
   | { type: 'VICTORY'; victory: CombatVictoryState }
+  | { type: 'BOSS_APPROACH'; bossMonsters: MonsterCard[] }
   | { type: 'ON_STAGE_COMPLETE'; turn: number; bossDefeated: string; stageNumber?: number; canContinue?: boolean }
   | { type: 'ON_GAME_OVER'; turn: number; defeatedBy: string; lastAttackRolls?: CombatAttackRollSummary[] };
 

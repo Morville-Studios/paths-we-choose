@@ -26,6 +26,7 @@ function setup(monster: MonsterCard): RunState {
   const { combat } = createCombatSession([monster], [], state.rngState);
   return {
     ...state,
+    equippedGear: { weapon: null, armor: null, accessory: null },
     playerResources: { hp: 100, maxHp: 100, statPoints: 0, gold: 0 },
     activeHook: { type: 'COMBAT', combat },
   };
@@ -38,7 +39,7 @@ function seedForMonsterRolls(monsterAcc: number, heroEva: number, hitResults: bo
     for (const expectedHit of hitResults) {
       const result = evaluateAttackRoll(rngState, monsterAcc, heroEva);
       rngState = result.nextState;
-      if (result.isHit !== expectedHit || result.isCrit) {
+      if (result.isHit !== expectedHit) {
         matches = false;
         break;
       }
@@ -51,7 +52,7 @@ function seedForMonsterRolls(monsterAcc: number, heroEva: number, hitResults: bo
 function seedForHeroRoll(hit: boolean): number {
   for (let seed = 1; seed < 100_000; seed++) {
     const result = evaluateAttackRoll(seed, 101, 0);
-    if (result.isHit === hit && !result.isCrit) return seed;
+    if (result.isHit === hit) return seed;
   }
   throw new Error('No matching deterministic hero roll');
 }
@@ -95,7 +96,7 @@ describe('cave monster catalog and combat mechanics', () => {
     const phalanx = card('phalanx');
     expect(phalanx).toMatchObject({
       cardNumber: 'mon4cav-01', level: 4, maxHp: 20, def: 3, mdef: 2, eva: 5, acc: 4,
-      statPointReward: 8, goldReward: 16, spawnTerrains: ['cave'], creatureType: 'Arachnid',
+      statPointReward: 5, goldReward: 20, spawnTerrains: ['cave'], creatureType: 'Arachnid',
     });
     expect(phalanx.pattern[0]).toMatchObject({
       label: 'Blinding Web', damage: 6,
@@ -106,14 +107,14 @@ describe('cave monster catalog and combat mechanics', () => {
     const cultist = card('cultist_mage');
     expect(cultist).toMatchObject({
       cardNumber: 'mon4cav-02', level: 4, maxHp: 18, def: 2, mdef: 3, acc: 5, eva: 4,
-      statPointReward: 8, goldReward: 16, spawnTerrains: ['cave', 'underground', 'underworld'],
+      statPointReward: 5, goldReward: 20, spawnTerrains: ['cave', 'underground', 'underworld'],
     });
     expect(cultist.pattern).toEqual([{ label: 'Soul Burn', damage: 8, damageType: 'magical', block: 0 }]);
 
     const lurker = card('lurker');
     expect(lurker).toMatchObject({
       cardNumber: 'mon4cav-03', level: 5, maxHp: 25, def: 4, mdef: 3, acc: 4, eva: 4,
-      statPointReward: 16, goldReward: 32, spawnTerrains: ['cave', 'underground'],
+      statPointReward: 6, goldReward: 25, spawnTerrains: ['cave', 'underground'],
       creatureType: 'Wurm', retaliationDamageOnHeroAttack: 1,
     });
     expect(lurker.pattern).toEqual([
@@ -138,7 +139,7 @@ describe('cave monster catalog and combat mechanics', () => {
     const hitState = setup(phalanx);
     hitState.rngState = seedForMonsterRolls(4, 2, [true]);
     const hit = endPlayerCombatTurn(hitState);
-    expect(hit.playerResources?.hp).toBe(94);
+    expect(hit.playerResources?.hp).toBe(95); // 6 base damage - 1 Hero DEF = 5 HP loss
     expect(getHeroStatDebuffMods(battle(hit))).toEqual({ acc: -1, eva: -2, def: 0, mdef: 0 });
     expect(battle(hit).heroStatDebuffs).toMatchObject([{ turnsRemaining: 1 }]);
 
@@ -156,7 +157,7 @@ describe('cave monster catalog and combat mechanics', () => {
     battle(state).playerBlock = 3;
     state.rngState = seedForMonsterRolls(4, 2, [true, true]);
     const next = endPlayerCombatTurn(state);
-    expect(next.playerResources?.hp).toBe(87); // 16 total damage; 3 absorbed by Block.
+    expect(next.playerResources?.hp).toBe(89); // 16 total damage - 2 Hero DEF (1 each hit) - 3 absorbed by Block = 11 HP loss.
     expect(battle(next).playerBlock).toBe(0);
     expect(battle(next).combatLog.join(' ')).toContain('resolving 2 separate attacks');
     expect(battle(next).combatLog.filter(line => line.includes('Double Smash (8 DMG')).length).toBe(2);
@@ -209,15 +210,25 @@ describe('cave monster catalog and combat mechanics', () => {
     expect(kill.playerResources?.hp).toBe(100);
   });
 
-  it('lets Divine Protection reduce Lurker acid because only DEF and Block are bypassed', () => {
+  it('lets Lurker acid deal full retaliatory damage since DEF and Block are bypassed', () => {
     const lurker = card('lurker');
     const state = setup(lurker);
     state.divineProtection = 1;
     battle(state).hand = [reliableAttack];
     state.rngState = seedForHeroRoll(true);
     const next = playCombatCardFromHand(state, reliableAttack.instanceId, 0, value => value);
-    expect(next.playerResources?.hp).toBe(100);
-    expect(battle(next).combatLog.join(' ')).toContain('reduced by Divine Protection');
+    expect(next.playerResources?.hp).toBe(99);
+    expect(battle(next).combatLog.join(' ')).toContain('Hero loses 1 HP (ignores DEF and Block)');
+  });
+
+  it('lets Divine Protection grant +1 MDEF to absorb magical damage from Cultist Mage', () => {
+    const cultist = card('cultist_mage');
+    const state = setup(cultist);
+    state.divineProtection = 1;
+    state.rngState = seedForMonsterRolls(5, 2, [true]);
+    const next = endPlayerCombatTurn(state);
+    expect(next.playerResources?.hp).toBe(93); // 8 Soul Burn - 1 MDEF = 7 DMG (100 -> 93)
+    expect(battle(next).lastAttackRoll).toMatchObject({ defenseType: 'MDEF', damageDefReduced: 1, damageDealt: 7 });
   });
 
   it('lets Lurker Shed heal 12 HP and remove its 2 DEF for one turn only', () => {

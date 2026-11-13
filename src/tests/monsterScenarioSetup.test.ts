@@ -31,19 +31,18 @@ describe('scenario creature supply and Void setup', () => {
     });
     for (const templateId of ORDINARY_MONSTER_TEMPLATE_IDS) {
       const monster = MONSTER_TEMPLATES[templateId];
-      const minimum = [...(monster.spawnTerrains ?? [])]
+      const minimum = monster.mainTerrain ?? [...(monster.spawnTerrains ?? [])]
         .sort((a, b) => MONSTER_TERRAIN_LEVELS[a] - MONSTER_TERRAIN_LEVELS[b])[0];
       expect(getMonsterMainTerrain(monster), templateId).toBe(minimum);
     }
   });
 
   it('creates 6 Common, 4 Uncommon, and 3 Rare physical copies', () => {
-    for (const templateId of ['goblin', 'zombie', 'assassin', 'cultist_mage'] as const) {
+    for (const templateId of ['goblin', 'zombie', 'assassin', 'cultist_mage', 'dark_orc'] as const) {
       expect(getMonsterRarity(MONSTER_TEMPLATES[templateId])).toBe('common');
       expect(getMonsterSupplyCount(MONSTER_TEMPLATES[templateId])).toBe(6);
-      expect(MONSTER_TEMPLATES[templateId].spawnTerrains).toHaveLength(3);
     }
-    for (const templateId of ['ramram', 'rattler', 'creeper', 'phalanx'] as const) {
+    for (const templateId of ['ramram', 'rattler', 'creeper', 'phalanx', 'orc_shaman'] as const) {
       expect(getMonsterRarity(MONSTER_TEMPLATES[templateId])).toBe('rare');
       expect(getMonsterSupplyCount(MONSTER_TEMPLATES[templateId])).toBe(3);
     }
@@ -51,8 +50,8 @@ describe('scenario creature supply and Void setup', () => {
     expect(getMonsterSupplyCount(MONSTER_TEMPLATES.pink_slime)).toBe(4);
 
     const supply = buildPhysicalMonsterSupply();
-    expect(supply).toHaveLength(76);
-    expect(new Set(supply.map(card => card.id)).size).toBe(76);
+    expect(supply).toHaveLength(85);
+    expect(new Set(supply.map(card => card.id)).size).toBe(85);
     const counts = countsByTemplate(supply);
     for (const templateId of ORDINARY_MONSTER_TEMPLATE_IDS) {
       expect(counts[templateId], templateId).toBe(getMonsterSupplyCount(MONSTER_TEMPLATES[templateId]));
@@ -87,8 +86,8 @@ describe('scenario creature supply and Void setup', () => {
 
     const built = buildScenarioMonsterDeck(1, 12345);
     expect(built.deck).toHaveLength(45);
-    expect(built.void).toHaveLength(31);
-    expect(new Set([...built.deck, ...built.void].map(card => card.id)).size).toBe(76);
+    expect(built.void).toHaveLength(40);
+    expect(new Set([...built.deck, ...built.void].map(card => card.id)).size).toBe(85);
   });
 
   it('rebuilds Scenario 2 from Forest, Swamp, and Cave main-terrain bands', () => {
@@ -118,9 +117,41 @@ describe('scenario creature supply and Void setup', () => {
     expect(stage2.scenarioLevel).toBe(2);
     expect(stage2.monsterDeck).toHaveLength(37);
     expect(stage2.monsterDiscard).toEqual([]);
-    expect(stage2.monsterVoid).toHaveLength(39);
+    expect(stage2.monsterVoid).toHaveLength(48);
     expect(countsByTemplate(stage2.monsterDeck)).toMatchObject(composition);
-    expect(new Set([...stage2.monsterDeck, ...stage2.monsterVoid].map(card => card.id)).size).toBe(76);
+    expect(new Set([...stage2.monsterDeck, ...stage2.monsterVoid].map(card => card.id)).size).toBe(85);
+  });
+
+  it('builds Scenario 3 from Swamp, Cave, and Underground main-terrain bands', () => {
+    const composition = Object.fromEntries(
+      getScenarioMonsterDeckComposition(3).map(entry => [entry.templateId, entry.count]),
+    );
+    expect(composition).toMatchObject({
+      assassin: 6,
+      leech: 4,
+      witch: 4,
+      creeper: 3,
+      cultist_mage: 4,
+      lurker: 3,
+      phalanx: 3,
+      dark_orc: 2,
+      orc_shaman: 1,
+    });
+    expect(Object.values(composition).reduce((sum, value) => sum + value, 0)).toBe(30);
+    expect(composition).not.toHaveProperty('goblin');
+    expect(composition).not.toHaveProperty('zombie');
+
+    const stage1 = startAdventure('fighter', 'scenario-3-test');
+    const stage2 = startNextMission(stage1);
+    const stage3 = startNextMission(stage2);
+    expect(stage3.currentMission).toBe(3);
+    expect(stage3.scenarioLevel).toBe(3);
+    expect(stage3.missionName).toBe('Tomb of the Fallen King');
+    expect(stage3.monsterDeck).toHaveLength(30);
+    expect(stage3.monsterDiscard).toEqual([]);
+    expect(stage3.monsterVoid).toHaveLength(55);
+    expect(countsByTemplate(stage3.monsterDeck)).toMatchObject(composition);
+    expect(new Set([...stage3.monsterDeck, ...stage3.monsterVoid].map(card => card.id)).size).toBe(85);
   });
 
   it('shows all ordinary creature copies not selected by the scenario in the public Void', () => {

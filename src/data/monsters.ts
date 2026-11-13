@@ -2,10 +2,13 @@ import { MonsterCard, MonsterRarity, MonsterTemplateId, MonsterTerrain } from '.
 
 export type MonsterTemplate = Omit<MonsterCard, 'id'>;
 
-/** Default inscriptions; explicit creature/boss rewards may override these. */
-export function getDefaultMonsterRewards(level: number) {
-  const factor = 2 ** (level - 1);
-  return { statPointReward: factor, goldReward: 2 * factor };
+/** Default inscriptions: ordinary monsters get level * 5 Gold and level + 1 SP; Bosses get double. */
+export function getDefaultMonsterRewards(level: number, isBoss = false) {
+  const baseGold = level * 5;
+  const baseSp = level + 1;
+  return isBoss
+    ? { statPointReward: baseSp * 2, goldReward: baseGold * 2 }
+    : { statPointReward: baseSp, goldReward: baseGold };
 }
 
 export const MONSTER_TERRAIN_LEVELS: Readonly<Record<MonsterTerrain, number>> = {
@@ -424,6 +427,50 @@ export const MONSTER_TEMPLATES: Record<MonsterTemplateId, MonsterTemplate> = {
       { label: 'Shed', damage: 0, heal: 12, block: 0, defBonus: -2, bonusDuration: 1 },
     ],
   },
+  dark_orc: {
+    templateId: 'dark_orc',
+    name: 'Dark Orc',
+    level: 5,
+    maxHp: 22,
+    def: 3,
+    mdef: 2,
+    acc: 4,
+    eva: 5,
+    ...getDefaultMonsterRewards(5),
+    cardNumber: 'mon5und-01',
+    rarity: 'common',
+    mainTerrain: 'underground',
+    spawnTerrains: ['cave', 'underground', 'underworld'],
+    creatureType: 'Orc',
+    abilities: [],
+    flavorText: 'A ruthless frontline orc forged in subterranean darkness, swinging a notched cleaver with reckless fury.',
+    pattern: [
+      { label: 'Slash', damage: 9, block: 0 },
+      { label: 'Wild Swing', damage: 11, block: 0, accBonus: -1 },
+    ],
+  },
+  orc_shaman: {
+    templateId: 'orc_shaman',
+    name: 'Orc Shaman',
+    level: 6,
+    maxHp: 30,
+    def: 3,
+    mdef: 4,
+    acc: 5,
+    eva: 5,
+    ...getDefaultMonsterRewards(6),
+    cardNumber: 'mon6und-01',
+    rarity: 'rare',
+    mainTerrain: 'underground',
+    spawnTerrains: ['cave', 'underground'],
+    creatureType: 'Orc',
+    abilities: [],
+    flavorText: 'An orc mystic channeling dual sparks of brute martial power and crackling earthen spellfire.',
+    pattern: [
+      { label: 'Duality Spark', damage: 6, magicDamage: 6, block: 0 },
+      { label: 'Wild Swing', damage: 11, block: 0, accBonus: -1 },
+    ],
+  },
   goblin_chieftain: {
     templateId: 'goblin_chieftain',
     name: 'Grundy',
@@ -434,8 +481,8 @@ export const MONSTER_TEMPLATES: Record<MonsterTemplateId, MonsterTemplate> = {
     mdef: 1,
     acc: 3,
     eva: 3,
-    ...getDefaultMonsterRewards(5),
-    abilities: ['Goblin Warlord: Calls Goblins from the hidden Monster Deck and grows stronger with each Goblin in play.'],
+    ...getDefaultMonsterRewards(5, true),
+    abilities: ["Grundy's ATK and DEF increases for each other goblin creatures in play"],
     cardNumber: 'GRS · #BOSS-01',
     mainTerrain: 'grasslands',
     spawnTerrains: ['grasslands', 'forest'],
@@ -446,11 +493,7 @@ export const MONSTER_TEMPLATES: Record<MonsterTemplateId, MonsterTemplate> = {
         label: 'Call Goblin', damage: 0, block: 0,
         summonFromMonsterDeck: 'goblin', returnDiscardToMonsterDeckOnMiss: 'goblin',
       },
-      { label: 'Beef up!', damage: 0, block: 4, defBonus: 1, bonusDuration: 1 },
-      {
-        label: 'Goblin March', damage: 6, block: 0,
-        damagePerCreatureInPlay: { templateId: 'goblin', amount: 1 },
-      },
+      { label: 'Goblin March', damage: 6, block: 0 },
     ],
   },
   troll_healer: {
@@ -463,7 +506,7 @@ export const MONSTER_TEMPLATES: Record<MonsterTemplateId, MonsterTemplate> = {
     mdef: 3,
     acc: 3,
     eva: 2,
-    ...getDefaultMonsterRewards(4),
+    ...getDefaultMonsterRewards(4, true),
     abilities: ['Troll Mending (Heals a random troll for 10 HP each round)'],
     cardNumber: 'TRO · #BOSS-01',
     mainTerrain: 'forest',
@@ -484,7 +527,7 @@ export const MONSTER_TEMPLATES: Record<MonsterTemplateId, MonsterTemplate> = {
     mdef: 2,
     acc: 3,
     eva: 2,
-    ...getDefaultMonsterRewards(4),
+    ...getDefaultMonsterRewards(4, true),
     abilities: ['Hex Curse (Casts a stacking random 5-turn debuff: -1 ACC, +1 DMG taken, or -1 EVA)'],
     cardNumber: 'TRO · #BOSS-02',
     mainTerrain: 'forest',
@@ -506,7 +549,7 @@ export const MONSTER_TEMPLATES: Record<MonsterTemplateId, MonsterTemplate> = {
     mdef: 1,
     acc: 4,
     eva: 2,
-    ...getDefaultMonsterRewards(4),
+    ...getDefaultMonsterRewards(4, true),
     abilities: ['Relentless Assault (Attacks hero for 6 DMG each round)'],
     cardNumber: 'TRO · #BOSS-03',
     mainTerrain: 'forest',
@@ -515,6 +558,34 @@ export const MONSTER_TEMPLATES: Record<MonsterTemplateId, MonsterTemplate> = {
     flavorText: 'A towering brute of muscle and stone-like hide, wielding a colossal club with savage fury.',
     pattern: [
       { label: 'Troll Smash', damage: 6, block: 0 },
+    ],
+  },
+  king_nezenheim: {
+    templateId: 'king_nezenheim',
+    name: 'Fallen King',
+    level: 7,
+    isBoss: true,
+    maxHp: 40,
+    def: 5,
+    mdef: 5,
+    acc: 6,
+    eva: 5,
+    ...getDefaultMonsterRewards(7, true),
+    cardNumber: 'UND · #BOSS-01',
+    mainTerrain: 'underground',
+    spawnTerrains: ['underground'],
+    creatureType: 'Undead',
+    abilities: ['Unholy Aura (Heals all undead allies and himself for 3 HP at turn start)'],
+    flavorText: 'The entombed ruler of old awakened from eternal slumber, commanding legions of the restless dead.',
+    pattern: [
+      {
+        label: 'Summon Undead',
+        damage: 0,
+        block: 2,
+        summonUndeadFromMonsterDeck: true,
+        returnUndeadDiscardToMonsterDeckOnMiss: true,
+      },
+      { label: 'Corrupted Blade', damage: 7, magicDamage: 7, block: 0 },
     ],
   },
 };
@@ -533,6 +604,23 @@ export const ORDINARY_MONSTER_TEMPLATE_IDS = (Object.keys(MONSTER_TEMPLATES) as 
  */
 export function getScenarioMonsterDeckComposition(scenarioLevel: number): ScenarioMonsterCompositionEntry[] {
   const normalizedLevel = Math.max(1, Math.min(6, Math.floor(scenarioLevel)));
+  if (normalizedLevel === 3) {
+    // Scenario 3: Tomb of the Fallen King (30 Cards in Deck • remainder in Void)
+    // 17 Swamp (~2/3 Supply): 6 Assassin, 4 Leech, 4 Witch, 3 Creeper
+    // 10 Cave (~1/3 Supply): 4 Cultist Mage, 3 Lurker, 3 Phalanx
+    // 3 Underground (~1/3 Supply): 2 Dark Orc, 1 Orc Shaman
+    return [
+      { templateId: 'assassin', count: 6 },
+      { templateId: 'leech', count: 4 },
+      { templateId: 'witch', count: 4 },
+      { templateId: 'creeper', count: 3 },
+      { templateId: 'cultist_mage', count: 4 },
+      { templateId: 'lurker', count: 3 },
+      { templateId: 'phalanx', count: 3 },
+      { templateId: 'dark_orc', count: 2 },
+      { templateId: 'orc_shaman', count: 1 },
+    ];
+  }
   return ORDINARY_MONSTER_TEMPLATE_IDS.flatMap((templateId) => {
     const template = MONSTER_TEMPLATES[templateId];
     const terrainLevel = MONSTER_TERRAIN_LEVELS[getMonsterMainTerrain(template)];
@@ -546,6 +634,7 @@ export function getScenarioMonsterDeckComposition(scenarioLevel: number): Scenar
 
 export const STAGE_1_MONSTER_DECK_COMPOSITION = getScenarioMonsterDeckComposition(1);
 export const STAGE_2_MONSTER_DECK_COMPOSITION = getScenarioMonsterDeckComposition(2);
+export const STAGE_3_MONSTER_DECK_COMPOSITION = getScenarioMonsterDeckComposition(3);
 
 export function createBossMonsterCard(): MonsterCard {
   const tpl = MONSTER_TEMPLATES.goblin_chieftain;
@@ -563,7 +652,17 @@ export function createMission2BossCards(): MonsterCard[] {
   ];
 }
 
+export function createMission3BossCard(): MonsterCard {
+  return {
+    ...MONSTER_TEMPLATES.king_nezenheim,
+    id: 'boss_king_nezenheim',
+  };
+}
+
 export function createBossMonstersForMission(mission = 1): MonsterCard[] {
+  if (mission === 3) {
+    return [createMission3BossCard()];
+  }
   if (mission === 2) {
     return createMission2BossCards();
   }

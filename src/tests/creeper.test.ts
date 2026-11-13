@@ -28,7 +28,7 @@ function seedForRevival(success: boolean): number {
 
 describe('Creeper', () => {
   it('shows its requested profile, artwork, MDEF, Swamp terrain and Resilient rule', () => {
-    expect(creeper).toMatchObject({ statPointReward: 4, goldReward: 8, creatureType: 'Undead', cardNumber: 'mon3smp-02', level: 3, maxHp: 14, def: 2, eva: 3, acc: 3, mdef: 2, spawnTerrains: ['swamp'] });
+    expect(creeper).toMatchObject({ statPointReward: 4, goldReward: 15, creatureType: 'Undead', cardNumber: 'mon3smp-02', level: 3, maxHp: 14, def: 2, eva: 3, acc: 3, mdef: 2, spawnTerrains: ['swamp'] });
     const html = cardInspectModal({ kind: 'monster', monster: creeper, currentHp: 14 }, setup());
     for (const text of ['/cards/creatures/creeper.jpg', 'Resilient', 'MDEF', 'Swamps', 'Submerge', 'Ambush']) expect(html).toContain(text);
   });
@@ -42,11 +42,11 @@ describe('Creeper', () => {
     submerged.equippedGear.armor = { id: 'armor', instanceId: 'armor', name: 'Armor', description: '', category: 'armor', buyPrice: 0, sellPrice: 0, gearBonus: { def: 2, mdef: 100 } };
     submerged.rngState = Array.from({ length: 1000 }, (_, i) => i + 1).find(seed => {
       const roll = evaluateAttackRoll(seed, 3, 2);
-      return roll.isHit && !roll.isCrit;
+      return roll.isHit;
     })!;
     const ambush = endPlayerCombatTurn(submerged);
-    expect(ambush.playerResources?.hp).toBe(state.playerResources!.hp - 5);
-    expect(battle(ambush).lastAttackRoll).toMatchObject({ defenseType: 'DEF', damageDefReduced: 2, damageDealt: 5 });
+    expect(ambush.playerResources?.hp).toBe(state.playerResources!.hp - 4);
+    expect(battle(ambush).lastAttackRoll).toMatchObject({ defenseType: 'DEF', damageDefReduced: 3, damageDealt: 4 });
     expect(battle(ambush).monsters[0]).toMatchObject({ block: 0, patternIndex: 2 });
   });
 

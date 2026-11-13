@@ -53,6 +53,13 @@ function getMonsterRasterArtRelativePath(templateId: string): string {
       return '/cards/creatures/troll_hexer.jpg';
     case 'troll_brute':
       return '/cards/creatures/troll_brute.jpg';
+    case 'dark_orc':
+      return '/cards/creatures/dark_orc.jpg';
+    case 'orc_shaman':
+      return '/cards/creatures/orc_shaman.jpg';
+    case 'king_nezenheim':
+    case 'fallen_king':
+      return '/cards/creatures/fallen_king.jpg';
     default:
       return '/cards/creatures/goblin.jpg';
   }
@@ -67,6 +74,9 @@ function getAdventureRasterArtRelativePath(card: AdventureCard): string {
     return '/cards/adventure/start_tile.jpg';
   }
   if (card.hasVillage) {
+    if (card.terrain === 'underground' || card.terrain === 'cave') {
+      return '/cards/adventure/swamp_village.jpg';
+    }
     if (card.terrain === 'swamp') {
       return '/cards/adventure/swamp_village.jpg';
     }
@@ -76,6 +86,9 @@ function getAdventureRasterArtRelativePath(card: AdventureCard): string {
     return '/cards/adventure/grassland_village.jpg';
   }
   if (card.hasShrine) {
+    if (card.terrain === 'underground' || card.terrain === 'cave') {
+      return '/cards/adventure/swamp_shrine.jpg';
+    }
     if (card.terrain === 'swamp') {
       return '/cards/adventure/swamp_shrine.jpg';
     }
@@ -85,8 +98,8 @@ function getAdventureRasterArtRelativePath(card: AdventureCard): string {
     return '/cards/adventure/grassland_shrine.jpg';
   }
   if (card.hasHostile) {
-    if (card.terrain === 'cave') {
-      // Dedicated Cave art has not yet been supplied; keep the new card fully
+    if (card.terrain === 'underground' || card.terrain === 'cave') {
+      // Dedicated Underground/Cave art has not yet been supplied; keep the new card fully
       // rendered with the darkest existing encounter plate in the meantime.
       return '/cards/adventure/swamp_encounter.jpg';
     }
@@ -98,7 +111,7 @@ function getAdventureRasterArtRelativePath(card: AdventureCard): string {
     }
     return '/cards/adventure/grassland_encounter.jpg';
   }
-  if (card.terrain === 'cave') {
+  if (card.terrain === 'underground' || card.terrain === 'cave') {
     return '/cards/adventure/swamp.jpg';
   }
   if (card.terrain === 'swamp') {
@@ -208,8 +221,11 @@ function getItemRasterArtRelativePath(itemId?: string): string {
   if (!itemId) return '/cards/items/wooden_sword.jpg';
   const cleanId = itemId.replace(/^lvl\d+_/, '').replace(/(?:_plus)+$/, '');
   switch (cleanId) {
-    case 'health_potion':
-      return '/cards/items/health_potion.jpg';
+    case 'health_potion': {
+      const levelMatch = /^lvl(\d+)_/.exec(itemId);
+      const level = levelMatch ? levelMatch[1] : '1';
+      return `/cards/items/health_potion${level}.jpg`;
+    }
     case 'wooden_sword':
     case 'iron_sword':
       return '/cards/items/iron_sword.jpg';
@@ -227,8 +243,9 @@ function getItemRasterArtRelativePath(itemId?: string): string {
       return '/cards/items/book_of_spells.jpg';
     case 'ring_of_beasts':
     case 'beast_ring':
-    case 'focus_ring':
       return '/cards/items/ring_of_beasts.jpg';
+    case 'focus_ring':
+      return '/cards/items/focus_ring.jpg';
     case 'sandals_of_swiftness':
     case 'hermes_gear':
       return '/cards/items/sandals_of_swiftness.jpg';
@@ -236,7 +253,7 @@ function getItemRasterArtRelativePath(itemId?: string): string {
     case 'goldstar':
       return '/cards/items/lucky_charm.jpg';
     case 'dagger':
-      return '/cards/items/iron_sword.jpg';
+      return '/cards/items/dagger.jpg';
     default:
       return '/cards/items/wooden_sword.jpg';
   }

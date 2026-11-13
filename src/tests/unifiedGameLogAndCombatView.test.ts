@@ -206,7 +206,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
       '[10:01:00] 🗺️ Turn 1: Chose path Forest Village (Row 1, Col 1).',
       '[10:02:00] 🏡 Arrived at Forest Village.',
       '[10:03:00] ✦ Visited Sacred Shrine: granted boon Blessing of Strength!',
-      '[10:04:00] ⚔️ Played Slash on Goblin: rolled 2d6 = 9 -> 🎯 HIT! 5 DMG.',
+      '[10:04:00] ⚔️ Played Slash on Goblin: rolled 3d6 = 9 -> 🎯 HIT! 5 DMG.',
       '[10:05:00] 🏆 Victory! Defeated Goblin! Claimed +1 SP and +3 Gold.',
     ];
 

@@ -13,6 +13,7 @@ import {
   ADVENTURE_CARD_CATALOG,
   STAGE_1_DECK_COMPOSITION,
   STAGE_2_DECK_COMPOSITION,
+  STAGE_3_DECK_COMPOSITION,
 } from '../data/stages';
 import { shuffleArray } from './rng';
 import { AdventureCard, ClassId, CombatCardDef, MonsterCard, ShopItemDef } from './types';
@@ -65,6 +66,13 @@ export function buildStage2AdventureDeck(rngState: number): {
   nextState: number;
 } {
   return buildAdventureDeckFromComposition(STAGE_2_DECK_COMPOSITION, rngState);
+}
+
+export function buildStage3AdventureDeck(rngState: number): {
+  deck: AdventureCard[];
+  nextState: number;
+} {
+  return buildAdventureDeckFromComposition(STAGE_3_DECK_COMPOSITION, rngState);
 }
 
 export function drawAdventureCardWithReshuffle(
@@ -480,4 +488,35 @@ export function drawTreasureUntilLevel(
   return { item: result.drawn[0] ?? null, deck: result.deck, discard: result.discard,
     nextState: result.nextState, reshuffleCount: result.reshuffleCount,
     discardedOverLevel: result.discardedInvalid };
+}
+
+/**
+ * Pulls an existing physical Treasure card for hero setup without ever creating
+ * new copies out of thin air: checks the Void (game box) first, then searches
+ * the prepared scenario Treasure Deck.
+ */
+export function pullStartingTreasureCard(
+  deck: ShopItemDef[],
+  itemId: string,
+  voidPile: ShopItemDef[] = []
+): { item: ShopItemDef | null; deck: ShopItemDef[]; voidPile: ShopItemDef[] } {
+  const voidIdx = voidPile.findIndex((c) => c.id === itemId);
+  if (voidIdx >= 0) {
+    const item = voidPile[voidIdx];
+    return {
+      item,
+      deck,
+      voidPile: [...voidPile.slice(0, voidIdx), ...voidPile.slice(voidIdx + 1)],
+    };
+  }
+  const deckIdx = deck.findIndex((c) => c.id === itemId);
+  if (deckIdx >= 0) {
+    const item = deck[deckIdx];
+    return {
+      item,
+      deck: [...deck.slice(0, deckIdx), ...deck.slice(deckIdx + 1)],
+      voidPile,
+    };
+  }
+  return { item: null, deck, voidPile };
 }

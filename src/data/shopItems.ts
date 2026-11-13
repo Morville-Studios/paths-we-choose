@@ -60,7 +60,7 @@ export const SHOP_ITEM_CATALOG: ShopItemTemplate[] = [
     level: 1,
     gearBonus: { eva: 1 },
     cardNumber: 'ITM · #005',
-    description: 'Armor Slot: +1 EVA (increases evasion against all 2d6 attacks).',
+    description: 'Armor Slot: +1 EVA (increases evasion against all 3d6 attacks).',
     flavorText: 'Flexible cured hides that allow silent movement and effortless dodges.',
   },
   {

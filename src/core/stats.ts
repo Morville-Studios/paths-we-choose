@@ -104,9 +104,9 @@ export function getPlayerAtk(stats: CharacterStats, gearAtk = 0): number {
   return Math.floor(stats.str / 2) + Math.floor(stats.dex / 3) + gearAtk;
 }
 
-/** Physical DEF: floor(STR / 5) + floor(VIT / 5) + floor(AGI / 3) + gear.def */
-export function getPlayerDef(stats: CharacterStats, gearDef = 0): number {
-  return Math.floor(stats.str / 5) + Math.floor(stats.vit / 5) + Math.floor(stats.agi / 3) + gearDef;
+/** Physical DEF: floor((STR + AGI + VIT) / 5) + gear.def (+ divineProtection) */
+export function getPlayerDef(stats: CharacterStats, gearDef = 0, divineProtection = 0): number {
+  return Math.floor((stats.str + stats.agi + stats.vit) / 5) + gearDef + divineProtection;
 }
 
 /** Magical ATK: floor(INT / 2) + gear.matk (increases by 1 for every 2 INT) */
@@ -114,19 +114,14 @@ export function getPlayerMatk(stats: CharacterStats, gearMatk = 0): number {
   return Math.floor(stats.int / 2) + gearMatk;
 }
 
-/** Magical DEF: floor(INT / 5) + gear.mdef (increases by 1 for every 5 INT) */
-export function getPlayerMdef(stats: CharacterStats, gearMdef = 0): number {
-  return Math.floor(stats.int / 5) + gearMdef;
+/** Magical DEF: floor(INT / 5) + gear.mdef (+ divineProtection) */
+export function getPlayerMdef(stats: CharacterStats, gearMdef = 0, divineProtection = 0): number {
+  return Math.floor(stats.int / 5) + gearMdef + divineProtection;
 }
 
 /** Max Action Points (ACT): starts at 3, +1 for every 5 INT */
 export function getPlayerAct(stats: CharacterStats): number {
   return 3 + Math.floor(stats.int / 5);
-}
-
-/** Critical Hit Threshold: fixed at 12 (Boxcars 6+6) */
-export function getPlayerCritThreshold(_stats?: CharacterStats): number {
-  return 12;
 }
 
 /** Fighter [Berzerk] Passive: +1 ATK when HP <= 50% max HP; +2 ATK instead when HP <= 25% max HP */
@@ -146,19 +141,19 @@ export function getDerivedCombatStats(
   stats: CharacterStats,
   gear: EquippedGear,
   temporaryEva = 0,
-  extraAtkBonus = 0
+  extraAtkBonus = 0,
+  divineProtection = 0
 ): DerivedCombatStats {
   const combatGear = computeCombatGearBonuses(gear);
   return {
     acc: getPlayerAcc(stats, combatGear.acc),
     eva: getPlayerEva(stats, temporaryEva, combatGear.eva),
     atk: getPlayerAtk(stats, combatGear.atk) + extraAtkBonus,
-    def: getPlayerDef(stats, combatGear.def),
+    def: getPlayerDef(stats, combatGear.def, divineProtection),
     matk: getPlayerMatk(stats, combatGear.matk),
-    mdef: getPlayerMdef(stats, combatGear.mdef),
+    mdef: getPlayerMdef(stats, combatGear.mdef, divineProtection),
     pen: combatGear.pen,
     act: getPlayerAct(stats),
-    critThreshold: getPlayerCritThreshold(stats),
     berzerkBonus: extraAtkBonus > 0 ? extraAtkBonus : undefined,
   };
 }
@@ -235,15 +230,14 @@ export function previewGearChange(
 }
 
 /**
- * Stat upgrade cost requirement: (current base level + 1) multiplied by itself.
- * e.g., Base 1 -> 2 costs (1+1)*(1+1) = 4 SP.
- *       Base 2 -> 3 costs (2+1)*(2+1) = 9 SP.
- *       Base 3 -> 4 costs (3+1)*(3+1) = 16 SP.
- *       Base 4 -> 5 costs (4+1)*(4+1) = 25 SP.
+ * Stat upgrade cost requirement: currentBaseValue * 10 SP.
+ * e.g., Base 1 -> 2 costs 10 SP.
+ *       Base 2 -> 3 costs 20 SP.
+ *       Base 3 -> 4 costs 30 SP.
+ *       Base 4 -> 5 costs 40 SP.
  */
 export function getBaseStatUpgradeCost(currentBaseValue: number): number {
-  const nextLevel = currentBaseValue + 1;
-  return nextLevel * nextLevel;
+  return currentBaseValue * 10;
 }
 
 export function canUpgradeBaseStat(state: RunState, stat: StatKey): boolean {

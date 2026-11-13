@@ -141,9 +141,9 @@ describe('Audio Scene & Music State Tracking', () => {
       },
     };
     expect(determineActiveAudio(playAreaShrine)).toEqual({
-      currentMusic: null,
-      audioScene: 'none',
-      audioState: 'none',
+      currentMusic: 'shrine',
+      audioScene: 'shrine',
+      audioState: 'shrine',
     });
 
     // Play area - Game Over
@@ -254,7 +254,7 @@ describe('Audio Scene & Music State Tracking', () => {
     expect(afterRest.audioScene).toBe('none');
   });
 
-  it('moving to shrine stops map music, leaving shrine resumes map music', () => {
+  it('moving to shrine plays shrine music, leaving shrine resumes map music with fade-out', () => {
     let s = startAdventure('wizard', 'seed-shrine-test');
     const avail = Object.values(s.board).find((n) => n.status === 'available');
     expect(avail).toBeDefined();
@@ -278,8 +278,8 @@ describe('Audio Scene & Music State Tracking', () => {
 
     const inShrine = chooseCard(s, avail.coord);
     expect(inShrine.activeHook.type).toBe('SHRINE');
-    expect(inShrine.currentMusic).toBeNull();
-    expect(inShrine.audioScene).toBe('none');
+    expect(inShrine.currentMusic).toBe('shrine');
+    expect(inShrine.audioScene).toBe('shrine');
 
     // Leaving shrine resumes map-area music
     const leftShrine = leaveShrine(inShrine);
@@ -402,7 +402,7 @@ describe('Audio Scene & Music State Tracking', () => {
     expect(mgr.getCurrentTrack()).toBeNull();
   });
 
-  it('AudioManager supports victory track and fade-out/fade-in methods', () => {
+  it('AudioManager supports victory and shrine tracks with fade-out/fade-in transitions', () => {
     const mgr = new AudioManager();
     const state: RunState = {
       ...createInitialState('test'),
@@ -424,6 +424,19 @@ describe('Audio Scene & Music State Tracking', () => {
     };
     mgr.sync(state);
     expect(mgr.getCurrentTrack()).toBe('victory');
+
+    const shrineState: RunState = {
+      ...state,
+      activeHook: {
+        type: 'SHRINE',
+        shrine: { coord: { col: 0, row: 1 }, turn: 1, prayed: false },
+      },
+      currentMusic: 'shrine',
+      audioScene: 'shrine',
+      audioState: 'shrine',
+    };
+    mgr.sync(shrineState);
+    expect(mgr.getCurrentTrack()).toBe('shrine');
 
     const fakeAudio = {
       volume: 0.5,

@@ -30,6 +30,10 @@ const TERRAIN_PRESENTATION: Record<TerrainType, TerrainPresentation> = {
     label: 'Cave', pluralLabel: 'Caves', icon: '🪨', setCode: '✦ CAV',
     templateClass: 'tcg-template-cave', badgeClass: 'cave',
   },
+  underground: {
+    label: 'Underground', pluralLabel: 'Underground', icon: '⛏️', setCode: '✦ UND',
+    templateClass: 'tcg-template-underground', badgeClass: 'underground',
+  },
 };
 
 /** Canonical labels, icons and CSS classes for every Adventure terrain. */

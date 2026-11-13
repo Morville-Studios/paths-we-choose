@@ -35,6 +35,7 @@ export function getActionCardEffect(
       : 0,
     0,
     liveAccModifier,
+    state?.divineProtection ?? 0,
   );
 }
 

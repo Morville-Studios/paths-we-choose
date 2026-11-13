@@ -14,8 +14,9 @@ export interface AudioStateResolution {
  * 2. Class Select & Map: Map music ('map-area.mp3') begins on the character selection screen ('class_select') and continues into map navigation ('play_area' with activeHook.type === 'NONE').
  * 3. Battle: Encounter / combat ('play_area' with activeHook.type === 'COMBAT') plays 'battle-normal.mp3'.
  * 4. Victory: Defeating monsters and showing rewards ('play_area' with activeHook.type === 'VICTORY') plays 'victory.mp3'; fades and stops when exiting.
- * 5. Exiting map navigation state (entering village or shrine) stops map music.
- * 6. Completing battle / exiting victory dialog resumes map navigation music ('map-area.mp3') or silences for stage complete.
+ * 5. Shrine: Entering a sacred shrine ('play_area' with activeHook.type === 'SHRINE') plays 'shrine.mp3'; fades and stops upon exiting.
+ * 6. Exiting map navigation state (entering village, stage complete, game over) stops map music.
+ * 7. Completing battle / exiting victory dialog or leaving shrine resumes map navigation music ('map-area.mp3') or silences for stage complete.
  */
 export function determineActiveAudio(state: RunState): AudioStateResolution {
   if (state.screen === 'welcome') {
@@ -49,14 +50,21 @@ export function determineActiveAudio(state: RunState): AudioStateResolution {
         audioState: 'victory',
       };
     }
-    if (state.activeHook.type === 'NONE') {
+    if (state.activeHook.type === 'SHRINE') {
+      return {
+        currentMusic: 'shrine',
+        audioScene: 'shrine',
+        audioState: 'shrine',
+      };
+    }
+    if (state.activeHook.type === 'NONE' || state.activeHook.type === 'BOSS_APPROACH') {
       return {
         currentMusic: 'map-area',
         audioScene: 'map',
         audioState: 'map',
       };
     }
-    // Exited map navigation state to village, shrine, stage complete, game over:
+    // Exited map navigation state to village, stage complete, game over:
     return {
       currentMusic: null,
       audioScene: 'none',

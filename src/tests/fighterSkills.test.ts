@@ -18,7 +18,11 @@ function combatState(hand: CombatCardDef[], drawPile: CombatCardDef[] = [], inPl
     combatTurn: 1, playerAp: 3, playerMaxAp: 3, playerBlock: 0, playerEvasionMod: 0,
     drawPile, hand, discardPile: [], inPlay, combatLog: [],
   };
-  return { ...base, activeHook: { type: 'COMBAT', combat } };
+  return {
+    ...base,
+    equippedGear: { weapon: null, armor: null, accessory: null },
+    activeHook: { type: 'COMBAT', combat },
+  };
 }
 
 function card(id: string, suffix: string): CombatCardDef {
@@ -56,15 +60,17 @@ describe('Fighter skill cards', () => {
     const state = startAdventure('fighter', 'fighter-scaling');
     const stats = getEffectiveStatsFromState(state);
     expect(computeCardEffect(card('melee_atk', 'melee'), stats).damage).toBe(6); // 3 + 3 ATK
-    expect(computeCardEffect(card('shield_def', 'shield'), stats).block).toBe(4); // 4 + 0 DEF
+    expect(computeCardEffect(card('shield_def', 'shield'), stats).block).toBe(5); // 4 + 1 DEF (STR 4 + AGI 2 + VIT 3 = 9 -> 1 DEF)
     expect(computeCardEffect(card('heavy_cleave', 'high'), stats).damage).toBe(6); // 3 ATK + 3 ACC
     expect(computeCardEffect(card('high_strike_plus', 'high-plus'), stats).damage).toBe(9); // 2 × 3 ATK + 3 ACC
     expect(computeCardEffect(card('heavy_cleave', 'high-debuffed'), stats, undefined, 0, 0, -1).damage).toBe(5); // live -1 ACC debuff
-    expect(computeCardEffect(card('battle_focus', 'fortify'), stats).block).toBe(3); // 3 + 0 DEF
-    expect(computeCardEffect(card('fortify_plus', 'fortify-plus'), stats).block).toBe(4); // 4 + 2 × 0 DEF
+    expect(computeCardEffect(card('battle_focus', 'fortify'), stats).block).toBe(5); // 5 + ⌊1 DEF / 2⌋ = 5
+    expect(computeCardEffect(card('battle_focus', 'fortify'), stats, { atk: 0, def: 3, acc: 0, eva: 0, matk: 0, mdef: 0, pen: 0 }).block).toBe(7); // 5 + ⌊(1 + 3) DEF / 2⌋ = 7
+    expect(computeCardEffect(card('fortify_plus', 'fortify-plus'), stats).block).toBe(6); // 4 + 2 × 1 DEF = 6
     expect(computeCardEffect(card('whirlwind', 'whirlwind'), stats).damage).toBe(4); // 1 + 3 ATK
     expect(computeCardEffect(card('whirlwind_plus', 'whirlwind-plus'), stats).damage).toBe(8); // 2 + 2 × 3 ATK
-    expect(computeCardEffect(card('iron_parry', 'parry'), stats)).toMatchObject({ block: 5, evasionBonus: 1 });
+    expect(computeCardEffect(card('iron_parry', 'parry'), stats)).toMatchObject({ block: 2, evasionBonus: 2 }); // 1 + ⌊2 AGI / 2⌋ = 2 Block, +2 EVA
+    expect(computeCardEffect(card('iron_parry', 'parry'), { ...stats, agi: 4 })).toMatchObject({ block: 3, evasionBonus: 2 }); // 1 + ⌊4 AGI / 2⌋ = 3 Block, +2 EVA
     expect(computeCardEffect(card('parry_plus', 'parry-plus'), stats)).toMatchObject({ block: 7, evasionBonus: 2 });
   });
 
@@ -118,6 +124,9 @@ describe('Fighter skill cards', () => {
     const result = playCard(state, whirlwind.instanceId);
     if (result.activeHook.type !== 'COMBAT') throw new Error('combat should continue');
     expect(result.activeHook.combat.combatLog.filter((entry) => entry.includes('Played Whirlwind on'))).toHaveLength(2);
+    expect(result.activeHook.combat.lastAttackRolls).toHaveLength(2);
+    expect(result.activeHook.combat.lastAttackRolls?.[0].targetIndex).toBe(0);
+    expect(result.activeHook.combat.lastAttackRolls?.[1].targetIndex).toBe(1);
   });
 
   it('keeps Battle Flag in play and draws when Adrenalin grants AP from discarded cards', () => {

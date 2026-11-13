@@ -1,0 +1,939 @@
+/* ===========================================================================
+   AD&D Classic 2nd Edition Rulebook & Interactive Folio Page Turning
+   =========================================================================== */
+
+/* Backdrop overlay sits above fixed elements like the floating audio toggle (z-index: 999) */
+.guide-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  padding: clamp(4px, 1.5vw, 16px);
+  background: rgba(5, 7, 11, 0.92);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* Authentic Heavy Leather Binding / Tome Container */
+.guide-book-tome {
+  width: min(1160px, 100%);
+  height: min(940px, calc(100dvh - clamp(8px, 2.5vw, 32px)));
+  max-height: calc(100dvh - clamp(8px, 2.5vw, 32px));
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(145deg, #2a150a 0%, #1e0e06 50%, #130804 100%);
+  border: clamp(2px, 0.4vw, 3px) solid #5a381a;
+  border-radius: clamp(8px, 1.5vw, 14px);
+  box-shadow: 0 32px 95px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(212, 175, 55, 0.28), inset 0 0 25px rgba(0, 0, 0, 0.85);
+  position: relative;
+  overflow: hidden;
+  font-family: Georgia, 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+  box-sizing: border-box;
+}
+
+/* Ornate Medieval Leather Header Bar (Fixed / No-Shrink) */
+.guide-tome-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: clamp(8px, 1.2vw, 14px) clamp(10px, 2vw, 24px);
+  background: linear-gradient(180deg, #241107 0%, #160a04 100%);
+  border-bottom: 2px solid #523114;
+  box-sizing: border-box;
+}
+
+.guide-tome-identity {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1vw, 12px);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.guide-tome-sigil {
+  font-size: clamp(1.2rem, 2vw, 1.8rem);
+  flex-shrink: 0;
+  color: #d4af37;
+  text-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+}
+
+.guide-tome-eyebrow {
+  display: block;
+  font-size: clamp(0.62rem, 0.85vw, 0.72rem);
+  letter-spacing: clamp(1px, 0.2vw, 2px);
+  color: #d4af37;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.guide-tome-title {
+  margin: 1px 0 0;
+  font-size: clamp(0.92rem, 1.6vw, 1.45rem);
+  font-weight: 800;
+  color: #faebd7;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.guide-tome-close {
+  flex-shrink: 0;
+  background: rgba(30, 14, 6, 0.8);
+  border: 1px solid #7a481c;
+  color: #eed7a1;
+  width: clamp(28px, 3.5vw, 34px);
+  height: clamp(28px, 3.5vw, 34px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(1.1rem, 2vw, 1.4rem);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: auto;
+}
+.guide-tome-close:hover {
+  background: #781616;
+  color: #fff;
+  border-color: #d4af37;
+  transform: scale(1.08);
+}
+
+/* Bookmark Ribbon Navigation Tabs (Fixed / No-Shrink, Scrollable horizontally) */
+.guide-ribbon-bar {
+  flex-shrink: 0;
+  display: flex;
+  gap: clamp(4px, 0.8vw, 6px);
+  padding: 4px clamp(8px, 2vw, 24px) 0;
+  background: rgba(16, 7, 3, 0.95);
+  border-bottom: 2px solid #4a280e;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+.guide-ribbon-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.guide-ribbon-tab {
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #381212 0%, #200808 100%);
+  border: 1px solid #5a261a;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  padding: clamp(5px, 0.9vw, 8px) clamp(8px, 1.3vw, 16px);
+  color: #dfc28d;
+  font-family: inherit;
+  font-size: clamp(0.7rem, 0.9vw, 0.82rem);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.guide-ribbon-tab:hover {
+  background: linear-gradient(180deg, #581c1c 0%, #350f0f 100%);
+  color: #fff;
+  border-color: #8c4528;
+}
+
+.guide-ribbon-tab.is-active {
+  background: linear-gradient(180deg, #781818 0%, #4d1010 100%);
+  color: #fff3d1;
+  border-color: #d4af37;
+  box-shadow: 0 -2px 10px rgba(212, 175, 55, 0.35);
+  transform: translateY(-2px);
+}
+
+/* Non-scrolling Viewport for the Open Parchment Folio Spread */
+.guide-spread-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(ellipse at 50% 40%, #fcf7ec 0%, #f5ead5 50%, #e6d3af 100%);
+  box-shadow: inset 0 0 clamp(20px, 4vw, 50px) rgba(110, 75, 30, 0.3), inset 0 0 12px rgba(60, 35, 10, 0.45);
+  border-left: 1px solid #44240d;
+  border-right: 1px solid #44240d;
+  box-sizing: border-box;
+}
+
+/* The Open Parchment Folio Spread (Scrollable middle container) */
+.guide-parchment-spread {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  padding: clamp(14px, 2.5vw, 30px) clamp(12px, 3vw, 42px) clamp(16px, 3vw, 34px);
+  color: #261608;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #8c5d26 rgba(40, 20, 10, 0.15);
+}
+
+.guide-parchment-spread::-webkit-scrollbar {
+  width: 8px;
+}
+.guide-parchment-spread::-webkit-scrollbar-track {
+  background: rgba(40, 20, 10, 0.12);
+  border-radius: 4px;
+}
+.guide-parchment-spread::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #8c5d26 0%, #5a381a 100%);
+  border-radius: 4px;
+  border: 1px solid #3d220e;
+}
+.guide-parchment-spread::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #aa7332 0%, #734722 100%);
+}
+
+/* Brass Filigree Corner Bracket Embellishments on Outer Tome */
+.guide-filigree {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0.65;
+  border-color: #8c5d26;
+  border-style: solid;
+}
+.guide-filigree-tl { top: 8px; left: 8px; border-width: 3px 0 0 3px; }
+.guide-filigree-tr { top: 8px; right: 8px; border-width: 3px 3px 0 0; }
+.guide-filigree-bl { bottom: 8px; left: 8px; border-width: 0 0 3px 3px; }
+.guide-filigree-br { bottom: 8px; right: 8px; border-width: 0 3px 3px 0; }
+
+@media (max-width: 860px) {
+  .guide-filigree {
+    display: none !important;
+  }
+}
+
+/* Center Book Spine Crease & Shadow Gutter (Fixed overlay over the open book spread) */
+.guide-book-spine-gutter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 44px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, 
+    rgba(0, 0, 0, 0) 0%, 
+    rgba(55, 30, 10, 0.12) 20%, 
+    rgba(35, 18, 5, 0.36) 46%, 
+    rgba(20, 10, 3, 0.46) 50%, 
+    rgba(35, 18, 5, 0.36) 54%, 
+    rgba(55, 30, 10, 0.12) 80%, 
+    rgba(0, 0, 0, 0) 100%
+  );
+  pointer-events: none;
+  z-index: 10;
+}
+
+.guide-book-spine-gutter::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 1px);
+  width: 2px;
+  background: linear-gradient(180deg, rgba(30, 15, 5, 0.65) 0%, rgba(15, 8, 2, 0.85) 50%, rgba(30, 15, 5, 0.65) 100%);
+  box-shadow: -1px 0 2px rgba(0, 0, 0, 0.35), 1px 0 1px rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+
+@media (max-width: 860px) {
+  .guide-book-spine-gutter {
+    display: none !important;
+  }
+}
+
+/* Page Presentation & 3D Turning Animation */
+.guide-book-page {
+  display: none;
+  transform-origin: left center;
+}
+.guide-book-page.is-active {
+  display: block;
+  animation: adndPageTurn 0.34s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+@keyframes adndPageTurn {
+  0% {
+    opacity: 0.15;
+    transform: perspective(1400px) rotateY(-8deg) scale(0.985);
+    filter: drop-shadow(-12px 6px 18px rgba(35, 20, 10, 0.5));
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1400px) rotateY(0deg) scale(1);
+    filter: none;
+  }
+}
+
+/* Page Header & Running Head */
+.guide-page-header {
+  text-align: center;
+  margin-bottom: clamp(14px, 2vw, 22px);
+  border-bottom: 2px double #8c5d26;
+  padding-bottom: clamp(8px, 1.2vw, 12px);
+}
+.guide-running-head {
+  display: block;
+  font-size: clamp(0.64rem, 0.8vw, 0.72rem);
+  letter-spacing: clamp(1.5px, 0.3vw, 3px);
+  color: #781616;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.guide-chapter-title {
+  margin: 2px 0 3px;
+  font-size: clamp(1.15rem, 2.2vw, 1.7rem);
+  font-weight: 900;
+  color: #5c1414;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.guide-chapter-sub {
+  margin: 0;
+  font-size: clamp(0.8rem, 1vw, 0.92rem);
+  color: #55351a;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+/* Two-Column Book Spread (Desktop) / Single-Column (Mobile) */
+.guide-folio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 2.5vw, 36px);
+}
+
+@media (max-width: 860px) {
+  .guide-folio-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+.guide-folio-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Typography & Drop Caps */
+.guide-section-heading {
+  margin: 6px 0 2px;
+  font-size: clamp(0.92rem, 1.1vw, 1.05rem);
+  font-weight: 800;
+  color: #781616;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(140, 93, 38, 0.35);
+  padding-bottom: 3px;
+}
+.guide-body-text {
+  margin: 0;
+  font-size: clamp(0.86rem, 1vw, 0.92rem);
+  line-height: 1.55;
+  color: #261608;
+  text-align: justify;
+}
+.guide-drop-cap {
+  float: left;
+  font-size: clamp(2.3rem, 3.8vw, 3.2rem);
+  line-height: 0.82;
+  margin: 2px 7px 0 0;
+  color: #781616;
+  font-weight: 900;
+  text-shadow: 1px 1px 0 #eedcb8, 2px 2px 0 rgba(120, 22, 22, 0.25);
+}
+
+/* AD&D Boxed Rules Callouts */
+.adnd-parchment-box {
+  background: rgba(235, 222, 194, 0.65);
+  border: 2px solid #8c5d26;
+  border-radius: 4px;
+  padding: clamp(9px, 1.2vw, 14px);
+  box-shadow: inset 0 0 10px rgba(110, 75, 30, 0.12), 0 2px 4px rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
+}
+.adnd-parchment-box.callout-quest {
+  background: rgba(240, 225, 190, 0.85);
+  border-color: #781616;
+}
+.adnd-box-title {
+  margin: 0 0 5px;
+  font-size: clamp(0.72rem, 0.9vw, 0.78rem);
+  font-weight: 800;
+  color: #781616;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(140, 93, 38, 0.35);
+  padding-bottom: 3px;
+}
+.adnd-box-text {
+  margin: 0 0 5px;
+  font-size: clamp(0.82rem, 0.95vw, 0.88rem);
+  line-height: 1.48;
+  color: #2c1a0e;
+}
+.adnd-box-formula {
+  margin: 4px 0 5px;
+  padding: 4px 8px;
+  background: rgba(120, 22, 22, 0.08);
+  border-left: 3px solid #781616;
+  font-size: clamp(0.85rem, 1vw, 0.95rem);
+  color: #5c1414;
+}
+
+/* 3d6 Probability Table in Rulebook */
+.adnd-prob-table-box {
+  margin: 4px 0;
+}
+.adnd-prob-table-wrap {
+  overflow-x: auto;
+  margin-top: 4px;
+}
+.adnd-prob-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: clamp(0.72rem, 0.85vw, 0.8rem);
+  color: #261608;
+  background: rgba(248, 240, 220, 0.72);
+  border: 1px solid #8c5d26;
+}
+.adnd-prob-table th,
+.adnd-prob-table td {
+  padding: 4px 8px;
+  border: 1px solid rgba(140, 93, 38, 0.35);
+  text-align: left;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.adnd-prob-table th:nth-child(2),
+.adnd-prob-table td:nth-child(2),
+.adnd-prob-table th:nth-child(3),
+.adnd-prob-table td:nth-child(3) {
+  text-align: center;
+}
+.adnd-prob-table th {
+  background: rgba(120, 22, 22, 0.14);
+  color: #5c1414;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: clamp(0.66rem, 0.78vw, 0.72rem);
+  letter-spacing: 0.4px;
+}
+.adnd-prob-table tbody tr:nth-child(even) {
+  background: rgba(226, 210, 178, 0.42);
+}
+.adnd-prob-table tr.is-crit-row {
+  background: rgba(245, 158, 11, 0.22) !important;
+  color: #5c1414;
+}
+.adnd-prob-table tr.is-peak-row {
+  background: rgba(140, 93, 38, 0.16) !important;
+}
+.adnd-prob-table tr.is-base-hit-row {
+  background: rgba(22, 101, 52, 0.14) !important;
+}
+.adnd-prob-table tr.is-miss-row {
+  background: rgba(120, 22, 22, 0.14) !important;
+  color: #5c1414;
+}
+
+/* Lists in Rulebook */
+.adnd-numbered-list, .adnd-bullet-list, .adnd-stat-perks {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: clamp(0.82rem, 0.95vw, 0.88rem);
+  line-height: 1.5;
+  color: #261608;
+}
+.adnd-numbered-list li + li, .adnd-bullet-list li + li, .adnd-stat-perks li + li {
+  margin-top: 4px;
+}
+
+/* Stat Entries */
+.adnd-stat-entry {
+  background: rgba(238, 227, 202, 0.6);
+  border-left: 3px solid #8c5d26;
+  padding: clamp(7px, 1vw, 9px) clamp(8px, 1.2vw, 12px);
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+}
+.adnd-stat-entry.adnd-vitality-callout {
+  border-left-color: #781616;
+  background: rgba(240, 220, 205, 0.7);
+}
+.adnd-stat-name {
+  margin: 0 0 3px;
+  font-size: clamp(0.8rem, 0.95vw, 0.86rem);
+  font-weight: 800;
+  color: #781616;
+  letter-spacing: 0.4px;
+}
+.adnd-stat-desc {
+  margin: 0 0 4px;
+  font-size: clamp(0.78rem, 0.9vw, 0.84rem);
+  font-style: italic;
+  color: #4a301a;
+}
+.adnd-glyph { margin-right: 4px; }
+
+/* Class Boxes */
+.adnd-class-box {
+  background: rgba(236, 224, 198, 0.72);
+  border: 1px solid #8c5d26;
+  border-radius: 6px;
+  padding: clamp(10px, 1.4vw, 14px);
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+.adnd-class-header {
+  border-bottom: 1px solid rgba(140, 93, 38, 0.35);
+  padding-bottom: 4px;
+  margin-bottom: 5px;
+}
+.adnd-class-title {
+  margin: 0;
+  font-size: clamp(0.88rem, 1.1vw, 0.98rem);
+  font-weight: 800;
+  color: #781616;
+  letter-spacing: 0.5px;
+}
+.adnd-class-role {
+  font-size: clamp(0.7rem, 0.85vw, 0.75rem);
+  font-weight: 700;
+  color: #6a441e;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.adnd-class-summary {
+  margin: 0 0 5px;
+  font-size: clamp(0.8rem, 0.9vw, 0.86rem);
+  line-height: 1.42;
+  color: #382414;
+}
+.adnd-class-stats-strip {
+  background: rgba(120, 22, 22, 0.08);
+  border: 1px dashed rgba(140, 93, 38, 0.5);
+  padding: 4px 6px;
+  font-size: clamp(0.74rem, 0.85vw, 0.8rem);
+  color: #5c1414;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+/* Page Jump Rows */
+.adnd-page-jump-row {
+  margin-top: auto;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.adnd-jump-label {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: #5a381a;
+}
+.guide-jump-btn {
+  background: linear-gradient(180deg, #442211 0%, #291207 100%);
+  color: #eed7a1;
+  border: 1px solid #8c5a24;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.guide-jump-btn:hover {
+  background: #781616;
+  color: #fff;
+  border-color: #d4af37;
+}
+
+/* Tome Bottom Page-Turning Footer (Fixed / No-Shrink) */
+.guide-tome-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: clamp(8px, 1.2vw, 12px) clamp(8px, 2vw, 24px);
+  background: linear-gradient(180deg, #1f0d05 0%, #120703 100%);
+  border-top: 2px solid #4a280e;
+  box-sizing: border-box;
+}
+
+.guide-turn-btn {
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #442211 0%, #291207 100%);
+  color: #eed7a1;
+  border: 1px solid #8c5a24;
+  font-family: inherit;
+  font-size: clamp(0.74rem, 1vw, 0.88rem);
+  font-weight: 700;
+  padding: clamp(6px, 1vw, 8px) clamp(10px, 1.6vw, 18px);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.guide-turn-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #6b2222 0%, #441111 100%);
+  color: #fff;
+  border-color: #d4af37;
+  transform: translateY(-1px);
+}
+.guide-turn-btn:disabled, .guide-turn-btn.is-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.guide-page-medallion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  color: #d4af37;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  font-size: clamp(0.76rem, 1vw, 0.92rem);
+  text-align: center;
+}
+.guide-medallion-crest { font-size: 0.8rem; color: #b89025; }
+.guide-turn-hint {
+  font-size: 0.68rem;
+  font-weight: normal;
+  color: #a6855b;
+  font-family: system-ui, sans-serif;
+  letter-spacing: normal;
+}
+
+/* Chapter VI: Bestiary (Monstrous Compendium) */
+.guide-bestiary-quicknav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  margin: 4px 0 16px;
+  padding: 8px 12px;
+  background: rgba(140, 93, 38, 0.08);
+  border: 1px solid rgba(140, 93, 38, 0.35);
+  border-radius: 6px;
+}
+
+.guide-quicknav-btn {
+  background: #fbf5e6;
+  border: 1px solid #8c5d26;
+  color: #55351a;
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-family: 'Cinzel', serif;
+  font-size: clamp(0.72rem, 0.85vw, 0.8rem);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.guide-quicknav-btn:hover {
+  background: #781616;
+  color: #fffaee;
+  border-color: #500e0e;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(120, 22, 22, 0.25);
+}
+
+.guide-quicknav-btn:active {
+  transform: translateY(0);
+}
+
+.guide-bestiary-category {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.guide-bestiary-cat-header {
+  border-bottom: 1.5px solid #8c5d26;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+.guide-bestiary-cat-title {
+  margin: 0;
+  font-size: clamp(0.95rem, 1.2vw, 1.15rem);
+  font-weight: 800;
+  color: #781616;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.guide-bestiary-cat-title small {
+  font-size: 0.76rem;
+  color: #6d421e;
+  font-weight: 600;
+  text-transform: none;
+}
+
+.guide-bestiary-cat-sub {
+  margin: 2px 0 0;
+  font-size: clamp(0.76rem, 0.9vw, 0.84rem);
+  color: #55351a;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.guide-bestiary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  justify-items: center;
+}
+
+.guide-bestiary-card-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 236px;
+  padding: 6px;
+  border-radius: 10px;
+  background: rgba(45, 25, 12, 0.05);
+  border: 1.5px solid rgba(140, 93, 38, 0.28);
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  user-select: none;
+}
+
+.guide-bestiary-card-item:hover,
+.guide-bestiary-card-item:focus-within {
+  transform: translateY(-3px) scale(1.02);
+  background: rgba(212, 175, 55, 0.14);
+  border-color: #d4af37;
+  box-shadow: 0 8px 24px rgba(35, 18, 5, 0.3), 0 0 14px rgba(212, 175, 55, 0.45);
+}
+
+.guide-bestiary-card-item .tcg-card.tcg-creature,
+.guide-bestiary-card-item .tcg-card.tcg-item {
+  width: 230px;
+  height: 322px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.guide-bestiary-card-footer {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.guide-bestiary-inspect-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  padding: 5px 10px;
+  background: linear-gradient(180deg, #781818 0%, #4d1010 100%);
+  color: #fff3d1;
+  border: 1px solid #8c4528;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.guide-bestiary-card-item:hover .guide-bestiary-inspect-btn {
+  background: linear-gradient(180deg, #962020 0%, #631515 100%);
+  border-color: #d4af37;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(212, 175, 55, 0.4);
+}
+
+@media (max-width: 600px) {
+  .guide-backdrop {
+    padding: 0 !important;
+  }
+  .guide-book-tome {
+    width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+  .guide-tome-header {
+    padding: 8px 10px !important;
+    gap: 6px !important;
+  }
+  .guide-tome-sigil {
+    font-size: 1.25rem !important;
+  }
+  .guide-tome-eyebrow {
+    font-size: 0.58rem !important;
+    letter-spacing: 0.8px !important;
+  }
+  .guide-tome-title {
+    font-size: 0.96rem !important;
+    line-height: 1.15 !important;
+  }
+  .guide-tome-close {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    font-size: 1.25rem !important;
+  }
+  .guide-ribbon-bar {
+    padding: 2px 4px 0 !important;
+    gap: 4px !important;
+  }
+  .guide-ribbon-tab {
+    padding: 5px 8px !important;
+    font-size: 0.72rem !important;
+  }
+  .guide-spread-viewport {
+    flex: 1 1 0px !important;
+    min-height: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+  .guide-parchment-spread {
+    flex: 1 1 0px !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 10px 12px 14px !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+  .guide-page-header {
+    margin-bottom: 10px !important;
+    padding-bottom: 6px !important;
+  }
+  .guide-chapter-title {
+    font-size: 1.05rem !important;
+  }
+  .guide-chapter-sub {
+    font-size: 0.76rem !important;
+    line-height: 1.25 !important;
+  }
+  .guide-section-heading {
+    font-size: 0.88rem !important;
+    margin: 6px 0 2px !important;
+  }
+  .guide-body-text {
+    font-size: 0.84rem !important;
+    line-height: 1.45 !important;
+    text-align: left !important;
+  }
+  .guide-drop-cap {
+    font-size: 2.1rem !important;
+    margin: 1px 5px 0 0 !important;
+  }
+  .adnd-parchment-box {
+    padding: 8px 10px !important;
+  }
+  .adnd-box-title {
+    font-size: 0.72rem !important;
+  }
+  .adnd-box-text,
+  .adnd-numbered-list,
+  .adnd-bullet-list,
+  .adnd-stat-perks {
+    font-size: 0.8rem !important;
+    line-height: 1.4 !important;
+  }
+  .adnd-numbered-list,
+  .adnd-bullet-list,
+  .adnd-stat-perks {
+    padding-left: 16px !important;
+  }
+  .adnd-stat-entry {
+    padding: 6px 8px !important;
+    margin-bottom: 5px !important;
+  }
+  .adnd-stat-name {
+    font-size: 0.8rem !important;
+  }
+  .adnd-stat-desc {
+    font-size: 0.75rem !important;
+  }
+  .adnd-class-box {
+    padding: 8px 10px !important;
+    margin-bottom: 8px !important;
+  }
+  .adnd-class-title {
+    font-size: 0.86rem !important;
+  }
+  .adnd-class-summary {
+    font-size: 0.78rem !important;
+  }
+  .adnd-class-stats-strip {
+    font-size: 0.72rem !important;
+    padding: 3px 4px !important;
+  }
+  .adnd-page-jump-row {
+    padding-top: 6px !important;
+  }
+  .guide-jump-btn {
+    padding: 4px 8px !important;
+    font-size: 0.74rem !important;
+  }
+  .guide-tome-footer {
+    padding: 8px 10px !important;
+    gap: 4px !important;
+  }
+  .guide-turn-btn {
+    padding: 6px 10px !important;
+    font-size: 0.76rem !important;
+  }
+  .guide-page-medallion {
+    font-size: 0.76rem !important;
+  }
+  .guide-medallion-crest {
+    font-size: 0.7rem !important;
+  }
+  .guide-turn-hint {
+    display: none !important;
+  }
+}
+
+

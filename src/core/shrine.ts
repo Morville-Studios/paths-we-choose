@@ -64,7 +64,7 @@ export const PRAYER_OPTION_CATALOG: Record<ShrinePrayerOptionId, ShrinePrayerOpt
   divine_protection: {
     id: 'divine_protection',
     name: 'Divine Protection',
-    description: 'All damage you take is reduced by 1 for the remainder of this map.',
+    description: 'Grants +1 DEF and +1 MDEF for the scenario.',
   },
   revitalize: {
     id: 'revitalize',

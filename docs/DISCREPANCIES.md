@@ -1,6 +1,6 @@
 # Documentation and Implementation Discrepancy Register
 
-Audit date: **2026-11-01 (Asia/Manila)**. Status: **29 resolved, 0 pending** (29 findings including the follow-up documentation review).
+Audit refreshed: **2026-11-13 (Asia/Manila)**. Status: **34 resolved, 0 pending** (34 findings).
 
 This records the discrepancies identified in the current local working tree, including staged and unstaged work. It is an evidence register, not a replacement specification. Implementation is evidence of current behavior, not automatic authority. No gameplay decision is approved by this document. Source locations use file/section or symbol names so ordinary line shifts do not break the references.
 
@@ -12,11 +12,11 @@ This records the discrepancies identified in the current local working tree, inc
 4. Reconcile every affected document, example, UI description and test.
 5. Record validation and mark resolved only when all affected surfaces agree.
 
-The original 27 findings were resolved against the rules then recorded. D029 now applies the later ability-only fizzle clarification to encounter recycling as well as treasure mechanics. D015 follows the floor-rounding rule already present in AGENTS.md.
+The original 29 findings were resolved against the rules then recorded. D030–D033 record the later MACG-3D6 combat audit. Historical 2d6 decisions in D012, D014 and D015 are retained for traceability but are explicitly superseded by the current 3d6 implementation.
 
 ## Audit baseline that is aligned
 
-The original audit recorded historical fixed Stage 1 decks of 25 and later 38 cards. Those fixed-count rules are superseded. The aligned implementation now creates a 76-card ordinary physical supply: Common types have 6 copies, Uncommon types 4, and Rare types 3. Scenario setup partitions that supply from the public Void by main-terrain bands using 100%, rounded 2/3, and rounded 1/3 rates. Scenario 1 builds 45 cards and leaves 31 ordinary creatures in the Void; Scenario 2 builds 37 and leaves 39. The generated catalog is the exact current quantity reference. Boss cards remain separate.
+The original audit recorded historical fixed Stage 1 decks of 25 and later 38 cards. Those fixed-count rules are superseded. As updated in D034, the aligned implementation creates an 85-card ordinary physical supply across 22 types: Common types have 6 copies, Uncommon types 4, and Rare types 3. Scenario setup partitions that supply from the public Void by main-terrain bands using 100%, rounded 2/3, and rounded 1/3 rates. Scenario 1 builds 45 cards (40 in Void), Scenario 2 builds 37 (48 in Void), and Scenario 3 builds 30 (55 in Void). The generated catalog is the exact current quantity reference. Boss cards remain separate.
 
 The appended creature mechanics and reward/type updates match their implementations. Earlier ambiguous details (for example poison timing, Skittish accumulation, and revival timing) remain implementation interpretations documented in their sections and can be revisited independently if desired.
 
@@ -56,6 +56,11 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 | [D027](#d027) | Unstocked purchase creates a new item | Implementation conflict | Resolved |
 | [D028](#d028) | Stale Shrine, encounter terrain and protection prose | Documentation conflict | Resolved |
 | [D029](#d029) | Encounter exhaustion after the ability-only fizzle clarification | Gameplay decision | Resolved |
+| [D030](#d030) | Retired 2d6 terminology remained on player-facing surfaces | Cross-repository metadata and documentation conflict | Resolved |
+| [D031](#d031) | Legacy 2d6 critical-hit compatibility fields remain in runtime schemas | Technical debt / compatibility decision | Resolved |
+| [D032](#d032) | ACC and EVA documentation lagged behind 1:1 stat scaling | Documentation conflict | Resolved |
+| [D033](#d033) | 3d6 success-range prose and one UI label described a one-sided threshold | Documentation and UI conflict | Resolved |
+| [D034](#d034) | Progression and reward modernization (Linear rewards, B×10 upgrades, 10 start SP, 85-card supply, Scenario 3) | Cross-repository game design & documentation synchronization | Resolved |
 
 ## Findings
 
@@ -214,6 +219,7 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Audit reconciliation target:** Choose one formula and reconcile direct gear accuracy versus stat bonuses.
 - **Accepted decision (superseded by equipment update):** Direct gear ACC is valid: Hero ACC is floor(DEX/2) + gear.acc + card and temporary modifiers. Iron Sword + provides +1 gear ACC.
 - **Resolution / validation:** Reconciled formulas and examples with the direct gear ACC schema and hit checks. See batch validation below.
+- **Superseded behavior (2026-11-13):** The implemented and now-canonical formula is `ACC = DEX + gear.acc`; D032 records the later 1:1 scaling reconciliation.
 
 <a id="d013"></a>
 ### D013 — Hero physical attack and action-card formulas
@@ -240,6 +246,7 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Audit reconciliation target:** Replace guaranteed gains with threshold-dependent descriptions, or choose a different stat formula.
 - **Accepted decision:** Keep floor(stat/2) thresholds.
 - **Resolution / validation:** DEX/AGI blessing text now explains that +1 only increases ACC/EVA when crossing an even stat value. See batch validation below.
+- **Superseded behavior (2026-11-13):** ACC and EVA now scale 1:1 from DEX and AGI, so each +1 blessing does grant +1 to its derived value. D032 records the current decision.
 
 <a id="d015"></a>
 ### D015 — Critical damage rounding
@@ -253,6 +260,7 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Audit reconciliation target:** Choose floor versus nearest rounding and whether critical hits guarantee at least +1 damage; update engine, UI examples and tests together.
 - **Accepted decision:** Apply floor(damage × 1.5) exactly as the latest AGENTS.md requires, without an additional minimum +1 rule.
 - **Resolution / validation:** Changed hero and monster critical damage paths. Added tests for base damage 1, 3 and 5 on each path. See batch validation below.
+- **Superseded behavior (2026-11-13):** MACG-3D6 has no critical-hit outcome. Natural totals 3 and 18 are Diabolic automatic misses. D030 records the current system; D031 tracks unused compatibility fields left from this retired rule.
 
 <a id="d016"></a>
 ### D016 — Number of decks
@@ -426,11 +434,66 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Resolution:** Updated drawEncounterMonsters and engine messages; renamed its result flag to supplyExhausted. Synchronized README, AGENTS and gameplay/architecture specs. The bounded single-card ability-search helper retains its original behavior.
 - **Validation:** All 235 tests pass, including mid-encounter recycling, a fully rejected initial deck, terrain-only dead ends, unavailable supply, card conservation, deterministic replay, input immutability and engine/boss integration. Production build passed, including generated catalog freshness and strict TypeScript checks.
 
+<a id="d030"></a>
+### D030 — Retired 2d6 terminology remained on player-facing surfaces
+
+- **Status:** Resolved (2026-11-13)
+- **Classification:** Cross-repository metadata and documentation conflict
+- **Observation:** The portal advertised “2d6 combat,” while class/item copy, the Player's Handbook, SEO artwork source, generated catalogs, tests and several specifications still described the retired two-die system.
+- **Implementation evidence:** `src/core/combat.ts:evaluateAttackRoll` rolls three d6 and evaluates a bounded success range from 3–18. Totals 3 and 18 are Diabolic automatic misses; there is no critical-hit result.
+- **Accepted behavior:** All attack hit checks use MACG-3D6. The localized portal genre is “3d6 combat” (translated per locale), and all current player-facing game copy must describe three dice and the bounded hit range.
+- **Resolution:** Reconciled source copy, handbook text, data catalogs, comments, tests, SEO share-card source and portal metadata. Removed the unused `roll2D6` helper. Added portal catalog/build assertions and exact localization-source coverage so stale retired copy cannot remain unnoticed.
+
+<a id="d031"></a>
+### D031 — Legacy 2d6 critical-hit compatibility fields remain in runtime schemas
+
+- **Status:** Resolved (2026-11-13)
+- **Classification:** Technical debt / compatibility decision
+- **Implementation locations:** `src/core/types.ts:DerivedCombatStats, CombatAttackRollSummary`; `src/core/stats.ts`; `src/core/combat/{rolls,playerTurn,flee,enemyTurn}.ts`; `src/ui/types.ts`; `src/ui/screens/combatView.ts`; `src/main.ts`.
+- **Resolution:** Removed `getPlayerCritThreshold`, `critThreshold`, `isCrit`, `isSnakeEyes`, `isBoxcars`, `critPercent`, `snakeEyesPercent`, and `neededRoll` across core, UI, and tests, making `minHitRoll` and `maxHitRoll` required on `CombatAttackRollSummary`.
+- **Validation:** `npm test` (27 files / 369 tests) and `npm run build` (`docs:check`, `i18n:check`, strict `tsc`, `vite build`) passed after removal.
+
+<a id="d032"></a>
+### D032 — ACC and EVA documentation lagged behind 1:1 stat scaling
+
+- **Status:** Resolved (2026-11-13)
+- **Classification:** Documentation conflict
+- **Observation:** AGENTS.md and several specifications still used `floor(DEX / 2)` and `floor(AGI / 2)` after runtime stats changed to one ACC per DEX and one EVA per AGI.
+- **Implementation evidence:** `src/core/stats.ts:getPlayerAcc, getPlayerEva`.
+- **Accepted behavior:** `ACC = DEX + gear.acc`; `EVA = AGI + gear.eva + roundBonusEVA`.
+- **Resolution:** Reconciled the architectural invariants, mechanics examples, game-design formulas and historical notes in D012/D014 with the implemented 1:1 system.
+
+<a id="d033"></a>
+### D033 — 3d6 success-range prose and one UI label described a one-sided threshold
+
+- **Status:** Resolved (2026-11-13)
+- **Classification:** Documentation and UI conflict
+- **Observation:** Some prose omitted the base expansion of three when deriving the hit range, and the all-target preview displayed “Roll X+” even though high rolls can miss.
+- **Implementation evidence:** `src/core/combat.ts:computeHitProbability` uses `expansion = clamp(3 + netAcc, 0, 6)`, then `min = max(4, 10 - expansion)` and `max = min(17, 11 + expansion)`.
+- **Accepted behavior:** Hit checks are bounded ranges. Totals below the minimum or above the maximum miss, and 3/18 always miss.
+- **Resolution:** Corrected formulas and examples and changed the all-target preview to show `Hit min–max` rather than a one-sided minimum.
+
+<a id="d034"></a>
+### D034 — Progression, reward modernization, and Scenario 3 synchronization
+
+- **Status:** Resolved (2026-11-13)
+- **Classification:** Cross-repository game design & documentation synchronization
+- **Observation:** Several design specifications, formulas, and creature reward listings drifted as new progression systems were added:
+  1. Base stat upgrades formerly used quadratic `(currentBase + 1)²` SP; this has been simplified to `currentBase * 10` SP (Base 1→2 costs 10 SP, 2→3 costs 20 SP, etc.).
+  2. Starting Stat Points in Turn 0 preparation increased from 4 SP to 10 SP, requiring full allocation before embarking.
+  3. Monster defeat rewards shifted from static manual values to unified linear formulas: for Level $L$ ordinary monsters, $\text{Gold} = L \times 5$ and $\text{SP} = L + 1$; Bosses grant double rewards: $\text{Gold} = L \times 10$ and $\text{SP} = (L + 1) \times 2$.
+  4. Physical monster supply expanded from 76 to 85 physical cards held in the Void (6 Common, 4 Uncommon, 3 Rare per type across 22 ordinary creature types).
+  5. Scenario 3 ("Tomb of the Fallen King") was implemented with 30-card Adventure Deck (17 Swamp, 11 Cave, 2 Underground), 30-card Monster Deck, 42-card Treasure Deck, and Turn 15 Boss "Fallen King" (renamed from King Nezenheim to fit card headers).
+  6. Summoned creatures receive `isSummon: true`, visual summon tokens, award 0 Gold and 0 SP on defeat, and return immediately to discard.
+- **Implementation evidence:** `src/core/stats.ts:getBaseStatUpgradeCost`; `src/data/monsters.ts:getDefaultMonsterRewards, MONSTER_TEMPLATES`; `src/data/stages.ts:STAGE_3_DECK_COMPOSITION, STAGE_3_MONSTER_DECK_COMPOSITION`; `src/core/engine.ts:startAdventure, defeatEncounterMonster`.
+- **Resolution:** Synchronized all documentation (`README.md`, `AGENTS.md`, `docs/GAME_DESIGN.md`, `docs/MECHANICS_AND_DATA.md`, `docs/ROADMAP.md`, `docs/CATALOGS.md`), data catalogs, unit tests, and the in-game Player's Handbook. Added dedicated tests in `scenario3.test.ts` and `monsterRewards.test.ts`.
+
 ## Reconciliation batch validation
 
 - Generated catalog freshness is enforced by npm run docs:check, also run by npm run build.
 - Runtime regression coverage includes critical rounding, deterministic logs, state immutability, store no-op identity, accurate damage previews and finite-stock purchases.
 - Validation on 2026-11-01: 206 tests across 10 files passed; npm run build passed including catalog freshness and strict TypeScript checks. Register totals and rewritten documentation file links were checked. The earlier 196-test total is the original audit baseline, not the current suite total.
+- MACG-3D6 audit validation on 2026-11-13: 368 tests across 27 files passed. The game production build passed strict TypeScript, generated-catalog freshness and exact five-language source coverage (1,808 entries per non-English locale, with no obsolete keys). The portal production build generated 613 indexable pages, and its post-build validator passed 614 HTML files with the duplicate footer masthead absent and localized 3d6 metadata present.
 - No Cloudflare deployment was performed. Live cache header and update/rollback verification remain release work, not a resolved runtime guarantee.
 
 ## Scope and limitations

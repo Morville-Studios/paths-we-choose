@@ -27,7 +27,7 @@ const overlay = Buffer.from(`
     <text x="67" y="414" fill="#e4bd65" font-family="Georgia, Times New Roman, serif" font-size="24">Build a path. Shape a hero. Survive the consequence.</text>
     <rect x="64" y="470" width="430" height="52" rx="3" fill="#e4bd65"/>
     <text x="88" y="504" fill="#171207" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="1">PLAY FREE IN YOUR BROWSER</text>
-    <text x="64" y="573" fill="#b7c0cf" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="2">CARD ADVENTURE · DECK-BUILDING · 2D6 COMBAT</text>
+    <text x="64" y="573" fill="#b7c0cf" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="2">CARD ADVENTURE · DECK-BUILDING · 3D6 COMBAT</text>
   </svg>
 `);
 

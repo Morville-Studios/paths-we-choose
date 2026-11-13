@@ -26,7 +26,11 @@ async function translate(lines, language) {
 
 async function main() {
   console.log(`${source.length} source entries`);
+  const sourceSet = new Set(source);
   for (const [locale, language] of Object.entries(targets)) {
+    for (const english of Object.keys(translations[locale])) {
+      if (!sourceSet.has(english)) delete translations[locale][english];
+    }
     const pending = source.filter(s => !translations[locale][s]);
     console.log(`${locale}: ${pending.length} pending`);
     for (let index = 0; index < pending.length;) {
@@ -55,6 +59,7 @@ async function main() {
       if (index % 120 < chunk.length) console.log(`${locale}: ${index}/${pending.length}`);
     }
   }
+  fs.writeFileSync(outPath, JSON.stringify(translations, null, 2) + '\n');
 }
 
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });

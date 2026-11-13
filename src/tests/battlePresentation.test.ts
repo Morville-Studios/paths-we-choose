@@ -66,6 +66,7 @@ describe('battle hand and creature presentation', () => {
 
   it('renders tabletop 3d6 dice roll modal in both rolling and settled states', () => {
     const state = startAdventure('fighter', 'dice-modal-test');
+    state.welcomePreparing = false;
     state.activeHook = {
       type: 'COMBAT',
       combat: createCombatSession([{ ...MONSTER_TEMPLATES.goblin, id: 'goblin' }], state.playerMasterDeck, state.rngState).combat,
@@ -80,12 +81,9 @@ describe('battle hand and creature presentation', () => {
       die3: 2,
       total: 11,
       netAcc: 2,
-      neededRoll: 8,
       minHitRoll: 8,
       maxHitRoll: 13,
       isHit: true,
-      isCrit: false,
-      isSnakeEyes: false,
       damageDealt: 3,
       damageBlocked: 0,
     };

@@ -5,7 +5,7 @@ import { SHOP_ITEM_CATALOG } from '../data/shopItems';
 import { CombatCardDef, MonsterCard, RunState } from '../core/types';
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { Store } from '../state/store';
-import { getEffectiveStatsFromState, getPlayerEva } from '../core/stats';
+import { getEffectiveStatsFromState, getPlayerDef, getPlayerEva } from '../core/stats';
 import { cardInspectModal, combatConfirmModal, renderPlayArea } from '../ui/render';
 
 function hitSeed(acc: number, eva: number): number {
@@ -48,7 +48,8 @@ describe('reconciled MACG-3D6 attack and replay rules', () => {
       state.activeHook.combat.monsters[0].monster.acc = monsterAcc;
     }
     state.rngState = hitSeed(monsterAcc, heroEva);
-    expect(combat(endPlayerCombatTurn(state)).lastAttackRoll?.damageDealt).toBe(damage);
+    const heroDef = getPlayerDef(getEffectiveStatsFromState(state));
+    expect(combat(endPlayerCombatTurn(state)).lastAttackRoll?.damageDealt).toBe(Math.max(0, damage - heroDef));
   });
 
   it('guarantees Diabolic rolls (3 & 18) always miss even with high ACC', () => {

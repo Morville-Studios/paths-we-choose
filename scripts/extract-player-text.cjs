@@ -1,10 +1,16 @@
 const fs = require('node:fs');
 const ts = require('typescript');
 
+function listTsFiles(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const full = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) return listTsFiles(full);
+    return entry.name.endsWith('.ts') ? [full] : [];
+  });
+}
+
 const files = [
-  ...['src/ui', 'src/data', 'src/core'].flatMap(dir =>
-    fs.readdirSync(dir).filter(name => name.endsWith('.ts')).map(name => `${dir}/${name}`)
-  ),
+  ...['src/app', 'src/ui', 'src/data', 'src/core'].flatMap(listTsFiles),
   'src/main.ts', 'src/updates.ts',
 ];
 
@@ -18,10 +24,12 @@ function decode(value) {
 function add(value, set) {
   const clean = decode(value).replace(/\s+/g, ' ').trim();
   if (!clean || clean.length < 2 || !/[a-zA-Z]/.test(clean)) return;
-  if (/[<>"{}=]/.test(clean) || /(?:^|\s)(?:class|data-action|aria-label|src|href|style|width|height)=/.test(clean)) return;
+  if (/["{}=]/.test(clean) || /(?:^|\s)(?:class|data-action|aria-label|src|href|style|width|height)=/.test(clean)) return;
+  if (/^\.\/?[\w/.-]+$/.test(clean) || (!clean.startsWith('. ') && /^\.[\w.\-# ]+$/.test(clean))) return;
+  if (/^[.#][A-Za-z0-9_-]+$/.test(clean)) return;
   if (/^[\w-]+$/.test(clean) && clean === clean.toLowerCase()) return;
   if (/^[,;:.!?()\s\d%+\-/]*[A-Z]{1,5}[,;:.!?()\s\d%+\-/]*$/.test(clean)) return;
-  if (/^(?:data-|class=|src=|href=|https?:|\/|[.#]|[a-z-]+\.(?:jpg|png|svg|mp3))/.test(clean)) return;
+  if (/^(?:data-|class=|src=|href=|https?:|\/|[a-z-]+\.(?:jpg|png|svg|mp3))/.test(clean)) return;
   set.add(clean);
 }
 

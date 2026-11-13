@@ -36,11 +36,14 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     }
   });
 
-  it('new adventure starts with 42 treasure deck cards and 0 discard', () => {
+  it('new adventure pulls starting gear from the 42-card supply, leaving 40 in treasureDeck and 0 discard', () => {
     const s = startAdventure('fighter', 'seed-treasure-test');
-    expect(s.treasureDeck.length).toBe(42);
+    expect(s.treasureDeck.length).toBe(40);
     expect(s.treasureDiscard.length).toBe(0);
     expect(s.treasureReshuffleCount).toBe(0);
+    // Physical supply conservation: 40 in deck + 2 equipped starting gear = 42
+    expect(s.treasureDeck.filter((c) => c.id === 'lvl1_iron_sword')).toHaveLength(1);
+    expect(s.treasureDeck.filter((c) => c.id === 'lvl1_chainmail')).toHaveLength(1);
   });
 
   it('opening a village store draws 5 + villageLevel items from treasure deck into shopStock', () => {
@@ -73,7 +76,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     if (inVillage.activeHook.type !== 'VILLAGE') return;
     // Stock is prepared on entry, before Shop is opened.
     expect(inVillage.activeHook.village.shopStock.length).toBe(6);
-    expect(inVillage.treasureDeck.length + inVillage.treasureDiscard.length).toBe(36);
+    expect(inVillage.treasureDeck.length + inVillage.treasureDiscard.length).toBe(34);
     const preparedStock = inVillage.activeHook.village.shopStock;
 
     // Open shop
@@ -86,7 +89,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     // 5 + 1 = 6 items drawn
     expect(village.shopStock.length).toBe(6);
     expect(village.shopStock).toEqual(preparedStock);
-    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(36);
+    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(34);
     expect(village.shopStock.every(item => (item.level ?? 1) === 1)).toBe(true);
     expect(inShop.treasureDiscard.every(item => item.level !== 1)).toBe(true);
   });
@@ -119,7 +122,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     if (inShop.activeHook.type !== 'VILLAGE') return;
 
     expect(inShop.activeHook.village.shopStock.length).toBe(7);
-    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(35);
+    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(33);
     expect(inShop.activeHook.village.shopStock.every(item => item.level === 1 || item.level === 2)).toBe(true);
   });
 
@@ -275,7 +278,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     const s = startAdventure('fighter', 'seed-pile-render');
     const deckModalHtml = pileModal('treasure_deck', s);
     expect(deckModalHtml).toContain('Treasure Deck');
-    expect(deckModalHtml).toContain('42 cards total');
+    expect(deckModalHtml).toContain('40 cards total');
     expect(deckModalHtml).toContain('<b>21</b> unique card types');
     expect(deckModalHtml).toContain('&times;2'); // 2 copies of each card
 
