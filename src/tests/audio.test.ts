@@ -4,7 +4,6 @@ import {
   chooseCard,
   confirmCombatVictory,
   createInitialState,
-  dismissWelcomePrepare,
   finishVillage,
   goToClassSelect,
   leaveShrine,
@@ -34,20 +33,19 @@ describe('Audio Scene & Music State Tracking', () => {
     expect(next.audioState).toBe('map');
   });
 
-  it('starting adventure starts map-area music in map navigation scene', () => {
+  it('starting adventure starts in starting village and leaving village enters map-area music', () => {
     const s = startAdventure('fighter', 'audio-test-seed');
     expect(s.screen).toBe('play_area');
-    expect(s.activeHook.type).toBe('NONE');
-    expect(s.currentMusic).toBe('map-area');
-    expect(s.audioScene).toBe('map');
-    expect(s.audioState).toBe('map');
-  });
+    expect(s.activeHook.type).toBe('VILLAGE');
+    expect(s.currentMusic).toBe('village');
+    expect(s.audioScene).toBe('village');
+    expect(s.audioState).toBe('village');
 
-  it('dismissing turn 0 welcome preparation stays in map scene with map-area music', () => {
-    const s = startAdventure('fighter', 'audio-test-seed');
-    const dismissed = dismissWelcomePrepare(s);
-    expect(dismissed.currentMusic).toBe('map-area');
-    expect(dismissed.audioScene).toBe('map');
+    const mapState = finishVillage(s);
+    expect(mapState.activeHook.type).toBe('NONE');
+    expect(mapState.currentMusic).toBe('map-area');
+    expect(mapState.audioScene).toBe('map');
+    expect(mapState.audioState).toBe('map');
   });
 
   it('pure determineActiveAudio correctly maps every hook and screen', () => {
@@ -122,9 +120,9 @@ describe('Audio Scene & Music State Tracking', () => {
       },
     };
     expect(determineActiveAudio(playAreaVillage)).toEqual({
-      currentMusic: null,
-      audioScene: 'none',
-      audioState: 'none',
+      currentMusic: 'village',
+      audioScene: 'village',
+      audioState: 'village',
     });
 
     // Play area - Shrine
@@ -207,7 +205,7 @@ describe('Audio Scene & Music State Tracking', () => {
     expect(synced).toBe(s);
   });
 
-  it('moving to village stops map music, leaving village resumes map music', () => {
+  it('moving to village starts village music, leaving village resumes map music', () => {
     let s = startAdventure('fighter', 'seed-village-test');
     // Force one of the available choices to be a village
     const avail = Object.values(s.board).find((n) => n.status === 'available');
@@ -232,8 +230,8 @@ describe('Audio Scene & Music State Tracking', () => {
 
     const inVillage = chooseCard(s, avail.coord);
     expect(inVillage.activeHook.type).toBe('VILLAGE');
-    expect(inVillage.currentMusic).toBeNull();
-    expect(inVillage.audioScene).toBe('none');
+    expect(inVillage.currentMusic).toBe('village');
+    expect(inVillage.audioScene).toBe('village');
 
     // Leaving village resumes map-area music
     const leftVillage = finishVillage(inVillage);
@@ -250,12 +248,12 @@ describe('Audio Scene & Music State Tracking', () => {
     }
     const afterRest = villageDoRest(inVillage2);
     expect(afterRest.activeHook.type).toBe('VILLAGE');
-    expect(afterRest.currentMusic).toBeNull();
-    expect(afterRest.audioScene).toBe('none');
+    expect(afterRest.currentMusic).toBe('village');
+    expect(afterRest.audioScene).toBe('village');
   });
 
   it('moving to shrine plays shrine music, leaving shrine resumes map music with fade-out', () => {
-    let s = startAdventure('wizard', 'seed-shrine-test');
+    let s = finishVillage(startAdventure('wizard', 'seed-shrine-test'));
     const avail = Object.values(s.board).find((n) => n.status === 'available');
     expect(avail).toBeDefined();
     if (!avail) return;
@@ -289,7 +287,7 @@ describe('Audio Scene & Music State Tracking', () => {
   });
 
   it('moving to encounter card plays battle-normal music, and winning resumes map music', () => {
-    let s = startAdventure('fighter', 'seed-encounter-audio');
+    let s = finishVillage(startAdventure('fighter', 'seed-encounter-audio'));
     const avail = Object.values(s.board).find((n) => n.status === 'available');
     expect(avail).toBeDefined();
     if (!avail) return;
@@ -340,7 +338,7 @@ describe('Audio Scene & Music State Tracking', () => {
   });
 
   it('combat defeat ends combat and sets music to null with scene none', () => {
-    let s = startAdventure('fighter', 'seed-defeat-audio');
+    let s = finishVillage(startAdventure('fighter', 'seed-defeat-audio'));
     const avail = Object.values(s.board).find((n) => n.status === 'available');
     expect(avail).toBeDefined();
     if (!avail) return;

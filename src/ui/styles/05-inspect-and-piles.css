@@ -1,8 +1,9 @@
 /* ==========================================================================
    CARD INSPECTION MODAL (Right-Click & Long-Press 2s Full Detail View)
    ========================================================================== */
-.card-inspect-backdrop {
-  z-index: 3000;
+.modal-backdrop.card-inspect-backdrop,
+.modal-backdrop.stat-inspect-backdrop {
+  z-index: 9500;
   background: rgba(3, 7, 18, 0.88);
   backdrop-filter: blur(5px);
 }

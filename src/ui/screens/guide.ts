@@ -1,8 +1,23 @@
-import { MonsterCard, MonsterTemplateId, MonsterTerrain } from '../../core/types';
-import { MONSTER_TEMPLATES, MONSTER_TERRAIN_LEVELS } from '../../data/monsters';
-import { SHOP_ITEM_CATALOG, ShopItemTemplate } from '../../data/shopItems';
+import { AdventureCard, CharacterStats, ClassId, MonsterCard, MonsterTemplateId, MonsterTerrain, TerrainType } from '../../core/types';
+import { CLASS_CATALOG, STARTING_BASE_STATS } from '../../data/classes';
+import { COMBAT_CARD_CATALOG, CombatCardTemplate, createCombatCardInstance, createFleeCard } from '../../data/combatCards';
+import { GlossaryCategory, KEYWORD_GLOSSARY } from '../../data/glossary';
+import { getMonsterSupplyCount, MONSTER_TEMPLATES, MONSTER_TERRAIN_LEVELS } from '../../data/monsters';
+import { PATH_CARD_CATALOG } from '../../data/paths';
+import { getTreasureSupplyCount, SHOP_ITEM_CATALOG, ShopItemTemplate } from '../../data/shopItems';
+import {
+  ADVENTURE_CARD_CATALOG,
+  ADVENTURE_CARD_ORDER,
+  STAGE_1_DECK_COMPOSITION,
+  STAGE_2_DECK_COMPOSITION,
+  STAGE_3_DECK_COMPOSITION,
+} from '../../data/stages';
+import { renderActionCardHtml } from '../actionCard';
+import { renderAdventureCardHtml } from '../adventureCard';
 import { renderQteHitCheckBarHtml } from '../components/qteBar';
-import { fullCreatureCardHtml, monsterRaritySymbolHtml, renderTcgItemCard } from '../render';
+import { fullCreatureCardHtml, monsterRaritySymbolHtml, renderTcgItemCard, renderTcgPathCard } from '../render';
+
+export const GUIDE_PAGE_COUNT = 11;
 export function getMonsterLowestTerrain(monster: Pick<MonsterCard, 'spawnTerrains' | 'mainTerrain'>): MonsterTerrain {
   const terrains: MonsterTerrain[] = monster.spawnTerrains && monster.spawnTerrains.length > 0
     ? monster.spawnTerrains
@@ -49,12 +64,16 @@ function renderGuideBestiaryCardItem(templateId: MonsterTemplateId): string {
     attributes: 'tabindex="-1"',
   });
 
+  const supplyCount = m.isBoss ? 1 : getMonsterSupplyCount(m);
+  const supplyLabel = `${supplyCount} ${supplyCount === 1 ? 'copy' : 'copies'} in game`;
+
   return `
-    <div class="guide-bestiary-card-item" data-action="inspect-monster" data-inspect-kind="monster" data-monster-id="${m.templateId}" role="button" tabindex="0" title="Click to view full ${m.name} stats, intents and lore">
+    <div class="guide-bestiary-card-item" data-action="inspect-monster" data-inspect-kind="monster" data-monster-id="${m.templateId}" role="button" tabindex="0">
       <div class="guide-bestiary-card-wrapper">
         ${cardHtml}
       </div>
       <div class="guide-bestiary-card-footer">
+        <div class="guide-card-supply-badge" title="Total physical copies in the board game">${supplyLabel}</div>
         <button type="button" class="guide-bestiary-inspect-btn" tabindex="-1">
           <span class="inspect-icon">&#9432;</span> Inspect Info
         </button>
@@ -74,12 +93,125 @@ function renderGuideArmoryCardItem(item: ShopItemTemplate): string {
     extraClasses: 'guide-item-card-preview',
   });
 
+  const supplyCount = getTreasureSupplyCount(item);
+  const supplyLabel = `${supplyCount} ${supplyCount === 1 ? 'copy' : 'copies'} in game`;
+
   return `
-    <div class="guide-bestiary-card-item guide-armory-card-item" data-action="inspect-item" data-inspect-kind="item" data-item-id="${item.id}" role="button" tabindex="0" title="Click to view full ${item.name} details, effects and lore">
+    <div class="guide-bestiary-card-item guide-armory-card-item" data-action="inspect-item" data-inspect-kind="item" data-item-id="${item.id}" role="button" tabindex="0">
       <div class="guide-bestiary-card-wrapper">
         ${cardHtml}
       </div>
       <div class="guide-bestiary-card-footer">
+        <div class="guide-card-supply-badge" title="Total physical copies in the board game">${supplyLabel}</div>
+        <button type="button" class="guide-bestiary-inspect-btn" tabindex="-1">
+          <span class="inspect-icon">&#9432;</span> Inspect Info
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function getTerrainCardsForBiome(terrain: TerrainType) {
+  return ADVENTURE_CARD_ORDER
+    .map((code) => ADVENTURE_CARD_CATALOG[code])
+    .filter((def): def is NonNullable<typeof def> => Boolean(def) && def.terrain === terrain);
+}
+
+function renderGuideAdventureCardItem(cardCode: string): string {
+  const def = ADVENTURE_CARD_CATALOG[cardCode];
+  if (!def) return '';
+  const card: AdventureCard = {
+    id: `guide_${def.cardCode}`,
+    name: def.name,
+    terrain: def.terrain,
+    level: def.level,
+    hasHostile: def.hasHostile,
+    hasVillage: def.hasVillage,
+    hasShrine: def.hasShrine,
+    revealed: true,
+    cardNumber: def.cardCode,
+    flavorText: def.flavorText,
+  };
+  const s1 = STAGE_1_DECK_COMPOSITION[def.cardCode] ?? 0;
+  const s2 = STAGE_2_DECK_COMPOSITION[def.cardCode] ?? 0;
+  const s3 = STAGE_3_DECK_COMPOSITION[def.cardCode] ?? 0;
+  const maxCopies = Math.max(s1, s2, s3);
+  const supplyLabel = maxCopies === 1 ? '1 copy in deck' : `Up to ${maxCopies} copies/stage`;
+  const supplyTitle = `Deck count per stage — Stage 1: ${s1}, Stage 2: ${s2}, Stage 3: ${s3}`;
+  const cardHtml = renderAdventureCardHtml(card, { className: 'guide-adventure-card-preview' });
+
+  return `
+    <div class="guide-bestiary-card-item guide-terrain-card-item" data-action="inspect-adventure" data-inspect-kind="adventure" data-adventure-card-number="${def.cardCode}" role="button" tabindex="0">
+      <div class="guide-bestiary-card-wrapper">
+        ${cardHtml}
+      </div>
+      <div class="guide-bestiary-card-footer">
+        <div class="guide-card-supply-badge" title="${supplyTitle}">${supplyLabel}</div>
+        <button type="button" class="guide-bestiary-inspect-btn" tabindex="-1">
+          <span class="inspect-icon">&#9432;</span> Inspect Info
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function getClassPreviewStats(classId: ClassId): CharacterStats {
+  const b = CLASS_CATALOG[classId].classBonuses;
+  return {
+    str: STARTING_BASE_STATS.str + 1 + b.str,
+    dex: STARTING_BASE_STATS.dex + 1 + b.dex,
+    agi: STARTING_BASE_STATS.agi + 1 + b.agi,
+    int: STARTING_BASE_STATS.int + 1 + b.int,
+    cha: STARTING_BASE_STATS.cha + 1 + b.cha,
+    vit: STARTING_BASE_STATS.vit + 1 + b.vit,
+  };
+}
+
+function getSkillSupplyLabel(tpl: CombatCardTemplate): string {
+  if (tpl.isSkillUpgrade) return 'Void upgrade (Shrine)';
+  const starterCount = CLASS_CATALOG[tpl.classId].starterCardIds.filter((id) => id === tpl.id).length;
+  if (starterCount > 0) return `${starterCount} starter copies`;
+  return '2 copies in New Skills';
+}
+
+function renderGuideSkillCardItem(tpl: CombatCardTemplate, previewClass?: ClassId): string {
+  const card = createCombatCardInstance(tpl.id, 'guide');
+  const stats = getClassPreviewStats(previewClass ?? tpl.classId);
+  const cardHtml = renderActionCardHtml(card, stats, {
+    viewOnly: true,
+    className: 'guide-action-card-preview',
+  });
+  const supplyLabel = getSkillSupplyLabel(tpl);
+
+  return `
+    <div class="guide-bestiary-card-item guide-skill-card-item" data-action="inspect-action" data-inspect-kind="action" data-card-id="${tpl.id}" role="button" tabindex="0">
+      <div class="guide-bestiary-card-wrapper">
+        ${cardHtml}
+      </div>
+      <div class="guide-bestiary-card-footer">
+        <div class="guide-card-supply-badge" title="Total physical copies in the board game">${supplyLabel}</div>
+        <button type="button" class="guide-bestiary-inspect-btn" tabindex="-1">
+          <span class="inspect-icon">&#9432;</span> Inspect Info
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderGuideFleeCardItem(): string {
+  const card = createFleeCard('fighter');
+  const cardHtml = renderActionCardHtml(card, getClassPreviewStats('fighter'), {
+    viewOnly: true,
+    className: 'guide-action-card-preview',
+  });
+
+  return `
+    <div class="guide-bestiary-card-item guide-skill-card-item" data-action="inspect-action" data-inspect-kind="action" data-card-id="${card.id}" role="button" tabindex="0">
+      <div class="guide-bestiary-card-wrapper">
+        ${cardHtml}
+      </div>
+      <div class="guide-bestiary-card-footer">
+        <div class="guide-card-supply-badge" title="Always available in every combat">Permanent action</div>
         <button type="button" class="guide-bestiary-inspect-btn" tabindex="-1">
           <span class="inspect-icon">&#9432;</span> Inspect Info
         </button>
@@ -90,11 +222,11 @@ function renderGuideArmoryCardItem(item: ShopItemTemplate): string {
 
 /** A short, plain-language guide available before and during every adventure. */
 export function renderGuideModal(inGame: boolean, currentPage = 1): string {
-  const p = Math.max(1, Math.min(7, currentPage));
+  const p = Math.max(1, Math.min(GUIDE_PAGE_COUNT, currentPage));
 
   return `
   <div class="modal-backdrop guide-backdrop" data-action="close-guide-backdrop">
-    <div class="guide-book-tome" role="dialog" aria-modal="true" aria-labelledby="guide-book-title">
+    <div class="guide-book-tome" data-guide-page="${p}" role="dialog" aria-modal="true" aria-labelledby="guide-book-title">
       <!-- Brass Filigree Corner Bracket Embellishments on Tome Binding -->
       <div class="guide-filigree guide-filigree-tl" aria-hidden="true"></div>
       <div class="guide-filigree guide-filigree-tr" aria-hidden="true"></div>
@@ -113,43 +245,48 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
         <button class="modal-close-btn guide-tome-close" data-action="close-guide" aria-label="Close rulebook" title="Close Tome (Esc)">&times;</button>
       </header>
 
-      <!-- Bookmark Ribbon Tabs (Top Page Navigation) -->
-      <nav class="guide-ribbon-bar" aria-label="Rulebook Chapters">
-        <button class="guide-ribbon-tab ${p === 1 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="1" title="Page 1: The Quest &amp; Pathfinding">
-          <span class="ribbon-tail"></span>
-          <span class="ribbon-text">&#128220; I. The Quest</span>
-        </button>
-        <button class="guide-ribbon-tab ${p === 2 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="2" title="Page 2: Combat Procedures &amp; Stack">
-          <span class="ribbon-tail"></span>
-          <span class="ribbon-text">&#9876;&#65039; II. Battle</span>
-        </button>
-        <button class="guide-ribbon-tab ${p === 3 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="3" title="Page 3: The Six Attributes &amp; Vigor">
-          <span class="ribbon-tail"></span>
-          <span class="ribbon-text">&#128202; III. Attributes</span>
-        </button>
-        <button class="guide-ribbon-tab ${p === 4 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="4" title="Page 4: Adventurer Classes">
-          <span class="ribbon-tail"></span>
-          <span class="ribbon-text">&#128737;&#65039; IV. Classes</span>
-        </button>
-        <button class="guide-ribbon-tab ${p === 5 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="5" title="Page 5: Shrines, Villages &amp; The Void">
-          <span class="ribbon-tail"></span>
-          <span class="ribbon-text">&#127963;&#65039; V. Shrines &amp; Void</span>
-        </button>
-        <button class="guide-ribbon-tab ${p === 6 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="6" title="Page 6: Monstrous Compendium &amp; Bestiary">
-          <span class="ribbon-tail"></span>
-          <span class="ribbon-text">&#128121; VI. Bestiary</span>
-        </button>
-        <button class="guide-ribbon-tab ${p === 7 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="7" title="Page 7: Equipment Compendium &amp; Armory">
-          <span class="ribbon-tail"></span>
-          <span class="ribbon-text">&#128481;&#65039; VII. Armory</span>
-        </button>
-      </nav>
+      <!-- Wiki Layout: Sticky Sidebar Navigation + Scrollable Parchment Body -->
+      <div class="guide-wiki-layout">
+        <aside class="guide-wiki-sidebar" aria-label="Rulebook Navigation">
+          <nav class="guide-ribbon-bar" aria-label="Rulebook Chapters">
+            <button class="guide-ribbon-tab ${p === 1 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="1" title="Page 1: The Quest &amp; Pathfinding">
+              <span class="ribbon-text">&#128220; I. The Quest</span>
+            </button>
+            <button class="guide-ribbon-tab ${p === 2 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="2" title="Page 2: Combat Procedures &amp; Stack">
+              <span class="ribbon-text">&#9876;&#65039; II. Battle</span>
+            </button>
+            <button class="guide-ribbon-tab ${p === 3 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="3" title="Page 3: The Six Attributes &amp; Vigor">
+              <span class="ribbon-text">&#128202; III. Attributes</span>
+            </button>
+            <button class="guide-ribbon-tab ${p === 4 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="4" title="Page 4: Adventurer Classes">
+              <span class="ribbon-text">&#128737;&#65039; IV. Classes</span>
+            </button>
+            <button class="guide-ribbon-tab ${p === 5 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="5" title="Page 5: Shrines, Villages &amp; The Void">
+              <span class="ribbon-text">&#127963;&#65039; V. Shrines &amp; Void</span>
+            </button>
+            <button class="guide-ribbon-tab ${p === 6 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="6" title="Page 6: Monstrous Compendium &amp; Bestiary">
+              <span class="ribbon-text">&#128121; VI. Bestiary</span>
+            </button>
+            <button class="guide-ribbon-tab ${p === 7 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="7" title="Page 7: Equipment Compendium &amp; Armory">
+              <span class="ribbon-text">&#128481;&#65039; VII. Armory</span>
+            </button>
+            <button class="guide-ribbon-tab ${p === 8 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="8" title="Page 8: Realm Terrains &amp; Adventure Cards">
+              <span class="ribbon-text">&#128506;&#65039; VIII. Terrain</span>
+            </button>
+            <button class="guide-ribbon-tab ${p === 9 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="9" title="Page 9: Combat Arts &amp; Action Cards">
+              <span class="ribbon-text">&#10024; IX. Skills</span>
+            </button>
+            <button class="guide-ribbon-tab ${p === 10 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="10" title="Page 10: Keyword Glossary">
+              <span class="ribbon-text">&#128214; X. Glossary</span>
+            </button>
+            <button class="guide-ribbon-tab ${p === 11 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="11" title="Page 11: Realm Paths">
+              <span class="ribbon-text">&#129517; XI. Paths</span>
+            </button>
+          </nav>
+        </aside>
 
-      <!-- The Parchment Folio Spread Viewport (Non-scrolling frame with fixed spine overlay) -->
-      <div class="guide-spread-viewport">
-        <!-- Center Book Spine Crease & Shadow Gutter (Fixed over open spread) -->
-        <div class="guide-book-spine-gutter" aria-hidden="true"></div>
-
+        <!-- The Ancient Parchment Wiki Viewport -->
+        <div class="guide-spread-viewport">
         <div class="guide-parchment-spread">
 
         <!-- ============================================================ -->
@@ -221,8 +358,8 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                     <br/>&bull; <i>Cave creatures remain in the Void.</i>
                     <br/>&bull; <b>Stage Boss:</b> Grundy (Turn 15 Culmination)
                   </li>
-                  <li><b>Treasure Deck (42 Cards):</b>
-                    <br/>&bull; Exactly 2 copies each of all 21 items (12 Weapons, 12 Armor, 10 Accessories, 8 Potions)
+                  <li><b>Treasure Deck (48 Cards):</b>
+                    <br/>&bull; 2 copies each of 17 gear items, plus <code>6 - Level</code> Health Potions (12 Weapons, 12 Armor, 10 Accessories, 14 Potions: Lvl 1&times;5, Lvl 2&times;4, Lvl 3&times;3, Lvl 4&times;2)
                   </li>
                 </ul>
               </div>
@@ -242,8 +379,8 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                     <br/>&bull; <i>Grasslands creatures remain in the Void.</i>
                     <br/>&bull; <b>Stage Bosses:</b> Cult of Trolls &mdash; Troll Healer, Troll Hexer &amp; Troll Warrior (Turn 15)
                   </li>
-                  <li><b>Treasure Deck (42 Cards):</b>
-                    <br/>&bull; Exactly 2 copies each of all 21 items; villages stock higher item level tiers
+                  <li><b>Treasure Deck (48 Cards):</b>
+                    <br/>&bull; 2 copies each of 17 gear items + <code>6 - Level</code> Health Potions; villages stock exact-level items
                   </li>
                 </ul>
               </div>
@@ -262,10 +399,84 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                     <br/>&bull; <b>3 Underground (~1/3 Supply):</b> 2 Dark Orc, 1 Orc Shaman
                     <br/>&bull; <b>Stage Boss:</b> Fallen King (Turn 15 Culmination)
                   </li>
-                  <li><b>Treasure Deck (42 Cards):</b>
-                    <br/>&bull; Exactly 2 copies each of all treasure items LVL 3 to 4
+                  <li><b>Treasure Deck (48 Cards):</b>
+                    <br/>&bull; 2 copies each of 17 gear items + <code>6 - Level</code> Health Potions (Lvl 1&times;5, Lvl 2&times;4, Lvl 3&times;3, Lvl 4&times;2)
                   </li>
                 </ul>
+              </div>
+
+              <div class="adnd-parchment-box callout-quest">
+                <h5 class="adnd-box-title">&#127922; MACG-3D6™ CORE MECHANICS &amp; PATHS DECK</h5>
+                <p class="adnd-box-text">
+                  <b>The Paths We Choose</b> is a <b>MACG-3D6™ tabletop game</b>. Whenever you make a combat attack, Path Sneak Check, or Treasure Discovery Check, roll <b>3d6</b> against the <b>MACG-3D6™ Success Check Bar</b>. <b>Tier 4 (+0 Net)</b> is the baseline (7&ndash;14, 81.5%): each +1 Net expands the success band outward, <b>10 &amp; 11</b> are always <b>Sure Hit Rolls</b> (25.0% floor), and <b>3 &amp; 18</b> are <b>Diabolic Rolls</b> that always fail.
+                </p>
+                <p class="adnd-box-text">
+                  <b>Paths Deck (17 Cards · MIDS™):</b> Stepping onto an <b>Undiscovered Terrain</b> draws a Path Card (<code>5&times; Enemy Camp</code>, <code>2&times; Merchant</code>, <code>2&times; Sanctuary</code>, <code>2&times; Ambush</code>, <code>1&times; Magical Chest</code>, <code>1&times; Trapped Chest</code>, <code>2&times; Gold Stash</code>, <code>2&times; Spring Trap</code>). Under the <b>Morville Infinite Deck System™ (MIDS™)</b>, empty decks automatically reshuffle from their discard pile. See the Path Card Compendium for each card&apos;s exact rules.
+                </p>
+              </div>
+
+              <div style="margin: 10px 0 14px 0;">
+                ${renderQteHitCheckBarHtml({ minHitRoll: 10, maxHitRoll: 11, hitPercent: 25.0, rolledTotal: 10, isHit: true })}
+              </div>
+
+              <div class="adnd-parchment-box adnd-prob-table-box">
+                <h5 class="adnd-box-title">&#128207; MACG-3D6™ SUCCESS ROLL RANGE TABLE REFERENCE</h5>
+                <p class="adnd-box-text">
+                  In MACG-3D6™, rolls naturally gravitate toward the median of <b>10 &amp; 11</b> (combined <b>25.0% Sure Hit Rolls</b> / minimum success roll). Success bands expand outward symmetrically from Tier 4 (+0 Net baseline):
+                </p>
+                <div class="adnd-prob-table-wrap">
+                  <table class="adnd-prob-table" aria-label="MACG-3D6 Success Roll Range Table Reference">
+                    <thead>
+                      <tr>
+                        <th>Success Tier</th>
+                        <th>Roll Range</th>
+                        <th>Probability</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="is-peak-row">
+                        <td><b>Tier 1</b> <small>(&le; -3 Net · Sure Hit Rolls)</small></td>
+                        <td><b>10 &ndash; 11</b></td>
+                        <td><b>25.0%</b></td>
+                      </tr>
+                      <tr>
+                        <td><b>Tier 2</b> <small>(-2 Net)</small></td>
+                        <td><b>9 &ndash; 12</b></td>
+                        <td><b>48.1%</b></td>
+                      </tr>
+                      <tr>
+                        <td><b>Tier 3</b> <small>(-1 Net)</small></td>
+                        <td><b>8 &ndash; 13</b></td>
+                        <td><b>67.6%</b></td>
+                      </tr>
+                      <tr class="is-base-hit-row">
+                        <td><b>Tier 4</b> <small>(+0 Net · Baseline)</small></td>
+                        <td><b>7 &ndash; 14</b></td>
+                        <td><b>81.5%</b></td>
+                      </tr>
+                      <tr>
+                        <td><b>Tier 5</b> <small>(+1 Net)</small></td>
+                        <td><b>6 &ndash; 15</b></td>
+                        <td><b>90.7%</b></td>
+                      </tr>
+                      <tr>
+                        <td><b>Tier 6</b> <small>(+2 Net)</small></td>
+                        <td><b>5 &ndash; 16</b></td>
+                        <td><b>96.3%</b></td>
+                      </tr>
+                      <tr>
+                        <td><b>Tier 7</b> <small>(&ge; +3 Net)</small></td>
+                        <td><b>4 &ndash; 17</b></td>
+                        <td><b>99.1%</b></td>
+                      </tr>
+                      <tr class="is-miss-row">
+                        <td><b>Diabolic Rolls</b> 😈 <small>(Always Miss)</small></td>
+                        <td><b>3 &amp; 18</b></td>
+                        <td><b>0.9%</b></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               <div class="adnd-parchment-box callout-quest">
@@ -328,89 +539,13 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             </div>
 
             <div class="guide-folio-col">
-              <h4 class="guide-section-heading">&#9884; Morville Adventure Card Game &ldquo;3d6 Success Roll Range Table Reference&rdquo; (MACG-3D6™)</h4>
+              <h4 class="guide-section-heading">&#9884; Combat Attacks &amp; MACG-3D6™</h4>
               <p class="guide-body-text">
-                All physical attacks and monster strikes roll <b>three six-sided dice (3d6)</b> evaluated on the proprietary <b>Morville Adventure Card Game 3d6 Success Roll Range Table Reference (MACG-3D6™)</b> against the defender's Evasion (EVA).
+                All physical attacks and monster strikes roll <b>three six-sided dice (3d6)</b> on the <b>MACG-3D6™ Success Check Bar</b> using <code>Net ACC = Attacker ACC &minus; Defender EVA</code> (see <b>Ch. I</b> for the full Tier 1&ndash;7 Success Roll Range Table).
               </p>
               <ul class="adnd-bullet-list">
-                <li><b>Roll Range (3 to 18):</b> Three six-sided dice naturally cluster around the median.</li>
-                <li><b>The 10–11 Sure Hit Rolls (Minimum Success Roll):</b> Rolls <b>10 and 11</b> consume the center, providing a guaranteed baseline <b>25.0% chance to hit</b>.</li>
-                <li><b>Success Roll Range Expansion:</b> Net ACC is Attacker ACC minus Defender EVA. Convert it to <code>expansion = clamp(3 + Net ACC, 0, 6)</code>, then use <code>Hit Range = [max(4, 10 - expansion) .. min(17, 11 + expansion)]</code>. At Net ACC 0, the baseline range is 7&ndash;14.</li>
-                <li><b>Diabolic Rolls (3 &amp; 18):</b> Rolls of <b>3</b> and <b>18</b> are <b>Diabolic rolls</b> that <b>always guarantee a miss</b> regardless of how high your character's ACC is.</li>
-                <li><b>No Critical Hits:</b> Pure tactical clarity&mdash;no arbitrary critical multiplier spikes; character ACC directly expands your visible Success Roll Range on the QTE bar.</li>
-              </ul>
-
-              <div style="margin: 10px 0 14px 0;">
-                ${renderQteHitCheckBarHtml({ minHitRoll: 10, maxHitRoll: 11, hitPercent: 25.0, rolledTotal: 10, isHit: true })}
-              </div>
-
-              <div class="adnd-parchment-box adnd-prob-table-box">
-                <h5 class="adnd-box-title">&#128207; MACG-3D6™ SUCCESS ROLL RANGE TABLE REFERENCE</h5>
-                <p class="adnd-box-text">
-                  In MACG-3D6™, rolls naturally gravitate toward the median of <b>10 &amp; 11</b> (combined <b>25.0% Sure Hit Rolls</b> / minimum success roll). Success bands expand outward symmetrically:
-                </p>
-                <div class="adnd-prob-table-wrap">
-                  <table class="adnd-prob-table" aria-label="MACG-3D6 Success Roll Range Table Reference">
-                    <thead>
-                      <tr>
-                        <th>Success Tier</th>
-                        <th>Roll Range</th>
-                        <th>Probability</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr class="is-peak-row">
-                        <td><b>Tier 1</b> <small>(&le; -3 Net ACC · Sure Hit Rolls)</small></td>
-                        <td><b>10 &ndash; 11</b></td>
-                        <td><b>25.0%</b></td>
-                      </tr>
-                      <tr>
-                        <td><b>Tier 2</b> <small>(-2 Net ACC)</small></td>
-                        <td><b>9 &ndash; 12</b></td>
-                        <td><b>48.1%</b></td>
-                      </tr>
-                      <tr>
-                        <td><b>Tier 3</b> <small>(-1 Net ACC)</small></td>
-                        <td><b>8 &ndash; 13</b></td>
-                        <td><b>67.6%</b></td>
-                      </tr>
-                      <tr class="is-base-hit-row">
-                        <td><b>Tier 4</b> <small>(+0 Net ACC · Baseline)</small></td>
-                        <td><b>7 &ndash; 14</b></td>
-                        <td><b>81.5%</b></td>
-                      </tr>
-                      <tr>
-                        <td><b>Tier 5</b> <small>(+1 Net ACC)</small></td>
-                        <td><b>6 &ndash; 15</b></td>
-                        <td><b>90.7%</b></td>
-                      </tr>
-                      <tr>
-                        <td><b>Tier 6</b> <small>(+2 Net ACC)</small></td>
-                        <td><b>5 &ndash; 16</b></td>
-                        <td><b>96.3%</b></td>
-                      </tr>
-                      <tr>
-                        <td><b>Tier 7</b> <small>(&ge; +3 Net ACC)</small></td>
-                        <td><b>4 &ndash; 17</b></td>
-                        <td><b>99.1%</b></td>
-                      </tr>
-                      <tr class="is-miss-row">
-                        <td><b>Diabolic Rolls</b> 😈 <small>(Always Miss)</small></td>
-                        <td><b>3 &amp; 18</b></td>
-                        <td><b>0.9%</b></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <h4 class="guide-section-heading">&#9884; Glossary of Game Terms</h4>
-              <ul class="adnd-bullet-list">
-                <li><b>Summon:</b> Finding a specific card in a particular deck (e.g. Monster Deck), putting it directly into play, then shuffling the deck it came from. If none is found in the deck, look at the discard pile for that card (First In, First Out) and put it on top of the deck.</li>
-                <li><b>Temporary Block:</b> Shields absorb incoming attack damage during the current round before dissipating.</li>
-                <li><b>Physical Defense (DEF):</b> Permanent armor and bodily resistance that directly absorbs or deflects incoming physical blows on every hit (physical resistance to getting hurt).</li>
-                <li><b>Magical Defense (MDEF):</b> Innate arcane warding reducing damage from hostile spell attacks.</li>
-                <li><b>Creature ATK:</b> Increases any non-magical turn damage dealt by the creature.</li>
+                <li><b>No Critical Hits:</b> Pure tactical clarity&mdash;no arbitrary critical multiplier spikes; character ACC directly expands your visible Success Roll Range on the <b>MACG-3D6™ Success Check Bar</b>.</li>
+                <li><b>Monster Keywords:</b> See <b>Ch. X: Glossary</b> for full definitions of <code>ATK (X)</code>, <code>MATK (X)</code>, <code>Regenerate (X)</code>, <code>Block (X)</code>, <code>Summon</code>, and creature traits.</li>
               </ul>
 
               <div class="adnd-page-jump-row">
@@ -636,11 +771,11 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             <div class="guide-folio-col">
               <h4 class="guide-section-heading">&#9884; Villages, treasure, and decks</h4>
               <ul class="adnd-bullet-list">
-                <li><b>Resting:</b> Resting at the inn restores 2 HP per 1 Gold. Accessible anytime while visiting a village.</li>
-                <li><b>Market Trading:</b> Stores stock <code>5 + Village Level</code> eligible item cards drawn from the 42-card Treasure Deck, offering weapons, armor, and consumables.</li>
-                <li><b>Training &amp; Destruction:</b> Draft 1 of 3 learnable cards from the New Skills Deck, or permanently sacrifice an unwanted card to the Void.</li>
-                <li><b>Undiscovered Exploration:</b> Roll 1d6. A natural <b>6</b> finds treasure; rolls &le; tile level trigger an Ambush; other rolls are safe passage.</li>
-                <li><b>The Void &amp; Physical Supply:</b> Unselected creature copies remain publicly inspectable in the <b>Void</b>. Full creature cards use the New Paths set symbol for rarity: <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.goblin, 'guide-set-symbol')} bronze = Common</span>, <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.stalker, 'guide-set-symbol')} silver = Uncommon</span>, and <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.rattler, 'guide-set-symbol')} gold = Rare</span>.</li>
+                <li><b>Resting:</b> Resting at the inn restores 1 HP per <code>1 + Terrain Level</code> Gold (e.g. Level 1 costs 2g/HP; Level 3 costs 4g/HP). Accessible anytime while visiting a village.</li>
+                <li><b>Market Trading:</b> Stores stock up to <code>3 + Village Level</code> unique item cards matching the village&rsquo;s exact level (Grassland 4, Forest 5, Swamp 6, Cave 7) drawn from the 48-card Treasure Deck. Wrong-level or duplicate draws go to the Treasure Discard Pile; if eligible supply runs out after reshuffling, the shop opens with what is available. Equipped gear is marked <b>Equipped</b> and must be unequipped before selling; selling an item requires confirmation and <b>Banishes</b> it to <b>The Void</b> so you won&rsquo;t re-draw sold gear.</li>
+                <li><b>Training &amp; Banishing:</b> Draft 1 of 3 learnable cards from the Skills Deck, or pay Gold to <b>Banish</b> an unwanted card out of the game into <b>The Void</b>.</li>
+                <li><b>Undiscovered Exploration:</b> Stepping onto an Undiscovered Terrain draws a Path Card from the <b>17-card Paths Deck</b> (<b>MIDS™</b>), triggering sidequests, ambushes, chests, traps, merchants, or sanctuaries.</li>
+                <li><b>The Void (Game Box):</b> <b>The Void</b> is not a deck—it is the game box where you can inspect cards not currently in use (unselected monster/terrain copies, Shrine upgrade templates, and <b>Banished</b> cards). Full creature cards use the New Paths set symbol for rarity: <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.goblin, 'guide-set-symbol')} bronze = Common</span>, <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.stalker, 'guide-set-symbol')} silver = Uncommon</span>, and <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.rattler, 'guide-set-symbol')} gold = Rare</span>.</li>
               </ul>
 
               <div class="adnd-parchment-box callout-quest">
@@ -807,14 +942,287 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               </section>
 
               <div class="adnd-page-jump-row">
-                <span class="adnd-jump-label">Previous Chapter:</span>
-                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="6">&larr; Back to Ch. VI: Bestiary</button>
-                <button class="btn primary guide-jump-btn" data-action="close-guide">${inGame ? 'Back to Game' : 'Ready to Begin'}</button>
+                <span class="adnd-jump-label">Next Chapter:</span>
+                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="8">Turn to Ch. VIII: Terrain &rarr;</button>
               </div>
             </div>
           </div>
         </article>
 
+        <!-- ============================================================ -->
+        <!-- PAGE 8: Chapter VIII — Realm Terrains (Adventure Cards)      -->
+        <!-- ============================================================ -->
+        <article class="guide-book-page ${p === 8 ? 'is-active' : ''}" data-page="8">
+          <header class="guide-page-header">
+            <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
+            <h3 class="guide-chapter-title">&mdash; CHAPTER VIII: REALM TERRAINS &mdash;</h3>
+            <p class="guide-chapter-sub">Adventure Cards Compendium &bull; Click any terrain card to inspect encounter levels, events &amp; deck counts</p>
+          </header>
+
+          <nav class="guide-bestiary-quicknav" aria-label="Terrain Sections">
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="terrain-grasslands">🌿 Grasslands (4)</button>
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="terrain-forest">🌲 Forest (4)</button>
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="terrain-swamp">🪷 Swamp (4)</button>
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="terrain-cave">🪨 Cave (4)</button>
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="terrain-underground">⛏️ Underground (2)</button>
+          </nav>
+
+          <div class="guide-folio-grid">
+            <div class="guide-folio-col">
+              <section id="terrain-grasslands" class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>🌿</span> Grasslands <small>(Tier 1 Biome)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Stage 1 primary biome &bull; Rolling plains, starter villages, and golden shrines</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${getTerrainCardsForBiome('grasslands').map((def) => renderGuideAdventureCardItem(def.cardCode)).join('')}
+                </div>
+              </section>
+
+              <section id="terrain-forest" class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>🌲</span> Forest <small>(Tier 2 Biome)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Stage 1 secondary / Stage 2 primary biome &bull; Treetop villages and druidic circles</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${getTerrainCardsForBiome('forest').map((def) => renderGuideAdventureCardItem(def.cardCode)).join('')}
+                </div>
+              </section>
+            </div>
+
+            <div class="guide-folio-col">
+              <section id="terrain-swamp" class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>🪷</span> Swamp <small>(Tier 3 Biome)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Stage 2 secondary / Stage 3 primary biome &bull; Stilt villages and sunken altars</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${getTerrainCardsForBiome('swamp').map((def) => renderGuideAdventureCardItem(def.cardCode)).join('')}
+                </div>
+              </section>
+
+              <section id="terrain-cave" class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>🪨</span> Cave <small>(Tier 4 Biome)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Stage 2 deepest / Stage 3 secondary biome &bull; Miners encampments and crystal shrines</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${getTerrainCardsForBiome('cave').map((def) => renderGuideAdventureCardItem(def.cardCode)).join('')}
+                </div>
+              </section>
+
+              <section id="terrain-underground" class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>⛏️</span> Underground <small>(Tier 5 Biome)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Stage 3 deepest frontier &bull; Uncharted abyssal depths and royal sepulchers</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${getTerrainCardsForBiome('underground').map((def) => renderGuideAdventureCardItem(def.cardCode)).join('')}
+                </div>
+              </section>
+
+              <div class="adnd-page-jump-row">
+                <span class="adnd-jump-label">Next Chapter:</span>
+                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="9">Turn to Ch. IX: Skills &rarr;</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============================================================ -->
+        <!-- PAGE 9: Chapter IX — Combat Arts & Spells (Action Cards)     -->
+        <!-- ============================================================ -->
+        <article class="guide-book-page ${p === 9 ? 'is-active' : ''}" data-page="9">
+          <header class="guide-page-header">
+            <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
+            <h3 class="guide-chapter-title">&mdash; CHAPTER IX: COMBAT ARTS &amp; SPELLS &mdash;</h3>
+            <p class="guide-chapter-sub">Action Cards Compendium &bull; Click any skill card to inspect AP cost, scaling formulas &amp; supply</p>
+          </header>
+
+          <nav class="guide-bestiary-quicknav" aria-label="Skill Sections">
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-fighter">⚔️ Martial / Fighter (10)</button>
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-wizard">🔮 Wizard Spells (5)</button>
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-upgrades">✨ Shrine Void Upgrades (3)</button>
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-universal">🏃 Universal (1)</button>
+          </nav>
+
+          <div class="guide-folio-grid">
+            <div class="guide-folio-col">
+              <section id="skills-fighter" class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>⚔️</span> Martial &amp; Fighter Arts <small>(Fighter &amp; Rogue Pool)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Slash, Defend, High Strike, Parry &amp; Fortify are shared with Rogue; Whirlwind through Final Smash are Fighter-exclusive</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${Object.values(COMBAT_CARD_CATALOG)
+                    .filter((tpl) => tpl.classId === 'fighter' && !tpl.isSkillUpgrade)
+                    .map((tpl) => renderGuideSkillCardItem(tpl, 'fighter'))
+                    .join('')}
+                </div>
+              </section>
+            </div>
+
+            <div class="guide-folio-col">
+              <section id="skills-wizard" class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>🔮</span> Wizard Arcane Spells <small>(INT Scaling)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Starter spells (Fireball &times;8, Force Field &times;2) plus trainable New Skills deck spells</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${Object.values(COMBAT_CARD_CATALOG)
+                    .filter((tpl) => tpl.classId === 'wizard' && !tpl.isSkillUpgrade)
+                    .map((tpl) => renderGuideSkillCardItem(tpl, 'wizard'))
+                    .join('')}
+                </div>
+              </section>
+
+              <section id="skills-upgrades" class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>✨</span> Shrine Void Upgrades <small>(Inexhaustible Templates)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Forged at Sacred Shrines by upgrading an eligible owned base skill card</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${Object.values(COMBAT_CARD_CATALOG)
+                    .filter((tpl) => tpl.isSkillUpgrade)
+                    .map((tpl) => renderGuideSkillCardItem(tpl))
+                    .join('')}
+                </div>
+              </section>
+
+              <section id="skills-universal" class="guide-bestiary-category">
+                <div class="guide-bestiary-cat-header">
+                  <h4 class="guide-bestiary-cat-title"><span>🏃</span> Universal Combat Action <small>(Always Available)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Permanent escape option available every battle without occupying deck slots</p>
+                </div>
+                <div class="guide-bestiary-grid">
+                  ${renderGuideFleeCardItem()}
+                </div>
+              </section>
+
+              <div class="adnd-page-jump-row">
+                <span class="adnd-jump-label">Continue Reading:</span>
+                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="8">&larr; Back to Ch. VIII: Terrain</button>
+                <button class="btn primary guide-jump-btn" data-action="guide-jump-page" data-page="10">Next: Ch. X Glossary &rarr;</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============================================================ -->
+        <!-- PAGE 10: Keyword Glossary (MTG-style Card Vocabulary)         -->
+        <!-- ============================================================ -->
+        <article class="guide-book-page ${p === 10 ? 'is-active' : ''}" data-page="10">
+          <header class="guide-page-header">
+            <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
+            <h3 class="guide-chapter-title">&mdash; CHAPTER X: KEYWORD GLOSSARY &mdash;</h3>
+            <p class="guide-chapter-sub">Standardized Physical Card Vocabulary &bull; Hover any underlined keyword on a Monster Card in-game for its live tooltip</p>
+          </header>
+
+          <div class="guide-folio-grid">
+            ${(['Combat Damage', 'Defense & Recovery', 'Status & Debuffs', 'Creature Traits'] as GlossaryCategory[]).map((cat) => {
+              const entries = KEYWORD_GLOSSARY.filter((e) => e.category === cat);
+              return `
+                <section class="guide-bestiary-category">
+                  <div class="guide-bestiary-cat-header">
+                    <h4 class="guide-bestiary-cat-title">${cat}</h4>
+                    <p class="guide-bestiary-cat-sub">Official tabletop card shorthand &amp; resolution rules</p>
+                  </div>
+                  <div class="guide-glossary-list">
+                    ${entries.map((entry) => `
+                      <div class="guide-rule-callout guide-glossary-card">
+                        <div class="guide-glossary-head">
+                          <strong class="guide-glossary-term">${entry.term}</strong>
+                          <code class="guide-glossary-syntax">${entry.syntax}</code>
+                        </div>
+                        <p class="guide-body-text">${entry.ruleText}</p>
+                        <p class="guide-glossary-example"><em>Example:</em> ${entry.example}</p>
+                      </div>
+                    `).join('')}
+                  </div>
+                </section>
+              `;
+            }).join('')}
+
+            <section class="guide-bestiary-category">
+              <div class="guide-bestiary-cat-header">
+                <h4 class="guide-bestiary-cat-title">Core Game Terms</h4>
+                <p class="guide-bestiary-cat-sub">Shared tabletop deck, defense, and combat terminology</p>
+              </div>
+              <ul class="adnd-bullet-list">
+                <li><b>Morville Infinite Deck System™ (MIDS™):</b> Applies to the <b>Adventure, Paths, Monster, Combat, Treasure, and Skills Decks</b>. Each MIDS™ deck always has a <b>Deck + Discard Pile</b> pair. Cards go to their discard pile when used, destroyed, or discarded—except when <b>Banished</b>. Whenever any rule, process, or effect draws from an empty MIDS™ deck, its discard pile is automatically shuffled into a fresh deck and drawing continues seamlessly.</li>
+                <li><b>Banished:</b> An effect that sends a card out of the game and into <b>The Void</b> instead of its discard pile.</li>
+                <li><b>The Void:</b> Not a deck—it is the player&rsquo;s game box where cards not currently being used (unselected scenario cards, Shrine upgrade templates, and <b>Banished</b> cards) can be inspected.</li>
+                <li><b>Summon:</b> Finding a specific card in a particular deck (e.g. Monster Deck), putting it directly into play, then shuffling the deck it came from. If none is found in the deck, look at the discard pile for that card (First In, First Out) and put it on top of the deck.</li>
+                <li><b>Temporary Block:</b> Shields absorb incoming attack damage during the current round before dissipating.</li>
+                <li><b>Physical Defense (DEF):</b> Permanent armor and bodily resistance that directly absorbs or deflects incoming physical blows on every hit.</li>
+                <li><b>Magical Defense (MDEF):</b> Innate arcane warding reducing damage from hostile spell attacks.</li>
+                <li><b>Creature ATK:</b> Increases any non-magical turn damage dealt by the creature.</li>
+              </ul>
+            </section>
+
+            <div class="adnd-page-jump-row">
+              <span class="adnd-jump-label">Previous Chapter:</span>
+              <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="9">&larr; Back to Ch. IX: Skills</button>
+              <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="11">Turn to Ch. XI: Paths &rarr;</button>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============================================================ -->
+        <!-- PAGE 11: Realm Paths (Paths Deck Compendium)                 -->
+        <!-- ============================================================ -->
+        <article class="guide-book-page ${p === 11 ? 'is-active' : ''}" data-page="11">
+          <header class="guide-page-header">
+            <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
+            <h3 class="guide-chapter-title">&mdash; CHAPTER XI: REALM PATHS &mdash;</h3>
+            <p class="guide-chapter-sub">Challenge Cards Drawn on Undiscovered Terrains &bull; Uses MIDS&trade; &amp; the MACG-3D6&trade; Success Check Bar</p>
+          </header>
+
+          <div class="guide-folio-grid">
+            <section class="guide-bestiary-category">
+              <div class="guide-bestiary-cat-header">
+                <h4 class="guide-bestiary-cat-title"><span>&#129517;</span> Paths Deck Rules (MIDS&trade;)</h4>
+                <p class="guide-bestiary-cat-sub">Whenever you step onto an Undiscovered Terrain, draw the top card from the Paths Deck</p>
+              </div>
+              <div class="guide-rule-callout">
+                <p class="guide-body-text">
+                  Paths cards test your hero using the <strong>MACG-3D6&trade; Success Check Bar</strong> and resolve into the <strong>Paths Discard Pile</strong>
+                  (reshuffled automatically via <strong>MIDS&trade;</strong> whenever the Paths Deck runs empty).
+                </p>
+              </div>
+            </section>
+
+            <section class="guide-bestiary-category">
+              <div class="guide-bestiary-cat-header">
+                <h4 class="guide-bestiary-cat-title"><span>&#129517;</span> Path Card Compendium <small>(${PATH_CARD_CATALOG.reduce((sum, entry) => sum + entry.copies, 0)} Cards Total)</small></h4>
+                <p class="guide-bestiary-cat-sub">All Path Challenge cards currently in the game</p>
+              </div>
+              <div class="guide-bestiary-grid">
+                ${PATH_CARD_CATALOG.map((entry) => `
+                  <div class="guide-bestiary-card-item guide-armory-card-item" data-action="inspect-path" data-inspect-kind="path" data-path-id="${entry.templateId}" role="button" tabindex="0">
+                    <div class="guide-bestiary-card-wrapper">
+                      ${renderTcgPathCard(entry, { extraClasses: 'guide-item-card-preview' })}
+                    </div>
+                    <div class="guide-bestiary-card-footer">
+                      <div class="guide-card-supply-badge" title="Total physical copies in the board game">${entry.copies} ${entry.copies === 1 ? 'copy' : 'copies'} in game</div>
+                      <button type="button" class="guide-bestiary-inspect-btn" tabindex="-1">
+                        <span class="inspect-icon">&#9432;</span> Inspect Info
+                      </button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </section>
+
+            <div class="adnd-page-jump-row">
+              <span class="adnd-jump-label">Previous Chapter:</span>
+              <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="10">&larr; Back to Ch. X: Glossary</button>
+              <button class="btn primary guide-jump-btn" data-action="close-guide">${inGame ? 'Back to Game' : 'Ready to Begin'}</button>
+            </div>
+          </div>
+        </article>
+
+        </div>
         </div>
       </div>
 
@@ -826,13 +1234,13 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
 
         <div class="guide-page-medallion">
           <span class="guide-medallion-crest" aria-hidden="true">&#10022;</span>
-          <span class="guide-medallion-text">PAGE ${p} OF 7</span>
+          <span class="guide-medallion-text">PAGE ${p} OF ${GUIDE_PAGE_COUNT}</span>
           <span class="guide-medallion-crest" aria-hidden="true">&#10022;</span>
           <span class="guide-turn-hint">Turn page with A / D or &larr; / &rarr; keys</span>
         </div>
 
-        <button class="btn guide-turn-btn next" data-action="${p >= 7 ? 'close-guide' : 'guide-next-page'}" title="${p >= 7 ? 'Close Tome' : 'Next Page (D or &rarr;)'}">
-          ${p >= 7 ? 'Close Tome &times;' : 'Next Page &rarr;'}
+        <button class="btn guide-turn-btn next" data-action="${p >= GUIDE_PAGE_COUNT ? 'close-guide' : 'guide-next-page'}" title="${p >= GUIDE_PAGE_COUNT ? 'Close Tome' : 'Next Page (D or &rarr;)'}">
+          ${p >= GUIDE_PAGE_COUNT ? 'Close Tome &times;' : 'Next Page &rarr;'}
         </button>
       </footer>
 

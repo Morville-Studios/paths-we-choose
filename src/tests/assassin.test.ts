@@ -30,80 +30,99 @@ function battle(state: RunState) {
 }
 
 describe('Assassin poison and piercing attacks', () => {
-  it('shows the profile, exact artwork filename, Underground badge and attack effects', () => {
-    expect(assassin).toMatchObject({ statPointReward: 4, goldReward: 15, level: 3, creatureType: 'Human', cardNumber: 'mon3smp-03', maxHp: 13, def: 2, eva: 4, acc: 4, mdef: 1, spawnTerrains: ['swamp', 'cave', 'underground'] });
+  it('shows the profile, exact artwork filename, Underground badge, Skittish (2), PEN (3), Poison (4, 2)', () => {
+    expect(assassin).toMatchObject({ statPointReward: 4, goldReward: 15, level: 3, creatureType: 'Human', cardNumber: 'mon3smp-03', maxHp: 13, def: 2, eva: 4, acc: 4, mdef: 1, skittishEvaOnHit: 2, spawnTerrains: ['swamp', 'cave', 'underground'] });
     const html = cardInspectModal({ kind: 'monster', monster: assassin, currentHp: 13 }, setup());
-    for (const text of ['/cards/creatures/assasin.jpg', 'Underground', 'Poison on hit', 'Ignore 2 DEF']) expect(html).toContain(text);
+    const plainHtml = html.replace(/<\/?b>/g, '');
+    for (const text of ['/cards/creatures/assasin.jpg', 'Underground', 'Skittish (2)', 'ATK (5)', 'PEN (3)', 'ACC (2)', 'Poison (4, 2)']) expect(plainHtml).toContain(text);
   });
 
-  it('applies poison even when direct damage is fully blocked', () => {
+  it('T2 ACC (2), Poison (4, 2) inflicts Poison on hit and triggers MACG-3D6 vs VIT at Hero start phase', () => {
     const state = setup();
-    state.rngState = seedFor(true);
-    battle(state).playerBlock = 100;
+    battle(state).monsters[0].patternIndex = 1;
+    // Find a seed where Assassin (ACC 4 + 2 = 6 vs Hero EVA 2 -> net +4) hits AND Poison (4 vs Fighter VIT 3 -> net +1) hits
+    state.rngState = Array.from({ length: 10000 }, (_, i) => i + 1).find(seed => {
+      const r1 = evaluateAttackRoll(seed, 6, 2);
+      const r2 = evaluateAttackRoll(r1.nextState, 4, 3);
+      return r1.isHit && r2.isHit;
+    })!;
     const before = JSON.stringify(state);
     const next = endPlayerCombatTurn(state);
     expect(next.statusEffects).toEqual(['poison']);
-    expect(next.playerResources?.hp).toBe(state.playerResources?.hp);
-    expect(battle(next).lastAttackRoll?.damageDealt).toBe(0);
+    expect(battle(next).playerPoison).toEqual({ damage: 4, turnsRemaining: 1 });
+    expect(next.playerResources?.hp).toBe(state.playerResources!.hp - 4);
     expect(JSON.stringify(state)).toBe(before);
   });
 
-  it.each([0, 2, 4])('Poison Dart deals 3 physical damage ignoring up to 3 DEF (DEF %i)', def => {
+  it('Hero can shake off Poison damage via MACG-3D6 vs VIT and Poison wears off after duration', () => {
     const state = setup();
-    state.equippedGear.armor = { id: 'armor', instanceId: 'armor', name: 'Armor', category: 'armor', description: '', buyPrice: 0, sellPrice: 0, gearBonus: { def, mdef: 100 } };
-    const totalDef = getPlayerDef(getEffectiveStatsFromState(state), def);
+    battle(state).monsters[0].patternIndex = 1;
+    // Assassin hits, but Poison vs VIT misses (Hero shakes it off)
+    state.rngState = Array.from({ length: 10000 }, (_, i) => i + 1).find(seed => {
+      const r1 = evaluateAttackRoll(seed, 6, 2);
+      const r2 = evaluateAttackRoll(r1.nextState, 4, 3);
+      return r1.isHit && !r2.isHit;
+    })!;
     const next = endPlayerCombatTurn(state);
-    expect(next.playerResources?.hp).toBe(state.playerResources!.hp - (3 - Math.max(0, totalDef - 3)));
-    expect(battle(next).lastAttackRoll).toMatchObject({ damageDealt: 3 - Math.max(0, totalDef - 3), defenseType: 'DEF' });
     expect(next.statusEffects).toEqual(['poison']);
-    expect(assassin.name).toBe('Assasin');
+    expect(battle(next).playerPoison).toEqual({ damage: 4, turnsRemaining: 1 });
+    expect(next.playerResources?.hp).toBe(state.playerResources!.hp);
+    expect(battle(next).combatLog.join(' ')).toContain('Hero shakes off the poison');
   });
 
   it('does not apply poison on a miss', () => {
     const state = setup();
-    state.rngState = seedFor(false);
+    battle(state).monsters[0].patternIndex = 1;
+    state.rngState = Array.from({ length: 10000 }, (_, i) => i + 1).find(seed => !evaluateAttackRoll(seed, 6, 2).isHit)!;
     const next = endPlayerCombatTurn(state);
     expect(next.statusEffects).toEqual([]);
+    expect(battle(next).playerPoison ?? null).toBeNull();
     expect(next.playerResources?.hp).toBe(state.playerResources?.hp);
   });
 
-  it('ticks once on subsequent End Turn, bypasses defenses, does not stack, and persists in later battles', () => {
+  it('Poison tick bypasses DEF/MDEF/Block and expires after turnsRemaining reaches 0', () => {
     const state = setup();
+    battle(state).monsters = [{ ...battle(state).monsters[0], monster: { ...assassin, pattern: [] } }];
+    battle(state).playerPoison = { damage: 4, turnsRemaining: 2 };
     state.statusEffects = ['poison'];
     state.divineProtection = 100;
     battle(state).playerBlock = 100;
-    const next = endPlayerCombatTurn(state);
-    expect(next.statusEffects).toEqual(['poison']);
-    expect(next.playerResources?.hp).toBe(state.playerResources!.hp - 1);
-    expect(battle(next).combatLog.join(' ')).toContain('Poison deals 1 HP');
-    next.activeHook = { type: 'COMBAT', combat: createCombatSession([{ ...assassin, pattern: [] }], [], 1).combat };
-    expect(endPlayerCombatTurn(next).playerResources?.hp).toBe(state.playerResources!.hp - 2);
+    state.rngState = Array.from({ length: 10000 }, (_, i) => i + 1).find(seed => evaluateAttackRoll(seed, 4, 3).isHit)!;
+    const turn2 = endPlayerCombatTurn(state);
+    expect(turn2.playerResources?.hp).toBe(state.playerResources!.hp - 4);
+    expect(battle(turn2).playerPoison).toEqual({ damage: 4, turnsRemaining: 1 });
+
+    turn2.rngState = Array.from({ length: 10000 }, (_, i) => i + 1).find(seed => evaluateAttackRoll(seed, 4, 3).isHit)!;
+    const turn3 = endPlayerCombatTurn(turn2);
+    expect(turn3.playerResources?.hp).toBe(state.playerResources!.hp - 8);
+    expect(battle(turn3).playerPoison).toBeNull();
+    expect(turn3.statusEffects).toEqual([]);
   });
 
-  it('can kill the hero before monsters act', () => {
+  it('Poison can kill the hero at start phase', () => {
     const state = setup();
+    battle(state).monsters = [{ ...battle(state).monsters[0], monster: { ...assassin, pattern: [] } }];
+    battle(state).playerPoison = { damage: 4, turnsRemaining: 1 };
     state.statusEffects = ['poison'];
-    state.playerResources!.hp = 1;
+    state.playerResources!.hp = 4;
+    state.rngState = Array.from({ length: 10000 }, (_, i) => i + 1).find(seed => evaluateAttackRoll(seed, 4, 3).isHit)!;
     const next = endPlayerCombatTurn(state);
     expect(next.activeHook).toMatchObject({ type: 'ON_GAME_OVER', defeatedBy: 'Poison' });
-    expect(next.rngState).toBe(state.rngState);
   });
 
-  it.each([0, 1, 2, 4])('ignores up to 2 physical DEF without making DEF negative (DEF %i)', def => {
+  it.each([0, 1, 2, 4])('T1 ATK (5), PEN (3) ignores up to 3 physical DEF without making DEF negative (DEF %i)', def => {
     const state = setup();
-    battle(state).monsters[0].patternIndex = 1;
     state.equippedGear.armor = { id: 'armor', instanceId: 'armor', name: 'Armor', category: 'armor', description: '', buyPrice: 0, sellPrice: 0, gearBonus: { def, mdef: 100 } };
     const totalDef = getPlayerDef(getEffectiveStatsFromState(state), def);
     const next = endPlayerCombatTurn(state);
-    expect(battle(next).lastAttackRoll).toMatchObject({ damageDealt: 7 - Math.max(0, totalDef - 2), damageDefReduced: Math.max(0, totalDef - 2), defenseType: 'DEF' });
+    expect(battle(next).lastAttackRoll).toMatchObject({ damageDealt: 5 - Math.max(0, totalDef - 3), damageDefReduced: Math.max(0, totalDef - 3), defenseType: 'DEF' });
   });
 
-  it('Piercing Strike ignores DEF granted by Divine Protection while Block absorbs damage', () => {
+  it('T1 ATK (5), PEN (3) ignores DEF granted by Divine Protection while Block absorbs damage', () => {
     const state = setup();
-    battle(state).monsters[0].patternIndex = 1;
-    battle(state).playerBlock = 2;
+    battle(state).playerBlock = 1;
     state.divineProtection = 1;
-    expect(battle(endPlayerCombatTurn(state)).lastAttackRoll).toMatchObject({ damageDealt: 5, damageBlocked: 2, damageProtReduced: 0 });
+    expect(battle(endPlayerCombatTurn(state)).lastAttackRoll).toMatchObject({ damageDealt: 4, damageBlocked: 1, damageProtReduced: 0 });
   });
 
   it('is cured by shrine cleanse; village rest only restores HP', () => {

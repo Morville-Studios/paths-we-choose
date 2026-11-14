@@ -1,10 +1,18 @@
 import { ActiveCombatState, CombatMonster, MonsterIntent } from '../types';
 
+export function getMonsterChannelMatkBonus(cm: CombatMonster): number {
+  return (cm.channelStacks ?? []).reduce((sum, s) => sum + s.amount, 0);
+}
+
 export function getMonsterEffectiveAtk(
   cm: CombatMonster,
   monstersInPlay: CombatMonster[] = []
 ): number {
   let atk = (cm.monster.atk ?? 0) + (cm.attackBonus ?? 0);
+  if (cm.monster.bloodlust && cm.monster.maxHp > 0) {
+    if (cm.hp < cm.monster.maxHp * 0.25) atk += 2;
+    else if (cm.hp < cm.monster.maxHp * 0.5) atk += 1;
+  }
   if (cm.monster.templateId === 'goblin_chieftain') {
     const otherGoblins = monstersInPlay.filter(
       (c) =>
@@ -54,12 +62,19 @@ export function getMonsterIntent(
     ).length * rawIntent.damagePerCreatureInPlay.amount
     : 0;
   const isMagical = rawIntent.damageType === 'magical';
-  const atkBonus = isMagical ? 0 : atk;
+  const channelMatk = getMonsterChannelMatkBonus(cm);
+  const atkBonus = isMagical ? channelMatk : atk;
   return {
     ...rawIntent,
     damage: rawIntent.damage > 0
       ? Math.max(0, rawIntent.damage + atkBonus + creatureBonus + (rawIntent.damagePerHeroDebuff ?? 0) * heroDebuffCount)
       : 0,
+    ...(rawIntent.offhandDamage && rawIntent.offhandDamage > 0
+      ? { offhandDamage: Math.max(0, rawIntent.offhandDamage + atk) }
+      : {}),
+    ...(rawIntent.magicDamage && rawIntent.magicDamage > 0
+      ? { magicDamage: Math.max(0, rawIntent.magicDamage + channelMatk) }
+      : {}),
   };
 }
 

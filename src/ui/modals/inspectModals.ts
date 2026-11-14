@@ -1,4 +1,5 @@
 import { getHeroStatDebuffMods } from '../../core/combat';
+import { getEncounterTargetLevel } from '../../core/deck';
 import {
   computeCombatGearBonuses,
   computeGearBonuses,
@@ -17,6 +18,7 @@ import {
   StatKey,
 } from '../../core/types';
 import { getMonsterMainTerrain, getMonsterSupplyCount, MONSTER_TERRAIN_LEVELS } from '../../data/monsters';
+import { PATH_CARD_CATALOG } from '../../data/paths';
 import { getActionCardEffect, renderActionCardHtml } from '../actionCard';
 import { getAdventureRasterArtPath } from '../cardArt';
 import { getResourceIcon, getSlotIcon, getStatIcon } from '../icons';
@@ -28,6 +30,7 @@ import {
   heroHexIntentHtml,
   renderCombatLogEntries,
   renderTcgItemCard,
+  renderTcgPathCard,
 } from '../render';
 export function cardInspectModal(inspected: InspectedCardInfo, state: RunState): string {
   const stats = getEffectiveStatsFromState(state);
@@ -201,8 +204,7 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
       const isBuffed = step.damage > 0 && attackBonus > 0;
       return `
       <div class="inspect-pattern-step ${isBuffed ? 'is-buffed-step' : ''}">
-        <span class="pattern-turn">Turn ${i + 1}</span>
-        <span class="pattern-intent-name"><b>${step.label}</b></span>
+        <span class="pattern-turn">T${i + 1}:</span>
         ${step.poisonOnHit ? '<span>Poison on hit</span>' : ''}
         ${step.ignoreDef ? `<span>Ignore ${step.ignoreDef} DEF</span>` : ''}
         <span class="pattern-intent-desc">
@@ -310,7 +312,7 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
       <div class="inspect-section">
         <h3>🎲 3d6 QTE Combat Rules</h3>
         <ul class="inspect-bullet-list">
-          <li><b>Attack Roll:</b> Rolls <code>3x 1d6</code> (3d6) evaluated on the <b>Quick Time Event (QTE) Hit Check Bar</b> (range 3–18). Center Sure Hit Rolls: rolls <b>10 &amp; 11</b> provide a guaranteed minimum <b>25.0%</b> base hit chance.</li>
+          <li><b>Attack Roll:</b> Rolls <code>3x 1d6</code> (3d6) evaluated on the <b>MACG-3D6™ Success Check Bar</b> (range 3–18). Center Sure Hit Rolls: rolls <b>10 &amp; 11</b> provide a guaranteed minimum <b>25.0%</b> base hit chance.</li>
           <li><b>Net Accuracy &amp; Dodge:</b> <code>Net ACC = Attacker ACC (${m.acc ?? 1}) - Target EVA</code>. Each +1 net ACC expands the hit range outward from the median by 1 on each side (e.g. +1 net ACC expands hit range from 10–11 to 9–12, 48.1% hit chance).</li>
           <li><b>Diabolic Rolls (3 &amp; 18):</b> Rolls of 3 and 18 are Diabolic rolls that always guarantee a chance to miss regardless of ACC. No critical hit multipliers exist.</li>
           <li><b>Inscribed Stat Points:</b> Defeating this monster awards <b>+${m.statPointReward} SP</b>. SP is converted into permanent Base Stats exclusively at Sacred Shrines.</li>
@@ -323,6 +325,7 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
     title = `${cardName} (Land Card Reference)`;
     const rasterArt = getAdventureRasterArtPath(card);
     const terrain = getTerrainPresentation(card.terrain);
+    const encounterTargetLevel = getEncounterTargetLevel(card.level);
     const typeLine = card.terrain === 'start'
       ? 'Land — Starting Crossroads'
       : `Land — ${cardName}`;
@@ -350,12 +353,14 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
           <p class="adv-inspect-summary">
             ${
               card.hasHostile
-                ? `<b>Encounter Zone (Level ${card.level}):</b> Draws monsters from the Monster Deck matching ${terrain.pluralLabel} ${terrain.icon} until total monster level &ge; ${card.level}.`
+                ? `<b>Encounter Zone (Level ${card.level}):</b> Draws monsters from the Monster Deck matching ${terrain.pluralLabel} ${terrain.icon} until total monster level &ge; ${encounterTargetLevel}.`
                 : card.hasVillage
                 ? `<b>Village Haven:</b> Sanctuary offering Rest (Inn), Shop (Weapons, Armor, Accessories), and Card Training (Drafting / Removal).`
                 : card.hasShrine
                 ? `<b>Sacred Altar:</b> Spend Stat Points to permanently upgrade Base Stats (cost: <code>baseStat &times; 10 SP</code>), and pray for 1 map-temporary divine boon.`
-                : `<b>Safe Open Land:</b> Travel through peaceful open terrain without monster ambush.`
+                : card.terrain === 'start'
+                ? `<b>Starting Crossroads:</b> Your expedition begins here before stepping onto the adventure board.`
+                : `<b>Undiscovered Terrain (Level ${card.level}):</b> Draws a card from the Paths Deck, triggering sidequests, ambushes, or hidden caches.`
             }
           </p>
           ${card.flavorText ? `<p class="tcg-flavor-text">${card.flavorText}</p>` : ''}
@@ -372,12 +377,14 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
         <p><b>Terrain Region:</b> ${terrain.label} ${terrain.icon}</p>
         <p><b>Encounter &amp; Amenity Rules:</b> ${
           card.hasHostile
-            ? `Stepping onto this card initiates an encounter. Monsters are drawn from the Monster Deck matching <code>spawnTerrains.includes('${card.terrain}')</code> until total creature level &ge; ${card.level}.`
+            ? `Stepping onto this card initiates an encounter. Monsters are drawn from the Monster Deck matching <code>spawnTerrains.includes('${card.terrain}')</code> until total creature level &ge; ${encounterTargetLevel}.`
             : card.hasVillage
             ? `Safe resting haven. Resting restores 2 HP per 1 Gold (up to full HP). Shop stocks ${5 + card.level} items from the Treasure Deck (Levels ${Math.max(1, card.level - 1)}–${card.level}) with live stat delta previews. Training offers 3 skills from the New Skills Deck or destroys a card to the Void.`
             : card.hasShrine
             ? `Sacred sanctuary. Automatically grants 1 eligible divine boon on arrival (1 active blessing at a time). Converts Stat Points into permanent Base Stats up to Base ${card.level + 1} at cost (B &times; 10) SP.${card.level >= 2 ? ' Also supports upgrading owned skills from the Void.' : ''}`
-            : 'Safe territory. No monsters spawn. Player safely advances towards the Turn 15 Boss.'
+            : card.terrain === 'start'
+            ? 'Starting tile where your expedition begins.'
+            : `Stepping onto this card draws the top card from the Paths Deck, triggering a terrain-leveled sidequest or challenge (such as an Enemy Camp ambush, stealth check, or treasure discovery) scaled to Level ${card.level}.`
         }</p>
       </div>
 
@@ -394,6 +401,61 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
           <li><b>Vision Cone:</b> Revealed in a 3-row inverted pyramid cone (Row 1: 2 choices, Row 2: 3 lookahead cards).</li>
           <li><b>9-Card Lagging Conservation:</b> Moving to row R sweeps only Row R-1 to discard, keeping up to 9 cards on the board across Rows R, R+1, and R+2.</li>
           <li><b>Physical Print Format:</b> Official standard 5:7 aspect ratio (2.5&quot; &times; 3.5&quot;) with raster art and full tabletop mechanics.</li>
+        </ul>
+      </div>
+    </div>`;
+  } else if (inspected.kind === 'path') {
+    const card = inspected.card;
+    const cat = PATH_CARD_CATALOG.find((c) => c.templateId === card.templateId);
+    const copies = inspected.copies ?? cat?.copies ?? 5;
+    const flavor =
+      cat?.flavorText ??
+      'You wander into an enemy camp and spot hostiles ahead. Pass an AGI Sneak Check to slip past unnoticed, then roll DEX Treasure Discovery for loot.';
+    title = `${card.name} (Path Card Reference)`;
+    cardHtml = renderTcgPathCard(card, { extraClasses: 'tcg-inspect-card' });
+
+    detailHtml = `
+    <div class="inspect-detail-content">
+      <div class="inspect-section">
+        <h3>🧭 ${card.name} &middot; Tabletop Path Rules</h3>
+        <p><b>Card Classification:</b> Path — Challenge</p>
+        <p><b>Collector Number:</b> ${card.cardNumber}</p>
+        <p><b>Physical copies:</b> ${copies} in Paths Deck</p>
+        ${
+          card.templateId === 'merchant'
+            ? `<p><b>Wandering Offer:</b> Draws the top 2 cards from the Treasure Deck and offers them for sale at <b>double your Charisma DISC</b> (rounded up, minimum 1 Gold).</p>
+               <p><b>Choice:</b> Purchase any offered item if your Gold allows, or decline and leave (unbought items are discarded to the Treasure Discard Pile).</p>`
+            : card.templateId === 'sanctuary'
+            ? `<p><b>Free Rest Area:</b> Fully restores the hero&apos;s HP to Max HP at no Gold cost.</p>`
+            : card.templateId === 'ambush'
+            ? `<p><b>Sudden Ambush:</b> Immediately starts a combat Encounter matching this terrain and level, with <b>the creatures taking their turn first</b> before the player.</p>`
+            : card.templateId === 'magical_chest'
+            ? `<p><b>Checks:</b> Force Open (<code>STR &minus; (3 + 2&times;Lvl)</code>), Lockpick (<code>DEX &minus; (3 + 2&times;Lvl)</code>), Remove Seal (<code>INT &minus; (1 + 2&times;Lvl)</code>), or Abandon safely.</p>
+               <p><b>Outcome:</b> Success grants the top Treasure card. Failure detonates the chest, destroying the item inside and dealing <b>3 damage</b>.</p>`
+            : card.templateId === 'trapped_chest'
+            ? `<p><b>Checks:</b> Force Open (<code>STR &minus; (3 + 2&times;Lvl)</code>), Lockpick (<code>DEX &minus; (1 + 2&times;Lvl)</code>), or Abandon safely.</p>
+               <p><b>Outcome:</b> Success grants the top Treasure card. Failure detonates the chest, destroying the item inside and dealing <b>3 damage</b>.</p>`
+            : card.templateId === 'gold_stash'
+            ? `<p><b>1d6 Gold Roll:</b> Roll 1–3 for <b>+10 Gold</b>, 4–5 for <b>+20 Gold</b>, or 6 for <b>+30 Gold</b>.</p>`
+            : card.templateId === 'spring_trap'
+            ? `<p><b>Dodge Check:</b> <code>AGI &minus; (1 + 2&times;Lvl)</code> on the <b>MACG-3D6&trade; Success Check Bar</b>. Succeed to avoid harm; fail to suffer <b>4 direct damage</b>.</p>`
+            : `<p><b>Sneak Check:</b> <code>AGI &minus; (Terrain Lvl &times; 2)</code> on the <b>MACG-3D6&trade; Success Check Bar</b>. On failure, treat the terrain as an Encounter (fleeing forfeits Treasure Discovery).</p>
+               <p><b>Treasure Discovery:</b> After sneaking past or winning, roll <code>DEX &minus; (Terrain Lvl &times; 2)</code>. On success, draw from the Treasure Deck until an item with <code>Lvl &le; Terrain Lvl</code> is found (higher-level cards are discarded).</p>`
+        }
+      </div>
+
+      <div class="inspect-section">
+        <h3>📜 Lore &amp; Field Notes</h3>
+        <blockquote class="inspect-quote">
+          &ldquo;${flavor}&rdquo;
+        </blockquote>
+      </div>
+
+      <div class="inspect-section">
+        <h3>🎲 MIDS&trade; &amp; MACG-3D6&trade; Path Architecture</h3>
+        <ul class="inspect-bullet-list">
+          <li><b>Undiscovered Trigger:</b> Stepping onto an Undiscovered Terrain always draws the top card from the Paths Deck.</li>
+          <li><b>Morville Infinite Deck System&trade; (MIDS&trade;):</b> Resolved Path cards enter the Paths Discard Pile and reshuffle automatically when the Paths Deck runs empty.</li>
         </ul>
       </div>
     </div>`;

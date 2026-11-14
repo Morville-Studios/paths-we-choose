@@ -8,7 +8,8 @@ import {
   MONSTER_TEMPLATES,
   ORDINARY_MONSTER_TEMPLATE_IDS,
 } from '../data/monsters';
-import { SHOP_ITEM_CATALOG } from '../data/shopItems';
+import { getTreasureSupplyCount, SHOP_ITEM_CATALOG } from '../data/shopItems';
+import { buildPathsDeck } from '../data/paths';
 import {
   ADVENTURE_CARD_CATALOG,
   STAGE_1_DECK_COMPOSITION,
@@ -16,7 +17,7 @@ import {
   STAGE_3_DECK_COMPOSITION,
 } from '../data/stages';
 import { shuffleArray } from './rng';
-import { AdventureCard, ClassId, CombatCardDef, MonsterCard, ShopItemDef } from './types';
+import { AdventureCard, ClassId, CombatCardDef, MonsterCard, PathCard, ShopItemDef } from './types';
 
 export function buildAdventureDeckFromComposition(
   composition: Record<string, number>,
@@ -208,6 +209,11 @@ export function drawMonsterCardWithReshuffle(
   return searchMonsterDeck(currentDeck, currentDiscard, rng, terrain, maxLevel, currentDeck.length);
 }
 
+/** Computes the encounter monster-level budget X = floor(cardLevel * 1.5). */
+export function getEncounterTargetLevel(cardLevel: number): number {
+  return Math.floor(cardLevel * 1.5);
+}
+
 /**
  * Encounter generation is a recycling mechanic, not an ability search.
  * Recycle an empty deck while eligible supply remains. Terrain rejects remain
@@ -390,32 +396,66 @@ export function drawNewSkillsWithReshuffle(
 }
 
 /**
- * Builds the Stage 1 Treasure Deck.
- * Composed of two copies of each of the 21 catalog items = 42 cards total.
+ * Builds the full physical Treasure supply (2 copies per catalog item).
+ */
+export function buildPhysicalTreasureSupply(): ShopItemDef[] {
+  const cards: ShopItemDef[] = [];
+  for (const tpl of SHOP_ITEM_CATALOG) {
+    const supplyCount = getTreasureSupplyCount(tpl);
+    for (let copy = 1; copy <= supplyCount; copy++) {
+      cards.push({
+        ...tpl,
+        instanceId: `tr_${tpl.id}_c${copy}`,
+      });
+    }
+  }
+  return cards;
+}
+
+/**
+ * Builds the Treasure Deck for a given scenario level.
+ * Only items with level in [scenarioLevel, scenarioLevel + 1] enter the deck;
+ * remaining unused items stay in the box (`void`).
+ */
+export function buildScenarioTreasureDeck(
+  scenarioLevel: number,
+  rngState: number,
+  existingSupply?: ShopItemDef[]
+): {
+  deck: ShopItemDef[];
+  void: ShopItemDef[];
+  nextState: number;
+} {
+  const supply = existingSupply ?? buildPhysicalTreasureSupply();
+  const eligible: ShopItemDef[] = [];
+  const unused: ShopItemDef[] = [];
+  for (const item of supply) {
+    const lvl = item.level ?? 1;
+    if (lvl >= scenarioLevel && lvl <= scenarioLevel + 1) {
+      eligible.push(item);
+    } else {
+      unused.push(item);
+    }
+  }
+  const { shuffled, nextState } = shuffleArray(eligible, rngState);
+  return { deck: shuffled, void: unused, nextState };
+}
+
+/**
+ * Builds the Stage 1 Treasure Deck (Level 1-2 items; Level 3+ stay in the box).
  */
 export function buildStage1TreasureDeck(rngState: number): {
   deck: ShopItemDef[];
+  void: ShopItemDef[];
   nextState: number;
 } {
-  const cards: ShopItemDef[] = [];
-  for (const tpl of SHOP_ITEM_CATALOG) {
-    cards.push({
-      ...tpl,
-      instanceId: `tr_${tpl.id}_c1`,
-    });
-    cards.push({
-      ...tpl,
-      instanceId: `tr_${tpl.id}_c2`,
-    });
-  }
-  const { shuffled, nextState } = shuffleArray(cards, rngState);
-  return { deck: shuffled, nextState };
+  return buildScenarioTreasureDeck(1, rngState);
 }
 
 /** Shared non-fizzling treasure mechanic. Rejected physical cards go to discard. */
 function drawFilteredTreasure(
   deck: ShopItemDef[], discard: ShopItemDef[], count: number, rngState: number,
-  reshuffleCount: number, eligible: (item: ShopItemDef) => boolean
+  reshuffleCount: number, eligible: (item: ShopItemDef, drawn: ShopItemDef[]) => boolean
 ): {
   drawn: ShopItemDef[];
   deck: ShopItemDef[];
@@ -434,9 +474,9 @@ function drawFilteredTreasure(
   while (drawn.length < count) {
     if (currentDeck.length === 0) {
       if (currentDiscard.length === 0) break;
-      // Missing eligible content (or all matching copies already owned) cannot
+      // Missing eligible content (or all matching copies already owned/stocked) cannot
       // create an endless loop. This is supply exhaustion, not an ability fizzle.
-      if (examined && !currentDiscard.some(eligible)) break;
+      if (examined && !currentDiscard.some(card => eligible(card, drawn))) break;
       const recycled = shuffleArray(currentDiscard, rng);
       currentDeck = recycled.shuffled;
       currentDiscard = [];
@@ -445,7 +485,7 @@ function drawFilteredTreasure(
     }
     const card = currentDeck.shift()!;
     examined = true;
-    if (eligible(card)) drawn.push(card);
+    if (eligible(card, drawn)) drawn.push(card);
     else {
       currentDiscard.push(card);
       discardedInvalid.push(card);
@@ -455,9 +495,10 @@ function drawFilteredTreasure(
 }
 
 /**
- * Draw count stock cards at the village's level or one level below. Level 1
- * stores therefore accept only Level 1. Wrong-level cards are discarded and
- * do not count toward stock. Recycle as often as needed.
+ * Draw up to `count` unique stock cards matching the village's exact level.
+ * Wrong-level or duplicate cards are discarded to `treasureDiscard` and do
+ * not count toward stock. Recycles `treasureDiscard` once empty if eligible
+ * unique items remain, stopping cleanly with partial stock if supply runs out.
  * Without villageLevel, this remains an ordinary fixed-count treasure draw.
  */
 export function drawTreasureCardsWithReshuffle(
@@ -465,9 +506,9 @@ export function drawTreasureCardsWithReshuffle(
   reshuffleCount = 0, villageLevel?: number
 ) {
   return drawFilteredTreasure(deck, discard, count, rngState, reshuffleCount,
-    item => villageLevel === undefined || (
-      (item.level ?? 1) >= Math.max(1, villageLevel - 1)
-      && (item.level ?? 1) <= villageLevel
+    (item, drawn) => villageLevel === undefined || (
+      (item.level ?? 1) === villageLevel
+      && !drawn.some(existing => existing.id === item.id)
     ));
 }
 
@@ -488,6 +529,25 @@ export function drawTreasureUntilLevel(
   return { item: result.drawn[0] ?? null, deck: result.deck, discard: result.discard,
     nextState: result.nextState, reshuffleCount: result.reshuffleCount,
     discardedOverLevel: result.discardedInvalid };
+}
+
+/**
+ * Pulls one matching card (by catalog code, e.g. `advgrs-03`) from a prepared
+ * Adventure Deck without creating new copies out of thin air.
+ */
+export function pullStartingAdventureCard(
+  deck: AdventureCard[],
+  cardCode: string
+): { card: AdventureCard | null; deck: AdventureCard[] } {
+  const idPrefix = `adv_${cardCode.replace('-', '_')}_`;
+  const idx = deck.findIndex(
+    (c) => c.id.startsWith(idPrefix) || c.cardNumber === cardCode
+  );
+  if (idx < 0) return { card: null, deck };
+  return {
+    card: deck[idx],
+    deck: [...deck.slice(0, idx), ...deck.slice(idx + 1)],
+  };
 }
 
 /**
@@ -519,4 +579,49 @@ export function pullStartingTreasureCard(
     };
   }
   return { item: null, deck, voidPile };
+}
+
+/**
+ * Draws the top card from the Paths Deck using the Morville Infinite Deck System™ (MIDS™):
+ * if the deck is empty, recycles the Paths Discard pile back into a shuffled deck.
+ */
+export function drawPathCardWithReshuffle(
+  deck: PathCard[],
+  discard: PathCard[],
+  rngState: number,
+  reshuffleCount: number
+): {
+  card: PathCard;
+  deck: PathCard[];
+  discard: PathCard[];
+  nextState: number;
+  reshuffleCount: number;
+} {
+  let activeDeck = deck;
+  let activeDiscard = discard;
+  let rng = rngState;
+  let reshuffles = reshuffleCount;
+
+  if (activeDeck.length === 0) {
+    if (activeDiscard.length > 0) {
+      const recycled = shuffleArray(activeDiscard, rng);
+      activeDeck = recycled.shuffled;
+      activeDiscard = [];
+      rng = recycled.nextState;
+      reshuffles += 1;
+    } else {
+      const built = buildPathsDeck(rng);
+      activeDeck = built.deck;
+      rng = built.nextState;
+    }
+  }
+
+  const [card, ...rest] = activeDeck;
+  return {
+    card,
+    deck: rest,
+    discard: activeDiscard,
+    nextState: rng,
+    reshuffleCount: reshuffles,
+  };
 }

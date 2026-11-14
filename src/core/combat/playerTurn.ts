@@ -157,11 +157,11 @@ export function playCombatCardFromHand(
           t.block -= damageBlocked;
           t.hp = Math.max(0, t.hp - damageDealt);
 
-          if (t.hp > 0 && t.monster.skittishEvaOnHit) {
-            const bonus = t.monster.skittishEvaOnHit;
-            t.skittishEvaBonus = (t.skittishEvaBonus ?? 0) + bonus;
-            t.evaBonus = (t.evaBonus ?? 0) + bonus;
-            logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Skittish: gains +${bonus} EVA for the rest of this hero turn.`);
+          if (t.hp > 0 && t.monster.hardenDefOnHit) {
+            const defGain = t.monster.hardenDefOnHit;
+            t.hardenDefBonus = (t.hardenDefBonus ?? 0) + defGain;
+            t.defBonus = (t.defBonus ?? 0) + defGain;
+            logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Harden: gains +${defGain} DEF for 1 turn.`);
           }
 
           const netSign = attackRoll.netAcc >= 0 ? '+' : '';
@@ -175,7 +175,25 @@ export function playCombatCardFromHand(
             } -> ${damageDealt} HP damage to ${t.monster.name}${t.hp <= 0 ? ' — Defeated!' : ''}.`
           );
           const resilient = t.monster.resilient;
-          if (t.hp <= 0 && resilient) {
+          if (t.hp <= 0 && (t.undyingTokensRemaining ?? 0) > 0) {
+            while (t.hp <= 0 && (t.undyingTokensRemaining ?? 0) > 0) {
+              t.undyingTokensRemaining = (t.undyingTokensRemaining ?? 0) - 1;
+              const threshold = 1 + t.undyingTokensRemaining;
+              const revival = roll1D6(nextRng);
+              nextRng = revival.nextState;
+              if (revival.roll <= threshold) {
+                t.hp = t.monster.maxHp;
+                t.block = 0;
+                logEntries.push(
+                  `[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Undying: consumed 1 token (${t.undyingTokensRemaining} left), rolled 1d6 = ${revival.roll} (needed 1–${threshold}). Revives with full HP (${t.hp}/${t.monster.maxHp})!`
+                );
+                break;
+              }
+              logEntries.push(
+                `[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Undying: consumed 1 token (${t.undyingTokensRemaining} left), rolled 1d6 = ${revival.roll} (needed 1–${threshold}). Revival failed.`
+              );
+            }
+          } else if (t.hp <= 0 && resilient) {
             const revival = roll1D6(nextRng);
             nextRng = revival.nextState;
             if (revival.roll === resilient.requiredRoll) {
@@ -186,14 +204,18 @@ export function playCombatCardFromHand(
               logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Resilient: rolled 1d6 = ${revival.roll} (needs ${resilient.requiredRoll}). Remains defeated.`);
             }
           }
+          const effectiveAttackRange: 'melee' | 'ranged' =
+            card.attackRange ??
+            state.equippedGear?.weapon?.weaponRange ??
+            (card.damageScalingStat === 'int' ? 'ranged' : 'melee');
           const retaliationDamage = t.monster.retaliationDamageOnHeroAttack ?? 0;
-          if (retaliationDamage > 0 && t.hp > 0) {
+          if (retaliationDamage > 0 && t.hp > 0 && effectiveAttackRange === 'melee') {
             const hpDamage = retaliationDamage;
             nextHeroHp = Math.max(0, nextHeroHp - hpDamage);
             logEntries.push(
-              `[${createTimestamp(state.logTimestamp)}] 🧪 ${t.monster.name} spits retaliatory acid: Hero loses ${hpDamage} HP (ignores DEF and Block).`,
+              `[${createTimestamp(state.logTimestamp)}] 🌵 ${t.monster.name} — Thorn (${retaliationDamage}): Hero loses ${hpDamage} HP (ignores DEF and Block).`,
             );
-            if (nextHeroHp <= 0) heroKilledBy = `${t.monster.name}'s Acid Retaliation`;
+            if (nextHeroHp <= 0) heroKilledBy = `${t.monster.name}'s Thorn`;
           }
         } else {
           const netSign = attackRoll.netAcc >= 0 ? '+' : '';
@@ -201,6 +223,13 @@ export function playCombatCardFromHand(
           logEntries.push(
             `[${createTimestamp(state.logTimestamp)}] ⚔️ Played ${card.name} on ${t.monster.name}: rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc}${accBonusNote})${diabolicNote} -> 💨 Missed ${t.monster.name} (rolled ${attackRoll.total}${attackRoll.isDiabolic ? ' - Diabolic miss!' : ' outside range'})!`
           );
+        }
+
+        if (t.hp > 0 && t.monster.skittishEvaOnHit) {
+          const bonus = t.monster.skittishEvaOnHit;
+          t.skittishEvaBonus = (t.skittishEvaBonus ?? 0) + bonus;
+          t.evaBonus = (t.evaBonus ?? 0) + bonus;
+          logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Skittish: gains +${bonus} EVA for this turn.`);
         }
 
         lastAttackRoll = {

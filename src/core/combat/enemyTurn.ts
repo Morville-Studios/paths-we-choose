@@ -32,18 +32,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
 
   let playerHp = state.playerResources.hp;
   const statusEffects = [...state.statusEffects];
-  if (statusEffects.includes('poison')) {
-    playerHp = Math.max(0, playerHp - 1);
-    logEntries.push(`[${createTimestamp(state.logTimestamp)}] Poison deals 1 HP damage to Hero at End Turn.`);
-    if (playerHp === 0) {
-      return syncAudioState({
-        ...state,
-        playerResources: { ...state.playerResources, hp: 0 },
-        activeHook: { type: 'ON_GAME_OVER', turn: state.turn, defeatedBy: 'Poison' },
-        bannerMessage: 'You were defeated by Poison.',
-      });
-    }
-  }
+  let nextPlayerPoison = combat.playerPoison ?? null;
   let playerBlock = combat.playerBlock;
   let killedBy: string | null = null;
   let lastMonsterAttackRoll: CombatAttackRollSummary | undefined = undefined;
@@ -100,12 +89,19 @@ export function endPlayerCombatTurn(state: RunState): RunState {
 
     cm.evaBonus = Math.max(0, (cm.evaBonus ?? 0) - (cm.skittishEvaBonus ?? 0));
     cm.skittishEvaBonus = 0;
+    cm.defBonus = Math.max(0, (cm.defBonus ?? 0) - (cm.hardenDefBonus ?? 0));
+    cm.hardenDefBonus = 0;
     cm.evaBonusTurns = Math.max(0, (cm.evaBonusTurns ?? 0) - 1);
     cm.accBonusTurns = Math.max(0, (cm.accBonusTurns ?? 0) - 1);
     cm.attackBonusTurns = Math.max(0, (cm.attackBonusTurns ?? 0) - 1);
     cm.defBonusTurns = Math.max(0, (cm.defBonusTurns ?? 0) - 1);
     if (cm.attackBonusTurns === 0) cm.attackBonus = 0;
     if (cm.defBonusTurns === 0) cm.defBonus = 0;
+    if (cm.monster.regenOnStart && cm.hp > 0 && cm.hp < cm.monster.maxHp) {
+      const regenAmt = Math.min(cm.monster.maxHp - cm.hp, cm.monster.regenOnStart);
+      cm.hp += regenAmt;
+      logEntries.push(`[${createTimestamp(state.logTimestamp)}] 💚 ${cm.monster.name} — Regen: gains +${regenAmt} HP on activation (${cm.hp}/${cm.monster.maxHp} HP).`);
+    }
     const activeNegativeEffectCount = activeHexes.filter((effect) => effect.turnsRemaining > 0).length
       + (state.statusEffects?.length ?? 0)
       + (currentEvaDebuffTurns > 0 ? 1 : 0);
@@ -114,11 +110,12 @@ export function endPlayerCombatTurn(state: RunState): RunState {
 
     cm.block = intent.block;
     if (intent.defBonus && intent.defBonus !== 0) {
+      const defDur = intent.defDuration ?? intent.bonusDuration ?? 1;
       cm.defBonus = intent.defBonus;
-      cm.defBonusTurns = intent.bonusDuration ?? 1;
+      cm.defBonusTurns = defDur;
       const direction = intent.defBonus > 0 ? `gains +${intent.defBonus}` : `loses ${Math.abs(intent.defBonus)}`;
       logEntries.push(
-        `[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} uses ${intent.label} and ${direction} DEF for ${intent.bonusDuration ?? 1} turn.`,
+        `[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} uses ${intent.label} and ${direction} DEF for ${defDur} turn${defDur > 1 ? 's' : ''}.`,
       );
     }
     let healedAmount = 0;
@@ -162,6 +159,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
           hp: summoned.maxHp,
           block: summoned.startingBlock ?? 0,
           patternIndex: 0,
+          undyingTokensRemaining: summoned.undyingTokens,
           isSummon: true,
         });
         const shuffleRes = shuffleArray(monsterDeck, rngState);
@@ -179,7 +177,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
           monsterDeck.unshift(returned);
           logEntries.push(`[${createTimestamp(state.logTimestamp)}] 📯 ${name}'s call finds no ${fallbackTemplate} in the Monster Deck. Retrieved ${returned.name} from the Monster Discard (FIFO) and placed it on top of the Monster Deck.`);
         } else {
-          logEntries.push(`[${createTimestamp(state.logTimestamp)}] 📯 ${name}'s call finds no Goblin in the Monster Deck or Discard.`);
+          logEntries.push(`[${createTimestamp(state.logTimestamp)}] 📯 ${name}'s call finds no ${fallbackTemplate ?? intent.summonFromMonsterDeck} in the Monster Deck or Discard.`);
         }
       }
     }
@@ -198,6 +196,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
           hp: summoned.maxHp,
           block: summoned.startingBlock ?? 0,
           patternIndex: 0,
+          undyingTokensRemaining: summoned.undyingTokens,
           isSummon: true,
         });
         const shuffleRes = shuffleArray(monsterDeck, rngState);
@@ -226,20 +225,22 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     }
 
     if (intent.evaBonus && intent.evaBonus > 0) {
+      const evaDur = intent.evaDuration ?? intent.bonusDuration ?? 1;
       cm.evaBonus = intent.evaBonus;
-      cm.evaBonusTurns = intent.bonusDuration ?? 1;
+      cm.evaBonusTurns = evaDur;
       logEntries.push(
-        `[${createTimestamp(state.logTimestamp)}] 🌿 ${name} uses ${intent.label} and gains +${intent.evaBonus} EVA for ${intent.bonusDuration ?? 1} turn(s)!`
+        `[${createTimestamp(state.logTimestamp)}] 🌿 ${name} uses ${intent.label} and gains +${intent.evaBonus} EVA for ${evaDur} turn(s)!`
       );
     } else if (cm.evaBonusTurns === 0) {
       cm.evaBonus = 0;
     }
 
     if (intent.accBonus && intent.accBonus > 0) {
+      const accDur = intent.accDuration ?? intent.bonusDuration ?? 1;
       cm.accBonus = intent.accBonus;
-      cm.accBonusTurns = intent.bonusDuration ?? 1;
+      cm.accBonusTurns = accDur;
       logEntries.push(
-        `[${createTimestamp(state.logTimestamp)}] 🐺 ${name} uses ${intent.label} and gains +${intent.accBonus} ACC for ${intent.bonusDuration ?? 1} turn(s)!`
+        `[${createTimestamp(state.logTimestamp)}] 🐺 ${name} uses ${intent.label} and gains +${intent.accBonus} ACC for ${accDur} turn(s)!`
       );
     } else if (cm.accBonusTurns === 0) {
       cm.accBonus = 0;
@@ -341,6 +342,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     if (
       !intent.heroStatDebuff &&
       !intent.poisonOnHit &&
+      !intent.poison &&
       intent.damage === 0 &&
       intent.block === 0 &&
       (!intent.heal || intent.heal === 0) &&
@@ -357,14 +359,18 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       logEntries.push(`[${createTimestamp(state.logTimestamp)}] ⏳ ${name} did nothing.`);
     }
 
-    if ((intent.damage > 0 || (intent.magicDamage ?? 0) > 0 || intent.poisonOnHit) && killedBy === null) {
+    if ((intent.damage > 0 || (intent.magicDamage ?? 0) > 0 || intent.poisonOnHit || Boolean(intent.poison)) && killedBy === null) {
       const hitCount = Math.max(1, intent.hitCount ?? 1);
+      const hitDamages = intent.offhandDamage && intent.offhandDamage > 0
+        ? [intent.damage, intent.offhandDamage]
+        : Array.from({ length: hitCount }, () => intent.damage);
       let onHitDebuffApplied = false;
-      if (hitCount > 1) {
-        logEntries.push(`[${createTimestamp(state.logTimestamp)}] ⚔️ ${name} uses ${intent.label}: resolving ${hitCount} separate attacks.`);
+      if (hitDamages.length > 1) {
+        logEntries.push(`[${createTimestamp(state.logTimestamp)}] ⚔️ ${name} uses ${intent.label}: resolving ${hitDamages.length} separate attacks.`);
       }
-      for (let hitIndex = 0; hitIndex < hitCount && killedBy === null; hitIndex++) {
-        const monsterAcc = (cm.monster.acc ?? 1) + (cm.accBonus ?? 0) + (intent.accBonus ?? 0);
+      for (let hitIndex = 0; hitIndex < hitDamages.length && killedBy === null; hitIndex++) {
+        const hitDmg = hitDamages[hitIndex];
+        const monsterAcc = (cm.monster.acc ?? 1) + (cm.accBonus ?? 0);
         const effectiveStats = getEffectiveStatsFromState(state);
         const gearCombat = computeCombatGearBonuses(state.equippedGear);
         const defenseType = intent.damageType === 'magical' ? 'MDEF' : 'DEF';
@@ -383,12 +389,18 @@ export function endPlayerCombatTurn(state: RunState): RunState {
         if (!attackRoll.isHit) {
           const netSign = attackRoll.netAcc >= 0 ? '+' : '';
           const diabolicNote = attackRoll.isDiabolic ? ' [😈 DIABOLIC ROLL! Automatic Miss]' : '';
-          const dmgLabel = intent.magicDamage ? `${intent.damage} Physical + ${intent.magicDamage} Magic DMG` : `${intent.damage} DMG`;
+          const dmgLabel = intent.magicDamage ? `${hitDmg} Physical + ${intent.magicDamage} Magic DMG` : `${hitDmg} DMG`;
           logEntries.push(
             `[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} uses ${intent.label} (${dmgLabel}): rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc} vs ${playerEva} EVA)${diabolicNote} -> 💨 DODGED!`
           );
         } else {
-          if (intent.poisonOnHit && !statusEffects.includes('poison')) {
+          if (intent.poison) {
+            nextPlayerPoison = { damage: intent.poison.damage, turnsRemaining: intent.poison.duration };
+            if (!statusEffects.includes('poison')) statusEffects.push('poison');
+            logEntries.push(
+              `[${createTimestamp(state.logTimestamp)}] ☠️ ${name} uses ${intent.label}: Hero is afflicted with Poison (${intent.poison.damage}, ${intent.poison.duration})!`
+            );
+          } else if (intent.poisonOnHit && !statusEffects.includes('poison')) {
             statusEffects.push('poison');
             logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} uses ${intent.label}: Hero is poisoned (1 HP damage after each End Turn; does not stack).`);
           }
@@ -408,7 +420,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
           let dmgLabel = '';
 
           if (intent.magicDamage && intent.magicDamage > 0) {
-            const rawPhys = intent.damage;
+            const rawPhys = hitDmg;
             const rawMag = intent.magicDamage;
             const physDmg = rawPhys > 0 ? rawPhys + vulnerable : 0;
             const magDmg = rawMag > 0 ? rawMag + vulnerable : 0;
@@ -421,14 +433,14 @@ export function endPlayerCombatTurn(state: RunState): RunState {
             if (physAbsorb > 0) absorbs.push(`${physAbsorb} absorbed by DEF`);
             if (magAbsorb > 0) absorbs.push(`${magAbsorb} absorbed by MDEF`);
             defAbsorbText = absorbs.length > 0 ? `${absorbs.join(', ')}, ` : '';
-            dmgLabel = `${intent.damage} Physical + ${intent.magicDamage} Magic DMG`;
+            dmgLabel = `${hitDmg} Physical + ${intent.magicDamage} Magic DMG`;
           } else {
-            const rawDmg = intent.damage;
-            const baseDmg = intent.damage > 0 ? rawDmg + vulnerable : 0;
+            const rawDmg = hitDmg;
+            const baseDmg = hitDmg > 0 ? rawDmg + vulnerable : 0;
             defReduction = Math.min(heroDef, baseDmg);
             defReduced = Math.max(0, baseDmg - heroDef);
             defAbsorbText = defReduction > 0 ? `${defReduction} absorbed by Hero ${defenseType}, ` : '';
-            dmgLabel = `${intent.damage} DMG`;
+            dmgLabel = `${hitDmg} DMG`;
           }
 
           damageBlocked = Math.min(playerBlock, defReduced);
@@ -446,10 +458,11 @@ export function endPlayerCombatTurn(state: RunState): RunState {
           if (playerHp <= 0) killedBy = name;
 
           const isLifesteal =
-            cm.monster.templateId === 'zombie' ||
             cm.monster.abilities.some((a) => a.toLowerCase().includes('lifesteal'));
           if ((isLifesteal || intent.drainFraction) && damageDealt > 0 && cm.hp < cm.monster.maxHp) {
-            const healAmount = Math.min(cm.monster.maxHp - cm.hp, Math.floor((intent.drainFraction ? actualHpDamage : damageDealt) * (intent.drainFraction ?? 1)));
+            const rawHeal = (intent.drainFraction ? actualHpDamage : damageDealt) * (intent.drainFraction ?? 1);
+            const scaledHeal = intent.drainRound === 'ceil' ? Math.ceil(rawHeal) : Math.floor(rawHeal);
+            const healAmount = Math.min(cm.monster.maxHp - cm.hp, scaledHeal);
             cm.hp += healAmount;
             logEntries.push(
               `[${createTimestamp(state.logTimestamp)}] 🩸 ${name} drains life and restores +${healAmount} HP! (${cm.hp}/${cm.monster.maxHp} HP)`
@@ -485,7 +498,54 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       cm.hp += restored;
       logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} regenerates ${restored} HP at end of turn (${cm.hp}/${cm.monster.maxHp} HP).`);
     }
+    if (cm.hp > 0) {
+      if (cm.channelStacks && cm.channelStacks.length > 0) {
+        cm.channelStacks = cm.channelStacks
+          .map(s => (s.turnsRemaining !== undefined ? { ...s, turnsRemaining: s.turnsRemaining - 1 } : s))
+          .filter(s => s.turnsRemaining === undefined || s.turnsRemaining > 0);
+      }
+      if (cm.monster.channel) {
+        cm.channelStacks = [
+          ...(cm.channelStacks ?? []),
+          { amount: cm.monster.channel.amount, turnsRemaining: cm.monster.channel.duration },
+        ];
+        logEntries.push(
+          `[${createTimestamp(state.logTimestamp)}] ✨ ${name} — Channel: gains +${cm.monster.channel.amount} MATK${cm.monster.channel.duration ? ` for ${cm.monster.channel.duration} turns` : ''}.`
+        );
+      }
+    }
     cm.patternIndex += 1;
+  }
+
+  if (killedBy === null && nextPlayerPoison && nextPlayerPoison.turnsRemaining > 0) {
+    const effectiveStatsForPoison = getEffectiveStatsFromState(state);
+    const playerVit = effectiveStatsForPoison.vit;
+    const poisonRoll = evaluateAttackRoll(rngState, nextPlayerPoison.damage, playerVit);
+    rngState = poisonRoll.nextState;
+    const netSign = poisonRoll.netAcc >= 0 ? '+' : '';
+    if (poisonRoll.isHit) {
+      playerHp = Math.max(0, playerHp - nextPlayerPoison.damage);
+      logEntries.push(
+        `[${createTimestamp(state.logTimestamp)}] ☠️ Poison (${nextPlayerPoison.damage}) vs Hero VIT (${playerVit}): rolled 3d6 = [${poisonRoll.die1}, ${poisonRoll.die2}, ${poisonRoll.die3}] = ${poisonRoll.total} (Hit Range: [${poisonRoll.minHitRoll}–${poisonRoll.maxHitRoll}], Net ${netSign}${poisonRoll.netAcc}) -> 🩸 Deals ${nextPlayerPoison.damage} HP damage (ignores DEF/MDEF)!`
+      );
+      if (playerHp === 0) {
+        killedBy = 'Poison';
+      }
+    } else {
+      const diabolicNote = poisonRoll.isDiabolic ? ' [😈 DIABOLIC ROLL! Automatic Miss]' : '';
+      logEntries.push(
+        `[${createTimestamp(state.logTimestamp)}] ☠️ Poison (${nextPlayerPoison.damage}) vs Hero VIT (${playerVit}): rolled 3d6 = [${poisonRoll.die1}, ${poisonRoll.die2}, ${poisonRoll.die3}] = ${poisonRoll.total} (Hit Range: [${poisonRoll.minHitRoll}–${poisonRoll.maxHitRoll}], Net ${netSign}${poisonRoll.netAcc})${diabolicNote} -> 💚 Hero shakes off the poison!`
+      );
+    }
+    const remaining = nextPlayerPoison.turnsRemaining - 1;
+    if (remaining <= 0) {
+      nextPlayerPoison = null;
+      const idx = statusEffects.indexOf('poison');
+      if (idx >= 0) statusEffects.splice(idx, 1);
+      logEntries.push(`[${createTimestamp(state.logTimestamp)}] ☠️ Poison wears off.`);
+    } else {
+      nextPlayerPoison = { ...nextPlayerPoison, turnsRemaining: remaining };
+    }
   }
 
   if (killedBy !== null) {
@@ -528,6 +588,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     playerAccMod: nextRoundAccMod,
     playerVulnerableMod: nextRoundVulnerableMod,
     heroStatDebuffs: nextHexes,
+    playerPoison: nextPlayerPoison,
     drawPile: nextDraw.drawPile,
     hand: nextDraw.drawn,
     discardPile: nextDraw.discardPile,

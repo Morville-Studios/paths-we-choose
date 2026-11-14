@@ -86,6 +86,16 @@ export function calculateGoodsPrice(basePrice: number, effectiveCha: number): nu
 }
 
 /**
+ * Wandering Merchant applies double the hero's Charisma DISC (e.g. 20% DISC -> 40% off),
+ * with the resulting Gold price rounded up (minimum 1 Gold).
+ */
+export function calculateMerchantGoodsPrice(basePrice: number, effectiveCha: number): number {
+  const baseDiscountRate = Math.min(0.9, Math.max(0, effectiveCha * 0.05));
+  const doubledDiscountRate = Math.min(0.9, baseDiscountRate * 2);
+  return Math.max(1, Math.ceil(basePrice * (1 - doubledDiscountRate)));
+}
+
+/**
  * 1 point in DEX increases ACC by 1 (plus direct gear ACC).
  */
 export function getPlayerAcc(stats: CharacterStats, gearAcc = 0): number {

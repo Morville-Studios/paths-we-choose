@@ -106,57 +106,69 @@
   transform: scale(1.08);
 }
 
-/* Bookmark Ribbon Navigation Tabs (Fixed / No-Shrink, Scrollable horizontally) */
-.guide-ribbon-bar {
-  flex-shrink: 0;
+/* Wiki Layout: Sticky Sidebar + Scrollable Parchment Body */
+.guide-wiki-layout {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
-  gap: clamp(4px, 0.8vw, 6px);
-  padding: 4px clamp(8px, 2vw, 24px) 0;
-  background: rgba(16, 7, 3, 0.95);
-  border-bottom: 2px solid #4a280e;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  box-sizing: border-box;
+  flex-direction: row;
+  overflow: hidden;
 }
-.guide-ribbon-bar::-webkit-scrollbar {
-  display: none;
+
+.guide-wiki-sidebar {
+  flex: 0 0 212px;
+  background: linear-gradient(180deg, #1b0d06 0%, #120804 100%);
+  border-right: 2px solid #4a280e;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 8px;
+  box-sizing: border-box;
+  scrollbar-width: auto;
+  scrollbar-color: #a67231 #160a05;
+}
+
+/* Sidebar Chapter Navigation */
+.guide-ribbon-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  box-sizing: border-box;
 }
 
 .guide-ribbon-tab {
   flex-shrink: 0;
-  background: linear-gradient(180deg, #381212 0%, #200808 100%);
-  border: 1px solid #5a261a;
-  border-bottom: none;
-  border-radius: 6px 6px 0 0;
-  padding: clamp(5px, 0.9vw, 8px) clamp(8px, 1.3vw, 16px);
+  width: 100%;
+  text-align: left;
+  background: linear-gradient(90deg, rgba(56, 18, 18, 0.72) 0%, rgba(32, 8, 8, 0.85) 100%);
+  border: 1px solid #522417;
+  border-radius: 7px;
+  padding: 8px 11px;
   color: #dfc28d;
   font-family: inherit;
-  font-size: clamp(0.7rem, 0.9vw, 0.82rem);
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.18s ease;
+  transition: all 0.16s ease;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .guide-ribbon-tab:hover {
-  background: linear-gradient(180deg, #581c1c 0%, #350f0f 100%);
+  background: linear-gradient(90deg, #581c1c 0%, #350f0f 100%);
   color: #fff;
   border-color: #8c4528;
 }
 
 .guide-ribbon-tab.is-active {
-  background: linear-gradient(180deg, #781818 0%, #4d1010 100%);
+  background: linear-gradient(90deg, #781818 0%, #4d1010 100%);
   color: #fff3d1;
   border-color: #d4af37;
-  box-shadow: 0 -2px 10px rgba(212, 175, 55, 0.35);
-  transform: translateY(-2px);
+  box-shadow: 0 2px 10px rgba(212, 175, 55, 0.28);
 }
 
-/* Non-scrolling Viewport for the Open Parchment Folio Spread */
+/* Ancient Parchment Viewport */
 .guide-spread-viewport {
   flex: 1 1 auto;
   min-height: 0;
@@ -164,8 +176,10 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(ellipse at 50% 40%, #fcf7ec 0%, #f5ead5 50%, #e6d3af 100%);
-  box-shadow: inset 0 0 clamp(20px, 4vw, 50px) rgba(110, 75, 30, 0.3), inset 0 0 12px rgba(60, 35, 10, 0.45);
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(255, 249, 232, 0.7) 0%, rgba(240, 222, 182, 0.35) 55%, rgba(198, 162, 108, 0.45) 100%),
+    linear-gradient(180deg, #f5ead1 0%, #ebd7b0 52%, #dfc38d 100%);
+  box-shadow: inset 0 0 clamp(28px, 4.5vw, 60px) rgba(95, 58, 20, 0.38), inset 0 0 14px rgba(58, 32, 10, 0.5);
   border-left: 1px solid #44240d;
   border-right: 1px solid #44240d;
   box-sizing: border-box;
@@ -176,31 +190,57 @@
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
-  overflow-y: auto;
+  overflow-y: scroll;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   position: relative;
   padding: clamp(14px, 2.5vw, 30px) clamp(12px, 3vw, 42px) clamp(16px, 3vw, 34px);
   color: #261608;
   box-sizing: border-box;
-  scrollbar-width: thin;
-  scrollbar-color: #8c5d26 rgba(40, 20, 10, 0.15);
+  scrollbar-width: auto;
+  scrollbar-color: #8c5d26 #d6bc8e;
 }
 
 .guide-parchment-spread::-webkit-scrollbar {
-  width: 8px;
+  width: 16px;
 }
 .guide-parchment-spread::-webkit-scrollbar-track {
-  background: rgba(40, 20, 10, 0.12);
-  border-radius: 4px;
+  background:
+    linear-gradient(90deg, #523214 0%, #8b5b2a 18%, #3c210b 48%, #3c210b 52%, #8b5b2a 82%, #523214 100%);
+  border-left: 1px solid #4a2b10;
+  border-right: 1px solid #2a1606;
+  box-shadow: inset 0 0 6px rgba(24, 10, 2, 0.75);
 }
 .guide-parchment-spread::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #8c5d26 0%, #5a381a 100%);
-  border-radius: 4px;
-  border: 1px solid #3d220e;
+  background:
+    linear-gradient(90deg, #694119 0%, #b57c38 24%, #ebd08c 48%, #fff1c2 50%, #ebd08c 52%, #b57c38 76%, #694119 100%);
+  border: 2px solid #3c210b;
+  border-radius: 3px;
+  min-height: 36px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 200, 0.7),
+    inset 0 -1px 0 rgba(56, 30, 8, 0.85),
+    0 1px 4px rgba(0, 0, 0, 0.45);
 }
 .guide-parchment-spread::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #aa7332 0%, #734722 100%);
+  background:
+    linear-gradient(90deg, #7d4e1e 0%, #cc8d40 24%, #fae09a 48%, #fff8dc 50%, #fae09a 52%, #cc8d40 76%, #7d4e1e 100%);
+}
+.guide-parchment-spread::-webkit-scrollbar-button:single-button {
+  display: block;
+  width: 16px;
+  height: 18px;
+  background-color: #3f240e;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  border: 1px solid #8c5d26;
+}
+.guide-parchment-spread::-webkit-scrollbar-button:single-button:vertical:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 18'%3E%3Crect width='16' height='18' fill='%233b210c'/%3E%3Cpath d='M0 0h16v6L8 2 0 6z' fill='%239b6629'/%3E%3Cpolygon points='8,6 12.5,12 3.5,12' fill='%23ffe6a3' stroke='%23291404' stroke-width='.8'/%3E%3C/svg%3E");
+}
+.guide-parchment-spread::-webkit-scrollbar-button:single-button:vertical:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 18'%3E%3Crect width='16' height='18' fill='%233b210c'/%3E%3Cpath d='M0 18h16v-6L8 16 0 12z' fill='%239b6629'/%3E%3Cpolygon points='8,12 12.5,6 3.5,6' fill='%23ffe6a3' stroke='%23291404' stroke-width='.8'/%3E%3C/svg%3E");
 }
 
 /* Brass Filigree Corner Bracket Embellishments on Outer Tome */
@@ -225,65 +265,21 @@
   }
 }
 
-/* Center Book Spine Crease & Shadow Gutter (Fixed overlay over the open book spread) */
-.guide-book-spine-gutter {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 44px;
-  transform: translateX(-50%);
-  background: linear-gradient(90deg, 
-    rgba(0, 0, 0, 0) 0%, 
-    rgba(55, 30, 10, 0.12) 20%, 
-    rgba(35, 18, 5, 0.36) 46%, 
-    rgba(20, 10, 3, 0.46) 50%, 
-    rgba(35, 18, 5, 0.36) 54%, 
-    rgba(55, 30, 10, 0.12) 80%, 
-    rgba(0, 0, 0, 0) 100%
-  );
-  pointer-events: none;
-  z-index: 10;
-}
-
-.guide-book-spine-gutter::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc(50% - 1px);
-  width: 2px;
-  background: linear-gradient(180deg, rgba(30, 15, 5, 0.65) 0%, rgba(15, 8, 2, 0.85) 50%, rgba(30, 15, 5, 0.65) 100%);
-  box-shadow: -1px 0 2px rgba(0, 0, 0, 0.35), 1px 0 1px rgba(255, 255, 255, 0.22);
-  pointer-events: none;
-}
-
-@media (max-width: 860px) {
-  .guide-book-spine-gutter {
-    display: none !important;
-  }
-}
-
-/* Page Presentation & 3D Turning Animation */
+/* Subtle Ancient Parchment Chapter Transition */
 .guide-book-page {
   display: none;
-  transform-origin: left center;
 }
 .guide-book-page.is-active {
   display: block;
-  animation: adndPageTurn 0.34s cubic-bezier(0.2, 0.9, 0.3, 1);
+  animation: adndParchmentFade 0.2s ease-out;
 }
 
-@keyframes adndPageTurn {
+@keyframes adndParchmentFade {
   0% {
-    opacity: 0.15;
-    transform: perspective(1400px) rotateY(-8deg) scale(0.985);
-    filter: drop-shadow(-12px 6px 18px rgba(35, 20, 10, 0.5));
+    opacity: 0.4;
   }
   100% {
     opacity: 1;
-    transform: perspective(1400px) rotateY(0deg) scale(1);
-    filter: none;
   }
 }
 
@@ -320,18 +316,13 @@
   line-height: 1.35;
 }
 
-/* Two-Column Book Spread (Desktop) / Single-Column (Mobile) */
+/* Single-Column Flowing Ancient Parchment Layout (No Left/Right Book Split) */
 .guide-folio-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(16px, 2.5vw, 36px);
-}
-
-@media (max-width: 860px) {
-  .guide-folio-grid {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 960px;
+  margin: 0 auto;
 }
 
 .guide-folio-col {
@@ -747,7 +738,9 @@
 }
 
 .guide-bestiary-card-item .tcg-card.tcg-creature,
-.guide-bestiary-card-item .tcg-card.tcg-item {
+.guide-bestiary-card-item .tcg-card.tcg-item,
+.guide-bestiary-card-item .tcg-card.tcg-adventure,
+.guide-bestiary-card-item .tcg-card.tcg-action {
   width: 230px;
   height: 322px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
@@ -757,6 +750,20 @@
 .guide-bestiary-card-footer {
   margin-top: 8px;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.guide-card-supply-badge {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #5c3317;
+  background: rgba(212, 175, 55, 0.18);
+  border: 1px solid rgba(140, 93, 38, 0.32);
+  border-radius: 5px;
+  padding: 2px 8px;
 }
 
 .guide-bestiary-inspect-btn {
@@ -786,6 +793,32 @@
   border-color: #d4af37;
   color: #ffffff;
   box-shadow: 0 4px 10px rgba(212, 175, 55, 0.4);
+}
+
+@media (max-width: 860px) {
+  .guide-wiki-layout {
+    flex-direction: column;
+  }
+  .guide-wiki-sidebar {
+    flex: 0 0 auto;
+    width: 100%;
+    border-right: none;
+    border-bottom: 2px solid #4a280e;
+    padding: 6px 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: auto;
+  }
+  .guide-ribbon-bar {
+    flex-direction: row;
+    gap: 5px;
+  }
+  .guide-ribbon-tab {
+    width: auto;
+    padding: 5px 10px;
+    font-size: 0.74rem;
+  }
 }
 
 @media (max-width: 600px) {
@@ -934,6 +967,44 @@
   .guide-turn-hint {
     display: none !important;
   }
+}
+
+/* Chapter X: Keyword Glossary */
+.guide-glossary-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.guide-glossary-card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.guide-glossary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.guide-glossary-term {
+  font-size: 0.96rem;
+  color: #4a1c08;
+}
+.guide-glossary-syntax {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(74, 28, 8, 0.12);
+  border: 1px solid rgba(140, 93, 38, 0.45);
+  color: #6b2408;
+}
+.guide-glossary-example {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #5b3a1a;
 }
 
 

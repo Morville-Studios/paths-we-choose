@@ -1,20 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import {
+  advancePathToTreasurePrompt,
   attemptFlee,
   buyItem,
+  buyPathMerchantItem,
   calculateRestCost,
   chooseCard,
   clearMapBlessings,
   confirmCombatVictory,
   confirmExplorationCombat,
   confirmExplorationSafe,
-  dismissWelcomePrepare,
+  confirmPathAmbushCombat,
+  confirmPathChallengeDone,
+  confirmPathSneakCombat,
   endTurn,
   finishVillage,
   getAvailableCoords,
   getFleeThreshold,
   leaveShrine,
   playCard,
+  resolvePathChestAttempt,
+  resolvePathSneakCheck,
+  resolvePathSpringTrap,
+  resolvePathTreasureCheck,
+  restAtPathSanctuary,
+  rollPathGoldStash,
   shrineChoosePrayerOption,
   shrineDoChoosePrayer,
   shrinePray,
@@ -28,7 +38,7 @@ import {
   villageDoTrainDraft,
   villageDoTrainRemove,
   villageGoBack,
-  welcomeUpgradeStat,
+  villageVisitShrine,
   equipItem,
   unequipItem,
   useConsumable,
@@ -48,6 +58,7 @@ import {
   getPlayerMdef,
   computeCombatGearBonuses,
   calculateGoodsPrice,
+  calculateMerchantGoodsPrice,
   getFighterBerzerkBonus,
 } from '../core/stats';
 import {
@@ -63,7 +74,7 @@ import {
   BASE_HIT_THRESHOLD,
 } from '../core/combat';
 import { roll3D6 } from '../core/rng';
-import { drawEncounterMonsters, drawMonsterCardWithReshuffle, buildStage2AdventureDeck } from '../core/deck';
+import { drawEncounterMonsters, drawMonsterCardWithReshuffle, buildStage2AdventureDeck, getEncounterTargetLevel } from '../core/deck';
 import { MONSTER_TEMPLATES, createBossMonstersForMission } from '../data/monsters';
 import { ADVENTURE_CARD_CATALOG, STAGE_2_MISSION_NAME } from '../data/stages';
 import { COMBAT_CARD_CATALOG } from '../data/combatCards';
@@ -114,6 +125,13 @@ function stepAuto(state: RunState): RunState {
       } else {
         s = confirmExplorationSafe(s);
       }
+    } else if (s.activeHook.type === 'PATH_CHALLENGE') {
+      const ph = s.activeHook.pathChallenge.phase;
+      if (ph === 'sneak_prompt') s = resolvePathSneakCheck(s);
+      else if (ph === 'sneak_fail') s = confirmPathSneakCombat(s);
+      else if (ph === 'sneak_success') s = advancePathToTreasurePrompt(s);
+      else if (ph === 'treasure_prompt') s = resolvePathTreasureCheck(s);
+      else s = confirmPathChallengeDone(s);
     } else break;
   }
   return s;
@@ -124,12 +142,12 @@ describe('stats', () => {
     const f = start('fighter');
     expect(f.playerResources?.maxHp).toBe(16);
     expect(f.playerResources?.statPoints).toBe(10);
-    expect(f.welcomePreparing).toBe(true);
+    expect(f.welcomePreparing).toBe(false);
 
     const w = start('wizard');
     expect(w.playerResources?.maxHp).toBe(14);
     expect(w.playerResources?.statPoints).toBe(10);
-    expect(w.welcomePreparing).toBe(true);
+    expect(w.welcomePreparing).toBe(false);
   });
 
   it('upgrade cost is currentBaseLevel multiplied by 10', () => {
@@ -183,7 +201,7 @@ describe('board setup', () => {
     const b = start('fighter', 'abc');
     expect(Object.keys(a.board).length).toBe(6);
     expect(getAvailableCoords(a).length).toBe(2);
-    expect(a.adventureDeck.length).toBe(25); // 30 total - 5 dealt = 25
+    expect(a.adventureDeck.length).toBe(23); // 30 total - 2 starting (village + shrine) - 5 dealt = 23
     expect(Object.keys(a.board)).toEqual(Object.keys(b.board));
     expect(a.monsterDeck.length).toBe(45); // Scenario Level 1 terrain-band pull
     expect(a.monsterVoid.length).toBe(40);
@@ -191,9 +209,10 @@ describe('board setup', () => {
 
   it('Stage 1 deck composition: 30 cards total according to STAGE_1_DECK_COMPOSITION', () => {
     const s = start('wizard');
-    const all = [...s.adventureDeck, ...Object.values(s.board).map((n) => n.card)].filter(
-      (c) => c.terrain !== 'start'
-    );
+    const all = [
+      ...s.adventureDeck,
+      ...Object.values(s.board).flatMap((n) => (n.attachedShrineCard ? [n.card, n.attachedShrineCard] : [n.card])),
+    ].filter((c) => c.terrain !== 'start');
     expect(all.length).toBe(30);
 
     const counts: Record<string, number> = {};
@@ -224,24 +243,88 @@ describe('board setup', () => {
     expect(drawn.monsters.length).toBeGreaterThanOrEqual(1);
     expect(drawn.monsters.every((m) => (m.spawnTerrains ?? []).includes('forest'))).toBe(true);
   });
+
+  it('computes encounter target level as floor(cardLevel * 1.5)', () => {
+    expect(getEncounterTargetLevel(1)).toBe(1);
+    expect(getEncounterTargetLevel(2)).toBe(3);
+    expect(getEncounterTargetLevel(3)).toBe(4);
+    expect(getEncounterTargetLevel(4)).toBe(6);
+    expect(getEncounterTargetLevel(5)).toBe(7);
+    expect(getEncounterTargetLevel(6)).toBe(9);
+  });
+
+  it('draws monsters until total creature level >= floor(LVL * 1.5) for both terrain encounters and path ambushes', () => {
+    let s = finishVillage(start('fighter', 'enc-scale-15x'));
+    const goblins: MonsterCard[] = [1, 2, 3, 4].map((n) => ({
+      ...MONSTER_TEMPLATES.goblin,
+      id: `test_gob_${n}`,
+      rarity: 'common',
+      mainTerrain: 'grasslands',
+    }));
+    const lvl2GrassCard: AdventureCard = {
+      id: 'adv_grass_enc_scale',
+      name: 'Grassland Encounter',
+      terrain: 'grasslands',
+      level: 2,
+      hasHostile: true,
+      hasVillage: false,
+      hasShrine: false,
+      revealed: true,
+    };
+    const nextCoords = getAvailableCoords(s);
+    const targetCoord = nextCoords[0];
+    const targetKey = `${targetCoord.col},${targetCoord.row}`;
+    s = {
+      ...s,
+      monsterDeck: goblins,
+      monsterDiscard: [],
+      board: {
+        ...s.board,
+        [targetKey]: { ...s.board[targetKey], card: lvl2GrassCard },
+      },
+    };
+    const entered = chooseCard(s, targetCoord);
+    expect(entered.activeHook.type).toBe('COMBAT');
+    if (entered.activeHook.type === 'COMBAT') {
+      const total = entered.activeHook.combat.monsters.reduce((sum, m) => sum + m.monster.level, 0);
+      expect(total).toBeGreaterThanOrEqual(3);
+      expect(entered.activeHook.combat.monsters.length).toBe(3);
+    }
+
+    // Swamp LVL 4 => target 6: LVL 2 + LVL 3 + LVL 3 = 8
+    const swampDraw = drawEncounterMonsters(
+      [
+        { ...MONSTER_TEMPLATES.zombie, id: 'sw_z', rarity: 'uncommon', mainTerrain: 'swamp' },
+        { ...MONSTER_TEMPLATES.creeper, id: 'sw_c1', rarity: 'rare', mainTerrain: 'swamp' },
+        { ...MONSTER_TEMPLATES.creeper, id: 'sw_c2', rarity: 'rare', mainTerrain: 'swamp' },
+      ],
+      [],
+      42,
+      getEncounterTargetLevel(4),
+      'swamp'
+    );
+    expect(swampDraw.monsters.map((m) => m.level)).toEqual([2, 3, 3]);
+    expect(swampDraw.monsters.reduce((sum, m) => sum + m.level, 0)).toBe(8);
+  });
 });
 
 describe('movement and conservation', () => {
   it('keeps 30 adventure cards conserved and bounded board size for the whole run', () => {
-    let s = start('fighter', 'conserve');
+    let s = finishVillage(start('fighter', 'conserve'));
     for (let t = 1; t <= 14; t++) {
       s = stepAuto(s);
       expect(s.activeHook.type).toBe('NONE');
       expect(s.turn).toBe(t);
-      const boardCards = Object.keys(s.board).length;
+      const boardSlots = Object.keys(s.board).length;
+      const boardCards = Object.values(s.board).reduce((sum, n) => sum + (n.attachedShrineCard ? 2 : 1), 0);
       expect(s.adventureDeck.length + s.adventureDiscard.length + boardCards).toBe(30);
-      expect(boardCards).toBeLessThanOrEqual(9);
+      expect(boardSlots).toBeLessThanOrEqual(9);
       expect(getAvailableCoords(s).length).toBe(2);
     }
   });
 
   it('reaching turn 15 spawns the boss and defeating it completes the stage', () => {
-    let s = start('fighter', 'boss-run');
+    let s = finishVillage(start('fighter', 'boss-run'));
     for (let t = 1; t <= 14; t++) s = stepAuto(s);
     s = chooseCard(s, getAvailableCoords(s)[0]);
     // Resolve the row-15 tile until the boss shows up
@@ -276,6 +359,13 @@ describe('movement and conservation', () => {
       else if (s.activeHook.type === 'SHRINE') s = leaveShrine(s);
       else if (s.activeHook.type === 'EXPLORATION') {
         s = s.activeHook.exploration.outcome === 'combat' ? confirmExplorationCombat(s) : confirmExplorationSafe(s);
+      } else if (s.activeHook.type === 'PATH_CHALLENGE') {
+        const ph = s.activeHook.pathChallenge.phase;
+        if (ph === 'sneak_prompt') s = resolvePathSneakCheck(s);
+        else if (ph === 'sneak_fail') s = confirmPathSneakCombat(s);
+        else if (ph === 'sneak_success') s = advancePathToTreasurePrompt(s);
+        else if (ph === 'treasure_prompt') s = resolvePathTreasureCheck(s);
+        else s = confirmPathChallengeDone(s);
       } else if (s.activeHook.type === 'BOSS_APPROACH') {
         s = startBossCombat(s);
       }
@@ -354,11 +444,11 @@ describe('village', () => {
 
   it('rest restores the selected amount and keeps the village visit open', () => {
     let s = inVillage();
-    // A full rest of 11 missing HP takes 6 two-HP ticks and costs 6 Gold.
-    s = { ...s, playerResources: { ...s.playerResources!, hp: 3, gold: 10 } };
+    // A full rest of 13 missing HP at a Lvl 1 village costs 13 * 2 = 26 Gold.
+    s = { ...s, playerResources: { ...s.playerResources!, hp: 3, gold: 30 } };
     s = villageDoRest(s);
     expect(s.playerResources?.hp).toBe(s.playerResources?.maxHp);
-    expect(s.playerResources?.gold).toBe(3);
+    expect(s.playerResources?.gold).toBe(4);
     expect(s.activeHook.type).toBe('VILLAGE');
   });
 
@@ -400,15 +490,15 @@ describe('village', () => {
 
   it('rest heals HP but does not cleanse status ailments', () => {
     let s = inVillage();
-    // 11 missing HP costs 6 one-Gold ticks.
+    // 13 missing HP at a Lvl 1 village costs 13 * 2 = 26 Gold.
     s = {
       ...s,
       statusEffects: ['poison', 'crippled'],
-      playerResources: { ...s.playerResources!, hp: 3, gold: 20 },
+      playerResources: { ...s.playerResources!, hp: 3, gold: 30 },
     };
     const rested = villageDoRest(s);
     expect(rested.playerResources?.hp).toBe(s.playerResources!.maxHp);
-    expect(rested.playerResources?.gold).toBe(13);
+    expect(rested.playerResources?.gold).toBe(4);
     expect(rested.statusEffects).toEqual(['poison', 'crippled']);
     expect(rested.activeHook.type).toBe('VILLAGE');
   });
@@ -708,8 +798,7 @@ describe('shrine', () => {
   });
 
   it('automatically grants a random boon upon entering a shrine without needing to pray', () => {
-    let s = start('fighter');
-    s = dismissWelcomePrepare(s);
+    let s = finishVillage(start('fighter'));
     // Place a shrine on (0, 1) and step on it
     const shrineCard: AdventureCard = {
       id: 'test_shrine_1',
@@ -766,12 +855,12 @@ describe('shrine', () => {
 });
 
 describe('rest cost formula', () => {
-  it('charges one Gold per two HP restoration tick, rounding the final tick up', () => {
-    expect(calculateRestCost({ hp: 18, maxHp: 18, statPoints: 0, gold: 0 })).toBe(0);
-    expect(calculateRestCost({ hp: 10, maxHp: 18, statPoints: 0, gold: 0 })).toBe(4);
-    expect(calculateRestCost({ hp: 8, maxHp: 18, statPoints: 0, gold: 0 })).toBe(5);
-    expect(calculateRestCost({ hp: 1, maxHp: 20, statPoints: 0, gold: 0 })).toBe(10);
-    expect(calculateRestCost({ hp: 0, maxHp: 20, statPoints: 0, gold: 0 })).toBe(10);
+  it('charges (1 + Terrain Level) Gold per 1 HP recovered', () => {
+    expect(calculateRestCost({ hp: 18, maxHp: 18, statPoints: 0, gold: 0 }, 1)).toBe(0);
+    expect(calculateRestCost({ hp: 10, maxHp: 18, statPoints: 0, gold: 0 }, 1)).toBe(16);
+    expect(calculateRestCost({ hp: 10, maxHp: 18, statPoints: 0, gold: 0 }, 3)).toBe(32);
+    expect(calculateRestCost({ hp: 1, maxHp: 20, statPoints: 0, gold: 0 }, 1)).toBe(38);
+    expect(calculateRestCost({ hp: 0, maxHp: 20, statPoints: 0, gold: 0 }, 2)).toBe(60);
   });
 });
 
@@ -871,7 +960,7 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
     expect(zombies.length).toBe(4);
     expect(zombies[0].level).toBe(2);
     expect(zombies[0].spawnTerrains).toEqual(['swamp', 'cave', 'forest']);
-    expect(zombies[0].maxHp).toBe(7);
+    expect(zombies[0].maxHp).toBe(12);
     expect(zombies[0].goldReward).toBe(10);
     expect(zombies[0].statPointReward).toBe(3);
 
@@ -884,28 +973,26 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
 });
 
 describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => {
-  it('Bullwark Chaotic Impulse grants either +1 ATK or +1 ACC for its next Heavy Charge', () => {
+  it('Bullwark Heal (4) self-heals on Turn 1 and has Harden (1) + Skittish (1) passives', () => {
     const bullwarkCard = { ...MONSTER_TEMPLATES.bullwark, id: 'test_bullwark' };
+    expect(bullwarkCard.hardenDefOnHit).toBe(1);
+    expect(bullwarkCard.skittishEvaOnHit).toBe(1);
+    expect(bullwarkCard.abilities).toEqual(['Harden (1)', 'Skittish (1)']);
+
     const cm: CombatMonster = {
       monster: bullwarkCard,
-      hp: bullwarkCard.maxHp,
+      hp: 10,
       block: 0,
-      patternIndex: 0, // Turn 1: Chaotic Impulse
+      patternIndex: 0, // Turn 1: Heal (4)
     };
 
-    // Chaotic Impulse is non-damaging and randomly chooses one temporary buff.
     expect(getMonsterIntent(cm).damage).toBe(0);
-    expect(getMonsterIntent(cm).block).toBe(0);
-    expect(getMonsterIntent(cm).randomBuff).toEqual({ amount: 1, stats: ['atk', 'acc'], duration: 1 });
-
-    // Heavy Charge has a base damage of 7.
+    expect(getMonsterIntent(cm).heal).toBe(4);
     cm.patternIndex = 1;
     expect(getMonsterIntent(cm).damage).toBe(7);
     cm.patternIndex = 0;
 
-    // Simulate combat state with Bullwark about to execute Heavy Charge
     let s = start('fighter');
-    // Ensure hero has high HP and no block so damage passes through
     s = {
       ...s,
       activeHook: {
@@ -925,37 +1012,33 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
       },
     };
 
-    // End turn to resolve Chaotic Impulse.
     s = endTurn(s);
     expect(s.activeHook?.type).toBe('COMBAT');
     if (s.activeHook?.type === 'COMBAT') {
       const activeMonster = s.activeHook.combat.monsters[0];
-      const attackBuff = activeMonster.attackBonus ?? 0;
-      const accuracyBuff = activeMonster.accBonus ?? 0;
-      expect([attackBuff, accuracyBuff].sort()).toEqual([0, 1]);
+      expect(activeMonster.hp).toBe(14);
       expect(activeMonster.patternIndex).toBe(1);
-      expect(getMonsterIntent(activeMonster).damage).toBe(7 + attackBuff);
-      expect(Math.max(activeMonster.attackBonusTurns ?? 0, activeMonster.accBonusTurns ?? 0)).toBe(2);
-      expect(s.activeHook.combat.combatLog.join(' ')).toContain('for its next turn');
+      expect(getMonsterIntent(activeMonster).damage).toBe(7);
     }
   });
 
-  it('Zombie has 1 DEF, 1 MDEF, 0 EVA, and regenerates 3 HP (no Block) on Turn 1', () => {
+  it('Zombie has 1 DEF, 1 MDEF, 0 EVA, 2 ACC, 12 HP, Regen (2) on activation, and LSTEAL (6)', () => {
     const zombieTemplate = MONSTER_TEMPLATES.zombie;
     expect(zombieTemplate.def).toBe(1);
     expect(zombieTemplate.eva).toBe(0);
-    expect(zombieTemplate.acc).toBe(0);
+    expect(zombieTemplate.acc).toBe(2);
+    expect(zombieTemplate.maxHp).toBe(12);
     expect(zombieTemplate.mdef).toBe(1);
-    expect(zombieTemplate.pattern).toHaveLength(2);
-    expect(zombieTemplate.pattern[0]).toEqual({ label: 'Regenerate', damage: 0, block: 0, heal: 3 });
-    expect(zombieTemplate.pattern[1]).toEqual({ label: 'Rotting Claw', damage: 5, block: 0 });
+    expect(zombieTemplate.regenOnStart).toBe(2);
+    expect(zombieTemplate.pattern).toHaveLength(1);
+    expect(zombieTemplate.pattern[0]).toEqual({ label: 'Life Steal', damage: 6, block: 0, drainFraction: 0.5, drainRound: 'ceil' });
 
     const zombieCard = { ...zombieTemplate, id: 'test_zombie' };
     const cm: CombatMonster = {
       monster: zombieCard,
-      hp: 4, // Damaged zombie (maxHp 7)
+      hp: 4, // Damaged zombie (maxHp 12)
       block: 0,
-      patternIndex: 0, // Regenerate
+      patternIndex: 0,
     };
 
     let s = start('fighter');
@@ -983,11 +1066,9 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     expect(next.activeHook.type).toBe('COMBAT');
     if (next.activeHook.type === 'COMBAT') {
       const mon = next.activeHook.combat.monsters[0];
-      expect(mon.hp).toBe(7); // Restored +3 HP from 4, capped at Max HP
-      expect(mon.block).toBe(0); // No Block gained on Regenerate
-      expect(mon.patternIndex).toBe(1); // Advanced to next pattern step (Rotting Claw)
+      expect(mon.hp).toBeGreaterThanOrEqual(6); // +2 HP from Regen (2) on activation, plus LSTEAL if hit
       const hasRegenLog = next.activeHook.combat.combatLog.some(
-        (l) => l.includes('Zombie uses Regenerate: restores +3 HP (7/7 HP).')
+        (l) => l.includes('Zombie — Regen: gains +2 HP on activation')
       );
       expect(hasRegenLog).toBe(true);
     }
@@ -1077,7 +1158,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     expect(res.discard.map((m) => m.id)).toEqual(['m_bull', 'm_snap']);
   });
 
-  it('Basilisk Turn 1 Stalk grants +2 EVA for 1 turn against player attacks', () => {
+  it('Basilisk has Harden (1) passive and only ATK (6) in its pattern', () => {
     const treeSnapper = { ...MONSTER_TEMPLATES.tree_snapper, id: 'm_snapper' };
     expect(treeSnapper.maxHp).toBe(12);
     expect(treeSnapper.goldReward).toBe(10);
@@ -1086,41 +1167,9 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     expect(treeSnapper.eva).toBe(2);
     expect(treeSnapper.def).toBe(2);
     expect(treeSnapper.creatureType).toBe('Reptile');
-    expect(treeSnapper.abilities).toHaveLength(0);
-
-    const cm: CombatMonster = {
-      monster: treeSnapper,
-      hp: 12,
-      block: 0,
-      patternIndex: 0, // Turn 1: Stalk
-    };
-
-    let s = start('fighter');
-    s = {
-      ...s,
-      activeHook: {
-        type: 'COMBAT',
-        combat: {
-          monsters: [cm],
-          combatTurn: 1,
-          playerAp: 0,
-          playerMaxAp: 3,
-          playerBlock: 0,
-          playerEvasionMod: 0,
-          drawPile: [],
-          hand: [],
-          discardPile: [],
-          combatLog: [],
-        },
-      },
-    };
-
-    const next = endTurn(s);
-    if (next.activeHook.type === 'COMBAT') {
-      const mon = next.activeHook.combat.monsters[0];
-      expect(mon.evaBonus).toBe(2);
-      expect(next.activeHook.combat.combatLog.some((l) => l.includes('Basilisk uses Stalk and gains +2 EVA'))).toBe(true);
-    }
+    expect(treeSnapper.hardenDefOnHit).toBe(1);
+    expect(treeSnapper.abilities).toEqual(['Harden (1)']);
+    expect(treeSnapper.pattern).toEqual([{ label: 'Snapping Jaws', damage: 6, block: 0 }]);
   });
 
   it('Blob Ooze Bump deals 3 DMG and restores 1 HP', () => {
@@ -1173,7 +1222,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     expect(dog.maxHp).toBe(6);
     expect(dog.goldReward).toBe(5);
     expect(dog.statPointReward).toBe(2);
-    expect(dog.pattern[1]).toEqual({ label: 'Lunging Bite', damage: 3, block: 0, accBonus: 1 });
+    expect(dog.pattern[1]).toEqual({ label: 'Lunging Bite', damage: 4, block: 0, accBonus: 2 });
 
     const cm: CombatMonster = {
       monster: dog,
@@ -1205,8 +1254,8 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     const next = endTurn(s);
     if (next.activeHook.type === 'COMBAT') {
       const mon = next.activeHook.combat.monsters[0];
-      expect(mon.accBonus).toBe(1);
-      expect(next.activeHook.combat.combatLog.some((l) => l.includes('Scavenger uses Lunging Bite and gains +1 ACC'))).toBe(true);
+      expect(mon.accBonus).toBe(2);
+      expect(next.activeHook.combat.combatLog.some((l) => l.includes('Scavenger uses Lunging Bite and gains +2 ACC'))).toBe(true);
     }
   });
 });
@@ -1551,32 +1600,24 @@ describe('Charisma (CHA) price discounts and goods pricing', () => {
   });
 });
 
-describe('Game start preparation dialog and 10 starting Stat Points', () => {
-  it('players start with 10 stat points and cannot begin journey until starting SP is spent', () => {
+describe('Starting Village Shrine and 10 starting Stat Points', () => {
+  it('players start with 10 stat points and can immediately upgrade Base Stats at the starting Village Shrine', () => {
     const s = start('fighter');
     expect(s.playerResources?.statPoints).toBe(10);
-    expect(s.welcomePreparing).toBe(true);
+    expect(s.welcomePreparing).toBe(false);
     expect(s.playerBaseStats.str).toBe(1);
     expect(s.playerResources?.maxHp).toBe(16);
 
-    // Cannot dismiss until SP is spent
-    const blockedDismiss = dismissWelcomePrepare(s);
-    expect(blockedDismiss.welcomePreparing).toBe(true);
+    const atShrine = villageVisitShrine(s);
+    expect(atShrine.activeHook.type).toBe('SHRINE');
+    const beforeMaxHp = atShrine.playerResources!.maxHp;
 
-    // Upgrade VIT right away in preparation: Base 1 -> 2 costs 1 * 10 = 10 SP
-    const upgraded = welcomeUpgradeStat(s, 'vit');
+    // Upgrade VIT right away at the village shrine: Base 1 -> 2 costs 1 * 10 = 10 SP
+    const upgraded = shrineUpgradeStat(atShrine, 'vit');
     expect(upgraded.playerBaseStats.vit).toBe(2);
     expect(upgraded.playerResources?.statPoints).toBe(0); // 10 - 10 = 0
-    expect(upgraded.playerResources?.maxHp).toBe(18);
-    expect(upgraded.playerResources?.hp).toBe(18);
-
-    // Dismiss preparation dialog to begin journey once SP is allocated
-    const ready = dismissWelcomePrepare(upgraded);
-    expect(ready.welcomePreparing).toBe(false);
-
-    // Once dismissed, welcomeUpgradeStat is blocked
-    const blocked = welcomeUpgradeStat(ready, 'str');
-    expect(blocked).toBe(ready);
+    expect(upgraded.playerResources?.maxHp).toBe(beforeMaxHp + 2);
+    expect(upgraded.playerResources?.hp).toBe(beforeMaxHp + 2);
   });
 });
 
@@ -1609,17 +1650,17 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
       'lvl2_robe_plus',
       'lvl2_apprentice_staff_plus',
       'lvl2_leather_gear_plus',
-      'lvl2_health_potion_plus',
-      'lvl3_health_potion_plus_plus',
-      'lvl4_health_potion_plus_plus_plus',
+      'lvl2_health_potion',
+      'lvl3_health_potion',
+      'lvl4_health_potion',
       'lvl1_dagger',
       'lvl2_dagger_plus',
       'lvl2_focus_ring',
     ]);
 
     const potion = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_health_potion')!;
-    expect(potion.buyPrice).toBe(6);
-    expect(potion.healAmount).toBe(10);
+    expect(potion.buyPrice).toBe(12);
+    expect(potion.healAmount).toBe(5);
 
     const sword = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_iron_sword')!;
     expect(sword.buyPrice).toBe(10);
@@ -1665,10 +1706,10 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
 
     const consumables = SHOP_ITEM_CATALOG.filter((i) => i.category === 'consumable');
     expect(consumables.map((i) => [i.name, i.level, i.healAmount, i.buyPrice])).toEqual([
-      ['Health Potion', 1, 10, 6],
-      ['Health Potion +', 2, 18, 14],
-      ['Health Potion ++', 3, 24, 24],
-      ['Health Potion +++', 4, 28, 36],
+      ['Health Potion', 1, 5, 12],
+      ['Health Potion', 2, 10, 34],
+      ['Health Potion', 3, 15, 66],
+      ['Health Potion', 4, 20, 108],
     ]);
 
     const dagger = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_dagger')!;
@@ -2276,12 +2317,20 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     };
 
     const healedState = useConsumable(s, 'potion_in_combat');
-    expect(healedState.playerResources!.hp).toBe(15);
+    expect(healedState.playerResources!.hp).toBe(10);
     expect(healedState.backpack.length).toBe(0);
     if (healedState.activeHook.type === 'COMBAT') {
       const log = healedState.activeHook.combat.combatLog;
-      expect(log.some((l) => l.includes('Used Health Potion: restored +10 HP'))).toBe(true);
+      expect(log.some((l) => l.includes('Used Health Potion: restored +5 HP'))).toBe(true);
     }
+
+    // Cannot use health potion when already at full health
+    const fullHpState = {
+      ...s,
+      playerResources: { ...s.playerResources!, hp: 16, maxHp: 16 },
+    };
+    const unchanged = useConsumable(fullHpState, 'potion_in_combat');
+    expect(unchanged.backpack.length).toBe(1);
   });
 
   describe('Stage 2: Cult of Trolls & Boss Encounter', () => {
@@ -2321,10 +2370,10 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       expect(nextState.turn).toBe(0);
       expect(nextState.maxTurns).toBe(15);
       expect(nextState.playerResources!.hp).toBe(nextState.playerResources!.maxHp);
-      expect(nextState.activeHook.type).toBe('NONE');
+      expect(nextState.activeHook.type).toBe('VILLAGE');
       expect(Object.keys(nextState.board).length).toBe(6); // 1 start + 2 available + 3 lookahead
       expect(nextState.playerPosition).toEqual({ col: 0, row: 0 });
-      expect(nextState.adventureDeck.length).toBe(25); // 30 - 5 = 25
+      expect(nextState.adventureDeck.length).toBe(23); // 30 - 2 starting (village + shrine) - 5 = 23
       expect(nextState.bannerMessage).toContain('Cult of Trolls');
     });
 
@@ -2444,9 +2493,26 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       expect(smp0?.level).toBe(3);
     });
 
-    it('stepping on undiscovered terrain triggers EXPLORATION hook with combat when roll <= card level', () => {
-      let s = start('fighter', 'test-combat-roll');
-      s = dismissWelcomePrepare(s);
+    it('stepping on undiscovered terrain draws from the 17-card Paths Deck and Enemy Camp triggers AGI Sneak Check', () => {
+      let s = start('fighter', 'test-paths-sneak');
+      expect(s.pathsDeck?.length).toBe(17);
+      expect(s.pathsDeck?.filter((c) => c.templateId === 'enemy_camp').length).toBe(5);
+      expect(s.pathsDeck?.filter((c) => c.templateId === 'merchant').length).toBe(2);
+      expect(s.pathsDeck?.filter((c) => c.templateId === 'sanctuary').length).toBe(2);
+      expect(s.pathsDeck?.filter((c) => c.templateId === 'ambush').length).toBe(2);
+      expect(s.pathsDeck?.filter((c) => c.templateId === 'magical_chest').length).toBe(1);
+      expect(s.pathsDeck?.filter((c) => c.templateId === 'trapped_chest').length).toBe(1);
+      expect(s.pathsDeck?.filter((c) => c.templateId === 'gold_stash').length).toBe(2);
+      expect(s.pathsDeck?.filter((c) => c.templateId === 'spring_trap').length).toBe(2);
+      expect(s.pathsDiscard?.length).toBe(0);
+      s = finishVillage(s);
+      // Put an Enemy Camp card at index 0 so this test deterministically exercises the Sneak Check path
+      const campIdx = (s.pathsDeck ?? []).findIndex((c) => c.templateId === 'enemy_camp');
+      if (campIdx > 0 && s.pathsDeck) {
+        const reordered = [...s.pathsDeck];
+        const [camp] = reordered.splice(campIdx, 1);
+        s = { ...s, pathsDeck: [camp, ...reordered] };
+      }
       const avail = getAvailableCoords(s)[0];
       const card = {
         id: 'advgrs-00',
@@ -2474,29 +2540,45 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         },
       };
 
-      let combatTriggered = false;
-      for (let seed = 1; seed <= 50; seed++) {
-        let testState: RunState = {
-          ...s,
-          rngState: seed * 12345,
-          activeHook: { type: 'NONE' },
-        };
-        testState = chooseCard(testState, avail);
-        if (testState.activeHook.type === 'EXPLORATION' && testState.activeHook.exploration.outcome === 'combat') {
-          combatTriggered = true;
-          expect(testState.activeHook.exploration.roll).toBeLessThanOrEqual(1);
-          // Confirm combat starts battle
-          const battleState = confirmExplorationCombat(testState);
+      const entered = chooseCard(s, avail);
+      expect(entered.pathsDeck?.length).toBe(16);
+      expect(entered.activeHook.type).toBe('PATH_CHALLENGE');
+      if (entered.activeHook.type !== 'PATH_CHALLENGE') return;
+      expect(entered.activeHook.pathChallenge.pathCard.name).toBe('Enemy Camp');
+      expect(entered.activeHook.pathChallenge.phase).toBe('sneak_prompt');
+      // Fighter starts with AGI 2; Grassland Lvl 1 * 2 = 2 -> Net 0 (Tier 4 baseline, 81.5%)
+      expect(entered.activeHook.pathChallenge.sneakNet).toBe(0);
+
+      let sneakFailed = false;
+      let sneakPassed = false;
+      for (let seed = 1; seed <= 80; seed++) {
+        const rolled = resolvePathSneakCheck({ ...entered, rngState: seed * 12345 });
+        if (rolled.activeHook.type !== 'PATH_CHALLENGE') continue;
+        if (rolled.activeHook.pathChallenge.phase === 'sneak_fail' && !sneakFailed) {
+          sneakFailed = true;
+          expect(rolled.pathsDiscard?.length).toBe(1);
+          const battleState = confirmPathSneakCombat(rolled);
           expect(battleState.activeHook.type).toBe('COMBAT');
-          break;
+          if (battleState.activeHook.type === 'COMBAT') {
+            expect(battleState.activeHook.combat.pendingPathTreasureCheck?.terrainCard.hasHostile).toBe(true);
+          }
         }
+        if (rolled.activeHook.pathChallenge.phase === 'sneak_success' && !sneakPassed) {
+          sneakPassed = true;
+          const prompt = advancePathToTreasurePrompt(rolled);
+          expect(prompt.activeHook.type).toBe('PATH_CHALLENGE');
+          if (prompt.activeHook.type === 'PATH_CHALLENGE') {
+            expect(prompt.activeHook.pathChallenge.phase).toBe('treasure_prompt');
+          }
+        }
+        if (sneakFailed && sneakPassed) break;
       }
-      expect(combatTriggered).toBe(true);
+      expect(sneakFailed).toBe(true);
+      expect(sneakPassed).toBe(true);
     });
 
-    it('stepping on undiscovered terrain triggers treasure when roll == 6, discarding over-level cards and adding item to backpack', () => {
-      let s = start('fighter', 'test-treasure-roll');
-      s = dismissWelcomePrepare(s);
+    it('treasure discovery check draws item <= terrain level on success, or finds nothing on fail', () => {
+      let s = finishVillage(start('fighter', 'test-paths-treasure'));
       const avail = getAvailableCoords(s)[0];
       const card = {
         id: 'advgrs-00',
@@ -2524,80 +2606,433 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         },
       };
 
-      let treasureFound = false;
-      for (let seed = 1; seed <= 50; seed++) {
-        let testState: RunState = {
-          ...s,
-          rngState: seed * 54321,
-          backpack: [],
-          activeHook: { type: 'NONE' },
-        };
-        testState = chooseCard(testState, avail);
-        if (testState.activeHook.type === 'EXPLORATION' && testState.activeHook.exploration.outcome === 'treasure') {
-          treasureFound = true;
-          expect(testState.activeHook.exploration.roll).toBe(6);
-          const item = testState.activeHook.exploration.foundItem;
-          expect(item).toBeDefined();
-          expect((item?.level ?? 1)).toBeLessThanOrEqual(1);
-          expect(testState.backpack.some((b) => b.instanceId === item?.instanceId)).toBe(true);
+      const entered = chooseCard(s, avail);
+      const forcedPrompt: RunState = {
+        ...entered,
+        activeHook:
+          entered.activeHook.type === 'PATH_CHALLENGE'
+            ? {
+                type: 'PATH_CHALLENGE',
+                pathChallenge: {
+                  ...entered.activeHook.pathChallenge,
+                  phase: 'treasure_prompt',
+                  treasureNet: 1,
+                },
+              }
+            : entered.activeHook,
+      };
 
-          // Confirm safe clears hook
-          const safeState = confirmExplorationSafe(testState);
-          expect(safeState.activeHook.type).toBe('NONE');
-          break;
+      let treasureFound = false;
+      let treasureMissed = false;
+      for (let seed = 1; seed <= 80; seed++) {
+        const res = resolvePathTreasureCheck({ ...forcedPrompt, rngState: seed * 54321, backpack: [] });
+        if (res.activeHook.type !== 'PATH_CHALLENGE') continue;
+        if (res.activeHook.pathChallenge.phase === 'treasure_success' && !treasureFound) {
+          treasureFound = true;
+          const item = res.activeHook.pathChallenge.foundItem;
+          expect(item).toBeDefined();
+          expect(item?.level ?? 1).toBeLessThanOrEqual(1);
+          expect(res.backpack.some((b) => b.instanceId === item?.instanceId)).toBe(true);
+          const done = confirmPathChallengeDone(res);
+          expect(done.activeHook.type).toBe('NONE');
         }
+        if (res.activeHook.pathChallenge.phase === 'treasure_fail' && !treasureMissed) {
+          treasureMissed = true;
+          expect(res.backpack.length).toBe(0);
+          const done = confirmPathChallengeDone(res);
+          expect(done.activeHook.type).toBe('NONE');
+        }
+        if (treasureFound && treasureMissed) break;
       }
       expect(treasureFound).toBe(true);
+      expect(treasureMissed).toBe(true);
     });
 
-    it('stepping on undiscovered terrain grants safe passage when roll is between card level + 1 and 5', () => {
-      let s = start('fighter', 'test-safe-roll');
-      s = dismissWelcomePrepare(s);
+    it('recycles Paths Discard back into Paths Deck (Infinite Deck System™) when all 17 cards are drawn', () => {
+      let s = finishVillage(start('fighter', 'test-paths-recycle'));
       const avail = getAvailableCoords(s)[0];
-      const card = {
-        id: 'advgrs-00',
-        instanceId: 'test-undisc-safe',
-        name: 'Undiscovered Grassland',
-        terrain: 'grasslands' as const,
-        level: 1,
-        hasHostile: false,
-        hasVillage: false,
-        hasShrine: false,
-        revealed: true,
-        cardNumber: 'advgrs-00',
-        isUndiscovered: true,
-      };
-      s = {
+      const emptyDeckState: RunState = {
         ...s,
+        pathsDeck: [],
+        pathsDiscard: [...(s.pathsDeck ?? [])],
+        pathsReshuffleCount: 0,
         board: {
           ...s.board,
           [`${avail.col},${avail.row}`]: {
             coord: avail,
-            card,
+            card: {
+              id: 'advgrs-00',
+              name: 'Undiscovered Grassland',
+              terrain: 'grasslands',
+              level: 1,
+              hasHostile: false,
+              hasVillage: false,
+              hasShrine: false,
+              revealed: true,
+              isUndiscovered: true,
+            },
             status: 'available',
             turnPlaced: 1,
           },
         },
       };
 
-      let safeTriggered = false;
-      for (let seed = 1; seed <= 50; seed++) {
-        let testState: RunState = {
-          ...s,
-          rngState: seed * 99999,
-          activeHook: { type: 'NONE' },
-        };
-        testState = chooseCard(testState, avail);
-        if (testState.activeHook.type === 'EXPLORATION' && testState.activeHook.exploration.outcome === 'safe') {
-          safeTriggered = true;
-          expect(testState.activeHook.exploration.roll).toBeGreaterThan(1);
-          expect(testState.activeHook.exploration.roll).toBeLessThan(6);
-          const resolved = confirmExplorationSafe(testState);
-          expect(resolved.activeHook.type).toBe('NONE');
+      const next = chooseCard(emptyDeckState, avail);
+      expect(next.pathsReshuffleCount).toBe(1);
+      expect(next.pathsDeck?.length).toBe(16);
+      expect(next.pathsDiscard?.length).toBe(0);
+      expect(next.activeHook.type).toBe('PATH_CHALLENGE');
+    });
+
+    it('Merchant path card draws top 2 treasure cards, applies double DISC rounded up, and supports buy or decline', () => {
+      // Verify 2x DISC rounded up math: 4 CHA -> 20% normal DISC -> 40% off at Merchant, ceil
+      expect(calculateGoodsPrice(10, 4)).toBe(8); // 20% off
+      expect(calculateMerchantGoodsPrice(10, 4)).toBe(6); // 40% off (20% cheaper than normal shop)
+      expect(calculateMerchantGoodsPrice(7, 2)).toBe(6); // 7 * 0.8 = 5.6 -> ceil 6
+
+      let s = finishVillage(start('fighter', 'test-paths-merchant'));
+      const merchantIdx = (s.pathsDeck ?? []).findIndex((c) => c.templateId === 'merchant');
+      expect(merchantIdx).toBeGreaterThanOrEqual(0);
+      const reorderedPaths = [...(s.pathsDeck ?? [])];
+      const [merchantCard] = reorderedPaths.splice(merchantIdx, 1);
+
+      const avail = getAvailableCoords(s)[0];
+      const topTwo = s.treasureDeck.slice(0, 2);
+      expect(topTwo.length).toBe(2);
+
+      // Give hero 4 effective CHA (20% DISC -> 40% Merchant DISC) and plenty of gold for 1st item
+      s = {
+        ...s,
+        pathsDeck: [merchantCard, ...reorderedPaths],
+        playerBaseStats: { ...s.playerBaseStats!, cha: 3 }, // innate 1 + base 3 + class 0 = 4 CHA
+        playerResources: { ...s.playerResources!, gold: 100 },
+        board: {
+          ...s.board,
+          [`${avail.col},${avail.row}`]: {
+            coord: avail,
+            card: {
+              id: 'advgrs-00',
+              name: 'Undiscovered Grassland',
+              terrain: 'grasslands',
+              level: 1,
+              hasHostile: false,
+              hasVillage: false,
+              hasShrine: false,
+              revealed: true,
+              isUndiscovered: true,
+            },
+            status: 'available',
+            turnPlaced: 1,
+          },
+        },
+      };
+
+      const entered = chooseCard(s, avail);
+      expect(entered.activeHook.type).toBe('PATH_CHALLENGE');
+      if (entered.activeHook.type !== 'PATH_CHALLENGE') return;
+      expect(entered.activeHook.pathChallenge.pathCard.templateId).toBe('merchant');
+      expect(entered.activeHook.pathChallenge.phase).toBe('merchant_offer');
+      expect(entered.activeHook.pathChallenge.merchantStock?.map((i) => i.instanceId)).toEqual(
+        topTwo.map((i) => i.instanceId)
+      );
+      expect(entered.treasureDeck.length).toBe(s.treasureDeck.length - 2);
+
+      // Buy the first offered item at double DISC
+      const firstItem = topTwo[0];
+      const expectedCost = calculateMerchantGoodsPrice(firstItem.buyPrice, 4);
+      const afterBuy = buyPathMerchantItem(entered, firstItem.instanceId!);
+      expect(afterBuy.playerResources?.gold).toBe(100 - expectedCost);
+      expect(afterBuy.activeHook.type).toBe('PATH_CHALLENGE');
+      if (afterBuy.activeHook.type !== 'PATH_CHALLENGE') return;
+      expect(afterBuy.activeHook.pathChallenge.merchantStock?.length).toBe(1);
+
+      // Insufficient gold prevents buying the second item
+      const broke = { ...afterBuy, playerResources: { ...afterBuy.playerResources!, gold: 0 } };
+      const secondItem = topTwo[1];
+      const failedBuy = buyPathMerchantItem(broke, secondItem.instanceId!);
+      expect(failedBuy).toBe(broke);
+
+      // Decline & leave discards unbought 2nd item to treasureDiscard and Merchant to pathsDiscard
+      const discardBefore = afterBuy.treasureDiscard.length;
+      const done = confirmPathChallengeDone(afterBuy);
+      expect(done.activeHook.type).toBe('NONE');
+      expect(done.treasureDiscard.length).toBe(discardBefore + 1);
+      expect(done.treasureDiscard.some((i) => i.instanceId === secondItem.instanceId)).toBe(true);
+      expect(done.pathsDiscard?.some((c) => c.id === merchantCard.id)).toBe(true);
+    });
+
+    it('Sanctuary path card acts as a free rest area and fully heals the player', () => {
+      let s = finishVillage(start('fighter', 'test-paths-sanctuary'));
+      const sanctuaryIdx = (s.pathsDeck ?? []).findIndex((c) => c.templateId === 'sanctuary');
+      expect(sanctuaryIdx).toBeGreaterThanOrEqual(0);
+      const reordered = [...(s.pathsDeck ?? [])];
+      const [sanctuaryCard] = reordered.splice(sanctuaryIdx, 1);
+      const avail = getAvailableCoords(s)[0];
+
+      s = {
+        ...s,
+        pathsDeck: [sanctuaryCard, ...reordered],
+        playerResources: { ...s.playerResources!, hp: 4, gold: 0 },
+        board: {
+          ...s.board,
+          [`${avail.col},${avail.row}`]: {
+            coord: avail,
+            card: {
+              id: 'advgrs-00',
+              name: 'Undiscovered Grassland',
+              terrain: 'grasslands',
+              level: 1,
+              hasHostile: false,
+              hasVillage: false,
+              hasShrine: false,
+              revealed: true,
+              isUndiscovered: true,
+            },
+            status: 'available',
+            turnPlaced: 1,
+          },
+        },
+      };
+
+      const entered = chooseCard(s, avail);
+      expect(entered.activeHook.type).toBe('PATH_CHALLENGE');
+      if (entered.activeHook.type !== 'PATH_CHALLENGE') return;
+      expect(entered.activeHook.pathChallenge.phase).toBe('sanctuary_prompt');
+
+      const healed = restAtPathSanctuary(entered);
+      expect(healed.playerResources?.hp).toBe(healed.playerResources?.maxHp);
+      expect(healed.playerResources?.gold).toBe(0);
+      expect(healed.pathsDiscard?.some((c) => c.id === sanctuaryCard.id)).toBe(true);
+
+      const done = confirmPathChallengeDone(healed);
+      expect(done.activeHook.type).toBe('NONE');
+    });
+
+    it('Ambush path card starts an encounter where creatures act first before player Combat Turn 1', () => {
+      let s = finishVillage(start('wizard', 'test-paths-ambush'));
+      const ambushIdx = (s.pathsDeck ?? []).findIndex((c) => c.templateId === 'ambush');
+      expect(ambushIdx).toBeGreaterThanOrEqual(0);
+      const reordered = [...(s.pathsDeck ?? [])];
+      const [ambushCard] = reordered.splice(ambushIdx, 1);
+      const avail = getAvailableCoords(s)[0];
+
+      s = {
+        ...s,
+        pathsDeck: [ambushCard, ...reordered],
+        board: {
+          ...s.board,
+          [`${avail.col},${avail.row}`]: {
+            coord: avail,
+            card: {
+              id: 'advgrs-00',
+              name: 'Undiscovered Grassland',
+              terrain: 'grasslands',
+              level: 1,
+              hasHostile: false,
+              hasVillage: false,
+              hasShrine: false,
+              revealed: true,
+              isUndiscovered: true,
+            },
+            status: 'available',
+            turnPlaced: 1,
+          },
+        },
+      };
+
+      const entered = chooseCard(s, avail);
+      expect(entered.activeHook.type).toBe('PATH_CHALLENGE');
+      if (entered.activeHook.type !== 'PATH_CHALLENGE') return;
+      expect(entered.activeHook.pathChallenge.phase).toBe('ambush_prompt');
+
+      const combatState = confirmPathAmbushCombat(entered);
+      expect(combatState.activeHook.type).toBe('COMBAT');
+      if (combatState.activeHook.type !== 'COMBAT') return;
+      // Creatures executed Turn 1 first, so combatTurn is now 1 and patternIndex advanced to 1
+      expect(combatState.activeHook.combat.combatTurn).toBe(1);
+      expect(combatState.activeHook.combat.monsters.every((m) => m.patternIndex === 1)).toBe(true);
+      // Wizard must NOT get bonus Conserve AP from the skipped enemy opening turn
+      expect(combatState.activeHook.combat.playerAp).toBe(combatState.activeHook.combat.playerMaxAp);
+      expect(combatState.pathsDiscard?.some((c) => c.id === ambushCard.id)).toBe(true);
+    });
+
+    it('Magical Chest and Trapped Chest apply exact STR/DEX/INT checks, award or destroy top treasure on pass/fail, and support abandon', () => {
+      let s = finishVillage(start('fighter', 'test-paths-chests'));
+      const magIdx = (s.pathsDeck ?? []).findIndex((c) => c.templateId === 'magical_chest');
+      const trapIdx = (s.pathsDeck ?? []).findIndex((c) => c.templateId === 'trapped_chest');
+      expect(magIdx).toBeGreaterThanOrEqual(0);
+      expect(trapIdx).toBeGreaterThanOrEqual(0);
+      const magCard = s.pathsDeck![magIdx];
+      const trapCard = s.pathsDeck![trapIdx];
+      const avail = getAvailableCoords(s)[0];
+
+      const setupChest = (card: typeof magCard, strVal = 5) => ({
+        ...s,
+        pathsDeck: [card, ...s.pathsDeck!.filter((c) => c.id !== card.id)],
+        playerBaseStats: { ...s.playerBaseStats!, str: strVal },
+        board: {
+          ...s.board,
+          [`${avail.col},${avail.row}`]: {
+            coord: avail,
+            card: {
+              id: 'advgrs-00',
+              name: 'Undiscovered Grassland',
+              terrain: 'grasslands' as const,
+              level: 1,
+              hasHostile: false,
+              hasVillage: false,
+              hasShrine: false,
+              revealed: true,
+              isUndiscovered: true,
+            },
+            status: 'available' as const,
+            turnPlaced: 1,
+          },
+        },
+      });
+
+      // 1. Abandon Magical Chest safely
+      const magEntered = chooseCard(setupChest(magCard, 2), avail);
+      const abandoned = resolvePathChestAttempt(magEntered, 'abandon');
+      expect(abandoned.activeHook.type).toBe('NONE');
+      expect(abandoned.pathsDiscard?.some((c) => c.id === magCard.id)).toBe(true);
+
+      // 2. Magical Chest force_open pass & fail
+      let magPassed = false;
+      let magFailed = false;
+      for (let seed = 1; seed <= 80; seed++) {
+        const res = resolvePathChestAttempt({ ...magEntered, rngState: seed * 9973 }, 'force_open');
+        if (res.activeHook.type !== 'PATH_CHALLENGE') continue;
+        if (res.activeHook.pathChallenge.phase === 'chest_success') {
+          magPassed = true;
+          expect(res.backpack.length).toBe(magEntered.backpack.length + 1);
+        } else if (res.activeHook.pathChallenge.phase === 'chest_fail') {
+          magFailed = true;
+          expect(res.playerResources?.hp).toBe(magEntered.playerResources!.hp - 3);
+          expect((res.voidItems ?? []).length).toBe((magEntered.voidItems ?? []).length + 1);
+        }
+        if (magPassed && magFailed) break;
+      }
+      expect(magPassed).toBe(true);
+      expect(magFailed).toBe(true);
+
+      // 3. Trapped Chest rejects remove_seal and supports lockpick (DEX - (1 + 2*Lvl))
+      const trapEntered = chooseCard(setupChest(trapCard, 1), avail);
+      expect(resolvePathChestAttempt(trapEntered, 'remove_seal')).toBe(trapEntered);
+      let trapPassed = false;
+      for (let seed = 1; seed <= 80; seed++) {
+        const res = resolvePathChestAttempt({ ...trapEntered, rngState: seed * 7919 }, 'lockpick');
+        if (res.activeHook.type === 'PATH_CHALLENGE' && res.activeHook.pathChallenge.phase === 'chest_success') {
+          trapPassed = true;
           break;
         }
       }
-      expect(safeTriggered).toBe(true);
+      expect(trapPassed).toBe(true);
+    });
+
+    it('Gold Stash rolls 1d6 and awards 10 (1-3), 20 (4-5), or 30 (6) Gold', () => {
+      let s = finishVillage(start('fighter', 'test-paths-gold'));
+      const goldIdx = (s.pathsDeck ?? []).findIndex((c) => c.templateId === 'gold_stash');
+      expect(goldIdx).toBeGreaterThanOrEqual(0);
+      const reordered = [...(s.pathsDeck ?? [])];
+      const [goldCard] = reordered.splice(goldIdx, 1);
+      const avail = getAvailableCoords(s)[0];
+
+      s = {
+        ...s,
+        pathsDeck: [goldCard, ...reordered],
+        board: {
+          ...s.board,
+          [`${avail.col},${avail.row}`]: {
+            coord: avail,
+            card: {
+              id: 'advgrs-00',
+              name: 'Undiscovered Grassland',
+              terrain: 'grasslands',
+              level: 1,
+              hasHostile: false,
+              hasVillage: false,
+              hasShrine: false,
+              revealed: true,
+              isUndiscovered: true,
+            },
+            status: 'available',
+            turnPlaced: 1,
+          },
+        },
+      };
+
+      const entered = chooseCard(s, avail);
+      const seenAwards = new Set<number>();
+      for (let seed = 1; seed <= 60; seed++) {
+        const res = rollPathGoldStash({ ...entered, rngState: seed * 1013 });
+        if (res.activeHook.type !== 'PATH_CHALLENGE') continue;
+        const { goldRollDie, goldAwarded } = res.activeHook.pathChallenge;
+        expect(goldRollDie).toBeGreaterThanOrEqual(1);
+        expect(goldRollDie).toBeLessThanOrEqual(6);
+        const expected = goldRollDie! <= 3 ? 10 : goldRollDie! <= 5 ? 20 : 30;
+        expect(goldAwarded).toBe(expected);
+        expect(res.playerResources?.gold).toBe(entered.playerResources!.gold + expected);
+        seenAwards.add(expected);
+        if (seenAwards.size === 3) break;
+      }
+      expect(seenAwards).toEqual(new Set([10, 20, 30]));
+    });
+
+    it('Spring Trap runs AGI - (1 + 2*Lvl) check: avoids damage on success, deals 4 direct damage on fail', () => {
+      let s = finishVillage(start('fighter', 'test-paths-spring-trap'));
+      const trapIdx = (s.pathsDeck ?? []).findIndex((c) => c.templateId === 'spring_trap');
+      expect(trapIdx).toBeGreaterThanOrEqual(0);
+      const reordered = [...(s.pathsDeck ?? [])];
+      const [springTrapCard] = reordered.splice(trapIdx, 1);
+      const avail = getAvailableCoords(s)[0];
+
+      s = {
+        ...s,
+        pathsDeck: [springTrapCard, ...reordered],
+        board: {
+          ...s.board,
+          [`${avail.col},${avail.row}`]: {
+            coord: avail,
+            card: {
+              id: 'advgrs-00',
+              name: 'Undiscovered Grassland',
+              terrain: 'grasslands',
+              level: 1,
+              hasHostile: false,
+              hasVillage: false,
+              hasShrine: false,
+              revealed: true,
+              isUndiscovered: true,
+            },
+            status: 'available',
+            turnPlaced: 1,
+          },
+        },
+      };
+
+      const entered = chooseCard(s, avail);
+      expect(entered.activeHook.type).toBe('PATH_CHALLENGE');
+      if (entered.activeHook.type !== 'PATH_CHALLENGE') return;
+      // Fighter AGI = 2; Lvl 1 -> 1 + 2*1 = 3 -> Net = -1
+      expect(entered.activeHook.pathChallenge.trapNet).toBe(-1);
+
+      let dodged = false;
+      let hit = false;
+      for (let seed = 1; seed <= 80; seed++) {
+        const res = resolvePathSpringTrap({ ...entered, rngState: seed * 6553 });
+        if (res.activeHook.type !== 'PATH_CHALLENGE') continue;
+        if (res.activeHook.pathChallenge.phase === 'spring_trap_success') {
+          dodged = true;
+          expect(res.playerResources?.hp).toBe(entered.playerResources!.hp);
+        } else if (res.activeHook.pathChallenge.phase === 'spring_trap_fail') {
+          hit = true;
+          expect(res.playerResources?.hp).toBe(entered.playerResources!.hp - 4);
+        }
+        if (dodged && hit) break;
+      }
+      expect(dodged).toBe(true);
+      expect(hit).toBe(true);
     });
   });
 
@@ -2826,28 +3261,27 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     });
   });
 
-  describe('Ghoul Creature and Growl Debuff', () => {
-    it('defines Ghoul with 12 HP, 2 MDEF, 3 EVA, 1 ACC, Forest/Swamp terrains, and Growl + Mad Dash pattern', () => {
+  describe('Ghoul Creature and Blind Debuff', () => {
+    it('defines Ghoul with 12 HP, 2 MDEF, 3 EVA, 2 ACC, Forest/Swamp terrains, and Blind (1, 2) + Mad Dash pattern', () => {
       const ghoul = MONSTER_TEMPLATES.ghoul;
       expect(ghoul).toBeDefined();
       expect(ghoul.name).toBe('Ghoul');
       expect(ghoul.maxHp).toBe(12);
       expect(ghoul.mdef).toBe(2);
       expect(ghoul.eva).toBe(3);
-      expect(ghoul.acc).toBe(1);
+      expect(ghoul.acc).toBe(2);
       expect(ghoul.def).toBe(0);
       expect(ghoul.spawnTerrains).toContain('forest');
       expect(ghoul.spawnTerrains).toContain('swamp');
       expect(ghoul.pattern).toHaveLength(2);
-      expect(ghoul.pattern[0].label).toBe('Growl');
-      expect(ghoul.pattern[0].heroEvaDebuff).toBe(1);
-      expect(ghoul.pattern[0].heroEvaDebuffDuration).toBe(2);
+      expect(ghoul.pattern[0].label).toBe('Blind');
+      expect(ghoul.pattern[0].heroStatDebuff).toEqual({ stats: { acc: 1 }, duration: 2 });
       expect(ghoul.pattern[1].label).toBe('Mad Dash');
       expect(ghoul.pattern[1].damage).toBe(6);
     });
 
-    it('Growl reduces Hero EVA by 1 for 2 turns in combat', () => {
-      let s = start('fighter'); // Fighter starting stats: AGI 2 -> base EVA 1
+    it('Blind reduces Hero ACC by 1 for 2 turns in combat', () => {
+      let s = start('fighter');
       const ghoul = { ...MONSTER_TEMPLATES.ghoul, id: 'test_ghoul' };
 
       s = {
@@ -2869,34 +3303,32 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         },
       };
 
-      // Turn 1: Player ends turn. Ghoul executes Turn 1: Growl.
+      // Turn 1: Player ends turn. Ghoul executes Turn 1: Blind (1, 2).
       const afterT1 = endTurn(s);
       expect(afterT1.activeHook.type).toBe('COMBAT');
       if (afterT1.activeHook.type !== 'COMBAT') return;
 
       const c1 = afterT1.activeHook.combat;
-      // Hero EVA is reduced by 1 for 2 turns
-      expect(c1.playerEvasionMod).toBe(-1);
-      expect(c1.playerEvaDebuffTurns).toBe(2);
-      expect(c1.combatLog.some((l) => l.includes('Growl') && l.includes('reduces Hero\'s EVA by 1'))).toBe(true);
+      expect(c1.heroStatDebuffs).toEqual([
+        expect.objectContaining({ label: 'Blind', stats: { acc: 1 }, turnsRemaining: 2 }),
+      ]);
 
-      // Turn 2: Player ends turn. Ghoul executes Turn 2: Mad Dash (6 DMG).
-      // Debuff is active for turn 1 of 2.
+      // Turn 2: Player ends turn. Debuff has 1 turn remaining.
       const afterT2 = endTurn(afterT1);
       expect(afterT2.activeHook.type).toBe('COMBAT');
       if (afterT2.activeHook.type !== 'COMBAT') return;
 
       const c2 = afterT2.activeHook.combat;
-      expect(c2.playerEvasionMod).toBe(-1);
-      expect(c2.playerEvaDebuffTurns).toBe(1);
+      expect(c2.heroStatDebuffs?.[0]?.turnsRemaining).toBe(1);
 
-      // Turn 3: Player ends turn. Debuff was on 1 turn remaining, so after this round it expires!
+      // Turn 3: Player ends turn. Ghoul cycles back to T1 Blind and refreshes without stacking.
       const afterT3 = endTurn(afterT2);
       expect(afterT3.activeHook.type).toBe('COMBAT');
       if (afterT3.activeHook.type !== 'COMBAT') return;
 
       const c3 = afterT3.activeHook.combat;
-      expect(c3.combatLog.some((l) => l.includes('Growl debuff has worn off'))).toBe(true);
+      expect(c3.heroStatDebuffs ?? []).toHaveLength(1);
+      expect(c3.heroStatDebuffs?.[0]?.turnsRemaining).toBe(2);
     });
   });
 });
@@ -2920,7 +3352,7 @@ describe("The Goblin King monster deck", () => {
 
   describe('Turn 15 Boss Approach & Preparation', () => {
     it('resolving turn 15 tile sets activeHook to BOSS_APPROACH allowing gear changes and potion use before combat', () => {
-      let s = start('fighter', 'boss-prep-test');
+      let s = finishVillage(start('fighter', 'boss-prep-test'));
       for (let t = 1; t <= 14; t++) s = stepAuto(s);
       s = chooseCard(s, getAvailableCoords(s)[0]);
       // If tile had event, resolve it
@@ -2952,6 +3384,13 @@ describe("The Goblin King monster deck", () => {
         else if (s.activeHook.type === 'SHRINE') s = leaveShrine(s);
         else if (s.activeHook.type === 'EXPLORATION') {
           s = s.activeHook.exploration.outcome === 'combat' ? confirmExplorationCombat(s) : confirmExplorationSafe(s);
+        } else if (s.activeHook.type === 'PATH_CHALLENGE') {
+          const phase = s.activeHook.pathChallenge.phase;
+          if (phase === 'sneak_prompt') s = resolvePathSneakCheck(s);
+          else if (phase === 'sneak_fail') s = confirmPathSneakCombat(s);
+          else if (phase === 'sneak_success') s = advancePathToTreasurePrompt(s);
+          else if (phase === 'treasure_prompt') s = resolvePathTreasureCheck(s);
+          else s = confirmPathChallengeDone(s);
         }
       }
       expect(s.turn).toBe(15);
@@ -2986,6 +3425,75 @@ describe("The Goblin King monster deck", () => {
       expect(s.activeHook.type).toBe('COMBAT');
       if (s.activeHook.type !== 'COMBAT') return;
       expect(s.activeHook.combat.monsters[0].monster.name).toBe('Grundy');
+    });
+  });
+
+  describe('Starting Village & Attached Shrine', () => {
+    it('starts Scenario 1 in Grassland Village with attached Grassland Shrine, allows round-trip without re-granting boons, and discards both on departure', () => {
+      let s = start('fighter', 'starting-village-shrine-s1');
+      expect(s.welcomePreparing).toBe(false);
+      expect(s.activeHook.type).toBe('VILLAGE');
+      const startNode = s.board['0.0,0'];
+      expect(startNode.card.cardNumber).toBe('advgrs-03');
+      expect(startNode.attachedShrineCard?.cardNumber).toBe('advgrs-04');
+      if (s.activeHook.type !== 'VILLAGE') return;
+      expect(s.activeHook.village.attachedShrineCard?.cardNumber).toBe('advgrs-04');
+
+      // Visit the village shrine for the first time
+      s = villageVisitShrine(s);
+      expect(s.activeHook.type).toBe('SHRINE');
+      if (s.activeHook.type !== 'SHRINE') return;
+      expect(s.activeHook.shrine.shrineCard?.cardNumber).toBe('advgrs-04');
+      const firstBoon = s.activeHook.shrine.grantedBoon;
+      expect(firstBoon).toBeDefined();
+      expect(s.activeHook.shrine.alreadyVisited).toBeUndefined();
+
+      // Upgrade a stat while at the village shrine
+      s = { ...s, playerResources: { ...s.playerResources!, statPoints: 20 } };
+      s = shrineUpgradeStat(s, 'str');
+      expect(s.playerBaseStats.str).toBe(2);
+
+      // Return to the village
+      s = leaveShrine(s);
+      expect(s.activeHook.type).toBe('VILLAGE');
+      if (s.activeHook.type !== 'VILLAGE') return;
+      expect(s.activeHook.village.savedShrineState?.grantedBoon?.id).toBe(firstBoon!.id);
+
+      // Re-visit the village shrine: must remind and NOT grant a new boon, while stats remain upgradeable
+      s = villageVisitShrine(s);
+      expect(s.activeHook.type).toBe('SHRINE');
+      if (s.activeHook.type !== 'SHRINE') return;
+      expect(s.activeHook.shrine.alreadyVisited).toBe(true);
+      expect(s.activeHook.shrine.grantedBoon?.id).toBe(firstBoon!.id);
+      expect(s.bannerMessage).toContain(firstBoon!.name);
+
+      // Stat upgrade still works on revisit
+      s = shrineUpgradeStat(s, 'dex');
+      expect(s.playerBaseStats.dex).toBe(2);
+
+      // Return to village, leave village, and step onto row 1 -> both village and shrine cards go to discard
+      s = leaveShrine(s);
+      s = finishVillage(s);
+      expect(s.activeHook.type).toBe('NONE');
+      const nextCoord = getAvailableCoords(s)[0];
+      s = chooseCard(s, nextCoord);
+      expect(s.adventureDiscard.some((c) => c.cardNumber === 'advgrs-03')).toBe(true);
+      expect(s.adventureDiscard.some((c) => c.cardNumber === 'advgrs-04')).toBe(true);
+    });
+
+    it('starts Scenario 2 and Scenario 3 in level-matched starting Villages with attached Shrines', () => {
+      const s1 = start('fighter', 'starting-village-s2-s3');
+      const s2 = startNextMission(s1);
+      expect(s2.scenarioLevel).toBe(2);
+      expect(s2.activeHook.type).toBe('VILLAGE');
+      expect(s2.board['0.0,0'].card.cardNumber).toBe('advfrs-03');
+      expect(s2.board['0.0,0'].attachedShrineCard?.cardNumber).toBe('advfrs-04');
+
+      const s3 = startNextMission(s2);
+      expect(s3.scenarioLevel).toBe(3);
+      expect(s3.activeHook.type).toBe('VILLAGE');
+      expect(s3.board['0.0,0'].card.cardNumber).toBe('advsmp-03');
+      expect(s3.board['0.0,0'].attachedShrineCard?.cardNumber).toBe('advsmp-04');
     });
   });
 });

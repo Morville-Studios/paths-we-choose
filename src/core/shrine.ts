@@ -91,7 +91,8 @@ export function createShrineState(
 
 export function getShrineLevel(state: RunState): number {
   if (state.activeHook.type !== 'SHRINE') return 0;
-  const shrineCard = state.board[coordToKey(state.activeHook.shrine.coord)]?.card;
+  const node = state.board[coordToKey(state.activeHook.shrine.coord)];
+  const shrineCard = state.activeHook.shrine.shrineCard ?? node?.card;
   return shrineCard?.level ?? 0;
 }
 

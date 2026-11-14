@@ -25,7 +25,7 @@ describe('Witch mechanics', () => {
   it('registers the confirmed collector ID, stats and default level rewards', () => {
     expect(witch).toMatchObject({ templateId: 'witch', cardNumber: 'mon3smp-04', level: 3,
       maxHp: 14, def: 1, mdef: 3, eva: 2, acc: 4, spawnTerrains: ['swamp', 'cave'],
-      statPointReward: 4, goldReward: 15, endTurnRegen: 1 });
+      statPointReward: 4, goldReward: 15, regenOnStart: 2 });
     expect(MONSTER_TEMPLATES.stalker.cardNumber).toBe('mon1grs-06');
     expect(Object.values(MONSTER_TEMPLATES).map(m => m.cardNumber).filter(id => id === 'mon3smp-04')).toHaveLength(1);
   });
@@ -37,53 +37,56 @@ describe('Witch mechanics', () => {
       { statPointReward: 6, goldReward: 25 }, { statPointReward: 7, goldReward: 30 },
     ]);
   });
-  it('casts both hexes without hit rolls; keeps each for its stated hero turns', () => {
+  it('casts Blind (2, 2) and Ensnare (2, 2) on T1 without hit rolls; keeps them for 2 hero turns', () => {
     const initial = setup();
     const before = JSON.stringify(initial);
     const first = endPlayerCombatTurn(initial);
-    expect(getHeroStatDebuffMods(battle(first))).toEqual({ acc: -1, eva: -1, def: 0, mdef: 0 });
+    expect(getHeroStatDebuffMods(battle(first))).toEqual({ acc: -2, eva: -2, def: 0, mdef: 0 });
     expect(battle(first).heroStatDebuffs?.[0].turnsRemaining).toBe(2);
     const second = endPlayerCombatTurn(first);
-    expect(getHeroStatDebuffMods(battle(second))).toEqual({ acc: -1, eva: -1, def: -1, mdef: -1 });
-    expect(battle(second).heroStatDebuffs?.map(effect => effect.turnsRemaining)).toEqual([1, 1]);
+    expect(getHeroStatDebuffMods(battle(second))).toEqual({ acc: -2, eva: -2, def: 0, mdef: 0 });
+    expect(battle(second).heroStatDebuffs?.[0].turnsRemaining).toBe(1);
+    battle(second).monsters[0].hp = 0; // prevent Witch from cycling back to T1 on turn 3
     const third = endPlayerCombatTurn(second);
     expect(getHeroStatDebuffMods(battle(third))).toEqual({ acc: 0, eva: 0, def: 0, mdef: 0 });
     expect(JSON.stringify(initial)).toBe(before);
     expect(endPlayerCombatTurn(initial)).toEqual(first);
   });
 
-  it('Smite uses reduced MDEF, ignoring physical DEF and honoring Block', () => {
+  it('T2 MATK (7) uses MDEF, ignoring physical DEF and honoring Block', () => {
     let state = setup();
     state.equippedGear.armor = { id: 'test', instanceId: 'test', name: 'Test armor', description: '', category: 'armor',
       buyPrice: 0, sellPrice: 0, gearBonus: { def: 100, mdef: 3 } };
-    state = endPlayerCombatTurn(endPlayerCombatTurn(state));
+    state = endPlayerCombatTurn(state);
     battle(state).playerBlock = 1;
     state.rngState = Array.from({ length: 1000 }, (_, i) => i + 1).find(seed => {
-      const roll = evaluateAttackRoll(seed, 1, 1);
+      const roll = evaluateAttackRoll(seed, 4, 0);
       return roll.isHit;
     })!;
     const next = endPlayerCombatTurn(state);
-    expect(battle(next).lastAttackRoll).toMatchObject({ defenseType: 'MDEF', damageDefReduced: 2, damageBlocked: 1, damageDealt: 4 });
-    expect(next.playerResources?.hp).toBe(96);
+    expect(battle(next).lastAttackRoll).toMatchObject({ defenseType: 'MDEF', damageDefReduced: 3, damageBlocked: 1, damageDealt: 3 });
+    expect(next.playerResources?.hp).toBe(97);
   });
 
-  it('reduces hero attack accuracy and shows both hex descriptions and artwork', () => {
+  it('reduces hero attack accuracy and shows Blind, Ensnare, Regen (2) and artwork', () => {
     const state = endPlayerCombatTurn(setup());
     const attackIndex = battle(state).hand.findIndex(card => card.baseDamage > 0);
     const next = playCard(state, battle(state).hand[attackIndex].instanceId, 0);
-    expect(battle(next).lastAttackRoll?.netAcc).toBe(0); // default Hero ACC 3 - hex 1 - Witch EVA 2 = 0; Slash adds no ACC
+    expect(battle(next).lastAttackRoll?.netAcc).toBe(-1); // default Hero ACC 3 - Blind 2 - Witch EVA 2 = -1
     const html = cardInspectModal({ kind: 'monster', monster: witch }, state);
     expect(getMonsterRasterArtPath('witch')).toBe('/cards/creatures/witch.jpg');
     expect(html).toContain('/cards/creatures/witch.jpg');
-    expect(html).toContain('Hero -1 EVA / -1 ACC (2t)');
-    expect(html).toContain('Hero -1 DEF / -1 MDEF (1t)');
-    expect(html).not.toContain('Idle');
+    const plainHtml = html.replace(/<\/?b>/g, '');
+    expect(plainHtml).toContain('Regen (2)');
+    expect(plainHtml).toContain('Blind (2, 2)');
+    expect(plainHtml).toContain('Ensnare (2, 2)');
+    expect(plainHtml).not.toContain('Idle');
   });
 
-  it('regenerates after every pattern, caps healing, and never revives a dead Witch', () => {
+  it('regenerates 2 HP on start of turn, caps healing, and never revives a dead Witch', () => {
     let state = setup();
-    battle(state).monsters[0].hp = 11;
-    for (const expected of [12, 13, 14, 14]) {
+    battle(state).monsters[0].hp = 10;
+    for (const expected of [12, 14, 14]) {
       state = endPlayerCombatTurn(state);
       expect(battle(state).monsters[0].hp).toBe(expected);
     }
@@ -91,24 +94,12 @@ describe('Witch mechanics', () => {
     expect(battle(endPlayerCombatTurn(state)).monsters[0].hp).toBe(0);
   });
 
-  it('applies defense exposure immediately to following physical attackers and clamps at zero', () => {
-    const dog = { ...MONSTER_TEMPLATES.wild_dog, id: 'dog' };
-    const state = setup([witch, dog]);
-    battle(state).monsters[0].patternIndex = 1;
-    state.rngState = Array.from({ length: 1000 }, (_, i) => i + 1).find(seed => {
-      const roll = evaluateAttackRoll(seed, 2, 2);
-      return roll.isHit;
-    })!;
-    const next = endPlayerCombatTurn(state);
-    expect(battle(next).lastAttackRoll).toMatchObject({ damageDealt: 4, damageDefReduced: 0, defenseType: 'DEF' });
-  });
-
   it('refreshes the same hex without stacking and keeps different sources independent', () => {
     let state = endPlayerCombatTurn(setup([witch, { ...witch, id: 'witch_2' }]));
-    expect(getHeroStatDebuffMods(battle(state))).toEqual({ acc: -2, eva: -2, def: 0, mdef: 0 });
+    expect(getHeroStatDebuffMods(battle(state))).toEqual({ acc: -4, eva: -4, def: 0, mdef: 0 });
     battle(state).monsters.forEach(monster => { monster.patternIndex = 0; });
     state = endPlayerCombatTurn(state);
-    expect(getHeroStatDebuffMods(battle(state))).toEqual({ acc: -2, eva: -2, def: 0, mdef: 0 });
+    expect(getHeroStatDebuffMods(battle(state))).toEqual({ acc: -4, eva: -4, def: 0, mdef: 0 });
     expect(battle(state).heroStatDebuffs).toHaveLength(2);
     expect(battle(state).heroStatDebuffs?.every(effect => effect.turnsRemaining === 2)).toBe(true);
   });

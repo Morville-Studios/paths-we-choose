@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   chooseCard,
+  finishVillage,
   getAvailableCoords,
   playCard,
   startAdventure,
@@ -44,7 +45,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
   });
 
   it('appends path choice and dealt horizon cards to gameLog on chooseCard', () => {
-    let state = startAdventure('fighter', 'seed-step-log');
+    let state = finishVillage(startAdventure('fighter', 'seed-step-log'));
     const initialLogLength = state.gameLog!.length;
     const available = getAvailableCoords(state);
     expect(available.length).toBeGreaterThan(0);
@@ -78,7 +79,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
 
     // Sell item
     state = sellItem(state, 'stock_pot_1');
-    expect(state.gameLog!.some((entry) => entry.includes('Sold Health Potion'))).toBe(true);
+    expect(state.gameLog!.some((entry) => entry.includes('Sold & Banished Health Potion'))).toBe(true);
 
     // Equip & unequip
     const sword = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_iron_sword')!;
@@ -100,7 +101,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
 
     // Remove card
     state = villageTrainRemove(state, offer.instanceId);
-    expect(state.gameLog!.some((entry) => entry.includes('Purged') && entry.includes('to the Void'))).toBe(true);
+    expect(state.gameLog!.some((entry) => entry.includes('Banished') && entry.includes('to the Void'))).toBe(true);
   });
 
   it('appends shrine visits and base stat upgrades to gameLog', () => {
@@ -244,7 +245,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
   });
 
   it('renders Game Log directly below the main viewport rather than in the right sidebar on the map', () => {
-    let state = startAdventure('fighter', 'seed-map-log-placement');
+    let state = finishVillage(startAdventure('fighter', 'seed-map-log-placement'));
     state = { ...state, welcomePreparing: false };
 
     const ui: UiState = {

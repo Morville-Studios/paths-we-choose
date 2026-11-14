@@ -94,8 +94,8 @@ describe('shared UI presentation helpers', () => {
     expect(getItemRasterArtPath('lvl2_dagger_plus')).toBe('/cards/items/dagger.jpg');
     expect(getItemRasterArtPath('lvl2_focus_ring')).toBe('/cards/items/focus_ring.jpg');
     expect(getItemRasterArtPath('lvl1_health_potion')).toBe('/cards/items/health_potion1.jpg');
-    expect(getItemRasterArtPath('lvl2_health_potion_plus')).toBe('/cards/items/health_potion2.jpg');
-    expect(getItemRasterArtPath('lvl3_health_potion_plus_plus')).toBe('/cards/items/health_potion3.jpg');
-    expect(getItemRasterArtPath('lvl4_health_potion_plus_plus_plus')).toBe('/cards/items/health_potion4.jpg');
+    expect(getItemRasterArtPath('lvl2_health_potion')).toBe('/cards/items/health_potion2.jpg');
+    expect(getItemRasterArtPath('lvl3_health_potion')).toBe('/cards/items/health_potion3.jpg');
+    expect(getItemRasterArtPath('lvl4_health_potion')).toBe('/cards/items/health_potion4.jpg');
   });
 });

@@ -74,9 +74,36 @@ export const combatActions: Record<string, ActionHandler> = {
   'prev-target': ({ navigateCombatTarget }) => navigateCombatTarget(-1),
   'next-target': ({ navigateCombatTarget }) => navigateCombatTarget(1),
 
-  'end-turn': ({ ui, runTransitionWithDiceRolls }) => {
+  'end-turn': ({ store, ui, render, runTransitionWithDiceRolls }) => {
+    const curState = store.get();
+    if (curState.activeHook.type === 'COMBAT' && curState.activeHook.combat.playerAp > 0) {
+      ui.pendingCardPlay = null;
+      ui.pendingFlee = false;
+      ui.pendingEndTurn = true;
+      render();
+      return;
+    }
+    ui.pendingEndTurn = false;
     ui.handIndex = 0;
     runTransitionWithDiceRolls(endTurn);
+  },
+
+  'confirm-end-turn': ({ ui, runTransitionWithDiceRolls }) => {
+    ui.pendingEndTurn = false;
+    ui.handIndex = 0;
+    runTransitionWithDiceRolls(endTurn);
+  },
+
+  'cancel-end-turn': ({ ui, render }) => {
+    ui.pendingEndTurn = false;
+    render();
+  },
+
+  'cancel-end-turn-backdrop': ({ ui, render }, _payload, target, ev) => {
+    if (ev.target === target) {
+      ui.pendingEndTurn = false;
+      render();
+    }
   },
 
   'flee-card': ({ store, ui, render }) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { startAdventure } from '../core/engine';
+import { finishVillage, startAdventure } from '../core/engine';
 import {
   renderPlayArea,
   renderClassSelect,
@@ -69,7 +69,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(welcomeGuide).toContain('Charisma (CHA)');
     expect(welcomeGuide).toContain('Vitality (VIT)');
     expect(welcomeGuide).not.toContain('Luck (LUK)');
-    expect(welcomeGuide).toContain('physical resistance to getting hurt');
+    expect(welcomeGuide).toContain('Physical Defense (DEF)');
 
     // Player Class Guide
     expect(welcomeGuide).toContain('Player Class Guide');
@@ -81,60 +81,67 @@ describe('Render Play Area and Shop Layout', () => {
     expect(welcomeGuide).toContain('[Steal]');
   });
 
-  it('renders an AD&D-inspired rulebook with interactive page turning across 7 chapters including Bestiary and Armory', () => {
+  it('renders an AD&D-inspired rulebook with sticky wiki sidebar across 9 chapters including Bestiary, Armory, Terrain, and Skills', () => {
     const page1Html = renderWelcome(true, 1);
     expect(page1Html).toContain('guide-book-tome');
+    expect(page1Html).toContain('guide-wiki-layout');
+    expect(page1Html).toContain('guide-wiki-sidebar');
     expect(page1Html).toContain('guide-spread-viewport');
-    expect(page1Html).toContain('guide-book-spine-gutter');
+    expect(page1Html).not.toContain('guide-book-spine-gutter');
     expect(page1Html).toContain('guide-parchment-spread');
     expect(page1Html).toContain('guide-ribbon-bar');
     expect(page1Html).toContain('guide-page-medallion');
-    expect(page1Html).toContain('PAGE 1 OF 7');
+    expect(page1Html).toContain('PAGE 1 OF 11');
     expect(page1Html).toContain('guide-book-page is-active" data-page="1"');
     expect(page1Html).toContain('data-action="guide-jump-page" data-page="1"');
     expect(page1Html).toContain('data-action="guide-jump-page" data-page="5"');
     expect(page1Html).toContain('data-action="guide-jump-page" data-page="6"');
-    expect(page1Html).toContain('data-action="guide-jump-page" data-page="7');
+    expect(page1Html).toContain('data-action="guide-jump-page" data-page="7"');
+    expect(page1Html).toContain('data-action="guide-jump-page" data-page="8"');
+    expect(page1Html).toContain('data-action="guide-jump-page" data-page="9"');
+    expect(page1Html).toContain('data-action="guide-jump-page" data-page="10"');
+    expect(page1Html).toContain('data-action="guide-jump-page" data-page="11"');
+    expect(page1Html).toContain('/cards/paths/enemy_camp.jpg');
     expect(page1Html).toContain('SCENARIO 1: THE GOBLIN KING');
     expect(page1Html).toContain('SCENARIO 2: CULT OF TROLLS');
     expect(page1Html).toContain('Adventure Deck (30 Cards)');
     expect(page1Html).toContain('Monster Deck (45 Cards in Deck');
     expect(page1Html).toContain('Monster Deck (37 Cards in Deck');
-    expect(page1Html).toContain('Treasure Deck (42 Cards)');
+    expect(page1Html).toContain('Treasure Deck (48 Cards)');
     expect(page1Html).toContain('Turn to Ch. II: Battle &rarr;');
 
     const page2Html = renderWelcome(true, 2);
-    expect(page2Html).toContain('PAGE 2 OF 7');
+    expect(page2Html).toContain('PAGE 2 OF 11');
     expect(page2Html).toContain('MACG-3D6');
     expect(page2Html).toContain('qte-bar-container');
     expect(page2Html).toContain('/icons/qte-token.png');
     expect(page2Html).toContain('adnd-prob-table');
     expect(page2Html).not.toContain('Combat Note');
-    expect(page2Html).toContain('MACG-3D6™ SUCCESS ROLL RANGE TABLE REFERENCE');
-    expect(page2Html).toContain('<b>Tier 1</b> <small>(&le; -3 Net ACC · Sure Hit Rolls)</small>');
-    expect(page2Html).toContain('<b>Tier 2</b>');
-    expect(page2Html).toContain('<b>Tier 3</b>');
-    expect(page2Html).toContain('<b>Tier 4</b>');
-    expect(page2Html).toContain('<b>Tier 5</b>');
-    expect(page2Html).toContain('<b>Tier 6</b>');
-    expect(page2Html).toContain('<b>Tier 7</b>');
-    expect(page2Html).toContain('<b>Diabolic Rolls</b> 😈 <small>(Always Miss)</small>');
-    expect(page2Html).toContain('<b>0.9%</b>');
-    expect(page2Html).toContain('10 &ndash; 11');
-    expect(page2Html).toContain('4 &ndash; 17');
+    expect(page1Html).toContain('MACG-3D6™ SUCCESS ROLL RANGE TABLE REFERENCE');
+    expect(page1Html).toContain('<b>Tier 1</b> <small>(&le; -3 Net · Sure Hit Rolls)</small>');
+    expect(page1Html).toContain('<b>Tier 2</b>');
+    expect(page1Html).toContain('<b>Tier 3</b>');
+    expect(page1Html).toContain('<b>Tier 4</b>');
+    expect(page1Html).toContain('<b>Tier 5</b>');
+    expect(page1Html).toContain('<b>Tier 6</b>');
+    expect(page1Html).toContain('<b>Tier 7</b>');
+    expect(page1Html).toContain('<b>Diabolic Rolls</b> 😈 <small>(Always Miss)</small>');
+    expect(page1Html).toContain('<b>0.9%</b>');
+    expect(page1Html).toContain('10 &ndash; 11');
+    expect(page1Html).toContain('4 &ndash; 17');
 
     const page3Html = renderWelcome(true, 3);
-    expect(page3Html).toContain('PAGE 3 OF 7');
+    expect(page3Html).toContain('PAGE 3 OF 11');
     expect(page3Html).toContain('guide-book-page is-active" data-page="3"');
 
     const page5Html = renderWelcome(true, 5);
-    expect(page5Html).toContain('PAGE 5 OF 7');
+    expect(page5Html).toContain('PAGE 5 OF 11');
     expect(page5Html).toContain('guide-book-page is-active" data-page="5"');
     expect(page5Html).toContain('data-action="guide-jump-page" data-page="6"');
 
     // Page 6: Monstrous Compendium / Bestiary
     const page6Html = renderWelcome(true, 6);
-    expect(page6Html).toContain('PAGE 6 OF 7');
+    expect(page6Html).toContain('PAGE 6 OF 11');
     expect(page6Html).toContain('guide-book-page is-active" data-page="6"');
     expect(page6Html).toContain('CHAPTER VI: THE MONSTROUS COMPENDIUM');
     expect(page6Html).toContain('Grasslands Dwellers');
@@ -174,9 +181,40 @@ describe('Render Play Area and Shop Layout', () => {
     expect(inspectedGuideHtml).toContain('Goblin (Monster Card Reference)');
     expect(inspectedGuideHtml).toContain('Back to Game');
 
+    // Page 8: Realm Terrains (Adventure Cards)
+    const page8Html = renderWelcome(true, 8);
+    expect(page8Html).toContain('PAGE 8 OF 11');
+    expect(page8Html).toContain('CHAPTER VIII: REALM TERRAINS');
+    expect(page8Html).toContain('data-action="inspect-adventure"');
+    expect(page8Html).toContain('data-adventure-card-number="advgrs-01"');
+
+    // Page 9: Combat Arts & Spells (Action Cards)
+    const page9Html = renderWelcome(true, 9);
+    expect(page9Html).toContain('PAGE 9 OF 11');
+    expect(page9Html).toContain('CHAPTER IX: COMBAT ARTS &amp; SPELLS');
+    expect(page9Html).toContain('data-action="inspect-action"');
+    expect(page9Html).toContain('data-card-id="melee_atk"');
+    expect(page9Html).toContain('data-card-id="action_flee"');
+
+    // Page 10: Keyword Glossary (MTG-style vocabulary)
+    const page10Html = renderWelcome(true, 10);
+    expect(page10Html).toContain('PAGE 10 OF 11');
+    expect(page10Html).toContain('CHAPTER X: KEYWORD GLOSSARY');
+    expect(page10Html).toContain('Regenerate (X)');
+    expect(page10Html).toContain('ATK (X)');
+    expect(page10Html).toContain('MATK (X)');
+
+    // Page 11: Realm Paths
+    const page11Html = renderWelcome(true, 11);
+    expect(page11Html).toContain('PAGE 11 OF 11');
+    expect(page11Html).toContain('REALM PATHS');
+    expect(page11Html).toContain('Enemy Camp');
+    expect(page11Html).toContain('/cards/paths/enemy_camp.jpg');
+    expect(page11Html).toContain('5 copies in game');
+
     // Page 7: Equipment Compendium / The Grand Armory
     const page7Html = renderWelcome(true, 7);
-    expect(page7Html).toContain('PAGE 7 OF 7');
+    expect(page7Html).toContain('PAGE 7 OF 11');
     expect(page7Html).toContain('guide-book-page is-active" data-page="7"');
     expect(page7Html).toContain('CHAPTER VII: THE GRAND ARMORY');
     expect(page7Html).toContain('Weapons &amp; Armaments');
@@ -190,7 +228,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(page7Html).toContain('data-item-id="lvl2_beast_ring"');
     expect(page7Html).toContain('data-item-id="lvl1_health_potion"');
     expect(page7Html).toContain('data-action="guide-jump-page" data-page="6"');
-    expect(page7Html).toContain('&larr; Back to Ch. VI: Bestiary');
+    expect(page7Html).toContain('Turn to Ch. VIII: Terrain &rarr;');
 
     // Inspecting an item card from the guide opens the item card-inspect-modal
     const inspectedItemHtml = renderWelcome(true, 7, {
@@ -378,14 +416,15 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('tcg-art-rewards');
     expect(html).toContain('tcg-art-reward-badge sp');
     expect(html).toContain('tcg-art-reward-badge gold');
-    expect(html).toContain('+1');
     expect(html).toContain('+2');
+    expect(html).toContain('+5');
 
     // Physical Card Face: pattern table, abilities, and creature stats row (DEF, EVA)
     expect(html).toContain('tcg-textbox');
     expect(html).toContain('tcg-pattern-table');
-    expect(html).toContain('Slash');
-    expect(html).toContain('Cautious Poke');
+    expect(html).toContain('T1:');
+    expect(html).toContain('T2:');
+    expect(html).not.toContain('Cautious Poke');
     expect(html).toContain('creature-stat-footer');
     expect(html).not.toContain('creature-stats-row');
     expect(html).not.toContain('data-creature-stat="def"');
@@ -402,7 +441,9 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('tcg-card-num');
     expect(html).toContain('mon1grs-01');
     expect(html).toContain('creature-footer-hp');
-    expect(html).toContain('HP <b>6</b>');
+    expect(html).toContain('icons/vit.png');
+    expect(html).toContain('<b>6</b>');
+    expect(html).toContain('Health Points (HP)');
 
     // Action cards in hand (Official 5:7 ratio, raster art & template)
     expect(html).toContain('tcg-card tcg-action is-attack tcg-template-attack');
@@ -462,10 +503,12 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('aria-label="DEF: 1"');
     expect(html).toContain('aria-label="EVA: 1"');
     expect(html).not.toContain('data-creature-stat="mdef"');
-    expect(html).toContain('+1');
     expect(html).toContain('+2');
+    expect(html).toContain('+5');
     // Live HP in the lower-right PT badge
-    expect(html).toContain('HP <b>6</b>');
+    expect(html).toContain('creature-footer-hp');
+    expect(html).toContain('icons/vit.png');
+    expect(html).toContain('<b>6</b>');
     // Raster art for Pincer
     expect(html).toContain('/cards/creatures/fighting_beetle.jpg');
   });
@@ -519,9 +562,9 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).not.toContain('creature-stats-row');
     expect(html).not.toContain('data-creature-stat="def"');
     expect(html).toContain('aria-label="EVA: 1"');
-    // Floating rewards: +1 and +2
-    expect(html).toContain('+1');
+    // Floating rewards: +2 SP and +5 Gold
     expect(html).toContain('+2');
+    expect(html).toContain('+5');
   });
 
   it('renders Card Info Modal with card-specific detail, flavor text, and live stat computation', () => {
@@ -555,7 +598,12 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('data-action="close-inspect-backdrop"');
     expect(html).not.toContain('event.stopPropagation()');
 
-    const finalSmash = state.newSkillsDeck.find((card) => card.id === 'final_smash')!;
+    const allSkillCards = [
+      ...state.newSkillsDeck,
+      ...state.newSkillsDiscard,
+      ...(state.activeHook.type === 'VILLAGE' ? state.activeHook.village.trainOptions : []),
+    ];
+    const finalSmash = allSkillCards.find((card) => card.id === 'final_smash')!;
     const finalSmashHtml = renderPlayArea(state, { ...ui, inspectedCard: { kind: 'action', card: finalSmash } });
     expect(finalSmashHtml).toContain('6 Base DMG + 2 × ATK');
     expect(finalSmashHtml).not.toContain('ATK / 1');
@@ -576,15 +624,17 @@ describe('Render Play Area and Shop Layout', () => {
     expect(monsterHtml).toContain('+2 Stat Points');
     expect(monsterHtml).toContain('+5 Gold');
     expect(monsterHtml).toContain('Cycling AI Attack Pattern');
-    expect(monsterHtml).toContain('Savage Bite');
-    expect(monsterHtml).toContain('Lunging Bite');
+    expect(monsterHtml).toContain('T1:');
+    expect(monsterHtml).toContain('T2:');
+    expect(monsterHtml).not.toContain('Savage Bite');
+    expect(monsterHtml).not.toContain('Lunging Bite');
     expect(monsterHtml).toContain('3d6 QTE Combat Rules');
     expect(monsterHtml).toContain('Swift hunter of the plains grass');
     expect(monsterHtml).toContain('mon1grs-04');
   });
 
   it('renders adventure board cards as raster art MTG full-art land cards', () => {
-    const state = startAdventure('fighter', 'test-seed');
+    const state = finishVillage(startAdventure('fighter', 'test-seed'));
     const ui: UiState = {
       selectedClass: 'fighter',
       showDeck: false,
@@ -704,7 +754,7 @@ describe('Render Play Area and Shop Layout', () => {
   });
 
   it('renders adventure board cards with centered headers, upper-right level badges, and class tokens', () => {
-    const fighterState = startAdventure('fighter', 'board-test-seed');
+    const fighterState = finishVillage(startAdventure('fighter', 'board-test-seed'));
     const ui: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0 };
     const fighterHtml = renderPlayArea(fighterState, ui);
 
@@ -712,10 +762,9 @@ describe('Render Play Area and Shop Layout', () => {
     expect(fighterHtml).toContain('board-world');
     expect(fighterHtml).toContain('adv-card tcg-card tcg-adventure');
 
-    // Start tile at Row 0 (dx:0, dy:-1)
+    // Starting Village tile at Row 0 (dx:0, dy:-1)
     expect(fighterHtml).toContain('style="--dx:0;--dy:-1"');
-    expect(fighterHtml).toContain('Start Tile');
-    expect(fighterHtml).toContain('tcg-template-start');
+    expect(fighterHtml).toContain('Grassland Village');
 
     // Fighter hero token instead of a generic yellow dot
     expect(fighterHtml).toContain('player-token fighter');
@@ -732,7 +781,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(fighterHtml).toContain('adv-card-level-badge');
 
     // Wizard player token test
-    const wizardState = startAdventure('wizard', 'board-test-seed');
+    const wizardState = finishVillage(startAdventure('wizard', 'board-test-seed'));
     const wizardHtml = renderPlayArea(wizardState, ui);
     expect(wizardHtml).toContain('player-token wizard');
     expect(wizardHtml).toContain('wizard-base');
@@ -884,7 +933,7 @@ describe('Render Play Area and Shop Layout', () => {
   });
 
   it('embeds boardKey and cardId on all board cards including current tile and lookahead 3-tile row', () => {
-    const state = startAdventure('fighter', 'inspect-test-seed');
+    const state = finishVillage(startAdventure('fighter', 'inspect-test-seed'));
     const ui: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0 };
     const html = renderPlayArea(state, ui);
 
@@ -1242,9 +1291,9 @@ describe('Render Play Area and Shop Layout', () => {
     expect(nextBtn.attrs.title).toContain('Fighter');
   });
 
-  it('renders Welcome Preparation Dialog on game start with 4 SP and stat upgrade widget', () => {
+  it('renders starting Village view directly on game start with Visit Village Shrine option', () => {
     const state = startAdventure('fighter', 'test-welcome');
-    expect(state.welcomePreparing).toBe(true);
+    expect(state.welcomePreparing).toBe(false);
     expect(state.playerResources?.statPoints).toBe(10);
 
     const ui: UiState = {
@@ -1255,16 +1304,10 @@ describe('Render Play Area and Shop Layout', () => {
     };
 
     const html = renderPlayArea(state, ui);
-    expect(html).toContain('welcome-prepare-modal');
-    expect(html).toContain('Greetings, Fighter!');
-    expect(html).toContain('Prepare for Your Journey');
-    expect(html).toContain('Convert Stat Points into Base Stats');
-    expect(html).toContain('10 SP');
-    expect(html).toContain('cost 10 SP');
-    expect(html).toContain('Upgrade (10 SP)');
-    expect(html).toContain('data-action="welcome-upgrade"');
-    expect(html).toContain('data-action="dismiss-welcome-dialog"');
-    expect(html).toContain('Begin Journey');
+    expect(html).not.toContain('welcome-prepare-modal');
+    expect(html).toContain('Grassland Village');
+    expect(html).toContain('data-action="village-visit-shrine"');
+    expect(html).toContain('Visit Village Shrine');
     expect(html).toContain('DISC');
     expect(html).toContain('-5%'); // 1 CHA = -5%
     expect(html).toContain('ATK');
@@ -1277,14 +1320,14 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('/icons/def.png');
   });
 
-  it('renders stat inspection in the shared top inspection layer during preparation', () => {
+  it('renders stat inspection in the shared top inspection layer during starting village', () => {
     const state = startAdventure('fighter', 'prepare-stat-inspection');
     const html = renderPlayArea(state, {
       selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0, inspectedStat: 'str',
     });
-    expect(html).toContain('welcome-prepare-backdrop');
+    expect(html).toContain('village-view');
     expect(html).toContain('inspection-backdrop stat-inspect-backdrop');
-    expect(html.indexOf('welcome-prepare-backdrop')).toBeLessThan(html.indexOf('inspection-backdrop stat-inspect-backdrop'));
+    expect(html.indexOf('village-view')).toBeLessThan(html.indexOf('inspection-backdrop stat-inspect-backdrop'));
   });
 
   it('renders game logo in the header and places Gold and SP in the Character sidebar above health bar', () => {
@@ -1365,7 +1408,7 @@ describe('Render Play Area and Shop Layout', () => {
     const html = renderPlayArea(state, ui);
     expect(html).toContain('data-action="village-rest" disabled');
     expect(html).toContain('Already at full HP.');
-    expect(html).toContain('Each tick restores up to 2 HP and costs 1 Gold');
+    expect(html).toContain('Each 1 HP costs 2 Gold (1 + Terrain Lvl 1)');
   });
 
   it('village rest remains disabled at full health even with negative ailments', () => {
@@ -1668,7 +1711,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(htmlForestInspect).toContain('Lvl 3');
     expect(htmlForestInspect).toContain('ADV · #009');
     expect(htmlForestInspect).toContain('Encounter Zone (Level 3):');
-    expect(htmlForestInspect).toContain('total creature level &ge; 3');
+    expect(htmlForestInspect).toContain('total creature level &ge; 4');
 
     // Inspect view for ADV #011 (Level 3 Swamp Encounter)
     const swampLvl3Encounter: AdventureCard = {
@@ -2248,11 +2291,13 @@ describe('Render Play Area and Shop Layout', () => {
     const inspectHtml = cardInspectModal({ kind: 'monster', monster: zombieCard, currentHp: 7 }, state);
     expect(inspectHtml).toContain('aria-label="DEF: 1"');
     expect(inspectHtml).not.toContain('data-creature-stat="eva"');
-    expect(inspectHtml).toContain('Regenerate');
-    expect(inspectHtml).toContain('+<b>3</b> HP');
+    expect(inspectHtml).toContain('Regen (2)');
+    expect(inspectHtml).toContain('LSTEAL (<b>6</b>)');
     expect(inspectHtml).toContain('aria-label="MDEF: 1"');
-    expect(inspectHtml).toContain('Rotting Claw');
-    expect(inspectHtml).toContain('<b>5</b> DMG');
+    expect(inspectHtml).toContain('aria-label="ACC: 2"');
+    expect(inspectHtml).toContain('T1:');
+    expect(inspectHtml).not.toContain('Rotting Claw');
+    expect(inspectHtml).toContain('<b>6</b> DMG');
 
     // In-combat view with Zombie as target
     const combatUi: UiState = {
@@ -2287,8 +2332,9 @@ describe('Render Play Area and Shop Layout', () => {
       },
     };
     const combatHtml = renderPlayArea(combatState, combatUi);
-    expect(combatHtml).toContain('Regenerate');
-    expect(combatHtml).toContain('+<b>3</b> HP');
+    expect(combatHtml).toContain('Regen (2)');
+    expect(combatHtml).toContain('LSTEAL (<b>6</b>)');
+    expect(combatHtml).toContain('<b>6</b> DMG');
     expect(combatHtml).toContain('aria-label="MDEF: 1"');
     expect(combatHtml).toContain('aria-label="DEF: 1"');
     expect(combatHtml).not.toContain('data-creature-stat="eva"');
@@ -2616,6 +2662,37 @@ describe('Render Play Area and Shop Layout', () => {
       const guideHtml = renderGuideModal(false, 6);
       expect(guideHtml).toContain('Dark Orc');
       expect(guideHtml).toContain('Orc Shaman');
+    });
+
+    it('renders undiscovered terrain inspect modal with Paths Deck & sidequest rules instead of safe territory', () => {
+      const state = startAdventure('fighter', 'undiscovered-inspect-seed');
+      const html = renderPlayArea(state, {
+        selectedClass: 'fighter',
+        showDeck: false,
+        villageTab: 'buy',
+        targetIndex: 0,
+        inspectedCard: {
+          kind: 'adventure',
+          card: {
+            id: 'advsmp-00-test',
+            cardNumber: 'advsmp-00',
+            name: 'Undiscovered Swamp',
+            terrain: 'swamp',
+            level: 3,
+            hasHostile: false,
+            hasVillage: false,
+            hasShrine: false,
+            isUndiscovered: true,
+            revealed: true,
+          },
+        },
+      });
+
+      expect(html).toContain('Undiscovered Terrain (Level 3)');
+      expect(html).toContain('Paths Deck');
+      expect(html).toContain('sidequest');
+      expect(html).not.toContain('Safe Open Land');
+      expect(html).not.toContain('Safe territory');
     });
   });
 });

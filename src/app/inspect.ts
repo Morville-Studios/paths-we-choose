@@ -2,6 +2,7 @@ import { toGridKey } from '../core/grid';
 import type { InspectedCardInfo, MonsterTemplateId, RunState } from '../core/types';
 import { createCombatCardInstance, createFleeCard, FLEE_CARD_ID } from '../data/combatCards';
 import { MONSTER_TEMPLATES } from '../data/monsters';
+import { PATH_CARD_CATALOG } from '../data/paths';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
 import { ADVENTURE_CARD_CATALOG } from '../data/stages';
 import { getAdventureCardName } from '../ui/render';
@@ -178,6 +179,12 @@ export function findInspectedCard(state: RunState, cardEl: HTMLElement): Inspect
       );
       if (inStock) return { kind: 'item', item: inStock };
     }
+    if (state.activeHook.type === 'PATH_CHALLENGE' && state.activeHook.pathChallenge.merchantStock) {
+      const inMerchant = state.activeHook.pathChallenge.merchantStock.find(
+        (i) => (itemInstance && i.instanceId === itemInstance) || i.id === itemId
+      );
+      if (inMerchant) return { kind: 'item', item: inMerchant };
+    }
     if (itemInstance) {
       const inDeck = state.treasureDeck.find((i) => i.instanceId === itemInstance);
       if (inDeck) return { kind: 'item', item: inDeck };
@@ -198,6 +205,25 @@ export function findInspectedCard(state: RunState, cardEl: HTMLElement): Inspect
         return { kind: 'item', item: { ...cat, instanceId: itemInstance || `inspect_${cat.id}` } };
       }
     }
+  }
+
+  if (inspectKind === 'path') {
+    const pathId = cardEl.dataset.pathId ?? cardId;
+    if (pathId) {
+      const cat = PATH_CARD_CATALOG.find((c) => c.templateId === pathId);
+      const fromActive =
+        state.activeHook.type === 'PATH_CHALLENGE' && state.activeHook.pathChallenge.pathCard.templateId === pathId
+          ? state.activeHook.pathChallenge.pathCard
+          : null;
+      const fromDeck = [...(state.pathsDeck ?? []), ...(state.pathsDiscard ?? [])].find(
+        (c) => c.templateId === pathId
+      );
+      const card = fromActive ?? fromDeck ?? (cat ? { ...cat, id: `inspect_${cat.templateId}` } : null);
+      if (card) {
+        return { kind: 'path', card, copies: cat?.copies ?? 5 };
+      }
+    }
+    return null;
   }
 
   return null;

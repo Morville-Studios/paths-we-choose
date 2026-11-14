@@ -1,5 +1,6 @@
 import './ui/styles.css';
 import { audioManager } from './audio/audioManager';
+import { GUIDE_PAGE_COUNT } from './ui/screens/guide';
 import { ACTION_HANDLERS } from './app/actions';
 import { createCombatAnimator } from './app/combatAnimator';
 import { findInspectedCard } from './app/inspect';
@@ -63,6 +64,8 @@ function render(): void {
   if (languageSelect) languageSelect.value = getGameLocale();
   const s = store.get();
 
+  const prevGuidePage = root.querySelector('.guide-book-tome')?.getAttribute('data-guide-page') ?? null;
+  const prevGuideScrollTop = root.querySelector<HTMLElement>('.guide-parchment-spread')?.scrollTop ?? null;
   const scroll = new Map<string, number>();
   root.querySelectorAll<HTMLElement>('.modal, .sheet').forEach((el, i) => scroll.set(String(i), el.scrollTop));
 
@@ -97,6 +100,15 @@ function render(): void {
   root.querySelectorAll<HTMLElement>('.modal, .sheet').forEach((el, i) => {
     el.scrollTop = scroll.get(String(i)) ?? 0;
   });
+
+  if (prevGuidePage && prevGuidePage === String(ui.guidePage ?? 1)) {
+    const activePage = root.querySelector<HTMLElement>('.guide-book-page.is-active');
+    if (activePage) activePage.style.animation = 'none';
+    const spread = root.querySelector<HTMLElement>('.guide-parchment-spread');
+    if (spread && prevGuideScrollTop !== null) {
+      spread.scrollTop = prevGuideScrollTop;
+    }
+  }
 }
 
 const combatAnimator = createCombatAnimator({ root, store, ui, render });
@@ -406,13 +418,13 @@ window.addEventListener('keydown', (ev) => {
     }
     if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D' || ev.key === 'PageDown') {
       ev.preventDefault();
-      ui.guidePage = Math.min(7, (ui.guidePage ?? 1) + 1);
+      ui.guidePage = Math.min(GUIDE_PAGE_COUNT, (ui.guidePage ?? 1) + 1);
       render();
       return;
     }
-    if (['1', '2', '3', '4', '5', '6', '7'].includes(ev.key)) {
+    if (['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].includes(ev.key)) {
       ev.preventDefault();
-      ui.guidePage = parseInt(ev.key, 10);
+      ui.guidePage = ev.key === '0' ? Math.min(10, GUIDE_PAGE_COUNT) : parseInt(ev.key, 10);
       render();
       return;
     }
@@ -525,6 +537,48 @@ root.addEventListener('click', (ev) => {
   if (handler) {
     handler(actionContext, { id, stat, col, row, pile }, target, ev);
   }
+});
+
+// Floating MTG-style keyword glossary tooltip (never clipped by card overflow)
+const kwTooltipEl = document.createElement('div');
+kwTooltipEl.className = 'kw-floating-tooltip';
+kwTooltipEl.setAttribute('role', 'tooltip');
+document.body.appendChild(kwTooltipEl);
+
+function showKwTooltip(anchor: HTMLElement): void {
+  const text = anchor.dataset.kwTooltip;
+  if (!text) return;
+  kwTooltipEl.textContent = text;
+  kwTooltipEl.classList.add('is-visible');
+  const rect = anchor.getBoundingClientRect();
+  const tipRect = kwTooltipEl.getBoundingClientRect();
+  const left = Math.max(8, Math.min(window.innerWidth - tipRect.width - 8, rect.left + rect.width / 2 - tipRect.width / 2));
+  const top = rect.top - tipRect.height - 8 >= 8 ? rect.top - tipRect.height - 8 : Math.min(window.innerHeight - tipRect.height - 8, rect.bottom + 8);
+  kwTooltipEl.style.left = `${Math.round(left)}px`;
+  kwTooltipEl.style.top = `${Math.round(top)}px`;
+}
+
+function hideKwTooltip(): void {
+  kwTooltipEl.classList.remove('is-visible');
+}
+
+document.addEventListener('mouseover', (ev) => {
+  const token = (ev.target as HTMLElement | null)?.closest<HTMLElement>('[data-kw-tooltip]');
+  if (token) showKwTooltip(token);
+});
+document.addEventListener('mouseout', (ev) => {
+  const token = (ev.target as HTMLElement | null)?.closest<HTMLElement>('[data-kw-tooltip]');
+  if (token && (!ev.relatedTarget || !token.contains(ev.relatedTarget as Node))) {
+    hideKwTooltip();
+  }
+});
+document.addEventListener('focusin', (ev) => {
+  const token = (ev.target as HTMLElement | null)?.closest<HTMLElement>('[data-kw-tooltip]');
+  if (token) showKwTooltip(token);
+});
+document.addEventListener('focusout', (ev) => {
+  const token = (ev.target as HTMLElement | null)?.closest<HTMLElement>('[data-kw-tooltip]');
+  if (token) hideKwTooltip();
 });
 
 audioManager.sync(store.get());

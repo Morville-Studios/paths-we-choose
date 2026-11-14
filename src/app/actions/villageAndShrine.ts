@@ -11,6 +11,7 @@ import {
   villageChooseTrain,
   villageDoRest,
   villageDoTrainDraft,
+  villageVisitShrine,
   villageDoTrainRemove,
   villageGoBack,
 } from '../../core/engine';
@@ -52,7 +53,14 @@ export const villageAndShrineActions: Record<string, ActionHandler> = {
     store.update((s) => shrineDoChoosePrayer(s, id as ShrinePrayerOptionId));
   },
 
-  'request-leave-shrine': ({ ui, render }) => {
+  'request-leave-shrine': ({ store, ui, render }) => {
+    const cur = store.get();
+    if (cur.activeHook.type === 'SHRINE' && cur.activeHook.shrine.returnToVillage) {
+      ui.selectedShrineStat = null;
+      ui.pendingShrineAction = null;
+      store.update(leaveShrine);
+      return;
+    }
     ui.pendingShrineAction = { kind: 'leave' };
     render();
   },
@@ -101,9 +109,14 @@ export const villageAndShrineActions: Record<string, ActionHandler> = {
     store.update(villageChooseTrain);
   },
 
+  'village-visit-shrine': ({ store }) => {
+    store.update(villageVisitShrine);
+  },
+
   'village-leave': ({ store, ui }) => {
     ui.villageRestTicks = undefined;
     ui.pendingTrainingAction = null;
+    ui.pendingSellItemId = null;
     store.update(finishVillage);
   },
 
@@ -111,8 +124,34 @@ export const villageAndShrineActions: Record<string, ActionHandler> = {
     store.update((s) => buyItem(s, id as string));
   },
 
-  sell: ({ store }, { id }) => {
-    store.update((s) => sellItem(s, id as string));
+  sell: ({ store, ui, render }, { id }) => {
+    const curState = store.get();
+    const item = curState.backpack.find((i) => i.instanceId === id);
+    if (!item) return;
+    ui.pendingSellItemId = id as string;
+    render();
+  },
+
+  'confirm-sell-item': ({ store, ui, render }) => {
+    const targetId = ui.pendingSellItemId;
+    ui.pendingSellItemId = null;
+    if (targetId) {
+      store.update((s) => sellItem(s, targetId));
+    } else {
+      render();
+    }
+  },
+
+  'cancel-sell-item': ({ ui, render }) => {
+    ui.pendingSellItemId = null;
+    render();
+  },
+
+  'cancel-sell-item-backdrop': ({ ui, render }, _payload, target, ev) => {
+    if (ev.target === target) {
+      ui.pendingSellItemId = null;
+      render();
+    }
   },
 
   tab: ({ ui, render }, { id }) => {

@@ -74,22 +74,22 @@ const reliableAttack: CombatCardDef = {
 describe('cave monster catalog and combat mechanics', () => {
   it('stores all requested balance changes in the canonical monster catalog', () => {
     expect(MONSTER_TEMPLATES.fighting_beetle.pattern[0]).toMatchObject({
-      label: 'Shell Guard', damage: 3, block: 0, defBonus: 1, bonusDuration: 1,
+      label: 'Shell Guard', damage: 0, block: 0, defBonus: 1, defDuration: 2,
     });
     expect(MONSTER_TEMPLATES.rattler).toMatchObject({ maxHp: 10, def: 1 });
     expect(MONSTER_TEMPLATES.pink_slime).toMatchObject({ mdef: 1 });
     expect(MONSTER_TEMPLATES.zombie).toMatchObject({ mdef: 1 });
-    expect(MONSTER_TEMPLATES.zombie.pattern[0]).toMatchObject({ label: 'Regenerate', heal: 3 });
+    expect(MONSTER_TEMPLATES.zombie.pattern[0]).toMatchObject({ label: 'Life Steal', damage: 6, drainFraction: 0.5, drainRound: 'ceil' });
     expect(MONSTER_TEMPLATES.ghoul).toMatchObject({ maxHp: 12, mdef: 2 });
     expect(MONSTER_TEMPLATES.bullwark).toMatchObject({ maxHp: 16 });
     expect(MONSTER_TEMPLATES.bullwark.pattern).toEqual([
-      { label: 'Chaotic Impulse', damage: 0, block: 0, randomBuff: { amount: 1, stats: ['atk', 'acc'], duration: 1 } },
+      { label: 'Heal', damage: 0, block: 0, heal: 4 },
       { label: 'Heavy Charge', damage: 7, block: 0 },
     ]);
     expect(MONSTER_TEMPLATES.assassin.maxHp).toBe(13);
     expect(MONSTER_TEMPLATES.witch.maxHp).toBe(14);
-    expect(MONSTER_TEMPLATES.leech).toMatchObject({ maxHp: 18 });
-    expect(MONSTER_TEMPLATES.leech.pattern[0]).toMatchObject({ label: 'Soul Drain', damage: 8, damageType: 'magical' });
+    expect(MONSTER_TEMPLATES.leech).toMatchObject({ maxHp: 18, regenOnStart: 2 });
+    expect(MONSTER_TEMPLATES.leech.pattern[1]).toMatchObject({ label: 'T2', damage: 7, damageType: 'magical', lifesteal: true });
   });
 
   it('registers Phalanx, Cultist Mage, and Lurker with art, stats, rewards, terrains, and public collector IDs', () => {
@@ -98,34 +98,39 @@ describe('cave monster catalog and combat mechanics', () => {
       cardNumber: 'mon4cav-01', level: 4, maxHp: 20, def: 3, mdef: 2, eva: 5, acc: 4,
       statPointReward: 5, goldReward: 20, spawnTerrains: ['cave'], creatureType: 'Arachnid',
     });
+    expect(phalanx.skittishEvaOnHit).toBe(2);
     expect(phalanx.pattern[0]).toMatchObject({
-      label: 'Blinding Web', damage: 6,
-      heroStatDebuff: { stats: { acc: 1, eva: 2 }, duration: 1 }, heroStatDebuffOnHit: true,
+      label: 'T1', damage: 0,
+      heroStatDebuff: { stats: { acc: 2, eva: 3 }, duration: 1 },
     });
-    expect(phalanx.pattern[1]).toMatchObject({ label: 'Double Smash', damage: 8, hitCount: 2 });
+    expect(phalanx.pattern[1]).toMatchObject({ label: 'T2', damage: 7, offhandDamage: 6 });
 
     const cultist = card('cultist_mage');
     expect(cultist).toMatchObject({
       cardNumber: 'mon4cav-02', level: 4, maxHp: 18, def: 2, mdef: 3, acc: 5, eva: 4,
       statPointReward: 5, goldReward: 20, spawnTerrains: ['cave', 'underground', 'underworld'],
+      channel: { amount: 1, duration: 3 },
     });
-    expect(cultist.pattern).toEqual([{ label: 'Soul Burn', damage: 8, damageType: 'magical', block: 0 }]);
+    expect(cultist.pattern).toEqual([{ label: 'T1', damage: 8, damageType: 'magical', block: 0 }]);
 
     const lurker = card('lurker');
     expect(lurker).toMatchObject({
       cardNumber: 'mon4cav-03', level: 5, maxHp: 25, def: 4, mdef: 3, acc: 4, eva: 4,
       statPointReward: 6, goldReward: 25, spawnTerrains: ['cave', 'underground'],
-      creatureType: 'Wurm', retaliationDamageOnHeroAttack: 1,
+      creatureType: 'Wurm', retaliationDamageOnHeroAttack: 1, hardenDefOnHit: 1,
     });
     expect(lurker.pattern).toEqual([
-      { label: 'Drill', damage: 10, block: 0 },
-      { label: 'Shed', damage: 0, heal: 12, block: 0, defBonus: -2, bonusDuration: 1 },
+      { label: 'T1', damage: 10, block: 0 },
+      { label: 'T2', damage: 0, heal: 12, block: 0, defBonus: -2, bonusDuration: 1 },
     ]);
 
     expect(getMonsterRasterArtPath('phalanx')).toBe('/cards/creatures/phalanx.png');
     expect(getMonsterRasterArtPath('cultist_mage')).toBe('/cards/creatures/cultist_mage.png');
     expect(getMonsterRasterArtPath('lurker')).toBe('/cards/creatures/lurker.png');
-    expect(cardInspectModal({ kind: 'monster', monster: phalanx }, setup(phalanx))).toContain('DMG ×2');
+    const phalanxHtml = cardInspectModal({ kind: 'monster', monster: phalanx }, setup(phalanx)).replace(/<\/?b>/g, '');
+    expect(phalanxHtml).toContain('Skittish (2)');
+    expect(phalanxHtml).toContain('ATK (7)');
+    expect(phalanxHtml).toContain('ATK (6)');
     expect(cardInspectModal({ kind: 'monster', monster: cultist }, setup(cultist))).toContain('Underworld 🔥');
 
     // Their Cave main terrain is outside Scenario 1's Grassland–Swamp setup band.
@@ -134,33 +139,59 @@ describe('cave monster catalog and combat mechanics', () => {
     }
   });
 
-  it('applies Phalanx Blinding Web penalties only when the web attack hits', () => {
+  it('applies Phalanx T1 Ensnare (3) and Blind (2) for 1 turn', () => {
     const phalanx = card('phalanx');
-    const hitState = setup(phalanx);
-    hitState.rngState = seedForMonsterRolls(4, 2, [true]);
-    const hit = endPlayerCombatTurn(hitState);
-    expect(hit.playerResources?.hp).toBe(95); // 6 base damage - 1 Hero DEF = 5 HP loss
-    expect(getHeroStatDebuffMods(battle(hit))).toEqual({ acc: -1, eva: -2, def: 0, mdef: 0 });
-    expect(battle(hit).heroStatDebuffs).toMatchObject([{ turnsRemaining: 1 }]);
-
-    const missState = setup(phalanx);
-    missState.rngState = seedForMonsterRolls(4, 2, [false]);
-    const miss = endPlayerCombatTurn(missState);
-    expect(miss.playerResources?.hp).toBe(100);
-    expect(getHeroStatDebuffMods(battle(miss))).toEqual({ acc: 0, eva: 0, def: 0, mdef: 0 });
+    const state = setup(phalanx);
+    const next = endPlayerCombatTurn(state);
+    expect(next.playerResources?.hp).toBe(100);
+    expect(getHeroStatDebuffMods(battle(next))).toEqual({ acc: -2, eva: -3, def: 0, mdef: 0 });
+    expect(battle(next).heroStatDebuffs).toMatchObject([{ turnsRemaining: 1 }]);
   });
 
-  it('resolves Phalanx Double Smash as two independent hit checks with mitigation on each hit', () => {
+  it('resolves Phalanx T2 ATK (7), ATK (6) as two independent hit checks with mitigation on each hit', () => {
     const phalanx = card('phalanx');
     const state = setup(phalanx);
     battle(state).monsters[0].patternIndex = 1;
     battle(state).playerBlock = 3;
     state.rngState = seedForMonsterRolls(4, 2, [true, true]);
     const next = endPlayerCombatTurn(state);
-    expect(next.playerResources?.hp).toBe(89); // 16 total damage - 2 Hero DEF (1 each hit) - 3 absorbed by Block = 11 HP loss.
+    // Hit 1: 7 - 1 DEF = 6 (3 absorbed by Block -> 3 HP dmg); Hit 2: 6 - 1 DEF = 5 HP dmg -> Total 8 HP loss (92 HP)
+    expect(next.playerResources?.hp).toBe(92);
     expect(battle(next).playerBlock).toBe(0);
     expect(battle(next).combatLog.join(' ')).toContain('resolving 2 separate attacks');
-    expect(battle(next).combatLog.filter(line => line.includes('Double Smash (8 DMG')).length).toBe(2);
+    expect(battle(next).combatLog.filter(line => line.includes('T2 (7 DMG') || line.includes('T2 (6 DMG')).length).toBe(2);
+  });
+
+  it('Cultist Mage Channel (1, 3) stacks +1 MATK per turn up to +3 after 3 turns', () => {
+    const cultist = card('cultist_mage');
+    let state = setup(cultist);
+    // Turn 1: base MATK 8 -> gains +1 Channel (3t)
+    state.rngState = seedForMonsterRolls(5, 2, [true]);
+    state = endPlayerCombatTurn(state);
+    expect(battle(state).lastAttackRoll?.damageDealt).toBe(8);
+    // Turn 2: MATK 9 -> gains +1 Channel (3t)
+    state.rngState = seedForMonsterRolls(5, 2, [true]);
+    state = endPlayerCombatTurn(state);
+    expect(battle(state).lastAttackRoll?.damageDealt).toBe(9);
+    // Turn 3: MATK 10 -> gains +1 Channel (3t)
+    state.rngState = seedForMonsterRolls(5, 2, [true]);
+    state = endPlayerCombatTurn(state);
+    expect(battle(state).lastAttackRoll?.damageDealt).toBe(10);
+    // Turn 4: MATK 11 (Turn 1 stack expires at end of Turn 4, new stack added -> still +3 max)
+    state.rngState = seedForMonsterRolls(5, 2, [true]);
+    state = endPlayerCombatTurn(state);
+    expect(battle(state).lastAttackRoll?.damageDealt).toBe(11);
+    expect(battle(state).monsters[0].channelStacks).toHaveLength(3);
+  });
+
+  it('Lurker Thorn (1) does NOT trigger on ranged spell or ranged weapon attacks', () => {
+    const lurker = card('lurker');
+    const rangedSpell: CombatCardDef = { ...reliableAttack, id: 'spell_ranged', damageScalingStat: 'int', attackRange: 'ranged' };
+    const state = setup(lurker);
+    battle(state).hand = [rangedSpell];
+    state.rngState = seedForHeroRoll(true);
+    const next = playCombatCardFromHand(state, rangedSpell.instanceId, 0, s => s);
+    expect(next.playerResources?.hp).toBe(100);
   });
 
   it('uses Hero MDEF for Cultist Mage Soul Burn', () => {

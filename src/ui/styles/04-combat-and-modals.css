@@ -145,7 +145,7 @@
 .tcg-card.tcg-creature .tcg-footer,
 .tcg-inspect-card.tcg-creature .tcg-footer {
   border-top: none !important;
-  background: rgba(9, 23, 13, 0.88);
+  background: rgba(9, 23, 13, 0.56);
   border-left: 1px solid rgba(74, 222, 128, 0.35);
   border-right: 1px solid rgba(74, 222, 128, 0.35);
   border-bottom: 1px solid rgba(74, 222, 128, 0.35);
@@ -160,7 +160,7 @@
 
 .tcg-card.tcg-creature.tcg-template-boss .tcg-footer,
 .tcg-inspect-card.tcg-template-boss .tcg-footer {
-  background: rgba(31, 14, 5, 0.88);
+  background: rgba(31, 14, 5, 0.56);
   border-left: 1px solid rgba(245, 158, 11, 0.4);
   border-right: 1px solid rgba(245, 158, 11, 0.4);
   border-bottom: 1px solid rgba(245, 158, 11, 0.4);
@@ -174,7 +174,7 @@
   border-left: 1px solid rgba(245, 158, 11, 0.35);
   border-right: 1px solid rgba(245, 158, 11, 0.35);
   border-bottom: 1px solid rgba(245, 158, 11, 0.35);
-  background: rgba(20, 10, 4, 0.88);
+  background: rgba(20, 10, 4, 0.56);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
 }
@@ -186,7 +186,7 @@
   border-left: 1px solid rgba(248, 113, 113, 0.35);
   border-right: 1px solid rgba(248, 113, 113, 0.35);
   border-bottom: 1px solid rgba(248, 113, 113, 0.35);
-  background: rgba(36, 10, 14, 0.88);
+  background: rgba(36, 10, 14, 0.56);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
 }
@@ -197,7 +197,7 @@
   border-left: 1px solid rgba(56, 189, 248, 0.35);
   border-right: 1px solid rgba(56, 189, 248, 0.35);
   border-bottom: 1px solid rgba(56, 189, 248, 0.35);
-  background: rgba(9, 28, 48, 0.88);
+  background: rgba(9, 28, 48, 0.56);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
 }
@@ -364,36 +364,30 @@
 }
 .tcg-pattern-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 2px 5px;
   padding: 2px 5px;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.2);
   border-radius: 4px;
   border-left: 2px solid rgba(74, 222, 128, 0.6);
   font-size: 0.66rem;
   line-height: 1.25;
 }
 .tcg-pattern-row .p-turn {
-  font-size: 0.60rem;
-  color: #94a3b8;
-  font-weight: 700;
+  font-size: 0.62rem;
+  color: #cbd5e1;
+  font-weight: 800;
   white-space: nowrap;
-}
-.tcg-pattern-row .p-label {
-  flex: 1 1 auto;
-  font-weight: 700;
-  color: #f8fafc;
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .tcg-pattern-row .p-val {
+  flex: 1 1 auto;
   font-size: 0.65rem;
   color: #fca5a5;
   font-weight: 700;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: left;
 }
 .tcg-pattern-row .p-val b {
   color: #ffffff;
@@ -401,6 +395,40 @@
 .tcg-pattern-row.is-idle {
   border-left-color: #64748b;
   opacity: 0.7;
+}
+
+/* Interactive MTG-style Keyword Vocabulary Tokens & Floating Tooltip */
+.kw-token {
+  border-bottom: 1px dotted rgba(250, 204, 21, 0.75);
+  cursor: help;
+  pointer-events: auto;
+  border-radius: 2px;
+  transition: color 0.12s ease, background-color 0.12s ease;
+}
+.kw-token:hover,
+.kw-token:focus-visible {
+  color: #fef08a;
+  background-color: rgba(250, 204, 21, 0.14);
+  outline: none;
+}
+.kw-floating-tooltip {
+  position: fixed;
+  z-index: 10000;
+  max-width: min(290px, calc(100vw - 24px));
+  padding: 8px 11px;
+  border-radius: 7px;
+  border: 1px solid #d4af37;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.98) 0%, rgba(10, 15, 26, 0.98) 100%);
+  color: #f8fafc;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(212, 175, 55, 0.2);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+.kw-floating-tooltip.is-visible {
+  opacity: 1;
 }
 
 /* Interactive Combat Status Dock Below Card: NEXT Intent & Live HP Bar */
@@ -430,12 +458,12 @@
 }
 
 .combat-monster-unit .tcg-card.tcg-template-grassland .tcg-textbox {
-  background: rgba(10, 24, 15, 0.95) !important;
+  background: rgba(9, 23, 13, 0.58) !important;
   border: 1px solid rgba(74, 222, 128, 0.45) !important;
 }
 
 .combat-monster-unit .tcg-card.tcg-template-boss .tcg-textbox {
-  background: rgba(28, 14, 5, 0.95) !important;
+  background: rgba(31, 14, 5, 0.58) !important;
   border: 1px solid rgba(245, 158, 11, 0.5) !important;
 }
 

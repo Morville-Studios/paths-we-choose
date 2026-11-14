@@ -1,7 +1,7 @@
 import { QteBarOptions } from '../types';
 
 /**
- * Renders the 3d6 Quick Time Event (QTE) Distance / Hit Check Bar.
+ * Renders the 3d6 MACG-3D6™ Success Check Bar.
  * - 16 discrete slots from 3 to 18 (each 6.25% wide).
  * - Median rolls 10 and 11 form the center Sure Hit Rolls (25% minimum success roll).
  * - Net ACC expands the emerald hit zone outward.

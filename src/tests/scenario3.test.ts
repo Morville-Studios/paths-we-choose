@@ -70,11 +70,13 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
     expect(orc.goldReward).toBe(25);
     expect(orc.statPointReward).toBe(6);
     expect(orc.pattern).toHaveLength(2);
-    expect(orc.pattern[0]).toMatchObject({ label: 'Slash', damage: 9 });
-    expect(orc.pattern[1]).toMatchObject({ label: 'Wild Swing', damage: 11, accBonus: -1 });
+    expect(orc.bloodlust).toBe(true);
+    expect(orc.regenOnStart).toBe(2);
+    expect(orc.pattern[0]).toMatchObject({ label: 'T1', damage: 9 });
+    expect(orc.pattern[1]).toMatchObject({ label: 'T2', damage: 11, accBonus: -1 });
   });
 
-  it('Orc Shaman has correct stats and dual-damage pattern', () => {
+  it('Orc Shaman has correct stats, Regen (2), Channel (1), and dual-damage T1 pattern', () => {
     const shaman = MONSTER_TEMPLATES.orc_shaman;
     expect(shaman.level).toBe(6);
     expect(shaman.maxHp).toBe(30);
@@ -84,9 +86,10 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
     expect(shaman.eva).toBe(5);
     expect(shaman.goldReward).toBe(30);
     expect(shaman.statPointReward).toBe(7);
-    expect(shaman.pattern).toHaveLength(2);
-    expect(shaman.pattern[0]).toMatchObject({ label: 'Duality Spark', damage: 6, magicDamage: 6 });
-    expect(shaman.pattern[1]).toMatchObject({ label: 'Wild Swing', damage: 11, accBonus: -1 });
+    expect(shaman.regenOnStart).toBe(2);
+    expect(shaman.channel).toEqual({ amount: 1 });
+    expect(shaman.pattern).toHaveLength(1);
+    expect(shaman.pattern[0]).toMatchObject({ label: 'T1', damage: 6, magicDamage: 6 });
   });
 
   it('King Nezenheim has boss stats and Unholy Aura passive', () => {
@@ -216,7 +219,7 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
     };
 
     const afterTurn = endPlayerCombatTurn(testState);
-    expect((afterTurn.gameLog ?? []).some(l => l.includes('Duality Spark') && l.includes('HIT!'))).toBe(true);
+    expect((afterTurn.gameLog ?? []).some(l => l.includes('6 Physical + 6 Magic DMG') && l.includes('HIT!'))).toBe(true);
   });
 
   it('startNextMission transitions to Scenario 3 and spawns King Nezenheim', () => {
@@ -229,7 +232,7 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
     expect(s3.scenarioLevel).toBe(3);
     expect(s3.turn).toBe(0);
     expect(s3.maxTurns).toBe(15);
-    expect(s3.adventureDeck.length).toBe(25); // 30 - 5 initial dealt = 25
+    expect(s3.adventureDeck.length).toBe(23); // 30 - 2 starting (village + shrine) - 5 initial dealt = 23
     expect(s3.monsterDeck.length).toBe(30);
 
     const boss = createMission3BossCard();

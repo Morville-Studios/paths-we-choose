@@ -9,6 +9,8 @@ import {
   finishVillage,
   sellItem,
   startAdventure,
+  startNextMission,
+  unequipItem,
   villageChooseShop,
   villageGoBack,
 } from '../core/engine';
@@ -23,31 +25,51 @@ import {
 } from '../ui/render';
 
 describe('Treasure Deck & Village Shop Draw Mechanics', () => {
-  it('buildStage1TreasureDeck creates exactly 42 cards (all 21 catalog items x 2 copies)', () => {
-    const { deck } = buildStage1TreasureDeck(12345);
-    expect(deck.length).toBe(42);
+  it('buildStage1TreasureDeck places Level 1-2 items (43 cards) in deck and Level 3+ items (5 cards) in void', () => {
+    const { deck, void: treasureVoid } = buildStage1TreasureDeck(12345);
+    expect(deck.length).toBe(43);
+    expect(treasureVoid.length).toBe(5);
+    expect(deck.every((c) => (c.level ?? 1) >= 1 && (c.level ?? 1) <= 2)).toBe(true);
+    expect(treasureVoid.every((c) => (c.level ?? 1) > 2)).toBe(true);
 
-    // Verify exactly 2 copies of each catalog item
+    const allCards = [...deck, ...treasureVoid];
+    expect(allCards.length).toBe(48);
+
+    const expectedCounts: Record<string, number> = {
+      lvl1_health_potion: 5,
+      lvl2_health_potion: 4,
+      lvl3_health_potion: 3,
+      lvl4_health_potion: 2,
+    };
     for (const tpl of SHOP_ITEM_CATALOG) {
-      const copies = deck.filter((c) => c.id === tpl.id);
-      expect(copies.length).toBe(2);
+      const copies = allCards.filter((c) => c.id === tpl.id);
+      const expected = expectedCounts[tpl.id] ?? 2;
+      expect(copies.length).toBe(expected);
       const ids = copies.map((c) => c.instanceId).sort();
-      expect(ids).toEqual([`tr_${tpl.id}_c1`, `tr_${tpl.id}_c2`]);
+      expect(ids).toEqual(Array.from({ length: expected }, (_, idx) => `tr_${tpl.id}_c${idx + 1}`));
     }
   });
 
-  it('new adventure pulls starting gear from the 42-card supply, leaving 40 in treasureDeck and 0 discard', () => {
+  it('new adventure pulls starting gear and starting village shop stock from the Scenario 1 Level 1-2 deck, keeping Level 3+ in treasureVoid', () => {
     const s = startAdventure('fighter', 'seed-treasure-test');
-    expect(s.treasureDeck.length).toBe(40);
-    expect(s.treasureDiscard.length).toBe(0);
+    const shopStockCount = s.activeHook.type === 'VILLAGE' ? s.activeHook.village.shopStock.length : 0;
+    expect(shopStockCount).toBe(4);
+    expect(s.treasureDeck.length + s.treasureDiscard.length + shopStockCount).toBe(41);
+    expect(s.treasureVoid?.length).toBe(5);
     expect(s.treasureReshuffleCount).toBe(0);
-    // Physical supply conservation: 40 in deck + 2 equipped starting gear = 42
-    expect(s.treasureDeck.filter((c) => c.id === 'lvl1_iron_sword')).toHaveLength(1);
-    expect(s.treasureDeck.filter((c) => c.id === 'lvl1_chainmail')).toHaveLength(1);
+    // Physical supply conservation: 41 in Scenario 1 deck/discard/shop + 2 equipped starting gear + 5 in treasureVoid = 48
+    const allDeckCards = [
+      ...s.treasureDeck,
+      ...s.treasureDiscard,
+      ...(s.activeHook.type === 'VILLAGE' ? s.activeHook.village.shopStock : []),
+    ];
+    expect(allDeckCards.every((c) => (c.level ?? 1) <= 2)).toBe(true);
+    expect(allDeckCards.filter((c) => c.id === 'lvl1_iron_sword')).toHaveLength(1);
+    expect(allDeckCards.filter((c) => c.id === 'lvl1_chainmail')).toHaveLength(1);
   });
 
-  it('opening a village store draws 5 + villageLevel items from treasure deck into shopStock', () => {
-    let s = startAdventure('fighter', 'seed-shop-draw');
+  it('opening a village store draws 3 + villageLevel unique exact-level items from treasure deck into shopStock', () => {
+    let s = finishVillage(startAdventure('fighter', 'seed-shop-draw'));
     const avail = Object.values(s.board).find((n) => n.status === 'available');
     expect(avail).toBeDefined();
     if (!avail) return;
@@ -75,8 +97,8 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     expect(inVillage.activeHook.type).toBe('VILLAGE');
     if (inVillage.activeHook.type !== 'VILLAGE') return;
     // Stock is prepared on entry, before Shop is opened.
-    expect(inVillage.activeHook.village.shopStock.length).toBe(6);
-    expect(inVillage.treasureDeck.length + inVillage.treasureDiscard.length).toBe(34);
+    expect(inVillage.activeHook.village.shopStock.length).toBe(4);
+    expect(inVillage.treasureDeck.length + inVillage.treasureDiscard.length).toBe(37);
     const preparedStock = inVillage.activeHook.village.shopStock;
 
     // Open shop
@@ -86,16 +108,19 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
 
     const village = inShop.activeHook.village;
     expect(village.subView).toBe('shop');
-    // 5 + 1 = 6 items drawn
-    expect(village.shopStock.length).toBe(6);
+    // 3 + 1 = 4 unique Level 1 items drawn
+    expect(village.shopStock.length).toBe(4);
     expect(village.shopStock).toEqual(preparedStock);
-    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(34);
+    expect(new Set(village.shopStock.map(item => item.id)).size).toBe(4);
+    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(37);
     expect(village.shopStock.every(item => (item.level ?? 1) === 1)).toBe(true);
-    expect(inShop.treasureDiscard.every(item => item.level !== 1)).toBe(true);
+    const stockIds = new Set(village.shopStock.map(item => item.id));
+    const newlyDiscarded = inShop.treasureDiscard.slice(s.treasureDiscard.length);
+    expect(newlyDiscarded.every(item => item.level !== 1 || stockIds.has(item.id))).toBe(true);
   });
 
-  it('opening a level 2 village store draws 5 + 2 = 7 items', () => {
-    let s = startAdventure('wizard', 'seed-lvl2-shop');
+  it('opening a level 2 village store draws 3 + 2 = 5 unique Level 2 items', () => {
+    let s = finishVillage(startAdventure('wizard', 'seed-lvl2-shop'));
     const avail = Object.values(s.board).find((n) => n.status === 'available');
     expect(avail).toBeDefined();
     if (!avail) return;
@@ -121,9 +146,10 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     const inShop = villageChooseShop(inVillage);
     if (inShop.activeHook.type !== 'VILLAGE') return;
 
-    expect(inShop.activeHook.village.shopStock.length).toBe(7);
-    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(33);
-    expect(inShop.activeHook.village.shopStock.every(item => item.level === 1 || item.level === 2)).toBe(true);
+    expect(inShop.activeHook.village.shopStock.length).toBe(5);
+    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(36);
+    expect(inShop.activeHook.village.shopStock.every(item => item.level === 2)).toBe(true);
+    expect(new Set(inShop.activeHook.village.shopStock.map(item => item.id)).size).toBe(5);
   });
 
   it('going back to menu before purchasing retains shopStock and does not re-draw', () => {
@@ -144,7 +170,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     const inShop = villageChooseShop(inVillage);
     if (inShop.activeHook.type !== 'VILLAGE') return;
     const initialDrawn = inShop.activeHook.village.shopStock;
-    expect(initialDrawn.length).toBe(6);
+    expect(initialDrawn.length).toBe(4);
 
     // Go back to main menu
     const back = villageGoBack(inShop);
@@ -220,7 +246,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     if (inShop.activeHook.type !== 'VILLAGE') return;
 
     const unboughtCount = inShop.activeHook.village.shopStock.length;
-    expect(unboughtCount).toBe(6);
+    expect(unboughtCount).toBe(4);
     const rejectedCount = inShop.treasureDiscard.length;
 
     // Leave village
@@ -249,15 +275,23 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     const inShop = villageChooseShop(inVillage);
     if (inShop.activeHook.type !== 'VILLAGE') return;
 
-    // Buy an item first
+    // Buy an item first; if it auto-equipped, verify it cannot be sold while equipped, then unequip
     const boughtItem = inShop.activeHook.village.shopStock[0];
-    const afterBuy = buyItem(inShop, boughtItem.instanceId!);
+    let afterBuy = buyItem(inShop, boughtItem.instanceId!);
+    const equippedSlot = (['weapon', 'armor', 'accessory'] as const).find(
+      (slot) => afterBuy.equippedGear[slot]?.instanceId === boughtItem.instanceId
+    );
+    if (equippedSlot) {
+      const blocked = sellItem(afterBuy, boughtItem.instanceId!);
+      expect(blocked.playerResources?.gold).toBe(afterBuy.playerResources?.gold);
+      afterBuy = unequipItem(afterBuy, equippedSlot);
+    }
 
     const discardBefore = afterBuy.treasureDiscard.length;
     const afterSell = sellItem(afterBuy, boughtItem.instanceId!);
 
-    expect(afterSell.treasureDiscard.length).toBe(discardBefore + 1);
-    expect(afterSell.treasureDiscard.some((i) => i.instanceId === boughtItem.instanceId)).toBe(true);
+    expect(afterSell.treasureDiscard.length).toBe(discardBefore);
+    expect(afterSell.voidItems?.some((i) => i.instanceId === boughtItem.instanceId)).toBe(true);
   });
 
   it('drawTreasureCardsWithReshuffle reshuffles discard pile when deck runs empty', () => {
@@ -275,16 +309,16 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
   });
 
   it('pileModal renders treasure deck and discard with unique card multipliers', () => {
-    const s = startAdventure('fighter', 'seed-pile-render');
+    const s = finishVillage(startAdventure('fighter', 'seed-pile-render'));
     const deckModalHtml = pileModal('treasure_deck', s);
     expect(deckModalHtml).toContain('Treasure Deck');
-    expect(deckModalHtml).toContain('40 cards total');
-    expect(deckModalHtml).toContain('<b>21</b> unique card types');
-    expect(deckModalHtml).toContain('&times;2'); // 2 copies of each card
+    expect(deckModalHtml).toContain(`${s.treasureDeck.length} cards total`);
+    expect(deckModalHtml).toContain('unique card types');
+    expect(deckModalHtml).toContain('&times;');
 
     const discardModalHtml = pileModal('treasure_discard', s);
     expect(discardModalHtml).toContain('Treasure Discard Pile');
-    expect(discardModalHtml).toContain('This pile is empty');
+    expect(discardModalHtml).toContain(`${s.treasureDiscard.length} cards total`);
   });
 
   it('sidebar displays treasure deck and discard counter', () => {
@@ -365,7 +399,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     expect(miniHtml).toContain('Lvl 1');
 
     // Description is present, flavor text is omitted to conserve space
-    expect(miniHtml).toContain('Restores 10 HP immediately when used.');
+    expect(miniHtml).toContain('Restores 5 HP immediately when used.');
     expect(miniHtml).not.toContain('Brewed with wild meadow blossoms');
 
     // Footer is omitted in mini card
@@ -393,5 +427,52 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     expect(modalHtml).toContain('Armor <span class="item-type-icon"><img src="/icons/slot-armor.png"');
     expect(modalHtml).toContain('tcg-item-level-ribbon');
     expect(modalHtml).not.toContain('item-stat-badge');
+  });
+
+  it('startNextMission swaps treasureDeck to [scenarioLevel, scenarioLevel + 1] and keeps unused cards in treasureVoid', () => {
+    // Scenario 1: Level 1-2 in treasureDeck/shop/discard, Level 3-4 in treasureVoid
+    let s1 = startAdventure('fighter', 'seed-scenario-treasure-transition');
+    const getActiveShopStock = (st: typeof s1) =>
+      st.activeHook.type === 'VILLAGE' ? st.activeHook.village.shopStock : [];
+
+    const s1InPlay = [...s1.treasureDeck, ...s1.treasureDiscard, ...getActiveShopStock(s1)];
+    expect(s1InPlay.every((item) => (item.level ?? 1) >= 1 && (item.level ?? 1) <= 2)).toBe(true);
+    expect((s1.treasureVoid ?? []).length).toBe(5);
+    expect((s1.treasureVoid ?? []).every((item) => (item.level ?? 1) >= 3)).toBe(true);
+
+    // Sell a starting item so it enters voidItems (permanently banished)
+    const swordEntry = Object.entries(s1.equippedGear).find(([, g]) => g?.id === 'lvl1_iron_sword');
+    const sword = swordEntry?.[1];
+    expect(sword?.id).toBe('lvl1_iron_sword');
+    if (!swordEntry || !sword?.instanceId) return;
+    s1 = villageChooseShop(s1);
+    s1 = unequipItem(s1, swordEntry[0] as keyof typeof s1.equippedGear);
+    s1 = sellItem(s1, sword.instanceId);
+    expect((s1.voidItems ?? []).some((i) => i.instanceId === sword.instanceId)).toBe(true);
+
+    // Advance to Scenario 2: Level 2-3 in treasureDeck/shop/discard, Level 1 & Level 4 in treasureVoid
+    const s2 = startNextMission(s1);
+    expect(s2.scenarioLevel).toBe(2);
+    const s2InPlay = [...s2.treasureDeck, ...s2.treasureDiscard, ...getActiveShopStock(s2)];
+    expect(s2InPlay.every((item) => (item.level ?? 1) >= 2 && (item.level ?? 1) <= 3)).toBe(true);
+    expect((s2.treasureVoid ?? []).every((item) => {
+      const lvl = item.level ?? 1;
+      return lvl < 2 || lvl > 3;
+    })).toBe(true);
+    // Permanently banished voidItems must not return to treasureDeck or treasureVoid
+    expect(s2InPlay.some((i) => i.instanceId === sword.instanceId)).toBe(false);
+    expect((s2.treasureVoid ?? []).some((i) => i.instanceId === sword.instanceId)).toBe(false);
+    // Remaining owned gear (chainmail) must stay out of both treasureDeck and treasureVoid
+    const chainmail = s2.equippedGear.armor;
+    expect(chainmail?.instanceId).toBeDefined();
+    expect(s2InPlay.some((i) => i.instanceId === chainmail?.instanceId)).toBe(false);
+    expect((s2.treasureVoid ?? []).some((i) => i.instanceId === chainmail?.instanceId)).toBe(false);
+
+    // Advance to Scenario 3: Level 3-4 in treasureDeck/shop/discard, Level 1-2 in treasureVoid
+    const s3 = startNextMission(s2);
+    expect(s3.scenarioLevel).toBe(3);
+    const s3InPlay = [...s3.treasureDeck, ...s3.treasureDiscard, ...getActiveShopStock(s3)];
+    expect(s3InPlay.every((item) => (item.level ?? 1) >= 3 && (item.level ?? 1) <= 4)).toBe(true);
+    expect((s3.treasureVoid ?? []).every((item) => (item.level ?? 1) <= 2)).toBe(true);
   });
 });

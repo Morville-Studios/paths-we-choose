@@ -60,6 +60,7 @@ export function createCombatSession(
       hp: monster.maxHp,
       block: monster.startingBlock ?? 0,
       patternIndex: 0,
+      undyingTokensRemaining: monster.undyingTokens,
     })),
     combatTurn: 1,
     playerAp: playerMaxAp,

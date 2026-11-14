@@ -263,6 +263,28 @@ export function getItemRasterArtPath(itemId?: string): string {
   return publicAsset(getItemRasterArtRelativePath(itemId));
 }
 
+export function getPathRasterArtPath(templateId: string): string {
+  switch (templateId) {
+    case 'merchant':
+      return publicAsset('/cards/paths/merchant.jpg');
+    case 'sanctuary':
+      return publicAsset('/cards/paths/sanctuary.jpg');
+    case 'ambush':
+      return publicAsset('/cards/paths/ambush.jpg');
+    case 'magical_chest':
+      return publicAsset('/cards/paths/magical_chest.jpg');
+    case 'trapped_chest':
+      return publicAsset('/cards/paths/trapped_chest.jpg');
+    case 'gold_stash':
+      return publicAsset('/cards/paths/gold_stash.jpg');
+    case 'spring_trap':
+      return publicAsset('/cards/paths/spring_trap.jpg');
+    case 'enemy_camp':
+    default:
+      return publicAsset('/cards/paths/enemy_camp.jpg');
+  }
+}
+
 export function getItemIllustration(itemId: string, name = 'Item'): string {
   const rasterPath = getItemRasterArtPath(itemId);
   return `<img src="${rasterPath}" alt="${name}" class="tcg-art-raster item-raster" loading="lazy" />`;

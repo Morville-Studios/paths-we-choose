@@ -1,18 +1,28 @@
 import { audioManager } from '../../audio/audioManager';
+import { GUIDE_PAGE_COUNT } from '../../ui/screens/guide';
 import { firstLivingMonsterIndex } from '../../core/combat';
 import {
+  advancePathToTreasurePrompt,
+  buyPathMerchantItem,
   chooseCard,
   confirmCombatVictory,
   confirmEncounterClear,
   confirmExplorationCombat,
   confirmExplorationSafe,
+  confirmPathAmbushCombat,
+  confirmPathChallengeDone,
+  confirmPathSneakCombat,
   createInitialState,
-  dismissWelcomePrepare,
   goToClassSelect,
+  resolvePathChestAttempt,
+  resolvePathSneakCheck,
+  resolvePathSpringTrap,
+  resolvePathTreasureCheck,
+  restAtPathSanctuary,
+  rollPathGoldStash,
   startAdventure,
   startBossCombat,
   startNextMission,
-  welcomeUpgradeStat,
 } from '../../core/engine';
 import { reconcileRunNewSkills } from '../../core/newSkills';
 import type { ClassId, RunState, StatKey } from '../../core/types';
@@ -101,6 +111,33 @@ export const navigationAndModalActions: Record<string, ActionHandler> = {
     }
   },
 
+  'inspect-adventure': ({ store, ui, render }, _payload, target) => {
+    const cardEl = target.closest<HTMLElement>('[data-inspect-kind="adventure"]') ?? target;
+    const info = findInspectedCard(store.get(), cardEl);
+    if (info) {
+      ui.inspectedCard = info;
+      render();
+    }
+  },
+
+  'inspect-action': ({ store, ui, render }, _payload, target) => {
+    const cardEl = target.closest<HTMLElement>('[data-inspect-kind="action"]') ?? target;
+    const info = findInspectedCard(store.get(), cardEl);
+    if (info) {
+      ui.inspectedCard = info;
+      render();
+    }
+  },
+
+  'inspect-path': ({ store, ui, render }, _payload, target) => {
+    const cardEl = target.closest<HTMLElement>('[data-inspect-kind="path"]') ?? target;
+    const info = findInspectedCard(store.get(), cardEl);
+    if (info) {
+      ui.inspectedCard = info;
+      render();
+    }
+  },
+
   'close-inspect': ({ ui, render }) => {
     ui.inspectedCard = null;
     ui.inspectedStat = null;
@@ -144,7 +181,7 @@ export const navigationAndModalActions: Record<string, ActionHandler> = {
   },
 
   'guide-next-page': ({ ui, render }) => {
-    ui.guidePage = Math.min(7, (ui.guidePage ?? 1) + 1);
+    ui.guidePage = Math.min(GUIDE_PAGE_COUNT, (ui.guidePage ?? 1) + 1);
     render();
   },
 
@@ -152,7 +189,7 @@ export const navigationAndModalActions: Record<string, ActionHandler> = {
     const pageAttr = target.getAttribute('data-page');
     if (!pageAttr) return;
     const pNum = parseInt(pageAttr, 10);
-    if (pNum >= 1 && pNum <= 7) {
+    if (pNum >= 1 && pNum <= GUIDE_PAGE_COUNT) {
       ui.guidePage = pNum;
       render();
     }
@@ -225,14 +262,6 @@ export const navigationAndModalActions: Record<string, ActionHandler> = {
     store.update((s) => chooseCard(s, { col: Number(col), row: Number(row) }));
   },
 
-  'welcome-upgrade': ({ store }, { stat }) => {
-    store.update((s) => welcomeUpgradeStat(s, stat as StatKey));
-  },
-
-  'dismiss-welcome-dialog': ({ store }) => {
-    store.update(dismissWelcomePrepare);
-  },
-
   equip: ({ store }, { id }) => {
     store.update((s) => equipItem(s, id as string));
   },
@@ -241,8 +270,35 @@ export const navigationAndModalActions: Record<string, ActionHandler> = {
     store.update((s) => unequipItem(s, id as string));
   },
 
-  'use-item': ({ store }, { id }) => {
-    store.update((s) => useConsumable(s, id as string));
+  'use-item': ({ store, ui, render }, { id }) => {
+    const curState = store.get();
+    const item = curState.backpack.find((i) => i.instanceId === id);
+    if (!item || item.category !== 'consumable' || !curState.playerResources) return;
+    if (item.healAmount && curState.playerResources.hp >= curState.playerResources.maxHp) return;
+    ui.pendingUseItemId = id as string;
+    render();
+  },
+
+  'confirm-use-item': ({ store, ui, render }) => {
+    const targetId = ui.pendingUseItemId;
+    ui.pendingUseItemId = null;
+    if (targetId) {
+      store.update((s) => useConsumable(s, targetId));
+    } else {
+      render();
+    }
+  },
+
+  'cancel-use-item': ({ ui, render }) => {
+    ui.pendingUseItemId = null;
+    render();
+  },
+
+  'cancel-use-item-backdrop': ({ ui, render }, _payload, target, ev) => {
+    if (ev.target === target) {
+      ui.pendingUseItemId = null;
+      render();
+    }
   },
 
   'confirm-exploration-combat': ({ store }) => {
@@ -251,6 +307,62 @@ export const navigationAndModalActions: Record<string, ActionHandler> = {
 
   'confirm-exploration-safe': ({ store }) => {
     store.update(confirmExplorationSafe);
+  },
+
+  'path-roll-sneak': ({ store }) => {
+    store.update(resolvePathSneakCheck);
+  },
+
+  'path-start-combat': ({ store }) => {
+    store.update(confirmPathSneakCombat);
+  },
+
+  'path-to-treasure': ({ store }) => {
+    store.update(advancePathToTreasurePrompt);
+  },
+
+  'path-roll-treasure': ({ store }) => {
+    store.update(resolvePathTreasureCheck);
+  },
+
+  'path-merchant-buy': ({ store }, { id }) => {
+    if (id) store.update((s) => buyPathMerchantItem(s, id));
+  },
+
+  'path-sanctuary-rest': ({ store }) => {
+    store.update(restAtPathSanctuary);
+  },
+
+  'path-ambush-combat': (ctx) => {
+    ctx.runTransitionWithDiceRolls(confirmPathAmbushCombat);
+  },
+
+  'path-chest-force': ({ store }) => {
+    store.update((s) => resolvePathChestAttempt(s, 'force_open'));
+  },
+
+  'path-chest-lockpick': ({ store }) => {
+    store.update((s) => resolvePathChestAttempt(s, 'lockpick'));
+  },
+
+  'path-chest-seal': ({ store }) => {
+    store.update((s) => resolvePathChestAttempt(s, 'remove_seal'));
+  },
+
+  'path-chest-abandon': ({ store }) => {
+    store.update((s) => resolvePathChestAttempt(s, 'abandon'));
+  },
+
+  'path-gold-roll': ({ store }) => {
+    store.update(rollPathGoldStash);
+  },
+
+  'path-spring-trap-roll': ({ store }) => {
+    store.update(resolvePathSpringTrap);
+  },
+
+  'path-done': ({ store }) => {
+    store.update(confirmPathChallengeDone);
   },
 
   'confirm-encounter-clear': ({ store }) => {

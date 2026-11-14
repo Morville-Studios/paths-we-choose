@@ -4,6 +4,7 @@ import {
   firstLivingMonsterIndex,
   FLEE_AP_COST,
   getHeroStatDebuffMods,
+  getMonsterChannelMatkBonus,
   getMonsterEffectiveAtk,
   getMonsterEffectiveDef,
   getMonsterIntent,
@@ -25,10 +26,12 @@ import {
   RunState,
 } from '../../core/types';
 import { createFleeCard } from '../../data/combatCards';
+import { GLOSSARY_TOOLTIP_TEMPLATES } from '../../data/glossary';
 import { MONSTER_TEMPLATES } from '../../data/monsters';
 import { getActionRasterArtPath, getAdventurerRasterArtPath, getMonsterIllustration } from '../cardArt';
+import { escapeTooltipAttr, formatMonsterAbilitiesHtml, kwTokenHtml } from '../components/glossary';
 import { renderQteHitCheckBarHtml } from '../components/qteBar';
-import { getDerivedStatIcon, getResourceIcon } from '../icons';
+import { getDerivedStatIcon, getResourceIcon, getStatIcon } from '../icons';
 import { getPlayerClassName } from './classSelect';
 import { PendingCardPlay, PendingDiceRoll, UiState } from '../types';
 import {
@@ -133,15 +136,25 @@ export function creatureFooterHtml(monster: MonsterCard, attackBonus = 0, accBon
     { stat: 'acc' as const, value: (monster.acc ?? 1) + accBonus, boosted: accBonus > 0 },
     { stat: 'eva' as const, value: (monster.eva ?? 0) + evaBonus, boosted: evaBonus > 0 },
   ];
+const CREATURE_STAT_TOOLTIPS: Record<'hp' | 'atk' | 'def' | 'mdef' | 'acc' | 'eva', string> = {
+  hp: 'Health Points (HP): Creature maximum health. Defeated when HP reaches 0.',
+  atk: 'Attack (ATK): Base physical attack damage.',
+  def: 'Physical Defense (DEF): Reduces incoming physical attack damage by this amount.',
+  mdef: 'Magical Defense (MDEF): Reduces incoming magical attack damage by this amount.',
+  acc: 'Accuracy (ACC): Rolled against Hero EVA on the MACG-3D6™ bar to determine if attacks hit.',
+  eva: 'Evasion (EVA): Rolled against Hero ACC on the MACG-3D6™ bar to dodge incoming attacks.',
+};
+
   return `<footer class="tcg-footer creature-stat-footer">
-    <span class="creature-footer-hp">HP <b>${monster.maxHp}</b></span>
-    <div class="creature-footer-stats">${entries.filter(entry => entry.value > 0).map(entry => `<span class="creature-footer-stat ${entry.boosted ? 'is-buffed-flashing' : ''}" data-creature-stat="${entry.stat}" aria-label="${entry.stat.toUpperCase()}: ${entry.value}">${getDerivedStatIcon(entry.stat, 'chip-icon')} <b>${entry.value}</b></span>`).join('')}</div>
+    <span class="creature-footer-hp" tabindex="0" data-kw-tooltip="${escapeTooltipAttr(CREATURE_STAT_TOOLTIPS.hp)}" aria-label="HP: ${monster.maxHp}">${getStatIcon('vit', 'chip-icon', 'HP')} <b>${monster.maxHp}</b></span>
+    <div class="creature-footer-stats">${entries.filter(entry => entry.value > 0).map(entry => `<span class="creature-footer-stat ${entry.boosted ? 'is-buffed-flashing' : ''}" data-creature-stat="${entry.stat}" tabindex="0" data-kw-tooltip="${escapeTooltipAttr(CREATURE_STAT_TOOLTIPS[entry.stat])}" aria-label="${entry.stat.toUpperCase()}: ${entry.value}">${getDerivedStatIcon(entry.stat, 'chip-icon')} <b>${entry.value}</b></span>`).join('')}</div>
   </footer>`;
 }
 
 interface FullCreatureCardOptions {
   monster: MonsterCard;
   attackBonus?: number;
+  matkBonus?: number;
   accBonus?: number;
   evaBonus?: number;
   defBonus?: number;
@@ -158,6 +171,7 @@ interface FullCreatureCardOptions {
 export function fullCreatureCardHtml({
   monster,
   attackBonus = 0,
+  matkBonus = 0,
   accBonus = 0,
   evaBonus = 0,
   defBonus = 0,
@@ -190,7 +204,7 @@ export function fullCreatureCardHtml({
           ${monsterRaritySymbolHtml(monster, 'tcg-creature-rarity-symbol')}
         </div>
         <div class="tcg-textbox tcg-creature-textbox">
-          ${monster.abilities?.length ? `<div class="tcg-ability-line">${monster.abilities.join(' &middot; ')}</div>` : ''}
+          ${monster.abilities?.length ? `<div class="tcg-pattern-row tcg-passive-row"><span class="p-turn">Passive:</span><span class="p-val">${formatMonsterAbilitiesHtml(monster.abilities)}</span></div>` : ''}
           ${
             attackBonus > 0
               ? `<div class="tcg-active-boon-badge is-buffed-flashing" title="Temporary attack boon active">🔥 Boon: +${attackBonus} ATK</div>`
@@ -198,62 +212,131 @@ export function fullCreatureCardHtml({
           }
           <div class="tcg-pattern-table">
             ${pattern.map((p, index) => {
-              const effectiveDamage = p.damage > 0 ? p.damage + attackBonus : 0;
-              const isBuffed = p.damage > 0 && attackBonus > 0;
-              const hasPriorEffect = effectiveDamage > 0 || (p.heal ?? 0) > 0 || p.block > 0 || (p.evaBonus ?? 0) > 0 || (p.accBonus ?? 0) > 0 || (p.defBonus ?? 0) !== 0 || Boolean(p.randomBuff);
+              const isMagical = p.damageType === 'magical';
+              const effectiveDamage = p.damage > 0 ? p.damage + (isMagical ? matkBonus : attackBonus) : 0;
+              const isBuffed = p.damage > 0 && (isMagical ? matkBonus > 0 : attackBonus > 0);
+              const hits = p.hitCount ?? 1;
+              const parts: string[] = [];
+
+              if (effectiveDamage > 0) {
+                const kw = p.drainFraction && !p.lifesteal ? 'LSTEAL' : isMagical ? 'MATK' : 'ATK';
+                const label = `${kw} (<b>${effectiveDamage}</b>)${hits > 1 ? ` ×${hits}` : ''}`;
+                const tip = p.drainFraction && !p.lifesteal
+                  ? GLOSSARY_TOOLTIP_TEMPLATES.lsteal(effectiveDamage)
+                  : isMagical
+                  ? GLOSSARY_TOOLTIP_TEMPLATES.matk(effectiveDamage, hits)
+                  : GLOSSARY_TOOLTIP_TEMPLATES.atk(effectiveDamage, hits);
+                parts.push(kwTokenHtml(label, tip, isBuffed ? 'is-buffed-flashing' : ''));
+                if (p.lifesteal) {
+                  parts.push(kwTokenHtml('LSteal', GLOSSARY_TOOLTIP_TEMPLATES.lstealAttr()));
+                }
+              }
+              if (p.offhandDamage && p.offhandDamage > 0) {
+                const offhandDmg = p.offhandDamage + attackBonus;
+                parts.push(
+                  kwTokenHtml(
+                    `ATK (<b>${offhandDmg}</b>)`,
+                    GLOSSARY_TOOLTIP_TEMPLATES.atk(offhandDmg, 1),
+                    attackBonus > 0 ? 'is-buffed-flashing' : ''
+                  )
+                );
+              }
+              if (p.magicDamage && p.magicDamage > 0) {
+                const effectiveMagic = p.magicDamage + matkBonus;
+                parts.push(
+                  kwTokenHtml(
+                    `MATK (<b>${effectiveMagic}</b>)`,
+                    GLOSSARY_TOOLTIP_TEMPLATES.matk(effectiveMagic, 1),
+                    matkBonus > 0 ? 'is-buffed-flashing' : ''
+                  )
+                );
+              }
+              if (p.ignoreDef && p.ignoreDef > 0) {
+                parts.push(kwTokenHtml(`PEN (<b>${p.ignoreDef}</b>)`, GLOSSARY_TOOLTIP_TEMPLATES.pen(p.ignoreDef)));
+              }
+              if (p.poison) {
+                parts.push(
+                  kwTokenHtml(
+                    `Poison (<b>${p.poison.damage}</b>, <b>${p.poison.duration}</b>)`,
+                    GLOSSARY_TOOLTIP_TEMPLATES.poison(p.poison.damage, p.poison.duration)
+                  )
+                );
+              } else if (p.poisonOnHit) {
+                parts.push(kwTokenHtml('Poison', GLOSSARY_TOOLTIP_TEMPLATES.poison()));
+              }
+              if (p.heal && p.heal > 0) {
+                const isHealAction = p.label === 'Heal';
+                parts.push(
+                  kwTokenHtml(
+                    `${isHealAction ? 'Heal' : 'Regen'} (<b>${p.heal}</b>)`,
+                    isHealAction ? GLOSSARY_TOOLTIP_TEMPLATES.heal(p.heal) : GLOSSARY_TOOLTIP_TEMPLATES.regen(p.heal)
+                  )
+                );
+              }
+              if (p.block > 0) {
+                parts.push(kwTokenHtml(`DEF (<b>${p.block}</b>)`, GLOSSARY_TOOLTIP_TEMPLATES.def(p.block, 1)));
+              }
+              if (p.evaBonus && p.evaBonus > 0) {
+                const dur = p.evaDuration ?? p.bonusDuration ?? 1;
+                const label = dur > 1 ? `EVA (<b>${p.evaBonus}</b>, <b>${dur}</b>)` : `EVA (<b>${p.evaBonus}</b>)`;
+                parts.push(kwTokenHtml(label, GLOSSARY_TOOLTIP_TEMPLATES.eva(p.evaBonus, dur)));
+              }
+              if (p.accBonus && p.accBonus !== 0) {
+                const dur = p.accDuration ?? p.bonusDuration ?? 1;
+                const label = dur > 1 ? `ACC (<b>${p.accBonus}</b>, <b>${dur}</b>)` : `ACC (<b>${p.accBonus}</b>)`;
+                parts.push(kwTokenHtml(label, GLOSSARY_TOOLTIP_TEMPLATES.acc(p.accBonus, dur)));
+              }
+              if (p.defBonus && p.defBonus !== 0) {
+                const dur = p.defDuration ?? p.bonusDuration ?? 1;
+                const label = dur > 1 ? `DEF (<b>${p.defBonus}</b>, <b>${dur}</b>)` : `DEF (<b>${p.defBonus}</b>)`;
+                parts.push(kwTokenHtml(label, GLOSSARY_TOOLTIP_TEMPLATES.def(p.defBonus, dur)));
+              }
+              if (p.randomBuff) {
+                const statList = p.randomBuff.stats.map(stat => stat.toUpperCase()).join(' / ');
+                parts.push(kwTokenHtml(`Random +<b>${p.randomBuff.amount}</b> ${statList} (${p.randomBuff.duration}t)`, GLOSSARY_TOOLTIP_TEMPLATES.buff(`Random +${p.randomBuff.amount} ${statList} for ${p.randomBuff.duration}t`)));
+              }
+              if (p.summonFromMonsterDeck) {
+                const summonedName = MONSTER_TEMPLATES[p.summonFromMonsterDeck].name;
+                parts.push(kwTokenHtml(`Summon (${summonedName})`, GLOSSARY_TOOLTIP_TEMPLATES.summon(summonedName)));
+              }
+              if (p.summonUndeadFromMonsterDeck) {
+                parts.push(kwTokenHtml('Summon (Undead)', GLOSSARY_TOOLTIP_TEMPLATES.summon('an Undead creature')));
+              }
+              if (p.damagePerCreatureInPlay) {
+                const allyName = MONSTER_TEMPLATES[p.damagePerCreatureInPlay.templateId].name;
+                parts.push(`+${p.damagePerCreatureInPlay.amount} per ${allyName} in play`);
+              }
+              if (p.damagePerHeroDebuff) {
+                parts.push(`+${p.damagePerHeroDebuff} MATK per Hero debuff`);
+              }
+              if (p.heroStatDebuff) {
+                const stats = p.heroStatDebuff.stats;
+                const dur = p.heroStatDebuff.duration;
+                if ((stats.acc || stats.eva) && !stats.def && !stats.mdef) {
+                  if (stats.acc) {
+                    const label = dur > 1 ? `Blind (<b>${stats.acc}</b>, <b>${dur}</b>)` : `Blind (<b>${stats.acc}</b>)`;
+                    parts.push(kwTokenHtml(label, GLOSSARY_TOOLTIP_TEMPLATES.blind(stats.acc, dur)));
+                  }
+                  if (stats.eva) {
+                    const label = dur > 1 ? `Ensnare (<b>${stats.eva}</b>, <b>${dur}</b>)` : `Ensnare (<b>${stats.eva}</b>)`;
+                    parts.push(kwTokenHtml(label, GLOSSARY_TOOLTIP_TEMPLATES.ensnare(stats.eva, dur)));
+                  }
+                } else {
+                  const hexSummary = heroHexIntentHtml(p);
+                  parts.push(kwTokenHtml(hexSummary, GLOSSARY_TOOLTIP_TEMPLATES.hex(hexSummary)));
+                }
+              } else if (p.heroEvaDebuff && p.heroEvaDebuff > 0) {
+                const evaText = `-<b>${p.heroEvaDebuff}</b> Hero EVA (${p.heroEvaDebuffDuration ?? 2}t)`;
+                parts.push(kwTokenHtml(evaText, GLOSSARY_TOOLTIP_TEMPLATES.hex(`-${p.heroEvaDebuff} Hero EVA for ${p.heroEvaDebuffDuration ?? 2} turns`)));
+              }
+              if (parts.length === 0) {
+                parts.push('Idle');
+              }
+
               return `
                 <div class="tcg-pattern-row ${isBuffed ? 'is-buffed-row' : ''}">
-                  <span class="p-turn">Turn ${index + 1}</span>
-                  <span class="p-label">${p.label}</span>
-                  ${p.poisonOnHit ? '<span>Poison on hit</span>' : ''}
-                  ${p.ignoreDef ? `<span>Ignore ${p.ignoreDef} DEF</span>` : ''}
-                  <span class="p-val">${
-                    effectiveDamage > 0
-                      ? `<span class="${isBuffed ? 'is-buffed-flashing' : ''}" title="${isBuffed ? `Base ${p.damage} + ${attackBonus} Boon` : ''}"><b>${effectiveDamage}</b> ${p.damageType === 'magical' ? 'MATK' : 'DMG'}${(p.hitCount ?? 1) > 1 ? ` ×${p.hitCount}` : ''}</span>`
-                      : ''
-                  }${
-                    p.heal && p.heal > 0
-                      ? (effectiveDamage > 0 ? ' &middot; ' : '') + `+<b>${p.heal}</b> HP`
-                      : ''
-                  }${
-                    p.block > 0
-                      ? (effectiveDamage > 0 || (p.heal && p.heal > 0) ? ' &middot; ' : '') + `+<b>${p.block}</b> Blk`
-                      : ''
-                  }${
-                    p.evaBonus && p.evaBonus > 0
-                      ? (effectiveDamage > 0 || (p.heal && p.heal > 0) || p.block > 0 ? ' &middot; ' : '') + `+<b>${p.evaBonus}</b> EVA`
-                      : ''
-                  }${
-                    p.accBonus && p.accBonus > 0
-                      ? (effectiveDamage > 0 || (p.heal && p.heal > 0) || p.block > 0 || (p.evaBonus && p.evaBonus > 0) ? ' &middot; ' : '') + `+<b>${p.accBonus}</b> ACC`
-                      : ''
-                  }${
-                    p.defBonus && p.defBonus !== 0
-                      ? `${effectiveDamage > 0 || (p.heal ?? 0) > 0 || p.block > 0 || (p.evaBonus ?? 0) > 0 || (p.accBonus ?? 0) > 0 ? ' &middot; ' : ''}${p.defBonus > 0 ? '+' : ''}<b>${p.defBonus}</b> DEF (${p.bonusDuration ?? 1}t)`
-                      : ''
-                  }${
-                    p.randomBuff
-                      ? `${effectiveDamage > 0 || (p.heal ?? 0) > 0 || p.block > 0 ? ' &middot; ' : ''}Random +<b>${p.randomBuff.amount}</b> ${p.randomBuff.stats.map(stat => stat.toUpperCase()).join(' / ')} (${p.randomBuff.duration}t)`
-                      : ''
-                  }${
-                    p.summonFromMonsterDeck
-                      ? (hasPriorEffect || (p.defBonus ?? 0) > 0 ? ' &middot; ' : '') + `Summon ${MONSTER_TEMPLATES[p.summonFromMonsterDeck].name}`
-                      : ''
-                  }${
-                    p.damagePerCreatureInPlay
-                      ? ` +${p.damagePerCreatureInPlay.amount} per ${MONSTER_TEMPLATES[p.damagePerCreatureInPlay.templateId].name} in play`
-                      : ''
-                  }${
-                    p.damagePerHeroDebuff
-                      ? ` +${p.damagePerHeroDebuff} MATK per active Hero debuff`
-                      : ''
-                  }${
-                    p.heroStatDebuff ? heroHexIntentHtml(p) : p.heroEvaDebuff && p.heroEvaDebuff > 0
-                      ? (hasPriorEffect ? ' &middot; ' : '') + `-<b>${p.heroEvaDebuff}</b> Hero EVA (${p.heroEvaDebuffDuration ?? 2}t)`
-                      : ''
-                  }${
-                    !p.heroStatDebuff && !p.poisonOnHit && !hasPriorEffect && !p.summonFromMonsterDeck && !p.defBonus && !p.randomBuff && (!p.heroEvaDebuff || p.heroEvaDebuff === 0) ? 'Idle' : ''
-                  }</span>
+                  <span class="p-turn">T${index + 1}:</span>
+                  <span class="p-val">${parts.join(', ')}</span>
                 </div>`;
             }).join('')}
           </div>
@@ -296,6 +379,7 @@ function monsterCardHtml(
     ${fullCreatureCardHtml({
       monster: m,
       attackBonus: getMonsterEffectiveAtk(cm, allMonsters) - (m.atk ?? 0),
+      matkBonus: getMonsterChannelMatkBonus(cm),
       accBonus: cm.accBonus ?? 0,
       evaBonus: cm.evaBonus ?? 0,
       defBonus: getMonsterEffectiveDef(cm, allMonsters) - (m.def ?? 0),
@@ -313,7 +397,6 @@ function monsterCardHtml(
             dead
               ? '<span class="intent-dead">Defeated</span>'
               : `<span class="intent-icon">&#9876;</span>
-                 <span class="intent-label">${intent.label}</span>
                  ${intent.poisonOnHit ? '<span>Poison on hit</span>' : ''}
                  ${intent.ignoreDef ? `<span>Ignore ${intent.ignoreDef} DEF</span>` : ''}
                  <span class="intent-val">${

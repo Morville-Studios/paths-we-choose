@@ -1,8 +1,16 @@
+import { computeHitProbability } from '../../core/combat';
 import { coordToKey } from '../../core/grid';
 import { getShrineLevel, getShrineSkillUpgradeOptions, PRAYER_OPTION_CATALOG } from '../../core/shrine';
-import { getActiveShrineBaseStatCap, getBaseStatUpgradeCost, getEffectiveStatsFromState } from '../../core/stats';
 import {
+  calculateMerchantGoodsPrice,
+  getActiveShrineBaseStatCap,
+  getBaseStatUpgradeCost,
+  getEffectiveStatsFromState,
+} from '../../core/stats';
+import {
+  ActiveCombatState,
   ActiveExplorationState,
+  ActivePathChallengeState,
   ActiveShrineState,
   AdventureCard,
   CombatVictoryState,
@@ -10,9 +18,9 @@ import {
   StatKey,
   STATS,
 } from '../../core/types';
-import { CLASS_CATALOG } from '../../data/classes';
 import { renderAdventureCardHtml } from '../adventureCard';
 import { getMonsterIllustration } from '../cardArt';
+import { renderQteHitCheckBarHtml } from '../components/qteBar';
 import { getResourceIcon, getStatIcon } from '../icons';
 import { getTerrainPresentation } from '../terrainPresentation';
 import { PendingShrineAction, UiState } from '../types';
@@ -21,6 +29,7 @@ import {
   formatCreatureSubtype,
   playerInfoWidgetHtml,
   renderTcgItemCard,
+  renderTcgPathCard,
   voidCardCount,
 } from '../render';
 function shrinePrayerSection(shrine: ActiveShrineState): string {
@@ -30,13 +39,18 @@ function shrinePrayerSection(shrine: ActiveShrineState): string {
       ? `<div class="shrine-replaced-note">Note: Only 1 shrine blessing can be active at a time. Previous blessing (<b>${shrine.replacedBoonName}</b>) was replaced.</div>`
       : `<div class="shrine-replaced-note">Note: Only 1 shrine blessing can be active at a time. Visiting another shrine will replace this boon.</div>`;
 
+    const heading = shrine.alreadyVisited
+      ? `You already received your blessing of <b>${boon.name}</b> from this shrine.`
+      : `Visiting this Sacred Shrine has granted you: <b>${boon.name}</b>!`;
+    const eyebrow = shrine.alreadyVisited ? 'Already Blessed' : 'Sacred Blessing Granted';
+
     return `
     <div class="shrine-granted-box">
       <div class="shrine-granted-header">
         <span class="shrine-granted-icon">&#10024;</span>
         <div class="shrine-granted-title">
-          <span class="shrine-granted-eyebrow">Sacred Blessing Granted</span>
-          <h3>Visiting this Sacred Shrine has granted you: <b>${boon.name}</b>!</h3>
+          <span class="shrine-granted-eyebrow">${eyebrow}</span>
+          <h3>${heading}</h3>
         </div>
       </div>
       <p class="shrine-granted-desc">${boon.description}</p>
@@ -216,41 +230,6 @@ export function statUpgradeWidgetHtml(
   </div>`;
 }
 
-export function welcomePrepareModal(state: RunState): string {
-  const classDef = state.playerClass ? CLASS_CATALOG[state.playerClass] : null;
-  const className = classDef ? classDef.name : 'Adventurer';
-  const sp = state.playerResources?.statPoints ?? 0;
-  const canBegin = sp < 10;
-  return `
-  <div class="modal-backdrop welcome-prepare-backdrop">
-    <div class="modal welcome-prepare-modal">
-      <div class="welcome-prepare-header">
-        <h2>Greetings, ${className}!</h2>
-        <p class="eyebrow-prepare">&#10022; Prepare for Your Journey &#10022;</p>
-      </div>
-      <p class="welcome-intro-text">
-        Welcome to <b>The Paths We Choose</b>! Before taking your first step onto the tiles, take time to prepare for your journey.
-        All adventurers begin with an innate +1 baseline across all attributes plus class archetype bonuses. You have been granted <b>10 Stat Points (SP)</b> to immediately upgrade a Base Stat.
-      </p>
-
-      ${statUpgradeWidgetHtml(state, 'welcome-upgrade')}
-
-      <div class="modal-actions prepare-actions">
-        ${
-          canBegin
-            ? `<button class="btn primary big" data-action="dismiss-welcome-dialog">
-                Begin Journey &rarr;
-              </button>`
-            : `<button class="btn primary big is-disabled" data-action="dismiss-welcome-dialog" disabled title="Allocate your 10 SP to upgrade a Base Stat before beginning your journey">
-                Begin Journey &rarr;
-              </button>
-              <p class="prepare-requirement-hint muted">⚠️ You must allocate your 10 SP to a Base Stat before you can begin your journey.</p>`
-        }
-      </div>
-    </div>
-  </div>`;
-}
-
 export function explorationModal(
   exploration: ActiveExplorationState,
   _state?: RunState
@@ -363,6 +342,370 @@ export function explorationModal(
   </div>`;
 }
 
+export function pathChallengeModal(
+  pc: ActivePathChallengeState,
+  state: RunState
+): string {
+  const card = pc.terrainCard;
+  const terrain = getTerrainPresentation(card.terrain);
+  const eff = getEffectiveStatsFromState(state);
+  const isTreasurePhase =
+    pc.phase === 'treasure_prompt' || pc.phase === 'treasure_success' || pc.phase === 'treasure_fail';
+  const isSpringTrapPhase =
+    pc.phase === 'spring_trap_prompt' || pc.phase === 'spring_trap_success' || pc.phase === 'spring_trap_fail';
+  const isChestResultPhase = pc.phase === 'chest_success' || pc.phase === 'chest_fail';
+
+  const net = isTreasurePhase
+    ? (pc.treasureNet ?? eff.dex - card.level * 2)
+    : isSpringTrapPhase
+    ? (pc.trapNet ?? eff.agi - (1 + 2 * card.level))
+    : isChestResultPhase
+    ? (pc.chestCheckRoll?.netModifier ?? 0)
+    : pc.sneakNet;
+  const tier = Math.max(1, Math.min(7, 4 + net));
+  const prob = computeHitProbability(net);
+  const roll = isTreasurePhase
+    ? pc.treasureRoll
+    : isSpringTrapPhase
+    ? pc.trapRoll
+    : isChestResultPhase
+    ? pc.chestCheckRoll
+    : pc.sneakRoll;
+  const qteBarHtml = renderQteHitCheckBarHtml({
+    minHitRoll: roll?.minHitRoll ?? prob.minHitRoll,
+    maxHitRoll: roll?.maxHitRoll ?? prob.maxHitRoll,
+    hitPercent: roll?.hitPercent ?? prob.hitPercent,
+    rolledTotal: roll?.total,
+    die1: roll?.dice[0],
+    die2: roll?.dice[1],
+    die3: roll?.dice[2],
+    isHit: roll?.success,
+    netAcc: net,
+  });
+
+  const diceReadoutHtml = roll
+    ? `<div class="exploration-dice-section">
+        <div class="exploration-dice-badge">
+          <span class="dice-icon">🎲</span>
+          <span class="dice-number">${roll.total}</span>
+        </div>
+        <div class="exploration-dice-details">
+          <div class="dice-label">MACG-3D6™ Roll: [${roll.dice.join(' + ')}] = <b>${roll.total}</b> (Tier ${roll.tier})</div>
+          <div class="dice-criteria ${roll.success ? 'treasure' : 'combat'}">
+            ${
+              roll.isDiabolic
+                ? `😈 Diabolic Roll (${roll.total}) — Always Fails!`
+                : roll.success
+                ? `✅ Success! (${roll.total} within ${roll.minHitRoll}–${roll.maxHitRoll})`
+                : `❌ Failed! (${roll.total} outside ${roll.minHitRoll}–${roll.maxHitRoll})`
+            }
+          </div>
+        </div>
+      </div>`
+    : '';
+
+  let bodyHtml = '';
+  if (pc.phase === 'sanctuary_prompt' || pc.phase === 'sanctuary_done') {
+    const hp = state.playerResources?.hp ?? 0;
+    const maxHp = state.playerResources?.maxHp ?? 0;
+    bodyHtml = `
+      <div class="exploration-outcome-box treasure">
+        <div class="outcome-header treasure">
+          <span class="outcome-icon">🌿</span>
+          <h3>Path Card: ${pc.pathCard.name} <small class="muted">(${pc.pathCard.cardNumber})</small></h3>
+        </div>
+        <div class="exploration-item-card">${renderTcgPathCard(pc.pathCard, { isMini: true })}</div>
+        <p class="outcome-msg">
+          ${
+            pc.phase === 'sanctuary_prompt'
+              ? `You discover a tranquil <b>${pc.pathCard.name}</b> in <b>${card.name}</b>. Rest here for free to restore your HP to full (<b>${hp}/${maxHp} HP</b>).`
+              : `You rested peacefully at the <b>${pc.pathCard.name}</b> and restored <b>${pc.healedAmount ?? 0} HP</b> (now <b>${hp}/${maxHp} HP</b>).`
+          }
+        </p>
+        <div class="exploration-actions">
+          ${
+            pc.phase === 'sanctuary_prompt'
+              ? `<button class="btn primary big exploration-btn" data-action="path-sanctuary-rest">🌿 Rest for Free (Full Heal)</button>`
+              : `<button class="btn primary big exploration-btn" data-action="path-done">Continue Journey &rarr;</button>`
+          }
+        </div>
+      </div>
+    `;
+  } else if (pc.phase === 'ambush_prompt') {
+    bodyHtml = `
+      <div class="exploration-outcome-box combat">
+        <div class="outcome-header combat">
+          <span class="outcome-icon">⚠️</span>
+          <h3>Path Card: ${pc.pathCard.name} <small class="muted">(${pc.pathCard.cardNumber})</small></h3>
+        </div>
+        <div class="exploration-item-card">${renderTcgPathCard(pc.pathCard, { isMini: true })}</div>
+        <p class="outcome-msg">
+          <b>Ambush!</b> Hostiles leap out from <b>${card.name}</b> (Lvl ${card.level})!
+          <br />This triggers a Level ${card.level} Encounter immediately, and <b>the creatures act first</b> before your first turn.
+        </p>
+        <div class="exploration-actions">
+          <button class="btn danger big exploration-btn" data-action="path-ambush-combat">⚔️ Fight Ambush! (Enemies Strike First) &rarr;</button>
+        </div>
+      </div>
+    `;
+  } else if (pc.phase === 'chest_prompt' || pc.phase === 'chest_success' || pc.phase === 'chest_fail') {
+    const isTrapped = pc.pathCard.templateId === 'trapped_chest';
+    const lvl = card.level;
+    const strDc = 3 + 2 * lvl;
+    const dexDc = (isTrapped ? 1 : 3) + 2 * lvl;
+    const intDc = 1 + 2 * lvl;
+    const strNet = eff.str - strDc;
+    const dexNet = eff.dex - dexDc;
+    const intNet = eff.int - intDc;
+    const strProb = computeHitProbability(strNet);
+    const dexProb = computeHitProbability(dexNet);
+    const intProb = computeHitProbability(intNet);
+
+    const chestCardHtml =
+      pc.phase === 'chest_success' && pc.foundItem
+        ? `<div class="exploration-item-card">${renderTcgItemCard(pc.foundItem, { isMini: true })}</div>`
+        : `<div class="exploration-item-card">${renderTcgPathCard(pc.pathCard, { isMini: true })}</div>`;
+
+    bodyHtml = `
+      <div class="exploration-outcome-box ${pc.phase === 'chest_fail' ? 'combat' : pc.phase === 'chest_success' ? 'treasure' : ''}">
+        <div class="outcome-header ${pc.phase === 'chest_success' ? 'treasure' : pc.phase === 'chest_fail' ? 'combat' : ''}">
+          <span class="outcome-icon">${pc.phase === 'chest_fail' ? '💥' : '🗝️'}</span>
+          <h3>Path Card: ${pc.pathCard.name} <small class="muted">(${pc.pathCard.cardNumber})</small></h3>
+        </div>
+        ${chestCardHtml}
+        <p class="outcome-msg">
+          ${
+            pc.phase === 'chest_prompt'
+              ? `You found a <b>${pc.pathCard.name}</b> in <b>${card.name}</b> (Lvl ${lvl}). Choose how to open it—or abandon it safely. Failure detonates the chest, <b>destroying the treasure inside</b> and dealing <b>3 damage</b>.`
+              : pc.phase === 'chest_success'
+              ? (pc.foundItem
+                  ? `Success! You opened the <b>${pc.pathCard.name}</b> and claimed <b>${pc.foundItem.name}</b> into your backpack!`
+                  : `Success! You opened the <b>${pc.pathCard.name}</b>, though the Treasure Deck was empty.`)
+              : `💥 The <b>${pc.pathCard.name}</b> exploded! You took <b>3 damage</b>${
+                  pc.destroyedItem ? ` and <b>${pc.destroyedItem.name}</b> inside was destroyed` : ''
+                }.`
+          }
+        </p>
+        ${pc.phase !== 'chest_prompt' ? `${qteBarHtml}${diceReadoutHtml}` : ''}
+        <div class="exploration-actions" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;">
+          ${
+            pc.phase === 'chest_prompt'
+              ? `
+                <button class="btn primary exploration-btn" data-action="path-chest-force">
+                  💪 Force Open (STR ${eff.str} &minus; ${strDc} = ${strNet >= 0 ? '+' : ''}${strNet} · ${strProb.hitPercent}%)
+                </button>
+                <button class="btn primary exploration-btn" data-action="path-chest-lockpick">
+                  🗝️ Lockpick (DEX ${eff.dex} &minus; ${dexDc} = ${dexNet >= 0 ? '+' : ''}${dexNet} · ${dexProb.hitPercent}%)
+                </button>
+                ${
+                  !isTrapped
+                    ? `<button class="btn primary exploration-btn" data-action="path-chest-seal">
+                        ✨ Remove Seal (INT ${eff.int} &minus; ${intDc} = ${intNet >= 0 ? '+' : ''}${intNet} · ${intProb.hitPercent}%)
+                      </button>`
+                    : ''
+                }
+                <button class="btn secondary exploration-btn" data-action="path-chest-abandon">
+                  🚶 Abandon
+                </button>
+              `
+              : `<button class="btn primary big exploration-btn" data-action="path-done">Continue Journey &rarr;</button>`
+          }
+        </div>
+      </div>
+    `;
+  } else if (pc.phase === 'gold_stash_prompt' || pc.phase === 'gold_stash_done') {
+    bodyHtml = `
+      <div class="exploration-outcome-box treasure">
+        <div class="outcome-header treasure">
+          <span class="outcome-icon">💰</span>
+          <h3>Path Card: ${pc.pathCard.name} <small class="muted">(${pc.pathCard.cardNumber})</small></h3>
+        </div>
+        <div class="exploration-item-card">${renderTcgPathCard(pc.pathCard, { isMini: true })}</div>
+        <p class="outcome-msg">
+          ${
+            pc.phase === 'gold_stash_prompt'
+              ? `You uncovered a hidden <b>${pc.pathCard.name}</b> in <b>${card.name}</b>! Roll 1d6: <b>1–3</b> = +10 Gold, <b>4–5</b> = +20 Gold, <b>6</b> = +30 Gold.`
+              : `🎲 Rolled <b>1d6 = ${pc.goldRollDie}</b>! You collected <b>+${pc.goldAwarded ?? 0} Gold</b>!`
+          }
+        </p>
+        <div class="exploration-actions">
+          ${
+            pc.phase === 'gold_stash_prompt'
+              ? `<button class="btn primary big exploration-btn" data-action="path-gold-roll">🎲 Roll 1d6 for Gold</button>`
+              : `<button class="btn primary big exploration-btn" data-action="path-done">Continue Journey &rarr;</button>`
+          }
+        </div>
+      </div>
+    `;
+  } else if (isSpringTrapPhase) {
+    const dc = 1 + 2 * card.level;
+    bodyHtml = `
+      <div class="exploration-outcome-box ${pc.phase === 'spring_trap_fail' ? 'combat' : pc.phase === 'spring_trap_success' ? 'treasure' : ''}">
+        <div class="outcome-header ${pc.phase === 'spring_trap_fail' ? 'combat' : pc.phase === 'spring_trap_success' ? 'treasure' : ''}">
+          <span class="outcome-icon">🪤</span>
+          <h3>Path Card: ${pc.pathCard.name} <small class="muted">(${pc.pathCard.cardNumber})</small></h3>
+        </div>
+        <div class="exploration-item-card">${renderTcgPathCard(pc.pathCard, { isMini: true })}</div>
+        <p class="outcome-msg">
+          ${
+            pc.phase === 'spring_trap_prompt'
+              ? `A concealed <b>${pc.pathCard.name}</b> snaps beneath you in <b>${card.name}</b> (Lvl ${card.level})! Pass an <b>AGI</b> check to dodge, or suffer <b>4 direct damage</b>.`
+              : pc.phase === 'spring_trap_success'
+              ? `✅ You leaped clear of the <b>${pc.pathCard.name}</b> and avoided all damage!`
+              : `❌ The <b>${pc.pathCard.name}</b> struck you for <b>4 direct damage</b>!`
+          }
+        </p>
+        <p class="muted" style="font-size:0.84rem;">
+          <b>MACG-3D6™ Success Check Bar:</b> AGI (${eff.agi}) &minus; (1 + 2 &times; Terrain Lvl ${card.level} = ${dc}) = <b>${net >= 0 ? '+' : ''}${net}</b> &middot; <b>Tier ${tier}</b> (${prob.hitPercent}%)
+        </p>
+        ${qteBarHtml}
+        ${diceReadoutHtml}
+        <div class="exploration-actions">
+          ${
+            pc.phase === 'spring_trap_prompt'
+              ? `<button class="btn primary big exploration-btn" data-action="path-spring-trap-roll">🎲 Roll Dodge Check (3d6)</button>`
+              : `<button class="btn primary big exploration-btn" data-action="path-done">Continue Journey &rarr;</button>`
+          }
+        </div>
+      </div>
+    `;
+  } else if (pc.phase === 'merchant_offer') {
+    const stock = pc.merchantStock ?? [];
+    const gold = state.playerResources?.gold ?? 0;
+    const normalDiscPct = Math.min(90, Math.max(0, eff.cha * 5));
+    const merchantDiscPct = Math.min(90, normalDiscPct * 2);
+    const itemsHtml = stock.length > 0
+      ? `<div class="merchant-offer-grid" style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:12px 0;">
+          ${stock
+            .map((item) => {
+              const cost = calculateMerchantGoodsPrice(item.buyPrice, eff.cha);
+              const canAfford = gold >= cost;
+              const itemId = item.instanceId ?? item.id;
+              return `
+                <div class="merchant-offer-card" style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+                  ${renderTcgItemCard(item, { isMini: true })}
+                  <div class="merchant-offer-price muted" style="font-size:0.84rem;">
+                    Base: <s>${item.buyPrice}G</s> &rarr; <b>${cost} Gold</b>
+                  </div>
+                  <button class="btn ${canAfford ? 'primary' : 'secondary'}" data-action="path-merchant-buy" data-id="${itemId}" ${canAfford ? '' : 'disabled'}>
+                    ${canAfford ? `🛒 Buy (${cost} Gold)` : `Need ${cost} Gold`}
+                  </button>
+                </div>
+              `;
+            })
+            .join('')}
+        </div>`
+      : `<p class="outcome-msg">You purchased all of the Merchant&apos;s wares!</p>`;
+
+    bodyHtml = `
+      <div class="exploration-outcome-box treasure">
+        <div class="outcome-header treasure">
+          <span class="outcome-icon">🧳</span>
+          <h3>Path Card: ${pc.pathCard.name} <small class="muted">(${pc.pathCard.cardNumber})</small></h3>
+        </div>
+        <div class="exploration-item-card">${renderTcgPathCard(pc.pathCard, { isMini: true })}</div>
+        <p class="outcome-msg">
+          A wandering <b>${pc.pathCard.name}</b> emerges in <b>${card.name}</b>, offering the top 2 cards from the Treasure Deck at <b>double your DISC</b>!
+        </p>
+        <p class="muted" style="font-size:0.84rem;">
+          <b>Your Gold:</b> ${gold} Gold &middot; <b>Charisma (${eff.cha}):</b> Normal DISC ${normalDiscPct}% &rarr; Merchant <b>${merchantDiscPct}% OFF</b> (rounded up)
+        </p>
+        ${itemsHtml}
+        <div class="exploration-actions">
+          <button class="btn secondary big exploration-btn" data-action="path-done">
+            ${stock.length > 0 ? 'Decline &amp; Leave &rarr;' : 'Continue Journey &rarr;'}
+          </button>
+        </div>
+      </div>
+    `;
+  } else if (!isTreasurePhase) {
+    bodyHtml = `
+      <div class="exploration-outcome-box ${pc.phase === 'sneak_fail' ? 'combat' : pc.phase === 'sneak_success' ? 'treasure' : ''}">
+        <div class="outcome-header">
+          <span class="outcome-icon">🧭</span>
+          <h3>Path Card: ${pc.pathCard.name} <small class="muted">(${pc.pathCard.cardNumber})</small></h3>
+        </div>
+        <div class="exploration-item-card">${renderTcgPathCard(pc.pathCard, { isMini: true })}</div>
+        <p class="outcome-msg">
+          You wandered into <b>${card.name}</b> (Lvl ${card.level}) and see hostiles ahead! Perform a <b>Sneak Check</b> to avoid being noticed.
+        </p>
+        <p class="muted" style="font-size:0.84rem;">
+          <b>MACG-3D6™ Success Check Bar:</b> AGI (${eff.agi}) &minus; (Terrain Lvl ${card.level} &times; 2) = <b>${net >= 0 ? '+' : ''}${net}</b> &middot; <b>Tier ${tier}</b> (${prob.hitPercent}%)
+          <br />If you fail, you must fight the hostiles—<b>fleeing from that battle forfeits your Treasure Discovery roll</b>.
+        </p>
+        ${qteBarHtml}
+        ${diceReadoutHtml}
+        <div class="exploration-actions">
+          ${
+            pc.phase === 'sneak_prompt'
+              ? `<button class="btn primary big exploration-btn" data-action="path-roll-sneak">🎲 Roll Sneak Check (3d6)</button>`
+              : pc.phase === 'sneak_success'
+              ? `<button class="btn primary big exploration-btn" data-action="path-to-treasure">💎 Sneak Succeeded! Roll Treasure Discovery &rarr;</button>`
+              : `<button class="btn danger big exploration-btn" data-action="path-start-combat">⚔️ Spotted! Fight Encounter &rarr;</button>`
+          }
+        </div>
+      </div>
+    `;
+  } else {
+    const foundItem = pc.foundItem;
+    const itemCardHtml = foundItem
+      ? `<div class="exploration-item-card">${renderTcgItemCard(foundItem, { isMini: true })}</div>`
+      : '';
+    bodyHtml = `
+      <div class="exploration-outcome-box ${pc.phase === 'treasure_success' ? 'treasure' : pc.phase === 'treasure_fail' ? 'safe' : ''}">
+        <div class="outcome-header ${pc.phase === 'treasure_success' ? 'treasure' : ''}">
+          <span class="outcome-icon">💎</span>
+          <h3>${
+            pc.phase === 'treasure_success'
+              ? (foundItem ? 'Treasure Found!' : 'No Eligible Treasure')
+              : pc.phase === 'treasure_fail'
+              ? 'You Find Nothing'
+              : 'Treasure Discovery Roll'
+          }</h3>
+        </div>
+        <p class="outcome-msg">
+          ${
+            pc.phase === 'treasure_prompt'
+              ? `Search <b>${card.name}</b> for hidden loot! Draws from the Treasure Deck until an item of <b>Lvl &le; ${card.level}</b> is found (higher-level cards are discarded).`
+              : pc.phase === 'treasure_fail'
+              ? `You searched <b>${card.name}</b> thoroughly, but <b>you find nothing</b>.`
+              : foundItem
+              ? `You uncovered <b>${foundItem.name}</b> (Lvl ${foundItem.level ?? 1}) and tucked it into your backpack!`
+              : `Your search succeeded, but no eligible Lvl &le; ${card.level} treasure remains in the deck.`
+          }
+        </p>
+        <p class="muted" style="font-size:0.84rem;">
+          <b>MACG-3D6™ Success Check Bar:</b> DEX (${eff.dex}) &minus; (Terrain Lvl ${card.level} &times; 2) = <b>${net >= 0 ? '+' : ''}${net}</b> &middot; <b>Tier ${tier}</b> (${prob.hitPercent}%)
+        </p>
+        ${qteBarHtml}
+        ${diceReadoutHtml}
+        ${itemCardHtml}
+        <div class="exploration-actions">
+          ${
+            pc.phase === 'treasure_prompt'
+              ? `<button class="btn primary big exploration-btn" data-action="path-roll-treasure">🎲 Roll Treasure Discovery (3d6)</button>`
+              : `<button class="btn primary big exploration-btn" data-action="path-done">Continue Journey &rarr;</button>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+  <div class="modal-backdrop exploration-backdrop">
+    <div class="modal exploration-modal">
+      <div class="exploration-card-header">
+        <span class="exploration-terrain-icon">${terrain.icon}</span>
+        <div class="exploration-title-group">
+          <h2>${card.name}</h2>
+          <span class="exploration-level-pill">Level ${card.level} Undiscovered Terrain &middot; ${pc.pathCard.name}</span>
+        </div>
+      </div>
+      ${bodyHtml}
+    </div>
+  </div>`;
+}
+
 export function victoryModal(
   victory: CombatVictoryState,
   _state?: RunState
@@ -454,8 +797,10 @@ export function victoryModal(
 export function shrineModal(state: RunState, ui: UiState): string {
   const shrine = state.activeHook.type === 'SHRINE' ? state.activeHook.shrine : null;
   const prayerHtml = shrine ? shrinePrayerSection(shrine) : '';
-  const shrineCard = shrine ? state.board[coordToKey(shrine.coord)]?.card : null;
+  const node = shrine ? state.board[coordToKey(shrine.coord)] : null;
+  const shrineCard = shrine?.shrineCard ?? node?.attachedShrineCard ?? node?.card ?? null;
   const shrineLevel = shrineCard?.level ?? 0;
+  const leaveLabel = shrine?.returnToVillage ? 'Back to Village &rarr;' : 'Leave Shrine &rarr;';
 
   return `
   <div class="modal-backdrop">
@@ -484,7 +829,7 @@ export function shrineModal(state: RunState, ui: UiState): string {
       </div>
 
       <div class="modal-actions">
-        <button class="btn primary big" data-action="request-leave-shrine">Leave Shrine &rarr;</button>
+        <button class="btn primary big" data-action="request-leave-shrine">${leaveLabel}</button>
       </div>
     </div>
   </div>`;
@@ -563,6 +908,82 @@ export function shrineConfirmModal(state: RunState, pending: PendingShrineAction
       <footer class="confirm-modal-footer">
         <button class="btn primary big" data-action="confirm-shrine-action" ${canConfirm ? '' : 'disabled'}>Confirm Upgrade</button>
         <button class="btn secondary" data-action="cancel-shrine-action">Cancel</button>
+      </footer>
+    </div>
+  </div>`;
+}
+
+export function endTurnConfirmModal(combat: ActiveCombatState): string {
+  const apLeft = combat.playerAp;
+  return `
+  <div class="modal-backdrop transaction-confirm-backdrop" data-action="cancel-end-turn-backdrop">
+    <div class="modal training-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="end-turn-confirm-title">
+      <header class="confirm-modal-header">
+        <h2 id="end-turn-confirm-title">End Turn with Unused AP?</h2>
+        <button class="modal-close-btn" data-action="cancel-end-turn" aria-label="Cancel">&times;</button>
+      </header>
+      <div class="training-confirm-body">
+        <div class="training-confirm-copy">
+          <p>You still have <b>${apLeft} AP</b> remaining this turn.</p>
+          <p class="muted">Any remaining hand cards will be discarded and the enemies will take their turn.</p>
+        </div>
+      </div>
+      <footer class="confirm-modal-footer">
+        <button class="btn danger big" data-action="confirm-end-turn">End Turn Anyway</button>
+        <button class="btn secondary" data-action="cancel-end-turn">Keep Playing</button>
+      </footer>
+    </div>
+  </div>`;
+}
+
+export function useItemConfirmModal(state: RunState, itemInstanceId: string): string {
+  const item = state.backpack.find((i) => i.instanceId === itemInstanceId);
+  const res = state.playerResources;
+  if (!item || !res) return '';
+  const healPreview = item.healAmount ? Math.min(res.maxHp - res.hp, item.healAmount) : 0;
+  return `
+  <div class="modal-backdrop transaction-confirm-backdrop" data-action="cancel-use-item-backdrop">
+    <div class="modal training-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="use-item-confirm-title">
+      <header class="confirm-modal-header">
+        <h2 id="use-item-confirm-title">Use ${item.name}?</h2>
+        <button class="modal-close-btn" data-action="cancel-use-item" aria-label="Cancel">&times;</button>
+      </header>
+      <div class="training-confirm-body">
+        <div class="training-confirm-card">${renderTcgItemCard(item, { isMini: true })}</div>
+        <div class="training-confirm-copy">
+          <p>${item.description}</p>
+          ${item.healAmount ? `<p>Restores <b>+${healPreview} HP</b> (${res.hp} &rarr; ${res.hp + healPreview} / ${res.maxHp} HP).</p>` : ''}
+          <p class="muted">This consumable will be spent and moved to the Treasure Discard Pile.</p>
+        </div>
+      </div>
+      <footer class="confirm-modal-footer">
+        <button class="btn primary big" data-action="confirm-use-item">Use ${item.name}</button>
+        <button class="btn secondary" data-action="cancel-use-item">Cancel</button>
+      </footer>
+    </div>
+  </div>`;
+}
+
+export function sellItemConfirmModal(state: RunState, itemInstanceId: string): string {
+  const item = state.backpack.find((i) => i.instanceId === itemInstanceId);
+  if (!item) return '';
+  return `
+  <div class="modal-backdrop transaction-confirm-backdrop" data-action="cancel-sell-item-backdrop">
+    <div class="modal training-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="sell-item-confirm-title">
+      <header class="confirm-modal-header">
+        <h2 id="sell-item-confirm-title">Sell ${item.name}?</h2>
+        <button class="modal-close-btn" data-action="cancel-sell-item" aria-label="Cancel">&times;</button>
+      </header>
+      <div class="training-confirm-body">
+        <div class="training-confirm-card">${renderTcgItemCard(item, { isMini: true })}</div>
+        <div class="training-confirm-copy">
+          <p>Are you sure you want to sell <b>${item.name}</b> for <b>${item.sellPrice} Gold</b>?</p>
+          <p class="muted">Sold items are <b>Banished</b> into <b>The Void</b> for the rest of this adventure instead of returning to the Treasure Discard Pile.</p>
+        </div>
+      </div>
+      <footer class="confirm-modal-footer">
+        <button class="btn danger big" data-action="confirm-sell-item">Sell for ${item.sellPrice} Gold</button>
+        <button class="btn secondary" data-action="cancel-sell-item">Cancel</button>
       </footer>
     </div>
   </div>`;

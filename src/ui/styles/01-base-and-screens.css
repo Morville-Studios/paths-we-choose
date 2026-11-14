@@ -51,6 +51,119 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* Ornate RPG Scrollbars — always visible & tactile */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: #9e7738 #121824;
+}
+
+*::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+
+*::-webkit-scrollbar-track {
+  background:
+    linear-gradient(90deg, #0b0f17 0%, #172030 22%, #090d14 48%, #090d14 52%, #172030 78%, #0b0f17 100%);
+  border-left: 1px solid #2f3c54;
+  border-right: 1px solid #080b10;
+  box-shadow:
+    inset 0 0 6px rgba(0, 0, 0, 0.9),
+    inset 1px 0 0 rgba(120, 148, 196, 0.14);
+}
+
+*::-webkit-scrollbar-track:horizontal {
+  background:
+    linear-gradient(180deg, #0b0f17 0%, #172030 22%, #090d14 48%, #090d14 52%, #172030 78%, #0b0f17 100%);
+  border-top: 1px solid #2f3c54;
+  border-bottom: 1px solid #080b10;
+}
+
+*::-webkit-scrollbar-thumb {
+  background:
+    linear-gradient(90deg, #273247 0%, #4b5d7a 20%, #8fb8d8 45%, #d6f3ff 50%, #8fb8d8 55%, #4b5d7a 80%, #273247 100%);
+  border: 2px solid #131a26;
+  border-radius: 3px;
+  min-height: 36px;
+  box-shadow:
+    inset 0 1px 0 rgba(214, 243, 255, 0.65),
+    inset 0 -1px 0 rgba(14, 20, 32, 0.9),
+    0 0 4px rgba(0, 0, 0, 0.75);
+}
+
+*::-webkit-scrollbar-thumb:horizontal {
+  background:
+    linear-gradient(180deg, #273247 0%, #4b5d7a 20%, #8fb8d8 45%, #d6f3ff 50%, #8fb8d8 55%, #4b5d7a 80%, #273247 100%);
+  min-width: 36px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(90deg, #42331b 0%, #8f692f 20%, #d4a64a 45%, #fff0b8 50%, #d4a64a 55%, #8f692f 80%, #42331b 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 184, 0.8),
+    inset 0 -1px 0 rgba(48, 30, 8, 0.9),
+    0 0 6px rgba(224, 179, 74, 0.45);
+}
+
+*::-webkit-scrollbar-thumb:horizontal:hover {
+  background:
+    linear-gradient(180deg, #42331b 0%, #8f692f 20%, #d4a64a 45%, #fff0b8 50%, #d4a64a 55%, #8f692f 80%, #42331b 100%);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background:
+    linear-gradient(90deg, #57401d 0%, #a87b35 20%, #eab955 48%, #ffe799 50%, #eab955 52%, #a87b35 80%, #57401d 100%);
+}
+
+*::-webkit-scrollbar-corner {
+  background: #101622;
+  border-top: 1px solid #2f3c54;
+  border-left: 1px solid #2f3c54;
+}
+
+*::-webkit-scrollbar-button:single-button {
+  display: block;
+  width: 16px;
+  height: 18px;
+  background-color: #131a27;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  border: 1px solid #3c4a63;
+}
+
+*::-webkit-scrollbar-button:single-button:horizontal {
+  width: 18px;
+  height: 16px;
+}
+
+*::-webkit-scrollbar-button:start:increment,
+*::-webkit-scrollbar-button:end:decrement {
+  display: none;
+}
+
+*::-webkit-scrollbar-button:single-button:vertical:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 18'%3E%3Crect width='16' height='18' fill='%23121824'/%3E%3Cpath d='M0 0h16v6L8 2 0 6z' fill='%236d3b22'/%3E%3Cpath d='M1 1h14v3.5L8 1.5 1 4.5z' fill='%23a65c33' opacity='.75'/%3E%3Cpolygon points='8,6 12.5,12 3.5,12' fill='%23b5e8ff' stroke='%23203448' stroke-width='.8'/%3E%3C/svg%3E");
+}
+
+*::-webkit-scrollbar-button:single-button:vertical:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 18'%3E%3Crect width='16' height='18' fill='%23121824'/%3E%3Cpath d='M0 18h16v-6L8 16 0 12z' fill='%236d3b22'/%3E%3Cpath d='M1 17h14v-3.5L8 16.5 1 13.5z' fill='%23a65c33' opacity='.75'/%3E%3Cpolygon points='8,12 12.5,6 3.5,6' fill='%23b5e8ff' stroke='%23203448' stroke-width='.8'/%3E%3C/svg%3E");
+}
+
+*::-webkit-scrollbar-button:single-button:horizontal:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 16'%3E%3Crect width='18' height='16' fill='%23121824'/%3E%3Cpath d='M0 0v16h6L2 8l4-8z' fill='%236d3b22'/%3E%3Cpolygon points='6,8 12,3.5 12,12.5' fill='%23b5e8ff' stroke='%23203448' stroke-width='.8'/%3E%3C/svg%3E");
+}
+
+*::-webkit-scrollbar-button:single-button:horizontal:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 16'%3E%3Crect width='18' height='16' fill='%23121824'/%3E%3Cpath d='M18 0v16h-6l4-8-4-8z' fill='%236d3b22'/%3E%3Cpolygon points='12,8 6,3.5 6,12.5' fill='%23b5e8ff' stroke='%23203448' stroke-width='.8'/%3E%3C/svg%3E");
+}
+
+*::-webkit-scrollbar-button:single-button:hover {
+  filter: brightness(1.25);
+  border-color: #d4a64a;
+}
+
 html {
   width: 100%;
   height: 100%;

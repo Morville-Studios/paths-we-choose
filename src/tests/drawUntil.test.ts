@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { drawEncounterMonsters, drawMonsterCardWithReshuffle, drawTreasureCardsWithReshuffle, drawTreasureUntilLevel } from '../core/deck';
-import { chooseCard, confirmEncounterClear, getAvailableCoords, startAdventure, startBossCombat } from '../core/engine';
+import { chooseCard, confirmEncounterClear, finishVillage, getAvailableCoords, startAdventure, startBossCombat } from '../core/engine';
 import { MonsterCard, RunState, ShopItemDef } from '../core/types';
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
@@ -71,10 +71,10 @@ describe('ability searches and recycling game mechanics', () => {
 
   it('starts combat using recycled creatures rather than clearing the encounter', () => {
     const { state, coord } = encounterState();
-    state.monsterDiscard = [goblin, { ...goblin, id: 'grave_goblin' }];
+    state.monsterDiscard = [goblin];
     const result = chooseCard(state, coord);
     if (result.activeHook.type !== 'COMBAT') throw new Error('Expected ordinary combat');
-    expect(result.activeHook.combat.monsters.map(m => m.monster.id).sort()).toEqual(['goblin', 'grave_goblin']);
+    expect(result.activeHook.combat.monsters.map(m => m.monster.id)).toEqual(['goblin']);
     expect(result.bannerMessage).not.toContain('fizzl');
   });
 
@@ -126,12 +126,12 @@ describe('ability searches and recycling game mechanics', () => {
   });
 
   function encounterState(maxTurns = 2): { state: RunState; coord: { col: number; row: number } } {
-    const state = startAdventure('fighter', 'fizzle');
+    const state = finishVillage(startAdventure('fighter', 'fizzle'));
     state.welcomePreparing = false;
     state.maxTurns = maxTurns;
     const coord = getAvailableCoords(state)[0];
     const node = Object.values(state.board).find(n => n.coord.col === coord.col && n.coord.row === coord.row)!;
-    node.card = { ...node.card, terrain: 'grasslands', level: 2, hasHostile: true, hasVillage: false, hasShrine: false };
+    node.card = { ...node.card, terrain: 'grasslands', level: 1, hasHostile: true, hasVillage: false, hasShrine: false };
     state.monsterDeck = [bull];
     state.monsterDiscard = [];
     return { state, coord };

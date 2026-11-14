@@ -1,6 +1,7 @@
 import { appendGameLog, createTimestamp } from './log';
 import { CLASS_CATALOG, STARTING_BASE_STATS } from '../data/classes';
 import { createBossMonstersForMission } from '../data/monsters';
+import { buildPathsDeck } from '../data/paths';
 import {
   createStartCard,
   STAGE_1_MAX_TURNS,
@@ -18,26 +19,33 @@ import {
   buildStage1AdventureDeck,
   buildStage2AdventureDeck,
   buildStage3AdventureDeck,
+  buildPhysicalTreasureSupply,
   buildScenarioMonsterDeck,
+  buildScenarioTreasureDeck,
   buildStage1MonsterDeck,
   buildStage1TreasureDeck,
   buildStarterCombatDeck,
   buildNewSkillsDeck,
   drawAdventureCardWithReshuffle,
   drawEncounterMonsters,
+  drawPathCardWithReshuffle,
+  drawTreasureCardsWithReshuffle,
   drawTreasureUntilLevel,
+  getEncounterTargetLevel,
+  pullStartingAdventureCard,
   pullStartingTreasureCard,
 } from './deck';
 import {
-  attemptCombatFlee, computeFleeNetAcc, firstLivingMonsterIndex,
+  attemptCombatFlee, computeFleeNetAcc, computeHitProbability, firstLivingMonsterIndex,
   createCombatSession,
   endPlayerCombatTurn,
   playCombatCardFromHand,
 } from './combat';
 import { coordToKey, getForwardChoiceCoords, getLookaheadCoords, isSameCoord, toGridKey } from './grid';
-import { hashSeed, roll1D6 } from './rng';
+import { hashSeed, roll1D6, roll3D6 } from './rng';
 import {
   calculateMaxHp,
+  calculateMerchantGoodsPrice,
   computeEffectiveStats,
   getEffectiveStatsFromState,
   getFleeThreshold,
@@ -77,6 +85,7 @@ import {
   MonsterCard,
   PlacedCardNode,
   RunState,
+  ShopItemDef,
   ShrinePrayerOptionId,
   StatKey,
 } from './types';
@@ -115,7 +124,11 @@ export function createInitialState(seed = 'default'): RunState {
     monsterVoid: [],
     treasureDeck: [],
     treasureDiscard: [],
+    treasureVoid: [],
     treasureReshuffleCount: 0,
+    pathsDeck: [],
+    pathsDiscard: [],
+    pathsReshuffleCount: 0,
     trainRemovalCount: 0,
     board: {},
     pathHistory: [],
@@ -142,9 +155,36 @@ function placeNode(
   coord: GridCoord,
   card: AdventureCard,
   status: BoardNodeStatus,
-  turn: number
+  turn: number,
+  attachedShrineCard?: AdventureCard
 ): void {
-  board[coordToKey(coord)] = { coord, card, status, turnPlaced: turn };
+  board[coordToKey(coord)] = {
+    coord,
+    card,
+    ...(attachedShrineCard ? { attachedShrineCard } : {}),
+    status,
+    turnPlaced: turn,
+  };
+}
+
+function getStartingVillageAndShrineCodes(scenarioLevel: number): { villageCode: string; shrineCode: string } {
+  if (scenarioLevel === 3) return { villageCode: 'advsmp-03', shrineCode: 'advsmp-04' };
+  if (scenarioLevel === 2) return { villageCode: 'advfrs-03', shrineCode: 'advfrs-04' };
+  return { villageCode: 'advgrs-03', shrineCode: 'advgrs-04' };
+}
+
+function pullStartingVillageAndShrine(
+  deck: AdventureCard[],
+  scenarioLevel: number
+): { villageCard: AdventureCard; shrineCard: AdventureCard; deck: AdventureCard[] } {
+  const { villageCode, shrineCode } = getStartingVillageAndShrineCodes(scenarioLevel);
+  const pulledVillage = pullStartingAdventureCard(deck, villageCode);
+  const pulledShrine = pullStartingAdventureCard(pulledVillage.deck, shrineCode);
+  return {
+    villageCard: pulledVillage.card ?? createStartCard(),
+    shrineCard: pulledShrine.card ?? createStartCard(),
+    deck: pulledShrine.deck,
+  };
 }
 
 export function startAdventure(classId: ClassId, seed: string): RunState {
@@ -159,14 +199,19 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
   rng = tr.nextState;
   const skills = buildNewSkillsDeck(classId, rng);
   rng = skills.nextState;
+  const paths = buildPathsDeck(rng);
+  rng = paths.nextState;
 
   let deck = adv.deck;
   let discard: AdventureCard[] = [];
   let reshuffles = 0;
   const board: Record<string, PlacedCardNode> = {};
 
+  const starting = pullStartingVillageAndShrine(deck, STAGE_1_SCENARIO_LEVEL);
+  deck = starting.deck;
+
   const startCoord: GridCoord = { col: 0, row: 0 };
-  placeNode(board, startCoord, createStartCard(), 'current', 0);
+  placeNode(board, startCoord, starting.villageCard, 'current', 0, starting.shrineCard);
 
   const draw = (): AdventureCard => {
     const r = drawAdventureCardWithReshuffle(deck, discard, rng, reshuffles);
@@ -185,6 +230,7 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
   }
 
   let treasureDeck = tr.deck;
+  let treasureVoid = tr.void;
   const gear: { weapon: typeof treasureDeck[number] | null; armor: typeof treasureDeck[number] | null; accessory: typeof treasureDeck[number] | null } = {
     weapon: null,
     armor: null,
@@ -196,8 +242,9 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     ['weapon', classDef.startingGear.weaponId],
     ['armor', classDef.startingGear.armorId],
   ] as const) {
-    const pulled = pullStartingTreasureCard(treasureDeck, itemId);
+    const pulled = pullStartingTreasureCard(treasureDeck, itemId, treasureVoid);
     treasureDeck = pulled.deck;
+    treasureVoid = pulled.voidPile;
     if (pulled.item) {
       if (!gear[slot]) gear[slot] = pulled.item;
       else backpack.push(pulled.item);
@@ -207,7 +254,7 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
   const effective = computeEffectiveStats(STARTING_BASE_STATS, classDef.classBonuses, gear);
   const maxHp = calculateMaxHp(effective.vit);
 
-  return syncAudioState({
+  const initialState: RunState = {
     ...createInitialState(seed),
     seed,
     rngState: rng,
@@ -232,26 +279,27 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     monsterVoid: mon.void,
     treasureDeck,
     treasureDiscard: [],
+    treasureVoid,
     treasureReshuffleCount: 0,
+    pathsDeck: paths.deck,
+    pathsDiscard: [],
+    pathsReshuffleCount: 0,
     board,
     pathHistory: [startCoord],
     gameLog: [
       `[${createTimestamp(undefined)}] 🗺️ Embarked on Scenario 1: ${STAGE_1_MISSION_NAME} as a ${classDef.name}.`,
       `[${createTimestamp(undefined)}] 🎴 Dealt initial adventure board (9 cards). Starting with 10 Stat Points and 20 Gold.`,
     ],
-    bannerMessage: 'Prepare for your journey.',
-    welcomePreparing: true,
-  });
-}
-
-export function dismissWelcomePrepare(state: RunState, force = false): RunState {
-  if (!state.welcomePreparing) return state;
-  if (!force && (state.playerResources?.statPoints ?? 0) >= 10) return state;
-  return {
-    ...state,
+    bannerMessage: `Embarked on ${STAGE_1_MISSION_NAME}. You begin at ${starting.villageCard.name ?? 'the starting village'}.`,
     welcomePreparing: false,
-    bannerMessage: 'Choose your next path.',
   };
+  const withVillage = prepareVillage(initialState, startCoord, 0);
+  return syncAudioState({
+    ...withVillage,
+    gameLog: initialState.gameLog,
+    bannerMessage: initialState.bannerMessage,
+    welcomePreparing: false,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -304,6 +352,9 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
   for (const [key, node] of Object.entries(state.board)) {
     if (node.coord.row === R - 1) {
       if (node.card.terrain !== 'start') discard.push(node.card);
+      if (node.attachedShrineCard && node.attachedShrineCard.terrain !== 'start') {
+        discard.push(node.attachedShrineCard);
+      }
     } else {
       board[key] = node;
     }
@@ -371,75 +422,189 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
   } else if (card.hasShrine) {
     next = grantShrineBoonOnEnter(next, chosen.coord, turn);
   } else if (isUndiscoveredTerrain(card)) {
-    const { roll, nextState: rRng } = roll1D6(rng);
-    const exploration = resolveUndiscoveredExploration(roll, card.level);
-    const rollLabel = `${roll}`;
-    if (exploration.outcome === 'combat') {
-      next = {
-        ...next,
-        rngState: rRng,
-        activeHook: {
-          type: 'EXPLORATION',
-          exploration: {
-            coord: chosen.coord,
-            card,
-            roll,
-            effectiveRoll: exploration.effectiveRoll,
-            outcome: 'combat',
-          },
-        },
-        gameLog: appendGameLog(next, `[${time}] ⚔️ Explored ${card.name}: Rolled ${rollLabel} — Enemy encountered!`),
-        bannerMessage: `Explored ${card.name}: Rolled ${rollLabel} (≤ Lvl ${card.level}) — Enemy encountered!`,
-      };
-    } else if (exploration.outcome === 'treasure') {
-      const trRes = drawTreasureUntilLevel(
+    const drawnPath = drawPathCardWithReshuffle(
+      next.pathsDeck ?? [],
+      next.pathsDiscard ?? [],
+      rng,
+      next.pathsReshuffleCount ?? 0
+    );
+    if (drawnPath.card.templateId === 'merchant') {
+      const treasureDraw = drawTreasureCardsWithReshuffle(
         next.treasureDeck,
         next.treasureDiscard,
-        card.level,
-        rRng,
-        next.treasureReshuffleCount
+        2,
+        drawnPath.nextState,
+        next.treasureReshuffleCount ?? 0
       );
-      const foundItem = trRes.item;
-      const newBackpack = foundItem ? [...next.backpack, foundItem] : next.backpack;
+      const offeredNames = treasureDraw.drawn.map((i) => i.name).join(', ') || 'no wares';
       next = {
         ...next,
-        treasureDeck: trRes.deck,
-        treasureDiscard: trRes.discard,
-        treasureReshuffleCount: trRes.reshuffleCount,
-        rngState: trRes.nextState,
-        backpack: newBackpack,
+        pathsDeck: drawnPath.deck,
+        pathsDiscard: drawnPath.discard,
+        pathsReshuffleCount: drawnPath.reshuffleCount,
+        treasureDeck: treasureDraw.deck,
+        treasureDiscard: treasureDraw.discard,
+        treasureReshuffleCount: treasureDraw.reshuffleCount,
+        rngState: treasureDraw.nextState,
         activeHook: {
-          type: 'EXPLORATION',
-          exploration: {
+          type: 'PATH_CHALLENGE',
+          pathChallenge: {
             coord: chosen.coord,
-            card,
-            roll,
-            effectiveRoll: exploration.effectiveRoll,
-            outcome: 'treasure',
-            foundItem,
-            discardedOverLevelCount: trRes.discardedOverLevel.length,
+            terrainCard: card,
+            pathCard: drawnPath.card,
+            phase: 'merchant_offer',
+            sneakNet: 0,
+            merchantStock: treasureDraw.drawn,
           },
         },
-        bannerMessage: foundItem
-          ? `Explored ${card.name}: Rolled ${rollLabel}! Found treasure: ${foundItem.name}!`
-          : `Explored ${card.name}: No eligible treasure remains in the deck or graveyard.`,
+        gameLog: appendGameLog(
+          next,
+          `[${time}] 🧳 Wandered into ${card.name} (Lvl ${card.level}) and met a ${drawnPath.card.name} offering: ${offeredNames}!`
+        ),
+        bannerMessage: `You met a wandering ${drawnPath.card.name} in ${card.name}!`,
+      };
+    } else if (drawnPath.card.templateId === 'sanctuary') {
+      next = {
+        ...next,
+        pathsDeck: drawnPath.deck,
+        pathsDiscard: drawnPath.discard,
+        pathsReshuffleCount: drawnPath.reshuffleCount,
+        rngState: drawnPath.nextState,
+        activeHook: {
+          type: 'PATH_CHALLENGE',
+          pathChallenge: {
+            coord: chosen.coord,
+            terrainCard: card,
+            pathCard: drawnPath.card,
+            phase: 'sanctuary_prompt',
+            sneakNet: 0,
+          },
+        },
+        gameLog: appendGameLog(
+          next,
+          `[${time}] 🌿 Wandered into ${card.name} (Lvl ${card.level}) and found a peaceful ${drawnPath.card.name}!`
+        ),
+        bannerMessage: `You discovered a peaceful ${drawnPath.card.name} in ${card.name}!`,
+      };
+    } else if (drawnPath.card.templateId === 'ambush') {
+      next = {
+        ...next,
+        pathsDeck: drawnPath.deck,
+        pathsDiscard: drawnPath.discard,
+        pathsReshuffleCount: drawnPath.reshuffleCount,
+        rngState: drawnPath.nextState,
+        activeHook: {
+          type: 'PATH_CHALLENGE',
+          pathChallenge: {
+            coord: chosen.coord,
+            terrainCard: card,
+            pathCard: drawnPath.card,
+            phase: 'ambush_prompt',
+            sneakNet: 0,
+          },
+        },
+        gameLog: appendGameLog(
+          next,
+          `[${time}] ⚠️ Wandered into ${card.name} (Lvl ${card.level}) — it's an ${drawnPath.card.name}! Enemies strike first!`
+        ),
+        bannerMessage: `Ambush! Hostiles in ${card.name} strike first!`,
+      };
+    } else if (drawnPath.card.templateId === 'magical_chest' || drawnPath.card.templateId === 'trapped_chest') {
+      next = {
+        ...next,
+        pathsDeck: drawnPath.deck,
+        pathsDiscard: drawnPath.discard,
+        pathsReshuffleCount: drawnPath.reshuffleCount,
+        rngState: drawnPath.nextState,
+        activeHook: {
+          type: 'PATH_CHALLENGE',
+          pathChallenge: {
+            coord: chosen.coord,
+            terrainCard: card,
+            pathCard: drawnPath.card,
+            phase: 'chest_prompt',
+            sneakNet: 0,
+          },
+        },
+        gameLog: appendGameLog(
+          next,
+          `[${time}] 🗝️ Wandered into ${card.name} (Lvl ${card.level}) and discovered a ${drawnPath.card.name}!`
+        ),
+        bannerMessage: `You discovered a ${drawnPath.card.name} in ${card.name}!`,
+      };
+    } else if (drawnPath.card.templateId === 'gold_stash') {
+      next = {
+        ...next,
+        pathsDeck: drawnPath.deck,
+        pathsDiscard: drawnPath.discard,
+        pathsReshuffleCount: drawnPath.reshuffleCount,
+        rngState: drawnPath.nextState,
+        activeHook: {
+          type: 'PATH_CHALLENGE',
+          pathChallenge: {
+            coord: chosen.coord,
+            terrainCard: card,
+            pathCard: drawnPath.card,
+            phase: 'gold_stash_prompt',
+            sneakNet: 0,
+          },
+        },
+        gameLog: appendGameLog(
+          next,
+          `[${time}] 💰 Wandered into ${card.name} (Lvl ${card.level}) and spotted a ${drawnPath.card.name}!`
+        ),
+        bannerMessage: `You spotted a hidden ${drawnPath.card.name} in ${card.name}!`,
+      };
+    } else if (drawnPath.card.templateId === 'spring_trap') {
+      const eff = getEffectiveStatsFromState(next);
+      const trapNet = eff.agi - (1 + 2 * card.level);
+      next = {
+        ...next,
+        pathsDeck: drawnPath.deck,
+        pathsDiscard: drawnPath.discard,
+        pathsReshuffleCount: drawnPath.reshuffleCount,
+        rngState: drawnPath.nextState,
+        activeHook: {
+          type: 'PATH_CHALLENGE',
+          pathChallenge: {
+            coord: chosen.coord,
+            terrainCard: card,
+            pathCard: drawnPath.card,
+            phase: 'spring_trap_prompt',
+            sneakNet: 0,
+            trapNet,
+          },
+        },
+        gameLog: appendGameLog(
+          next,
+          `[${time}] 🪤 Wandered into ${card.name} (Lvl ${card.level}) and triggered a ${drawnPath.card.name}!`
+        ),
+        bannerMessage: `You triggered a ${drawnPath.card.name} in ${card.name}! Roll AGI to dodge!`,
       };
     } else {
+      const eff = getEffectiveStatsFromState(next);
+      const sneakNet = eff.agi - card.level * 2;
       next = {
         ...next,
-        rngState: rRng,
+        pathsDeck: drawnPath.deck,
+        pathsDiscard: drawnPath.discard,
+        pathsReshuffleCount: drawnPath.reshuffleCount,
+        rngState: drawnPath.nextState,
         activeHook: {
-          type: 'EXPLORATION',
-          exploration: {
+          type: 'PATH_CHALLENGE',
+          pathChallenge: {
             coord: chosen.coord,
-            card,
-            roll,
-            effectiveRoll: exploration.effectiveRoll,
-            outcome: 'safe',
+            terrainCard: card,
+            pathCard: drawnPath.card,
+            phase: 'sneak_prompt',
+            sneakNet,
           },
         },
-        gameLog: appendGameLog(next, `[${time}] 🍃 Explored ${card.name}: Rolled ${rollLabel} — The wilderness path is peaceful.`),
-        bannerMessage: `Explored ${card.name}: Rolled ${rollLabel}. The wilderness path is peaceful.`,
+        gameLog: appendGameLog(
+          next,
+          `[${time}] 🗺️ Wandered into ${card.name} (Lvl ${card.level}) and encountered Path Card: ${drawnPath.card.name}!`
+        ),
+        bannerMessage: `You wandered into ${card.name} and see hostiles ahead (${drawnPath.card.name}). Roll a Sneak Check!`,
       };
     }
   } else {
@@ -462,14 +627,543 @@ export function confirmExplorationSafe(state: RunState): RunState {
   });
 }
 
-/** Fills the battle area with monsters until their total level >= the Encounter tile's level. */
+/** Evaluates a MACG-3D6™ 3d6 Success Check (Tier 4 baseline at Net 0; 3 & 18 Diabolic Always Miss). */
+export function rollMacg3d6Check(
+  netModifier: number,
+  rngState: number
+): {
+  result: import('./types').PathCheckRollResult;
+  nextState: number;
+} {
+  const { die1, die2, die3, total, nextState } = roll3D6(rngState);
+  const dice: [number, number, number] = [die1, die2, die3];
+  const { minHitRoll, maxHitRoll, hitPercent } = computeHitProbability(netModifier);
+  const tier = Math.max(1, Math.min(7, 4 + netModifier));
+  const isDiabolic = total === 3 || total === 18;
+  const success = !isDiabolic && total >= minHitRoll && total <= maxHitRoll;
+  return {
+    result: {
+      dice,
+      total,
+      netModifier,
+      minHitRoll,
+      maxHitRoll,
+      hitPercent,
+      tier,
+      isDiabolic,
+      success,
+    },
+    nextState,
+  };
+}
+
+export function resolvePathSneakCheck(state: RunState): RunState {
+  if (state.activeHook.type !== 'PATH_CHALLENGE') return state;
+  const pc = state.activeHook.pathChallenge;
+  if (pc.phase !== 'sneak_prompt') return state;
+
+  const eff = getEffectiveStatsFromState(state);
+  const sneakNet = eff.agi - pc.terrainCard.level * 2;
+  const { result, nextState } = rollMacg3d6Check(sneakNet, state.rngState);
+  const time = createTimestamp(state.logTimestamp);
+  const diceStr = `[${result.dice.join(', ')}] = ${result.total}`;
+
+  return syncAudioState({
+    ...state,
+    rngState: nextState,
+    pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+    activeHook: {
+      type: 'PATH_CHALLENGE',
+      pathChallenge: {
+        ...pc,
+        sneakNet,
+        sneakRoll: result,
+        phase: result.success ? 'sneak_success' : 'sneak_fail',
+      },
+    },
+    gameLog: appendGameLog(
+      state,
+      result.success
+        ? `[${time}] 🥷 Sneak Check (${pc.pathCard.name}): rolled 3d6 = ${diceStr} -> ✅ SUCCEEDED! Slipped past hostiles.`
+        : `[${time}] ⚠️ Sneak Check (${pc.pathCard.name}): rolled 3d6 = ${diceStr} -> ❌ CAUGHT! ${pc.terrainCard.name} becomes an Encounter.`
+    ),
+    bannerMessage: result.success
+      ? `Sneak Check succeeded (${result.total})! You slip past the hostiles.`
+      : `Sneak Check failed (${result.total})! The hostiles spot you!`,
+  });
+}
+
+export function confirmPathSneakCombat(state: RunState): RunState {
+  if (state.activeHook.type !== 'PATH_CHALLENGE') return state;
+  const pc = state.activeHook.pathChallenge;
+  if (pc.phase !== 'sneak_fail') return state;
+
+  const coordKey = coordToKey(pc.coord);
+  const node = state.board[coordKey];
+  const updatedTerrainCard: AdventureCard = {
+    ...pc.terrainCard,
+    hasHostile: true,
+    isUndiscovered: false,
+  };
+  const nextBoard = node
+    ? { ...state.board, [coordKey]: { ...node, card: updatedTerrainCard } }
+    : state.board;
+
+  return startMonsterCombat(
+    { ...state, board: nextBoard },
+    updatedTerrainCard.level,
+    updatedTerrainCard.terrain,
+    updatedTerrainCard,
+    { coord: pc.coord, terrainCard: updatedTerrainCard, pathCard: pc.pathCard }
+  );
+}
+
+export function advancePathToTreasurePrompt(state: RunState): RunState {
+  if (state.activeHook.type !== 'PATH_CHALLENGE') return state;
+  const pc = state.activeHook.pathChallenge;
+  if (pc.phase !== 'sneak_success') return state;
+
+  const eff = getEffectiveStatsFromState(state);
+  const treasureNet = eff.dex - pc.terrainCard.level * 2;
+  return syncAudioState({
+    ...state,
+    activeHook: {
+      type: 'PATH_CHALLENGE',
+      pathChallenge: {
+        ...pc,
+        phase: 'treasure_prompt',
+        treasureNet,
+      },
+    },
+    bannerMessage: `Time for a Treasure Discovery Check (DEX vs Terrain Lvl ${pc.terrainCard.level} × 2).`,
+  });
+}
+
+export function resolvePathTreasureCheck(state: RunState): RunState {
+  if (state.activeHook.type !== 'PATH_CHALLENGE') return state;
+  const pc = state.activeHook.pathChallenge;
+  if (pc.phase !== 'treasure_prompt') return state;
+
+  const eff = getEffectiveStatsFromState(state);
+  const treasureNet = eff.dex - pc.terrainCard.level * 2;
+  const { result, nextState } = rollMacg3d6Check(treasureNet, state.rngState);
+  const time = createTimestamp(state.logTimestamp);
+  const diceStr = `[${result.dice.join(', ')}] = ${result.total}`;
+
+  if (!result.success) {
+    return syncAudioState({
+      ...state,
+      rngState: nextState,
+      activeHook: {
+        type: 'PATH_CHALLENGE',
+        pathChallenge: {
+          ...pc,
+          treasureNet,
+          treasureRoll: result,
+          phase: 'treasure_fail',
+        },
+      },
+      gameLog: appendGameLog(
+        state,
+        `[${time}] 💎 Treasure Discovery (${pc.terrainCard.name}): rolled 3d6 = ${diceStr} -> You find nothing.`
+      ),
+      bannerMessage: `Treasure Discovery failed (${result.total}). You find nothing.`,
+    });
+  }
+
+  const trRes = drawTreasureUntilLevel(
+    state.treasureDeck,
+    state.treasureDiscard,
+    pc.terrainCard.level,
+    nextState,
+    state.treasureReshuffleCount
+  );
+  const foundItem = trRes.item;
+  const newBackpack = foundItem ? [...state.backpack, foundItem] : state.backpack;
+
+  return syncAudioState({
+    ...state,
+    treasureDeck: trRes.deck,
+    treasureDiscard: trRes.discard,
+    treasureReshuffleCount: trRes.reshuffleCount,
+    rngState: trRes.nextState,
+    backpack: newBackpack,
+    activeHook: {
+      type: 'PATH_CHALLENGE',
+      pathChallenge: {
+        ...pc,
+        treasureNet,
+        treasureRoll: result,
+        phase: 'treasure_success',
+        foundItem,
+        discardedOverLevelCount: trRes.discardedOverLevel.length,
+      },
+    },
+    gameLog: appendGameLog(
+      state,
+      foundItem
+        ? `[${time}] 💎 Treasure Discovery (${pc.terrainCard.name}): rolled 3d6 = ${diceStr} -> Found ${foundItem.name} (Lvl ${foundItem.level ?? 1})!`
+        : `[${time}] 💎 Treasure Discovery (${pc.terrainCard.name}): rolled 3d6 = ${diceStr} -> Succeeded, but no eligible treasure remains.`
+    ),
+    bannerMessage: foundItem
+      ? `Treasure Discovery succeeded! Found ${foundItem.name}!`
+      : `Treasure Discovery succeeded, but no eligible treasure remains.`,
+  });
+}
+
+export function buyPathMerchantItem(state: RunState, itemIdentifier: string): RunState {
+  if (state.activeHook.type !== 'PATH_CHALLENGE') return state;
+  const pc = state.activeHook.pathChallenge;
+  if (pc.phase !== 'merchant_offer' || !state.playerResources) return state;
+
+  const stock = pc.merchantStock ?? [];
+  const stockIndex = stock.findIndex(
+    (i) => i.instanceId === itemIdentifier || i.id === itemIdentifier
+  );
+  if (stockIndex < 0) return state;
+
+  const item = stock[stockIndex];
+  const eff = getEffectiveStatsFromState(state);
+  const cost = calculateMerchantGoodsPrice(item.buyPrice, eff.cha);
+  if (state.playerResources.gold < cost) return state;
+
+  const nextStock = stock.filter((_, idx) => idx !== stockIndex);
+  const time = createTimestamp(state.logTimestamp);
+  const paid: RunState = {
+    ...state,
+    activeHook: {
+      type: 'PATH_CHALLENGE',
+      pathChallenge: {
+        ...pc,
+        merchantStock: nextStock,
+      },
+    },
+    playerResources: {
+      ...state.playerResources,
+      gold: state.playerResources.gold - cost,
+    },
+    backpack: [...state.backpack, item],
+    gameLog: appendGameLog(
+      state,
+      `[${time}] 🛒 Bought ${item.name} from ${pc.pathCard.name} for ${cost} Gold (2× DISC).`
+    ),
+    bannerMessage: `Bought ${item.name} from ${pc.pathCard.name} for ${cost} Gold.`,
+  };
+  if (item.category === 'consumable') return paid;
+  const equipped = equipItem(paid, item.instanceId!);
+  return { ...equipped, bannerMessage: `Bought and equipped ${item.name} for ${cost} Gold.` };
+}
+
+export function restAtPathSanctuary(state: RunState): RunState {
+  if (state.activeHook.type !== 'PATH_CHALLENGE') return state;
+  const pc = state.activeHook.pathChallenge;
+  if (pc.phase !== 'sanctuary_prompt' || !state.playerResources) return state;
+
+  const prevHp = state.playerResources.hp;
+  const maxHp = state.playerResources.maxHp;
+  const healed = Math.max(0, maxHp - prevHp);
+  const time = createTimestamp(state.logTimestamp);
+  return {
+    ...state,
+    pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+    playerResources: {
+      ...state.playerResources,
+      hp: maxHp,
+    },
+    activeHook: {
+      type: 'PATH_CHALLENGE',
+      pathChallenge: {
+        ...pc,
+        phase: 'sanctuary_done',
+        healedAmount: healed,
+      },
+    },
+    gameLog: appendGameLog(
+      state,
+      `[${time}] 🌿 Rested for free at ${pc.pathCard.name}: restored ${healed} HP (${maxHp}/${maxHp} HP).`
+    ),
+    bannerMessage: healed > 0 ? `Rested at ${pc.pathCard.name}: restored ${healed} HP!` : `Rested at ${pc.pathCard.name} (already at full HP).`,
+  };
+}
+
+export function confirmPathAmbushCombat(state: RunState): RunState {
+  if (state.activeHook.type !== 'PATH_CHALLENGE') return state;
+  const pc = state.activeHook.pathChallenge;
+  if (pc.phase !== 'ambush_prompt') return state;
+
+  const coordKey = coordToKey(pc.coord);
+  const existingNode = state.board[coordKey];
+  const updatedTerrainCard: AdventureCard = {
+    ...pc.terrainCard,
+    hasHostile: true,
+    isUndiscovered: false,
+  };
+  const nextBoard = existingNode
+    ? { ...state.board, [coordKey]: { ...existingNode, card: updatedTerrainCard } }
+    : state.board;
+
+  const nextState: RunState = {
+    ...state,
+    board: nextBoard,
+    pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+    activeHook: { type: 'NONE' },
+  };
+  return startMonsterCombat(nextState, pc.terrainCard.level, pc.terrainCard.terrain, updatedTerrainCard, undefined, true);
+}
+
+export function resolvePathChestAttempt(
+  state: RunState,
+  method: 'force_open' | 'lockpick' | 'remove_seal' | 'abandon'
+): RunState {
+  if (state.activeHook.type !== 'PATH_CHALLENGE') return state;
+  const pc = state.activeHook.pathChallenge;
+  if (pc.phase !== 'chest_prompt' || !state.playerResources) return state;
+
+  const time = createTimestamp(state.logTimestamp);
+  if (method === 'abandon') {
+    return afterTileResolved({
+      ...state,
+      pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+      activeHook: { type: 'NONE' },
+      gameLog: appendGameLog(state, `[${time}] 🚶 Abandoned the ${pc.pathCard.name} safely.`),
+      bannerMessage: `Left the ${pc.pathCard.name} untouched.`,
+    });
+  }
+
+  const isTrapped = pc.pathCard.templateId === 'trapped_chest';
+  if (isTrapped && method === 'remove_seal') return state;
+
+  const eff = getEffectiveStatsFromState(state);
+  const lvl = pc.terrainCard.level;
+  const net =
+    method === 'force_open'
+      ? eff.str - (3 + 2 * lvl)
+      : method === 'lockpick'
+      ? eff.dex - ((isTrapped ? 1 : 3) + 2 * lvl)
+      : eff.int - (1 + 2 * lvl);
+
+  const rollOut = rollMacg3d6Check(net, state.rngState);
+  const treasureDraw = drawTreasureCardsWithReshuffle(
+    state.treasureDeck,
+    state.treasureDiscard,
+    1,
+    rollOut.nextState,
+    state.treasureReshuffleCount ?? 0
+  );
+  const drawnItem = treasureDraw.drawn[0] ?? null;
+  const diceStr = `[${rollOut.result.dice.join('+')}] = ${rollOut.result.total}`;
+
+  if (rollOut.result.success) {
+    return {
+      ...state,
+      rngState: treasureDraw.nextState,
+      treasureDeck: treasureDraw.deck,
+      treasureDiscard: treasureDraw.discard,
+      treasureReshuffleCount: treasureDraw.reshuffleCount,
+      pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+      backpack: drawnItem ? [...state.backpack, drawnItem] : state.backpack,
+      activeHook: {
+        type: 'PATH_CHALLENGE',
+        pathChallenge: {
+          ...pc,
+          phase: 'chest_success',
+          chestAttemptMethod: method,
+          chestCheckRoll: rollOut.result,
+          foundItem: drawnItem,
+        },
+      },
+      gameLog: appendGameLog(
+        state,
+        drawnItem
+          ? `[${time}] 💎 ${pc.pathCard.name} (${method}): rolled 3d6 = ${diceStr} -> Unlocked! Found ${drawnItem.name}!`
+          : `[${time}] 💎 ${pc.pathCard.name} (${method}): rolled 3d6 = ${diceStr} -> Unlocked, but the Treasure Deck was empty.`
+      ),
+      bannerMessage: drawnItem ? `Opened ${pc.pathCard.name}! Found ${drawnItem.name}!` : `Opened ${pc.pathCard.name}!`,
+    };
+  }
+
+  // Failed: chest explodes, destroying the item inside to Void and dealing 3 damage
+  const nextHp = Math.max(0, state.playerResources.hp - 3);
+  const nextVoidItems = drawnItem ? [...(state.voidItems ?? []), drawnItem] : state.voidItems;
+  const failLog = `[${time}] 💥 ${pc.pathCard.name} (${method}): rolled 3d6 = ${diceStr} -> FAILED! The chest exploded for 3 DMG${
+    drawnItem ? ` and destroyed ${drawnItem.name}` : ''
+  }.`;
+
+  if (nextHp <= 0) {
+    return syncAudioState({
+      ...state,
+      rngState: treasureDraw.nextState,
+      treasureDeck: treasureDraw.deck,
+      treasureDiscard: treasureDraw.discard,
+      treasureReshuffleCount: treasureDraw.reshuffleCount,
+      pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+      voidItems: nextVoidItems,
+      playerResources: { ...state.playerResources, hp: 0 },
+      activeHook: { type: 'ON_GAME_OVER', turn: state.turn, defeatedBy: pc.pathCard.name },
+      gameLog: appendGameLog(state, failLog),
+      bannerMessage: `You were defeated by ${pc.pathCard.name} on Turn ${state.turn}.`,
+    });
+  }
+
+  return {
+    ...state,
+    rngState: treasureDraw.nextState,
+    treasureDeck: treasureDraw.deck,
+    treasureDiscard: treasureDraw.discard,
+    treasureReshuffleCount: treasureDraw.reshuffleCount,
+    pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+    voidItems: nextVoidItems,
+    playerResources: { ...state.playerResources, hp: nextHp },
+    activeHook: {
+      type: 'PATH_CHALLENGE',
+      pathChallenge: {
+        ...pc,
+        phase: 'chest_fail',
+        chestAttemptMethod: method,
+        chestCheckRoll: rollOut.result,
+        destroyedItem: drawnItem,
+        damageTaken: 3,
+      },
+    },
+    gameLog: appendGameLog(state, failLog),
+    bannerMessage: `${pc.pathCard.name} exploded! Took 3 DMG!`,
+  };
+}
+
+export function rollPathGoldStash(state: RunState): RunState {
+  if (state.activeHook.type !== 'PATH_CHALLENGE') return state;
+  const pc = state.activeHook.pathChallenge;
+  if (pc.phase !== 'gold_stash_prompt' || !state.playerResources) return state;
+
+  const rolled = roll1D6(state.rngState);
+  const goldAwarded = rolled.roll <= 3 ? 10 : rolled.roll <= 5 ? 20 : 30;
+  const time = createTimestamp(state.logTimestamp);
+
+  return {
+    ...state,
+    rngState: rolled.nextState,
+    pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+    playerResources: {
+      ...state.playerResources,
+      gold: state.playerResources.gold + goldAwarded,
+    },
+    activeHook: {
+      type: 'PATH_CHALLENGE',
+      pathChallenge: {
+        ...pc,
+        phase: 'gold_stash_done',
+        goldRollDie: rolled.roll,
+        goldAwarded,
+      },
+    },
+    gameLog: appendGameLog(
+      state,
+      `[${time}] 💰 ${pc.pathCard.name}: rolled 1d6 = ${rolled.roll} -> Discovered +${goldAwarded} Gold!`
+    ),
+    bannerMessage: `Rolled ${rolled.roll} on 1d6: discovered +${goldAwarded} Gold!`,
+  };
+}
+
+export function resolvePathSpringTrap(state: RunState): RunState {
+  if (state.activeHook.type !== 'PATH_CHALLENGE') return state;
+  const pc = state.activeHook.pathChallenge;
+  if (pc.phase !== 'spring_trap_prompt' || !state.playerResources) return state;
+
+  const eff = getEffectiveStatsFromState(state);
+  const net = pc.trapNet ?? eff.agi - (1 + 2 * pc.terrainCard.level);
+  const rollOut = rollMacg3d6Check(net, state.rngState);
+  const diceStr = `[${rollOut.result.dice.join('+')}] = ${rollOut.result.total}`;
+  const time = createTimestamp(state.logTimestamp);
+
+  if (rollOut.result.success) {
+    return {
+      ...state,
+      rngState: rollOut.nextState,
+      pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+      activeHook: {
+        type: 'PATH_CHALLENGE',
+        pathChallenge: {
+          ...pc,
+          phase: 'spring_trap_success',
+          trapRoll: rollOut.result,
+          damageTaken: 0,
+        },
+      },
+      gameLog: appendGameLog(
+        state,
+        `[${time}] 🪤 ${pc.pathCard.name}: rolled 3d6 = ${diceStr} -> ✅ DODGED! Avoided all damage.`
+      ),
+      bannerMessage: `Dodged the ${pc.pathCard.name}!`,
+    };
+  }
+
+  const nextHp = Math.max(0, state.playerResources.hp - 4);
+  const failLog = `[${time}] 🪤 ${pc.pathCard.name}: rolled 3d6 = ${diceStr} -> ❌ HIT! Took 4 direct damage.`;
+  if (nextHp <= 0) {
+    return syncAudioState({
+      ...state,
+      rngState: rollOut.nextState,
+      pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+      playerResources: { ...state.playerResources, hp: 0 },
+      activeHook: { type: 'ON_GAME_OVER', turn: state.turn, defeatedBy: pc.pathCard.name },
+      gameLog: appendGameLog(state, failLog),
+      bannerMessage: `You were defeated by ${pc.pathCard.name} on Turn ${state.turn}.`,
+    });
+  }
+
+  return {
+    ...state,
+    rngState: rollOut.nextState,
+    pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+    playerResources: { ...state.playerResources, hp: nextHp },
+    activeHook: {
+      type: 'PATH_CHALLENGE',
+      pathChallenge: {
+        ...pc,
+        phase: 'spring_trap_fail',
+        trapRoll: rollOut.result,
+        damageTaken: 4,
+      },
+    },
+    gameLog: appendGameLog(state, failLog),
+    bannerMessage: `Hit by ${pc.pathCard.name}! Took 4 damage!`,
+  };
+}
+
+export function confirmPathChallengeDone(state: RunState): RunState {
+  if (state.activeHook.type !== 'PATH_CHALLENGE') return state;
+  const pc = state.activeHook.pathChallenge;
+  if (pc.phase === 'merchant_offer') {
+    const remainingStock = pc.merchantStock ?? [];
+    const time = createTimestamp(state.logTimestamp);
+    return afterTileResolved({
+      ...state,
+      treasureDiscard: [...state.treasureDiscard, ...remainingStock],
+      pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
+      activeHook: { type: 'NONE' },
+      gameLog:
+        remainingStock.length > 0
+          ? appendGameLog(state, `[${time}] 🧳 Left the ${pc.pathCard.name}.`)
+          : state.gameLog,
+    });
+  }
+  return afterTileResolved({
+    ...state,
+    activeHook: { type: 'NONE' },
+  });
+}
+
+/** Fills the battle area with monsters until their total level >= floor(tileLevel * 1.5). */
 function startMonsterCombat(
   state: RunState,
   tileLevel: number,
   terrain?: string,
-  encounterCard?: AdventureCard
+  encounterCard?: AdventureCard,
+  pendingPathTreasureCheck?: import('./types').PendingPathTreasureCheck,
+  enemyFirstTurn = false
 ): RunState {
-  const drawn = drawEncounterMonsters(state.monsterDeck, state.monsterDiscard, state.rngState, tileLevel, terrain);
+  const targetLevel = getEncounterTargetLevel(tileLevel);
+  const drawn = drawEncounterMonsters(state.monsterDeck, state.monsterDiscard, state.rngState, targetLevel, terrain);
   const next = { ...state, monsterDeck: drawn.deck, monsterDiscard: drawn.discard, rngState: drawn.nextState };
   if (drawn.monsters.length === 0) {
     if (encounterCard) {
@@ -487,10 +1181,25 @@ function startMonsterCombat(
     }
     return afterTileResolved(next);
   }
-  const battle = beginCombat(next, drawn.monsters);
-  return drawn.supplyExhausted
+  const battle = beginCombat(next, drawn.monsters, pendingPathTreasureCheck);
+  const withSupplyBanner = drawn.supplyExhausted
     ? { ...battle, bannerMessage: `${battle.bannerMessage} No further eligible monsters available; the current foes remain.` }
     : battle;
+  if (enemyFirstTurn && withSupplyBanner.activeHook.type === 'COMBAT') {
+    const ambushSeed: RunState = {
+      ...withSupplyBanner,
+      activeHook: {
+        type: 'COMBAT',
+        combat: {
+          ...withSupplyBanner.activeHook.combat,
+          combatTurn: 0,
+          playerAp: 0,
+        },
+      },
+    };
+    return endPlayerCombatTurn(ambushSeed);
+  }
+  return withSupplyBanner;
 }
 
 export function confirmEncounterClear(state: RunState): RunState {
@@ -498,10 +1207,15 @@ export function confirmEncounterClear(state: RunState): RunState {
   return afterTileResolved({ ...state, activeHook: { type: 'NONE' } });
 }
 
-function beginCombat(state: RunState, monsters: MonsterCard[]): RunState {
+function beginCombat(
+  state: RunState,
+  monsters: MonsterCard[],
+  pendingPathTreasureCheck?: import('./types').PendingPathTreasureCheck
+): RunState {
   const eff = getEffectiveStatsFromState(state);
   const maxAp = getPlayerAct(eff);
-  const { combat, nextState } = createCombatSession(monsters, state.playerMasterDeck, state.rngState, maxAp, state.logTimestamp);
+  const { combat: baseCombat, nextState } = createCombatSession(monsters, state.playerMasterDeck, state.rngState, maxAp, state.logTimestamp);
+  const combat = pendingPathTreasureCheck ? { ...baseCombat, pendingPathTreasureCheck } : baseCombat;
   const names = monsters.map((m) => m.name).join(' + ');
   return syncAudioState({
     ...state,
@@ -571,6 +1285,10 @@ function handleCombatVictory(
     canContinue: mission === 1 || mission === 2,
     lastAttackRolls: victoryDetails.lastAttackRolls,
     finalCombatState: victoryDetails.finalCombatState,
+    pendingPathTreasureCheck:
+      state.activeHook.type === 'COMBAT'
+        ? state.activeHook.combat.pendingPathTreasureCheck
+        : victoryDetails.finalCombatState?.pendingPathTreasureCheck,
   };
 
   const luckyText = victoryDetails.hasLuckyCharm
@@ -611,6 +1329,27 @@ export function confirmCombatVictory(state: RunState): RunState {
     });
   }
 
+  if (!victory.isBoss && victory.pendingPathTreasureCheck) {
+    const pending = victory.pendingPathTreasureCheck;
+    const eff = getEffectiveStatsFromState(state);
+    const treasureNet = eff.dex - pending.terrainCard.level * 2;
+    return syncAudioState({
+      ...state,
+      activeHook: {
+        type: 'PATH_CHALLENGE',
+        pathChallenge: {
+          coord: pending.coord,
+          terrainCard: pending.terrainCard,
+          pathCard: pending.pathCard,
+          phase: 'treasure_prompt',
+          sneakNet: eff.agi - pending.terrainCard.level * 2,
+          treasureNet,
+        },
+      },
+      bannerMessage: `Hostiles defeated! Time for your Treasure Discovery Check (DEX vs Terrain Lvl ${pending.terrainCard.level} × 2).`,
+    });
+  }
+
   return afterTileResolved(state);
 }
 
@@ -647,13 +1386,30 @@ export function startNextMission(state: RunState): RunState {
   const monsters = buildScenarioMonsterDeck(scenarioLevel, rng);
   rng = monsters.nextState;
 
+  const ownedOrBanishedIds = new Set(
+    [
+      ...Object.values(state.equippedGear).filter((i): i is ShopItemDef => Boolean(i)),
+      ...state.backpack,
+      ...(state.voidItems ?? []),
+    ].map((i) => i.instanceId)
+  );
+  const treasurePool =
+    state.treasureVoid !== undefined
+      ? [...state.treasureDeck, ...state.treasureDiscard, ...state.treasureVoid]
+      : buildPhysicalTreasureSupply().filter((i) => !ownedOrBanishedIds.has(i.instanceId));
+  const tr = buildScenarioTreasureDeck(scenarioLevel, rng, treasurePool);
+  rng = tr.nextState;
+
   let deck = adv.deck;
   let discard: AdventureCard[] = [];
   let reshuffles = 0;
   const board: Record<string, PlacedCardNode> = {};
 
+  const starting = pullStartingVillageAndShrine(deck, scenarioLevel);
+  deck = starting.deck;
+
   const startCoord: GridCoord = { col: 0, row: 0 };
-  placeNode(board, startCoord, createStartCard(), 'current', 0);
+  placeNode(board, startCoord, starting.villageCard, 'current', 0, starting.shrineCard);
 
   const draw = (): AdventureCard => {
     const r = drawAdventureCardWithReshuffle(deck, discard, rng, reshuffles);
@@ -675,7 +1431,7 @@ export function startNextMission(state: RunState): RunState {
   const maxHp = calculateMaxHp(eff.vit);
   const cleaned = clearMapBlessings(state);
 
-  return syncAudioState({
+  const nextMissionState: RunState = {
     ...cleaned,
     rngState: rng,
     currentMission: mission,
@@ -692,12 +1448,22 @@ export function startNextMission(state: RunState): RunState {
     monsterDeck: monsters.deck,
     monsterDiscard: [],
     monsterVoid: monsters.void,
+    treasureDeck: tr.deck,
+    treasureDiscard: [],
+    treasureVoid: tr.void,
+    treasureReshuffleCount: 0,
     playerResources: state.playerResources
       ? { ...state.playerResources, hp: maxHp, maxHp }
       : null,
     activeHook: { type: 'NONE' },
     gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🌟 Advanced to Scenario ${mission}: ${missionName}!`),
-    bannerMessage: `Embarked on ${missionName}. Choose your next path.`,
+    bannerMessage: `Embarked on ${missionName}. You begin at ${starting.villageCard.name ?? 'the village'}.`,
+  };
+  const withVillage = prepareVillage(nextMissionState, startCoord, 0);
+  return syncAudioState({
+    ...withVillage,
+    gameLog: nextMissionState.gameLog,
+    bannerMessage: nextMissionState.bannerMessage,
   });
 }
 
@@ -725,7 +1491,7 @@ export { getFleeThreshold, computeFleeNetAcc, firstLivingMonsterIndex };
 // ---------------------------------------------------------------------------
 
 export function shrineUpgradeStat(state: RunState, stat: StatKey): RunState {
-  if (state.activeHook.type !== 'SHRINE' && !state.welcomePreparing) return state;
+  if (state.activeHook.type !== 'SHRINE') return state;
   return upgradeBaseStat(state, stat);
 }
 
@@ -733,17 +1499,72 @@ export function shrineUpgradeSkill(state: RunState, sourceInstanceId: string): R
   return upgradeShrineSkill(state, sourceInstanceId);
 }
 
-export function welcomeUpgradeStat(state: RunState, stat: StatKey): RunState {
-  if (!state.welcomePreparing) return state;
-  return upgradeBaseStat(state, stat);
-}
-
 export const shrinePrayAction = shrinePray;
 export const shrineChoosePrayerAction = shrineChoosePrayerOption;
 export { shrinePray, shrineChoosePrayerOption, clearMapBlessings, calculateRestCost };
 
+export function villageVisitShrine(state: RunState): RunState {
+  if (state.activeHook.type !== 'VILLAGE') return state;
+  const village = state.activeHook.village;
+  const shrineCard =
+    village.attachedShrineCard ?? state.board[coordToKey(village.coord)]?.attachedShrineCard;
+  if (!shrineCard) return state;
+
+  const { savedShrineState, ...villageSnapshot } = village;
+  if (savedShrineState) {
+    const boonName = savedShrineState.grantedBoon?.name;
+    const reminder = boonName
+      ? `You already received the blessing of ${boonName} from this village shrine.`
+      : 'You have already visited this village shrine. You may still upgrade your stats or skills.';
+    return syncAudioState({
+      ...state,
+      activeHook: {
+        type: 'SHRINE',
+        shrine: {
+          ...savedShrineState,
+          shrineCard,
+          returnToVillage: villageSnapshot,
+          alreadyVisited: true,
+        },
+      },
+      bannerMessage: reminder,
+    });
+  }
+
+  const entered = grantShrineBoonOnEnter(state, village.coord, village.turn);
+  if (entered.activeHook.type !== 'SHRINE') return entered;
+  return syncAudioState({
+    ...entered,
+    activeHook: {
+      type: 'SHRINE',
+      shrine: {
+        ...entered.activeHook.shrine,
+        shrineCard,
+        returnToVillage: villageSnapshot,
+      },
+    },
+  });
+}
+
 export function leaveShrine(state: RunState): RunState {
   if (state.activeHook.type !== 'SHRINE') return state;
+  const shrine = state.activeHook.shrine;
+  if (shrine.returnToVillage) {
+    const { returnToVillage, alreadyVisited: _alreadyVisited, ...persistedShrine } = shrine;
+    const villageName = state.board[coordToKey(returnToVillage.coord)]?.card.name ?? 'the village';
+    return syncAudioState({
+      ...state,
+      activeHook: {
+        type: 'VILLAGE',
+        village: {
+          ...returnToVillage,
+          subView: 'main',
+          savedShrineState: persistedShrine,
+        },
+      },
+      bannerMessage: `Returned to ${villageName}. Services are available while you visit.`,
+    });
+  }
   return afterTileResolved(state);
 }
 

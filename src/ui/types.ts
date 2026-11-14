@@ -11,7 +11,9 @@ export type PileType =
   | 'new_skills_discard'
   | 'void_deck'
   | 'treasure_deck'
-  | 'treasure_discard';
+  | 'treasure_discard'
+  | 'paths_deck'
+  | 'paths_discard';
 
 export interface QteBarOptions {
   minHitRoll: number;
@@ -63,6 +65,9 @@ export interface UiState {
   pendingCardPlay?: PendingCardPlay | null;
   pendingDiceRolls?: PendingDiceRoll[] | null;
   pendingFlee?: boolean;
+  pendingEndTurn?: boolean;
+  pendingUseItemId?: string | null;
+  pendingSellItemId?: string | null;
   pendingTrainingAction?: PendingTrainingAction | null;
   pendingShrineAction?: PendingShrineAction | null;
   selectedShrineStat?: StatKey | null;
@@ -85,6 +90,9 @@ export function hasBlockingUiOverlay(ui: UiState): boolean {
     || ui.pendingCardPlay
     || (ui.pendingDiceRolls && ui.pendingDiceRolls.length > 0)
     || ui.pendingFlee
+    || ui.pendingEndTurn
+    || ui.pendingUseItemId
+    || ui.pendingSellItemId
     || ui.pendingTrainingAction
     || ui.pendingShrineAction
     || ui.pendingSaveAction

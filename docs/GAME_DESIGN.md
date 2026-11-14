@@ -22,7 +22,13 @@ Players can switch between English, Traditional Chinese, Simplified Chinese, Jap
      2. **Next Choice Row (`Row R + 1`)**: The **2 immediate forward tiles** the player can step onto next (plus 1 unreachable tile on the far side from the previous turn's lookahead) at offsets `C - 0.5` and `C + 0.5`.
      3. **Lookahead Row (`Row R + 2`)**: **3 tiles above the next row** (`C - 1.0`, `C`, and `C + 1.0`)—where the central tile `(C, R + 2)` is intrinsically shared by both forward choices below it, naturally creating branching and reconverging paths without crossing line edges.
    - **Lagging Discard & 9-Card Board Footprint**: Stepping to `Row R` sweeps `Row R - 1` into the Adventure Discard pile, preserving a tabletop-friendly 9-card maximum board layout and recycling cards when the Adventure Deck depletes.
-2. **Stat-Driven Evolution, Primary/Secondary Archetypes & Shrine Conversion**:
+2. **Morville Infinite Deck System™ (MIDS™)**:
+   - Applies to the **Adventure, Paths, Monster, Combat, Treasure, and Skills Decks**.
+   - Every MIDS™ deck always has a **Deck + Discard Pile** pair.
+   - Cards in a MIDS™ deck go to their **Discard Pile** whenever **used, destroyed, or discarded**—except when **Banished** (an effect that sends the card out of the game and into **The Void**).
+   - Whenever any rule, process, or effect requires drawing from an empty MIDS™ deck, its **Discard Pile** is automatically shuffled into a fresh deck (all cards previously in discard become the deck) and drawing continues seamlessly as if the cards had always been there.
+   - **The Void** is **not** a deck; it is the player's game box where unused cards (unselected scenario cards, Shrine upgrade templates, and Banished cards) can be inspected.
+3. **Stat-Driven Evolution, Primary/Secondary Archetypes & Shrine Conversion**:
    - There are **no character levels or XP bars**—your attributes (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) directly define your hero's growth!
    - Every character begins with **Base `1`** in all 6 stats, along with an **Innate +1 Stat Bonus** on every attribute (`Effective Stat = 1 (Innate) + Base_Stat_Level + Class_Bonus + Blessing_Bonus + Gear_Bonus`), plus their **Class Stat Bonuses** (1 Primary stat with `+2`, 2 Secondary stats with `+1` each, and others with `+0`):
      - **Fighter**: Primary `STR (+2)`, Secondary `VIT (+1), DEX (+1)` -> Starting Effective `STR 4, DEX 3, AGI 2, INT 2, CHA 2, VIT 3` (16 Max HP, 3 ACC, 2 EVA, 3 ATK, 0 DEF, 3 ACT).
@@ -143,7 +149,7 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
      - **Map Equipment Management**: Players can freely equip and unequip gear anytime while navigating the map outside combat. Equipping or unequipping items that modify attributes (like `Beast Ring +1 STR`) dynamically syncs vitals (Max HP) and clamps current HP cleanly.
      - **Combat Lock**: Equipping and unequipping is strictly disabled during active combat (`activeHook.type === 'COMBAT'`).
 3. **Decks & Discards Right Sidebar**:
-   - Centralized, inspectable physical deck cards for **Adventure Cards**, **Monster Cards**, **Player Combat Deck**, **Treasure Cards**, **New Skills**, and **The Void**, each with live deck/discard pile counts and click/right-click pile inspection. Redundant legacy header links have been eliminated.
+   - Centralized, inspectable physical deck cards for **Adventure Cards**, **Paths Cards**, **Monster Cards**, **Player Combat Deck**, **Treasure Cards**, **New Skills**, and **The Void** (the non-deck game box for unused and Banished cards), each with live deck/discard pile counts and click/right-click pile inspection. Redundant legacy header links have been eliminated.
 
 ---
 
@@ -153,7 +159,7 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 
 ### 3.1 Prepared Inventory & Navigation
 - The menu header shows the visited card's official art, name (for example, **Grassland Village**) and level.
-- On entry, the game draws `5 + Village Level` eligible shop cards and three class training offers using the run's seeded RNG. These inventories are retained while switching between the menu, Shop, and Train; they cannot be rerolled by backing out.
+- On entry, the game draws up to `3 + Village Level` unique exact-level shop cards (Grassland 4, Forest 5, Swamp 6, Cave 7) and three class training offers using the run's seeded RNG. These inventories are retained while switching between the menu, Shop, and Train; they cannot be rerolled by backing out.
 - Services do not end the visit. The player may return to **Village options** after resting, buying/selling, learning, or destroying cards, and chooses **Leave village** only when ready. Remaining unbought shop cards go to the Treasure Discard on departure.
 
 ### 3.2 Village Actions
@@ -163,11 +169,11 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 2. **Shop (Village Merchant — Buy / Sell Equipment & Consumables)**:
    - **Starting Gold**: Adventurers start every run with **20 Gold** (`gold: 20`).
    - **Treasure Deck & Dynamic Shop Stock**:
-     - At game start, a **Treasure Deck of 42 cards** (all 21 catalog items x 2 copies) is generated and shuffled deterministically.
-     - The shop no longer sells the entire catalog at once. On entering a Village, **`5 + Village Level` item cards** are drawn from the top of the Treasure Deck and placed into `shopStock`. Eligible stock is the Village level and one below: Level 1 sells Level 1, Level 2 sells Levels 1–2, and Level 3 sells Levels 2–3.
+     - At game start, a **Treasure Deck of 48 cards** (2 copies of each of the 17 gear items, plus `6 - level` copies of Health Potions: Lvl 1×5, Lvl 2×4, Lvl 3×3, Lvl 4×2) is generated and shuffled deterministically.
+     - The shop no longer sells the entire catalog at once. On entering a Village, up to **`3 + Village Level` unique item cards** (Grassland 4, Forest 5, Swamp 6, Cave 7) are drawn from the top of the Treasure Deck and placed into `shopStock`. Eligible stock must match the Village's exact level (`item.level === village.level`), and any drawn card whose item is already in `shopStock` is discarded to `treasureDiscard` instead of creating a duplicate option. Wrong-level draws also go to `treasureDiscard`.
      - **Card Arts in Shop Options**: Every option displayed in the store features its official 5:7 raster card artwork (`/cards/items/*.jpg`), item type, stats, level badge, and Charisma price discount.
      - **Discarding Unbought Items**: When the player leaves the village, all remaining unbought cards in `shopStock` are automatically swept into the `treasureDiscard` pile.
-     - **Selling Items**: Selling an equipped or backpack item places that card into `treasureDiscard`.
+     - **Selling Items**: Equipped gear is marked `Equipped` and cannot be sold until unequipped. Selling a backpack item requires confirmation and **Banishes** the item into **The Void** (`voidItems`) rather than `treasureDiscard` so players do not re-draw sold gear.
      - **Endless Reshuffle**: If cards are drawn while the Treasure Deck is depleted, the Treasure Discard pile is shuffled to form the new Treasure Deck.
    - **Equipment Slot Inspection**: The Shop directly displays the player's current equipment (`Weapon`, `Armor`, `Accessory`), backpack items, and current effective stats.
    - **Stat Comparison Preview**: For every piece of gear in the shop, the player sees:
@@ -189,13 +195,13 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
      - `Robe +` (Armor, 45g, Level 2): +2 MDEF and +1 DEF.
      - `Apprentice Staff +` (Weapon, 45g, Level 2): +2 MATK and +1 ATK.
      - `Leather Gear +` (Armor, 45g, Level 2): +2 EVA and +1 DEF.
-     - `Health Potion +` (Consumable, 14g, Level 2): Restores 18 HP.
-     - `Health Potion ++` (Consumable, 24g, Level 3): Restores 24 HP.
-     - `Health Potion +++` (Consumable, 36g, Level 4): Restores 28 HP.
+     - `Health Potion` (Consumable, 14g, Level 2): Restores 18 HP.
+     - `Health Potion` (Consumable, 24g, Level 3): Restores 24 HP.
+     - `Health Potion` (Consumable, 36g, Level 4): Restores 28 HP.
      - `Dagger` (Weapon, 10g, Level 1): +1 PEN.
      - `Dagger +` (Weapon, 30g, Level 2): +2 PEN and +1 ATK.
      - `Focus Ring` (Accessory, 20g, Level 2): +1 DEX.
-   - **Treasure Deck & Village Stock**: 42-card Treasure Deck (2 copies of each of the 21 catalog items). Village entry draws `5 + Village Level` cards into `shopStock`; opening and returning to the Shop preserves that inventory.
+   - **Treasure Deck & Village Stock**: 48-card Treasure Deck (2 copies of each of the 17 gear items, plus `6 - level` Health Potions: Lvl 1×5, Lvl 2×4, Lvl 3×3, Lvl 4×2). Village entry draws up to `3 + Village Level` unique exact-level cards into `shopStock`; opening and returning to the Shop preserves that inventory.
    - **Derived Combat Stats**:
      - **Hero ATK**: $\lfloor \text{STR} / 2 \rfloor + \lfloor \text{DEX} / 3 \rfloor + \text{gear.atk}$.
      - **Hero DEF**: $\lfloor \text{STR} / 5 \rfloor + \lfloor \text{VIT} / 5 \rfloor + \lfloor \text{AGI} / 3 \rfloor + \text{gear.def}$. Reduces physical damage intake when hit.
@@ -478,7 +484,7 @@ Graveyards are public. Explicit graveyard searches such as Leech's Zombie reviva
 
 ## Treasure level filtering and recycling
 
-Village stock accepts `max(1, village.level - 1) <= item.level <= village.level`. Level 1 supplies Level 1, Level 2 supplies Levels 1–2, and Level 3 supplies Levels 2–3. Cards outside that band go immediately to treasureDiscard and do not count toward the `5 + village level` stock target. Draw again until the target is filled, reshuffling the treasure graveyard whenever a further draw needs an empty deck.
+Village stock accepts only exact-level items (`item.level === village.level`) and never allows duplicate item options in `shopStock`. Level 1 (Grassland) supplies 4 unique Level 1 items, Level 2 (Forest) supplies 5 unique Level 2 items, Level 3 (Swamp) supplies up to 6 unique Level 3 items, and so on (`3 + village.level` slots). Wrong-level cards and duplicate draws already in `shopStock` go immediately to `treasureDiscard` and do not count toward the stock target. Draw again until the target is filled, reshuffling the treasure graveyard whenever a further draw needs an empty deck if eligible unique items remain; otherwise stop with partial stock.
 
 Undiscovered terrain rewards use `item.level <= terrain.level` as a cap. A Level 2 Forest discovery accepts Level 1 or Level 2 items. If the last card is an invalid Level 3 item, discard it, reshuffle the treasure graveyard into the new deck, and continue drawing until a valid reward appears. This is a game mechanic, not a spell/attack fizzle. Starting with an empty Treasure Deck follows the same reshuffle rule.
 

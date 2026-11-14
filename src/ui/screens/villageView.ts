@@ -162,9 +162,11 @@ function shopSellRow(state: RunState, item: ShopItemDef): string {
       ${detail}
     </div>
     <div class="shop-action-box">
-      <button class="btn mini shop-sell-btn" data-action="sell" data-id="${item.instanceId}">
-        Sell ${item.sellPrice}g
-      </button>
+      ${
+        equipped
+          ? `<button class="btn mini shop-sell-btn" disabled title="Unequip this item before selling">Equipped</button>`
+          : `<button class="btn mini shop-sell-btn" data-action="sell" data-id="${item.instanceId}">Sell ${item.sellPrice}g</button>`
+      }
     </div>
   </div>`;
 }
@@ -186,11 +188,12 @@ export function villageViewHtml(state: RunState, village: ActiveVillageState, ui
     </header>`;
   let body = '';
   if (village.subView === 'main') {
-    const restOption = getVillageRestOption(res, ui.villageRestTicks);
+    const restOption = getVillageRestOption(res, ui.villageRestTicks, villageLevel);
     const eligibility = checkRestEligibility(state, restOption.ticks);
+    const costPerHp = 1 + villageLevel;
     const restLabels = Array.from({ length: restOption.maxTicks }, (_, index) => {
       const ticks = index + 1;
-      const option = getVillageRestOption(res, ticks);
+      const option = getVillageRestOption(res, ticks, villageLevel);
       return `<span>${option.isFullRest ? 'Full' : `${option.hpRestored} HP`}</span>`;
     }).join('');
     const restMessage = eligibility.reason === 'full_health'
@@ -207,13 +210,14 @@ export function villageViewHtml(state: RunState, village: ActiveVillageState, ui
         ${restOption.maxTicks > 0 ? `
           <input class="village-rest-slider" type="range" min="1" max="${restOption.maxTicks}" step="1" value="${restOption.ticks}" data-action="set-village-rest-ticks" aria-label="Rest duration: ${restOption.isFullRest ? 'Full' : `${restOption.hpRestored} HP`}" />
           <div class="village-rest-ticks" aria-hidden="true">${restLabels}</div>` : ''}
-        <p class="village-service-note">${restMessage} Each tick restores up to 2 HP and costs 1 Gold.</p>
+        <p class="village-service-note">${restMessage} Each 1 HP costs ${costPerHp} Gold (1 + Terrain Lvl ${villageLevel}).</p>
         <button class="btn primary" data-action="village-rest" ${eligibility.canRest ? '' : 'disabled'}>
           Rest ${restOption.isFullRest ? 'to Full' : `+${restOption.hpRestored} HP`} (${restOption.cost}g)
         </button>
       </section>
       <button class="btn big" data-action="village-shop">Shop<small>Buy &amp; sell gear</small></button>
       <button class="btn big" data-action="village-train">Training<small>Learn skills or destroy cards</small></button>
+      ${village.attachedShrineCard ? `<button class="btn big" data-action="village-visit-shrine">Visit Village Shrine<small>${village.savedShrineState?.grantedBoon ? `Blessed (${village.savedShrineState.grantedBoon.name}) &middot; Stat upgrades` : 'Receive blessing &amp; upgrade stats'}</small></button>` : ''}
     </div>
     <div class="village-view-footer">
       <button class="btn" data-action="village-leave">Leave village</button>

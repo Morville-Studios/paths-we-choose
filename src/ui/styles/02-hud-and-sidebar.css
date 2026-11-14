@@ -113,88 +113,54 @@
 
 /* Tabletop Boardgame Turn Tracker (Wooden Frame & Track Strip) */
 .boardgame-turn-tracker {
-  background: linear-gradient(180deg, #2b1a11 0%, #1e1109 50%, #150a04 100%);
-  border: 2px solid #5a381a;
+  background:
+    linear-gradient(180deg, rgba(36, 9, 12, 0.62) 0%, rgba(18, 4, 6, 0.78) 100%),
+    url('/ui/turn-track-board.jpg') center / cover no-repeat;
+  border: 2px solid #8c6528;
   border-radius: 10px;
-  padding: 6px 10px 8px;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* Phase Category Bands Row */
-.turn-phase-bands-row {
-  display: grid;
-  grid-template-columns: 80px repeat(3, 1fr) 110px;
-  gap: 4px;
-}
-
-.turn-phase-band {
-  text-align: center;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+  padding: 10px 12px 8px;
+  box-shadow:
+    inset 0 0 24px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(235, 194, 108, 0.32),
+    0 5px 14px rgba(0, 0, 0, 0.65);
+  position: relative;
   overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.turn-phase-band.phase-start {
-  background: rgba(100, 116, 139, 0.22);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  color: #94a3b8;
-}
-.turn-phase-band.phase-approach {
-  background: rgba(217, 119, 6, 0.2);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  color: #fde68a;
-}
-.turn-phase-band.phase-wilds {
-  background: rgba(16, 185, 129, 0.18);
-  border: 1px solid rgba(52, 211, 153, 0.35);
-  color: #a7f3d0;
-}
-.turn-phase-band.phase-dungeon {
-  background: rgba(225, 29, 72, 0.18);
-  border: 1px solid rgba(251, 113, 133, 0.35);
-  color: #fecdd3;
-}
-.turn-phase-band.phase-boss {
-  background: rgba(147, 51, 234, 0.22);
-  border: 1px solid rgba(192, 132, 252, 0.45);
-  color: #e9d5ff;
-}
-
-.turn-phase-band.is-active-phase {
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.45);
-  border-color: #f59e0b;
-  color: #fff;
-  filter: brightness(1.15);
 }
 
 /* Scrollable Tabletop Track */
 .turn-track-scroll {
   overflow-x: auto;
   overflow-y: visible;
-  padding: 16px 4px 4px;
-  scrollbar-width: none;
+  padding: 18px 6px 4px;
+  scrollbar-width: auto;
   -webkit-overflow-scrolling: touch;
-}
-.turn-track-scroll::-webkit-scrollbar {
-  display: none;
 }
 
 .turn-track-nodes {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-width: 660px;
+  min-width: 720px;
   position: relative;
+}
+
+.turn-track-nodes::before {
+  content: '';
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  top: 50%;
+  height: 3px;
+  transform: translateY(-50%);
+  background: linear-gradient(
+    90deg,
+    rgba(168, 128, 58, 0.38),
+    rgba(212, 175, 55, 0.72),
+    rgba(168, 128, 58, 0.38)
+  );
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.25);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .turn-node {
@@ -204,81 +170,157 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  z-index: 1;
 }
 
-.turn-node-circle {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+.turn-node:nth-child(4n + 3) {
+  transform: translateY(-5px);
+}
+
+.turn-node:nth-child(4n + 1):not(.is-start):not(.is-boss-node) {
+  transform: translateY(5px);
+}
+
+/* Ornate Recessed Medallion Wells (START & Turn 15 Boss) */
+.turn-node-well {
+  position: relative;
+  width: 46px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fbf7ee;
-  color: #2b1a11;
-  border: 2px solid #8c5d26;
-  font-size: 0.8rem;
-  font-weight: 800;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.8);
-  transition: all 0.2s ease;
+  border-radius: 50%;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.turn-well-art {
+  position: absolute;
+  inset: 0;
+  background: url('/ui/turn-well-crest.jpg') center / contain no-repeat;
+  mix-blend-mode: lighten;
+  border-radius: 50%;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.9));
+  pointer-events: none;
+}
+
+.turn-node.is-boss-node .turn-well-art {
+  filter: drop-shadow(0 0 8px rgba(225, 29, 72, 0.6)) saturate(1.15);
+}
+
+.turn-boss-skull {
+  position: relative;
+  z-index: 2;
+  font-size: 0.95rem;
+  color: #fda4af;
+  text-shadow: 0 0 8px rgba(244, 63, 94, 0.9), 0 2px 3px #000;
+  opacity: 0.92;
   user-select: none;
 }
 
-.turn-node.is-start .start-circle {
-  width: auto;
-  padding: 0 8px;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  letter-spacing: 0.5px;
+.turn-node-caption {
+  margin-top: 2px;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #e8cd94;
+  text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, 0.95);
+  line-height: 1;
+  user-select: none;
 }
 
-.turn-node.is-completed .turn-node-circle {
-  background: #d4af37;
-  color: #1a0f05;
-  border-color: #8c5d26;
-  opacity: 0.75;
+.turn-node-caption.boss-caption {
+  color: #fda4af;
 }
 
-.turn-node.is-current .turn-node-circle {
-  background: #fff;
-  color: #781616;
-  border: 2.5px solid #f59e0b;
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.9), inset 0 0 4px #fbbf24;
-  transform: scale(1.1);
-  font-weight: 900;
-}
-
-.turn-node.is-boss-node .boss-circle {
-  background: linear-gradient(135deg, #4c0519, #881337);
-  color: #fecdd3;
-  border-color: #f43f5e;
-  width: 32px;
-  height: 32px;
-  box-shadow: 0 0 8px rgba(244, 63, 94, 0.5);
+/* Ornate Heraldic Token Sockets (Turns 1-14) */
+.turn-node-socket {
+  position: relative;
+  width: 36px;
+  height: 50px;
   display: flex;
   align-items: center;
-  gap: 2px;
-}
-.turn-boss-skull {
-  font-size: 0.75rem;
-  color: #fb7185;
+  justify-content: center;
+  transition: transform 0.2s ease, filter 0.2s ease;
 }
 
-.turn-arrow {
-  color: #5a381a;
-  font-size: 0.8rem;
-  font-weight: bold;
-  user-select: none;
-  flex-shrink: 0;
-  margin: 0 1px;
+.turn-socket-art {
+  position: absolute;
+  inset: 0;
+  background: url('/ui/turn-socket-stone.jpg') center / contain no-repeat;
+  mix-blend-mode: lighten;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.92));
+  pointer-events: none;
 }
-.turn-arrow.is-completed {
-  color: #d4af37;
+
+.turn-num {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.64rem;
+  font-weight: 800;
+  color: #f3e5c0;
+  text-shadow: 0 1px 2px #000, 0 0 4px #000;
+  line-height: 1;
+  user-select: none;
+}
+
+.turn-node.is-upcoming .turn-socket-art {
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.9)) brightness(0.88);
+}
+
+.turn-node.is-completed .turn-socket-art,
+.turn-node.is-completed .turn-well-art {
+  filter: drop-shadow(0 2px 6px rgba(212, 175, 55, 0.45)) sepia(0.35) saturate(1.3) brightness(1.06);
+}
+
+.turn-node.is-completed .turn-num {
+  color: #fde68a;
+}
+
+.turn-node.is-current .turn-node-socket,
+.turn-node.is-current .turn-node-well {
+  transform: scale(1.12);
+}
+
+.turn-node.is-current .turn-socket-art,
+.turn-node.is-current .turn-well-art {
+  filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.95)) brightness(1.2);
+}
+
+.turn-node.is-current .turn-num {
+  color: #fffbeb;
+  text-shadow: 0 0 6px #f59e0b, 0 1px 2px #000;
+}
+
+.turn-trail-link {
+  flex: 1;
+  min-width: 6px;
+  height: 3px;
+  position: relative;
+  z-index: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(120, 86, 36, 0.3),
+    rgba(196, 154, 72, 0.65),
+    rgba(120, 86, 36, 0.3)
+  );
+  border-radius: 999px;
+  margin: 0 -4px;
+}
+
+.turn-trail-link.is-completed {
+  background: linear-gradient(90deg, #b4822c, #fbbf24, #b4822c);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.65);
 }
 
 /* Standee Miniature Token Marker (Boardgame Figurine) */
 .turn-standee-marker {
   position: absolute;
-  bottom: 27px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -820,7 +862,7 @@
 /* Inspection must stay above preparation, combat confirmation, exploration,
    victory, and all other gameplay overlays. Otherwise its UI state blocks
    input while the modal itself remains hidden behind the active screen. */
-.modal-backdrop.inspection-backdrop { z-index: 2000; }
+.modal-backdrop.inspection-backdrop { z-index: 9500; }
 .modal-backdrop.transaction-confirm-backdrop { z-index: 1500; }
 .modal {
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px;

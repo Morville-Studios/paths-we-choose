@@ -17,20 +17,20 @@
   background: #06150a;
 }
 .tcg-template-grassland .tcg-header {
-  background: linear-gradient(180deg, rgba(30, 74, 37, 0.88) 0%, rgba(18, 48, 24, 0.78) 100%);
+  background: linear-gradient(180deg, rgba(30, 74, 37, 0.50) 0%, rgba(18, 48, 24, 0.42) 100%);
   border-bottom: 1.5px solid rgba(45, 122, 62, 0.8);
 }
 .tcg-template-grassland .tcg-type-line {
-  background: linear-gradient(90deg, rgba(20, 50, 26, 0.88), rgba(12, 34, 17, 0.82));
+  background: linear-gradient(90deg, rgba(20, 50, 26, 0.52), rgba(12, 34, 17, 0.44));
   border-top: 1px solid rgba(74, 222, 128, 0.35);
   border-bottom: 1px solid rgba(74, 222, 128, 0.35);
 }
 .tcg-template-grassland .tcg-textbox {
-  background: rgba(9, 23, 13, 0.58);
+  background: rgba(9, 23, 13, 0.56);
   border: 1px solid rgba(74, 222, 128, 0.35);
 }
 .tcg-template-grassland .tcg-footer {
-  background: linear-gradient(90deg, rgba(16, 40, 20, 0.85), rgba(9, 23, 13, 0.78));
+  background: linear-gradient(90deg, rgba(16, 40, 20, 0.58), rgba(9, 23, 13, 0.50));
 }
 .tcg-template-grassland .tcg-pt-badge {
   border-color: #4ade80;
@@ -48,20 +48,20 @@
   background: #140b02;
 }
 .tcg-template-boss .tcg-header {
-  background: linear-gradient(180deg, rgba(69, 31, 5, 0.9) 0%, rgba(41, 18, 3, 0.82) 100%);
+  background: linear-gradient(180deg, rgba(69, 31, 5, 0.50) 0%, rgba(41, 18, 3, 0.42) 100%);
   border-bottom: 1.5px solid rgba(245, 158, 11, 0.8);
 }
 .tcg-template-boss .tcg-type-line {
-  background: linear-gradient(90deg, rgba(48, 20, 4, 0.88), rgba(28, 12, 2, 0.82));
+  background: linear-gradient(90deg, rgba(48, 20, 4, 0.52), rgba(28, 12, 2, 0.44));
   border-top: 1px solid rgba(245, 158, 11, 0.4);
   border-bottom: 1px solid rgba(245, 158, 11, 0.4);
 }
 .tcg-template-boss .tcg-textbox {
-  background: rgba(31, 14, 5, 0.58);
+  background: rgba(31, 14, 5, 0.56);
   border: 1px solid rgba(245, 158, 11, 0.4);
 }
 .tcg-template-boss .tcg-footer {
-  background: linear-gradient(90deg, rgba(38, 16, 4, 0.85), rgba(20, 8, 2, 0.78));
+  background: linear-gradient(90deg, rgba(38, 16, 4, 0.58), rgba(20, 8, 2, 0.50));
 }
 .tcg-template-boss .tcg-pt-badge {
   border-color: #fbbf24;
@@ -81,20 +81,20 @@
   background: #150305;
 }
 .tcg-template-attack .tcg-header {
-  background: linear-gradient(180deg, rgba(69, 15, 20, 0.9) 0%, rgba(36, 8, 11, 0.82) 100%);
+  background: linear-gradient(180deg, rgba(69, 15, 20, 0.50) 0%, rgba(36, 8, 11, 0.42) 100%);
   border-bottom: 1.5px solid rgba(220, 38, 38, 0.8);
 }
 .tcg-template-attack .tcg-type-line {
-  background: linear-gradient(90deg, rgba(50, 10, 15, 0.88), rgba(28, 6, 8, 0.82));
+  background: linear-gradient(90deg, rgba(50, 10, 15, 0.52), rgba(28, 6, 8, 0.44));
   border-top: 1px solid rgba(248, 113, 113, 0.35);
   border-bottom: 1px solid rgba(248, 113, 113, 0.35);
 }
 .tcg-template-attack .tcg-textbox {
-  background: rgba(36, 10, 14, 0.58);
+  background: rgba(36, 10, 14, 0.56);
   border: 1px solid rgba(248, 113, 113, 0.35);
 }
 .tcg-template-attack .tcg-footer {
-  background: linear-gradient(90deg, rgba(40, 10, 14, 0.85), rgba(20, 5, 7, 0.78));
+  background: linear-gradient(90deg, rgba(40, 10, 14, 0.58), rgba(20, 5, 7, 0.50));
 }
 
 /* 4. Defense Action Border Template */
@@ -108,20 +108,20 @@
   background: #030d17;
 }
 .tcg-template-defense .tcg-header {
-  background: linear-gradient(180deg, rgba(9, 36, 64, 0.9) 0%, rgba(5, 20, 36, 0.82) 100%);
+  background: linear-gradient(180deg, rgba(9, 36, 64, 0.50) 0%, rgba(5, 20, 36, 0.42) 100%);
   border-bottom: 1.5px solid rgba(2, 132, 199, 0.8);
 }
 .tcg-template-defense .tcg-type-line {
-  background: linear-gradient(90deg, rgba(7, 28, 50, 0.88), rgba(4, 15, 28, 0.82));
+  background: linear-gradient(90deg, rgba(7, 28, 50, 0.52), rgba(4, 15, 28, 0.44));
   border-top: 1px solid rgba(56, 189, 248, 0.35);
   border-bottom: 1px solid rgba(56, 189, 248, 0.35);
 }
 .tcg-template-defense .tcg-textbox {
-  background: rgba(9, 28, 48, 0.58);
+  background: rgba(9, 28, 48, 0.56);
   border: 1px solid rgba(56, 189, 248, 0.35);
 }
 .tcg-template-defense .tcg-footer {
-  background: linear-gradient(90deg, rgba(7, 24, 42, 0.85), rgba(4, 12, 22, 0.78));
+  background: linear-gradient(90deg, rgba(7, 24, 42, 0.58), rgba(4, 12, 22, 0.50));
 }
 
 /* 5. Forest Land Border Template */
@@ -135,20 +135,20 @@
   background: #021a14;
 }
 .tcg-template-forest .tcg-header {
-  background: linear-gradient(180deg, rgba(6, 78, 59, 0.88) 0%, rgba(4, 50, 38, 0.78) 100%);
+  background: linear-gradient(180deg, rgba(6, 78, 59, 0.50) 0%, rgba(4, 50, 38, 0.42) 100%);
   border-bottom: 1.5px solid rgba(5, 150, 105, 0.8);
 }
 .tcg-template-forest .tcg-type-line {
-  background: linear-gradient(90deg, rgba(4, 50, 38, 0.88), rgba(2, 35, 26, 0.82));
+  background: linear-gradient(90deg, rgba(4, 50, 38, 0.52), rgba(2, 35, 26, 0.44));
   border-top: 1px solid rgba(52, 211, 153, 0.35);
   border-bottom: 1px solid rgba(52, 211, 153, 0.35);
 }
 .tcg-template-forest .tcg-textbox {
-  background: rgba(2, 44, 34, 0.58);
+  background: rgba(2, 44, 34, 0.56);
   border: 1px solid rgba(52, 211, 153, 0.35);
 }
 .tcg-template-forest .tcg-footer {
-  background: linear-gradient(90deg, rgba(3, 40, 30, 0.85), rgba(2, 25, 18, 0.78));
+  background: linear-gradient(90deg, rgba(3, 40, 30, 0.58), rgba(2, 25, 18, 0.50));
 }
 .tcg-template-forest .tcg-pt-badge {
   border-color: #34d399;
@@ -166,20 +166,20 @@
   background: #041f1e;
 }
 .tcg-template-swamp .tcg-header {
-  background: linear-gradient(180deg, rgba(15, 118, 110, 0.9) 0%, rgba(17, 94, 89, 0.8) 100%);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.50) 0%, rgba(17, 94, 89, 0.42) 100%);
   border-bottom: 1.5px solid rgba(13, 148, 136, 0.8);
 }
 .tcg-template-swamp .tcg-type-line {
-  background: linear-gradient(90deg, rgba(17, 94, 89, 0.88), rgba(15, 60, 58, 0.82));
+  background: linear-gradient(90deg, rgba(17, 94, 89, 0.52), rgba(15, 60, 58, 0.44));
   border-top: 1px solid rgba(45, 212, 191, 0.35);
   border-bottom: 1px solid rgba(45, 212, 191, 0.35);
 }
 .tcg-template-swamp .tcg-textbox {
-  background: rgba(4, 47, 46, 0.65);
+  background: rgba(4, 47, 46, 0.56);
   border: 1px solid rgba(45, 212, 191, 0.35);
 }
 .tcg-template-swamp .tcg-footer {
-  background: linear-gradient(90deg, rgba(15, 60, 58, 0.85), rgba(4, 47, 46, 0.78));
+  background: linear-gradient(90deg, rgba(15, 60, 58, 0.58), rgba(4, 47, 46, 0.50));
 }
 .tcg-template-swamp .tcg-pt-badge {
   border-color: #2dd4bf;
@@ -194,9 +194,9 @@
   box-shadow: 0 4px 14px rgba(0,0,0,.7), inset 0 0 0 1px #d6d3d1, 0 0 10px rgba(168,162,158,.28);
 }
 .tcg-template-cave .tcg-inner-frame { background: #1c1917; }
-.tcg-template-cave .tcg-header { background: linear-gradient(180deg, rgba(87,83,78,.94), rgba(41,37,36,.9)); border-bottom: 1.5px solid #a8a29e; }
-.tcg-template-cave .tcg-textbox { background: rgba(28,25,23,.78); border: 1px solid rgba(214,211,209,.38); }
-.tcg-template-cave .tcg-footer { background: linear-gradient(90deg, rgba(41,37,36,.92), rgba(12,10,9,.88)); }
+.tcg-template-cave .tcg-header { background: linear-gradient(180deg, rgba(87,83,78,.50), rgba(41,37,36,.42)); border-bottom: 1.5px solid #a8a29e; }
+.tcg-template-cave .tcg-textbox { background: rgba(28,25,23,.56); border: 1px solid rgba(214,211,209,.38); }
+.tcg-template-cave .tcg-footer { background: linear-gradient(90deg, rgba(41,37,36,.58), rgba(12,10,9,.50)); }
 .tcg-template-cave .tcg-pt-badge { border-color: #d6d3d1; background: rgba(28,25,23,.9); }
 
 /* Underground Land Border Template */
@@ -207,9 +207,9 @@
   box-shadow: 0 4px 14px rgba(0,0,0,.8), inset 0 0 0 1px #a1a1aa, 0 0 10px rgba(113,113,122,.3);
 }
 .tcg-template-underground .tcg-inner-frame { background: #121215; }
-.tcg-template-underground .tcg-header { background: linear-gradient(180deg, rgba(63,63,70,.94), rgba(39,39,42,.9)); border-bottom: 1.5px solid #71717a; }
-.tcg-template-underground .tcg-textbox { background: rgba(18,18,21,.85); border: 1px solid rgba(161,161,170,.3); }
-.tcg-template-underground .tcg-footer { background: linear-gradient(90deg, rgba(39,39,42,.92), rgba(9,9,11,.9)); }
+.tcg-template-underground .tcg-header { background: linear-gradient(180deg, rgba(63,63,70,.50), rgba(39,39,42,.42)); border-bottom: 1.5px solid #71717a; }
+.tcg-template-underground .tcg-textbox { background: rgba(18,18,21,.56); border: 1px solid rgba(161,161,170,.3); }
+.tcg-template-underground .tcg-footer { background: linear-gradient(90deg, rgba(39,39,42,.58), rgba(9,9,11,.50)); }
 .tcg-template-underground .tcg-pt-badge { border-color: #a1a1aa; background: rgba(18,18,21,.9); }
 
 .badge.underground {
@@ -277,19 +277,28 @@
   display: block !important;
 }
 
-/* Item Header (Meta Stack on top, Name below) */
+/* Item Header (Type + Name on left, Level + Gold ribbons on right) */
 .tcg-template-item .tcg-item-header {
   position: relative;
   z-index: 2;
-  background: linear-gradient(90deg, rgba(75, 30, 8, 0.56), rgba(45, 18, 4, 0.48));
+  background: linear-gradient(90deg, rgba(75, 30, 8, 0.50), rgba(45, 18, 4, 0.42));
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
   border-bottom: 1.5px solid rgba(245, 158, 11, 0.6);
   padding: 4px 7px;
   display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  border-radius: 6px 6px 0 0;
+}
+.tcg-template-item .tcg-item-header-main {
+  display: flex;
   flex-direction: column;
   gap: 2px;
-  border-radius: 6px 6px 0 0;
+  min-width: 0;
+  flex: 1;
 }
 .tcg-template-item .tcg-item-header-ribbons {
   display: flex;
@@ -327,7 +336,7 @@
 .tcg-template-item .tcg-textbox {
   position: relative;
   z-index: 2;
-  background: rgba(20, 10, 4, 0.58);
+  background: rgba(20, 10, 4, 0.56);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
   border: 1px solid rgba(245, 158, 11, 0.35);
@@ -921,6 +930,72 @@
 }
 
 .player-line .combat-floating-damage.is-shield {
+  top: -16px;
+  left: 50%;
+}
+
+.combat-floating-damage.is-ability {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  top: 22%;
+  font-size: 1.45rem;
+  z-index: 125;
+}
+
+.combat-floating-damage.is-ability .floating-ability-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.combat-floating-damage.is-ability-harden {
+  color: #38bdf8;
+  text-shadow:
+    0 0 10px rgba(0, 0, 0, 0.95),
+    0 0 18px rgba(56, 189, 248, 0.9),
+    2px 2px 0 #000,
+    -2px -2px 0 #000;
+}
+
+.combat-floating-damage.is-ability-harden .floating-ability-icon {
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.95));
+}
+
+.combat-floating-damage.is-ability-skittish {
+  color: #c084fc;
+  text-shadow:
+    0 0 10px rgba(0, 0, 0, 0.95),
+    0 0 18px rgba(192, 132, 252, 0.9),
+    2px 2px 0 #000,
+    -2px -2px 0 #000;
+}
+
+.combat-floating-damage.is-ability-skittish .floating-ability-icon {
+  filter: drop-shadow(0 0 8px rgba(192, 132, 252, 0.95));
+}
+
+.combat-floating-damage.is-ability-heal {
+  color: #4ade80;
+  text-shadow:
+    0 0 10px rgba(0, 0, 0, 0.95),
+    0 0 18px rgba(74, 222, 128, 0.9),
+    2px 2px 0 #000,
+    -2px -2px 0 #000;
+}
+
+.combat-floating-damage.is-ability-heal .floating-ability-icon {
+  filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.95));
+}
+
+.hero-sidebar-vitals-card .combat-floating-damage.is-ability-heal {
+  top: 15%;
+  left: 50%;
+}
+
+.player-line .combat-floating-damage.is-ability-heal {
   top: -16px;
   left: 50%;
 }

@@ -9,14 +9,14 @@ import {
   GridCoord,
   PlayerResources,
   RunState,
-  ShopItemDef,
+
 } from './types';
 
 export { syncVitals };
 
 export const MIN_DECK_SIZE = 5;
 export const TRAIN_OPTION_COUNT = 3;
-export const REST_HP_PER_TICK = 2;
+export const REST_HP_PER_TICK = 1;
 export const TRAIN_REMOVAL_BASE_GOLD_COST = 5;
 
 export interface VillageRestOption {
@@ -43,15 +43,23 @@ export function createVillageState(coord: GridCoord, turn: number): ActiveVillag
   };
 }
 
+export const VILLAGE_SHOP_BASE_SLOTS = 3;
+
+/** Village shop slot count scales as 3 + Village Level (Grassland 4, Forest 5, Swamp 6, Cave 7). */
+export function getVillageShopSlotCount(villageLevel: number): number {
+  return VILLAGE_SHOP_BASE_SLOTS + villageLevel;
+}
+
 /** Pre-draw the shop and class training offers once, on entering a village. */
 export function prepareVillage(state: RunState, coord: GridCoord, turn: number): RunState {
   const reconciledState = reconcileRunNewSkills(state);
-  const tile = reconciledState.board[coordToKey(coord)]?.card;
+  const node = reconciledState.board[coordToKey(coord)];
+  const tile = node?.card;
   const villageLevel = tile?.level ?? 1;
   const stockDraw = drawTreasureCardsWithReshuffle(
     reconciledState.treasureDeck,
     reconciledState.treasureDiscard,
-    5 + villageLevel,
+    getVillageShopSlotCount(villageLevel),
     reconciledState.rngState,
     reconciledState.treasureReshuffleCount,
     villageLevel
@@ -80,6 +88,7 @@ export function prepareVillage(state: RunState, coord: GridCoord, turn: number):
         shopStock: stockDraw.drawn,
         shopStockDrawn: true,
         trainOptions: trainDraw.drawn,
+        ...(node?.attachedShrineCard ? { attachedShrineCard: node.attachedShrineCard } : {}),
       },
     },
     gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🏡 Arrived at ${tile?.name ?? 'Village'}. Services are available.`),
@@ -99,16 +108,16 @@ function withVillage(state: RunState, village: ActiveVillageState): RunState {
 // ---------------------------------------------------------------------------
 
 /** Every inn-rest tick heals two HP and costs one Gold; its final tick restores all remaining HP. */
-export function calculateRestCost(res: PlayerResources): number {
-  return getVillageRestOption(res).cost;
+export function calculateRestCost(res: PlayerResources, villageLevel = 1): number {
+  return getVillageRestOption(res, undefined, villageLevel).cost;
 }
 
-export function getVillageRestOption(res: PlayerResources, requestedTicks?: number): VillageRestOption {
+export function getVillageRestOption(res: PlayerResources, requestedTicks?: number, villageLevel = 1): VillageRestOption {
   const missingHp = Math.max(0, res.maxHp - res.hp);
   const maxTicks = Math.ceil(missingHp / REST_HP_PER_TICK);
   const ticks = maxTicks === 0 ? 0 : Math.max(1, Math.min(maxTicks, Math.floor(requestedTicks ?? maxTicks)));
   const hpRestored = Math.min(missingHp, ticks * REST_HP_PER_TICK);
-  return { ticks, maxTicks, hpRestored, cost: ticks, isFullRest: ticks === maxTicks };
+  return { ticks, maxTicks, hpRestored, cost: hpRestored * (1 + Math.max(1, villageLevel)), isFullRest: ticks === maxTicks };
 }
 
 export interface RestEligibility {
@@ -129,7 +138,7 @@ export function checkRestEligibility(state: RunState, requestedTicks?: number): 
     return { canRest: false, cost: 0, hpRestored: 0, ticks: 0, maxTicks: 0 };
   }
   const res = state.playerResources;
-  const option = getVillageRestOption(res, requestedTicks);
+  const village = getVillage(state); const villageLevel = village ? (state.board[coordToKey(village.coord)]?.card.level ?? 1) : 1; const option = getVillageRestOption(res, requestedTicks, villageLevel);
   const isFullHealth = res.hp >= res.maxHp;
 
   if (isFullHealth) {
@@ -177,7 +186,7 @@ export function villageOpenShop(state: RunState): RunState {
   // Determine village level (default 1 if unspecified)
   const tile = state.board[coordToKey(village.coord)]?.card;
   const villageLevel = tile?.level ?? 1;
-  const countToDraw = 5 + villageLevel;
+  const countToDraw = getVillageShopSlotCount(villageLevel);
 
   const { drawn, deck, discard, nextState, reshuffleCount } = drawTreasureCardsWithReshuffle(
     state.treasureDeck,
@@ -292,28 +301,20 @@ export function sellItem(state: RunState, instanceId: string): RunState {
   const village = getVillage(state);
   if (!village || village.subView !== 'shop' || !state.playerResources) return state;
 
-  let item = state.backpack.find((i) => i.instanceId === instanceId);
-  let next: RunState = state;
-  if (item) {
-    next = { ...state, backpack: state.backpack.filter((i) => i.instanceId !== instanceId) };
-  } else {
-    const slots: EquipmentSlot[] = ['weapon', 'armor', 'accessory'];
-    const slot = slots.find((s) => state.equippedGear[s]?.instanceId === instanceId);
-    if (!slot) return state;
-    item = state.equippedGear[slot] as ShopItemDef;
-    next = { ...state, equippedGear: { ...state.equippedGear, [slot]: null } };
-  }
+  const item = state.backpack.find((i) => i.instanceId === instanceId);
+  if (!item) return state;
+  let next: RunState = { ...state, backpack: state.backpack.filter((i) => i.instanceId !== instanceId) };
 
   next = {
     ...next,
-    treasureDiscard: [...next.treasureDiscard, item],
+    voidItems: [...(state.voidItems ?? []), item],
     activeHook: { type: 'VILLAGE', village },
     playerResources: {
       ...(next.playerResources as NonNullable<RunState['playerResources']>),
       gold: (next.playerResources?.gold ?? 0) + item.sellPrice,
     },
-    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 💰 Sold ${item.name} for ${item.sellPrice} Gold.`),
-    bannerMessage: `Sold ${item.name} for ${item.sellPrice} Gold.`,
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 💰 Sold & Banished ${item.name} to the Void for ${item.sellPrice} Gold.`),
+    bannerMessage: `Sold ${item.name} for ${item.sellPrice} Gold (Banished to the Void).`,
   };
   return syncVitals(state, next);
 }
@@ -325,16 +326,16 @@ export function useConsumable(state: RunState, instanceId: string): RunState {
   }
   const item = state.backpack.find((i) => i.instanceId === instanceId);
   if (!item || item.category !== 'consumable' || !item.healAmount) return state;
-  const initialHp = state.playerResources.hp;
+  const initialHp = state.playerResources.hp; if (initialHp >= state.playerResources.maxHp) return state;
   const hp = Math.min(state.playerResources.maxHp, initialHp + item.healAmount);
-  const healGained = hp - initialHp;
+  const healGained = hp - initialHp; const nextTreasureDiscard = [...state.treasureDiscard, item];
   const nextBackpack = state.backpack.filter((i) => i.instanceId !== instanceId);
 
   if (state.activeHook.type === 'COMBAT') {
     const combat = state.activeHook.combat;
     return {
       ...state,
-      backpack: nextBackpack,
+      backpack: nextBackpack, treasureDiscard: nextTreasureDiscard,
       playerResources: { ...state.playerResources, hp },
       activeHook: {
         ...state.activeHook,
@@ -356,7 +357,7 @@ export function useConsumable(state: RunState, instanceId: string): RunState {
     backpack: nextBackpack,
     playerResources: { ...state.playerResources, hp },
     gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🧪 Used ${item.name}: restored +${healGained} HP (${hp}/${state.playerResources.maxHp} HP).`),
-    bannerMessage: `Used ${item.name}: restored ${healGained} HP.`,
+    treasureDiscard: nextTreasureDiscard, bannerMessage: `Used ${item.name}: restored ${healGained} HP.`,
   };
 }
 
@@ -410,8 +411,8 @@ export function villageTrainRemove(state: RunState, instanceId: string): RunStat
     voidCards: [...(state.voidCards ?? []), card],
     playerResources: { ...state.playerResources, gold: state.playerResources.gold - cost },
     trainRemovalCount: (state.trainRemovalCount ?? 0) + 1,
-    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🔥 Purged ${card.name} to the Void for ${cost} Gold.`),
-    bannerMessage: `Destroyed ${card.name} for ${cost} Gold and sent it to the Void. Next destruction costs ${cost + 1} Gold.`,
+    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🔥 Banished ${card.name} to the Void for ${cost} Gold.`),
+    bannerMessage: `Banished ${card.name} for ${cost} Gold and sent it to the Void. Next banishment costs ${cost + 1} Gold.`,
   };
 }
 

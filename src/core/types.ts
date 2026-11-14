@@ -69,6 +69,8 @@ export interface ShopItemDef {
   level?: number;
   statBonus?: Partial<CharacterStats>;
   gearBonus?: CombatGearBonuses;
+  /** Melee vs ranged weapon classification (used for Thorn retaliation). */
+  weaponRange?: 'melee' | 'ranged';
   healAmount?: number;
   luckyCharmGoldBonus?: boolean;
   cardNumber?: string;
@@ -114,6 +116,8 @@ export interface CombatCardDef {
   evasionScalingStat?: ScalingStat;
   evasionMultiplier?: number;    // 1 for -1 per 1 AGI; 2 for -2 per 1 AGI
   accBonus?: number;             // Bonus to attacker ACC when playing this card
+  /** Overrides weapon range for this action card (e.g. ranged spells vs melee staff strikes). */
+  attackRange?: 'melee' | 'ranged';
   targetMode?: CombatTargetMode;
   discardMode?: CardDiscardMode;
   discardCount?: number;
@@ -133,12 +137,19 @@ export interface CombatCardDef {
 export interface MonsterIntent {
   label: string;
   damage: number;
+  /** Optional second-hand attack damage resolved as a separate hit roll (e.g. Phalanx T2). */
+  offhandDamage?: number;
   block: number;
   damageType?: 'physical' | 'magical';
   magicDamage?: number;
   poisonOnHit?: boolean;
+  /** Inflicts timed Poison (damage, duration) on hit. */
+  poison?: { damage: number; duration: number };
   ignoreDef?: number;
   drainFraction?: number;
+  drainRound?: 'floor' | 'ceil';
+  /** Marks the attack with the LSteal attribute (heals 50% of actual damage dealt rounded up). */
+  lifesteal?: boolean;
   reviveEvery?: number;
   reviveTemplateId?: MonsterTemplateId;
   heal?: number;
@@ -146,6 +157,9 @@ export interface MonsterIntent {
   evaBonus?: number;
   defBonus?: number;
   bonusDuration?: number;
+  defDuration?: number;
+  evaDuration?: number;
+  accDuration?: number;
   /** Summon one matching monster from the hidden draw pile directly into play (and shuffle the deck). */
   summonFromMonsterDeck?: MonsterTemplateId;
   /** If the summon misses, return one matching discard card (FIFO) to the top of the draw pile. */
@@ -215,8 +229,15 @@ export interface MonsterCard {
   goldReward: number;      // Inscribed directly on Monster Card
   startingBlock?: number;
   skittishEvaOnHit?: number;
+  hardenDefOnHit?: number;
+  undyingTokens?: number;
   resilient?: { requiredRoll: number; reviveHp: number };
+  regenOnStart?: number;
   endTurnRegen?: number;
+  /** Passive Channel: gains +amount MATK at end of turn (optional duration in turns; permanent if omitted). */
+  channel?: { amount: number; duration?: number };
+  /** Passive Bloodlust: +1 ATK when HP < 50% Max HP, +2 ATK when HP < 25% Max HP. */
+  bloodlust?: boolean;
   /** Retaliation after a successful player attack; bypasses DEF and Block but respects Divine Protection. */
   retaliationDamageOnHeroAttack?: number;
   /** Physical supply rarity. Defaults to uncommon when omitted. */
@@ -241,6 +262,9 @@ export interface CombatMonster {
   evaBonusTurns?: number;
   defBonusTurns?: number;
   skittishEvaBonus?: number;
+  hardenDefBonus?: number;
+  undyingTokensRemaining?: number;
+  channelStacks?: Array<{ amount: number; turnsRemaining?: number }>;
   channelCount?: number;
   attackBonus?: number;
   attackBonusTurns?: number;
@@ -275,8 +299,16 @@ export interface CombatAttackRollSummary {
   damageProtReduced?: number;
 }
 
+export interface PendingPathTreasureCheck {
+  coord: GridCoord;
+  terrainCard: AdventureCard;
+  pathCard: PathCard;
+}
+
 export interface ActiveCombatState {
   heroStatDebuffs?: HeroStatDebuff[];
+  playerPoison?: { damage: number; turnsRemaining: number } | null;
+  pendingPathTreasureCheck?: PendingPathTreasureCheck;
   monsters: CombatMonster[];  // Battle area: monsters are added until total level >= the tile's level
   combatTurn: number;
   playerAp: number;
@@ -336,6 +368,8 @@ export interface ActiveVillageState {
   trainOptions: CombatCardDef[];
   shopStock: ShopItemDef[];
   shopStockDrawn?: boolean; // Even empty/exhausted stock is generated only once per visit.
+  attachedShrineCard?: AdventureCard;
+  savedShrineState?: Omit<ActiveShrineState, 'returnToVillage'>;
   /** @deprecated Village services are repeatable; retained for save compatibility. */
   actionTaken?: boolean;
 }
@@ -343,11 +377,14 @@ export interface ActiveVillageState {
 export interface ActiveShrineState {
   coord: GridCoord;
   turn: number;
+  shrineCard?: AdventureCard;
   grantedBoon?: ShrinePrayerOption;
   replacedBoonName?: string | null;
   prayed?: boolean;
   prayOptions?: ShrinePrayerOption[];
   chosenOptionId?: ShrinePrayerOptionId;
+  returnToVillage?: ActiveVillageState;
+  alreadyVisited?: boolean;
 }
 
 export type TerrainType = 'start' | 'grasslands' | 'forest' | 'swamp' | 'cave' | 'underground';
@@ -381,14 +418,15 @@ export type BoardNodeStatus =
 export interface PlacedCardNode {
   coord: GridCoord;
   card: AdventureCard;
+  attachedShrineCard?: AdventureCard;
   status: BoardNodeStatus;
   turnPlaced: number;
 }
 
 export type GameScreen = 'welcome' | 'class_select' | 'play_area';
 
-export type MusicTrackId = 'start-screen' | 'map-area' | 'battle-normal' | 'victory' | 'shrine' | null;
-export type GameAudioScene = 'intro' | 'map' | 'battle' | 'victory' | 'shrine' | 'none';
+export type MusicTrackId = 'start-screen' | 'map-area' | 'battle-normal' | 'victory' | 'shrine' | 'village' | null;
+export type GameAudioScene = 'intro' | 'map' | 'battle' | 'victory' | 'shrine' | 'village' | 'none';
 
 export type ExplorationOutcome = 'combat' | 'treasure' | 'safe';
 
@@ -400,6 +438,90 @@ export interface ActiveExplorationState {
   outcome: ExplorationOutcome;
   foundItem?: ShopItemDef | null;
   discardedOverLevelCount?: number;
+  merchantStock?: ShopItemDef[];
+  healedAmount?: number;
+  chestAttemptMethod?: 'force_open' | 'lockpick' | 'remove_seal';
+  chestCheckRoll?: PathCheckRollResult;
+  destroyedItem?: ShopItemDef | null;
+  damageTaken?: number;
+  goldRollDie?: number;
+  goldAwarded?: number;
+  trapNet?: number;
+  trapRoll?: PathCheckRollResult;
+}
+
+export type PathCardTemplateId =
+  | 'enemy_camp'
+  | 'merchant'
+  | 'sanctuary'
+  | 'ambush'
+  | 'magical_chest'
+  | 'trapped_chest'
+  | 'gold_stash'
+  | 'spring_trap';
+
+export interface PathCard {
+  id: string;
+  templateId: PathCardTemplateId;
+  name: string;
+  cardNumber: string;
+  challengeLabel: string;
+  description: string;
+}
+
+export type PathChallengePhase =
+  | 'sneak_prompt'
+  | 'sneak_success'
+  | 'sneak_fail'
+  | 'treasure_prompt'
+  | 'treasure_success'
+  | 'treasure_fail'
+  | 'merchant_offer'
+  | 'sanctuary_prompt'
+  | 'sanctuary_done'
+  | 'ambush_prompt'
+  | 'chest_prompt'
+  | 'chest_success'
+  | 'chest_fail'
+  | 'gold_stash_prompt'
+  | 'gold_stash_done'
+  | 'spring_trap_prompt'
+  | 'spring_trap_success'
+  | 'spring_trap_fail';
+
+export interface PathCheckRollResult {
+  dice: [number, number, number];
+  total: number;
+  netModifier: number;
+  minHitRoll: number;
+  maxHitRoll: number;
+  hitPercent: number;
+  tier: number;
+  isDiabolic: boolean;
+  success: boolean;
+}
+
+export interface ActivePathChallengeState {
+  coord: GridCoord;
+  terrainCard: AdventureCard;
+  pathCard: PathCard;
+  phase: PathChallengePhase;
+  sneakNet: number;
+  sneakRoll?: PathCheckRollResult;
+  treasureNet?: number;
+  treasureRoll?: PathCheckRollResult;
+  foundItem?: ShopItemDef | null;
+  discardedOverLevelCount?: number;
+  merchantStock?: ShopItemDef[];
+  healedAmount?: number;
+  chestAttemptMethod?: 'force_open' | 'lockpick' | 'remove_seal';
+  chestCheckRoll?: PathCheckRollResult;
+  destroyedItem?: ShopItemDef | null;
+  damageTaken?: number;
+  goldRollDie?: number;
+  goldAwarded?: number;
+  trapNet?: number;
+  trapRoll?: PathCheckRollResult;
 }
 
 export interface CombatVictoryState {
@@ -414,6 +536,7 @@ export interface CombatVictoryState {
   canContinue?: boolean;
   lastAttackRolls?: CombatAttackRollSummary[];
   finalCombatState?: ActiveCombatState;
+  pendingPathTreasureCheck?: PendingPathTreasureCheck;
 }
 
 export interface EncounterClearState {
@@ -427,6 +550,7 @@ export type ActiveHook =
   | { type: 'VILLAGE'; village: ActiveVillageState }
   | { type: 'SHRINE'; shrine: ActiveShrineState }
   | { type: 'EXPLORATION'; exploration: ActiveExplorationState }
+  | { type: 'PATH_CHALLENGE'; pathChallenge: ActivePathChallengeState }
   | { type: 'ENCOUNTER_CLEAR'; encounter: EncounterClearState }
   | { type: 'VICTORY'; victory: CombatVictoryState }
   | { type: 'BOSS_APPROACH'; bossMonsters: MonsterCard[] }
@@ -461,8 +585,10 @@ export interface RunState {
   /** Unlearned Village skill offers, recycled into the New Skills Deck when needed. */
   newSkillsDiscard: CombatCardDef[];
   newSkillsReshuffleCount: number;
-  /** Physical cards destroyed during training. Static Void templates are derived separately. */
+  /** Physical cards banished during training. Static Void templates are derived separately. */
   voidCards?: CombatCardDef[];
+  /** Physical treasure/shop items banished by selling in Village shops. */
+  voidItems?: ShopItemDef[];
   playerPosition: GridCoord;
   adventureDeck: AdventureCard[];
   adventureDiscard: AdventureCard[];
@@ -472,7 +598,12 @@ export interface RunState {
   monsterVoid: MonsterCard[];
   treasureDeck: ShopItemDef[];
   treasureDiscard: ShopItemDef[];
+  /** Physical treasure cards outside the current scenario level window (kept in the box). */
+  treasureVoid?: ShopItemDef[];
   treasureReshuffleCount: number;
+  pathsDeck?: PathCard[];
+  pathsDiscard?: PathCard[];
+  pathsReshuffleCount?: number;
   /** Number of cards removed through village training during this run. */
   trainRemovalCount: number;
   board: Record<string, PlacedCardNode>;
@@ -497,6 +628,9 @@ export type InspectedCardInfo =
       accBonusTurns?: number;
   evaBonusTurns?: number;
   skittishEvaBonus?: number;
+  hardenDefBonus?: number;
+  undyingTokensRemaining?: number;
+  channelStacks?: Array<{ amount: number; turnsRemaining?: number }>;
   channelCount?: number;
   attackBonus?: number;
       accBonus?: number;
@@ -504,4 +638,5 @@ export type InspectedCardInfo =
       activeBoons?: { name: string; description: string; value: string }[];
     }
   | { kind: 'adventure'; card: AdventureCard }
-  | { kind: 'item'; item: ShopItemDef };
+  | { kind: 'item'; item: ShopItemDef }
+  | { kind: 'path'; card: PathCard; copies?: number };

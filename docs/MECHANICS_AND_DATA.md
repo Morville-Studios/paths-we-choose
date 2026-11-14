@@ -115,7 +115,7 @@ To keep the character sidebar uncluttered, stat rows display only essential attr
 
 ### 2.2 Village Shop Inventory Visibility, Treasure Deck & Live Comparison Preview
 When entering a Village:
-- **Treasure Deck & Stock Draw**: Stores no longer offer the entire item catalog. At game start, a **42-card Treasure Deck** is built from 2 copies of each of the 21 catalog items and shuffled. Village entry draws **`5 + Village Level` eligible item cards** (e.g. 6 cards in a Level 1 Village) from the top of the Treasure Deck into `shopStock`. A store accepts its own level and one level below, with a floor of Level 1: Level 1 accepts Level 1, Level 2 accepts Levels 1–2, and Level 3 accepts Levels 2–3. Rejected levels go to `treasureDiscard` while stocking continues.
+- **Treasure Deck & Stock Draw**: Stores no longer offer the entire item catalog. At game start, a **48-card Treasure Deck** is built from 2 copies of each of the 17 gear items plus `6 - level` copies of Health Potions (Lvl 1×5, Lvl 2×4, Lvl 3×3, Lvl 4×2) and shuffled. Village entry draws up to **`3 + Village Level` unique item cards** (Grassland 4, Forest 5, Swamp 6, Cave 7) from the top of the Treasure Deck into `shopStock`. A store accepts **only items matching its exact level** (`item.level === village.level`) and **no duplicate items** in `shopStock`: wrong-level or duplicate draws go immediately to `treasureDiscard` while stocking continues. If `treasureDeck` empties mid-draw, `treasureDiscard` is reshuffled if eligible unique items remain; otherwise stocking stops safely with whatever unique exact-level items are available.
 - **Card Art on Options**: Every option in the shop options list displays its standard 5:7 raster card artwork (`/cards/items/*.jpg`), level badge, slot icon, and description.
 - **Unbought Card Discard**: Upon leaving or completing the village visit, remaining unbought cards in `shopStock` are automatically swept into `treasureDiscard`.
 - **Selling Items**: Selling gear moves the sold item card to `treasureDiscard`.
@@ -344,15 +344,18 @@ Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, `advsmp-00`, or `a
   3. **Troll Warrior** (2 DEF, 0 MDEF, 3 ACC, 1 EVA): *Troll Smash* deals 6 physical damage.
 
 ### 5.2 Encounter Level & Terrain-Aware Spawning Formula
-When the player steps on an Encounter card:
-- The card's `level` specifies the encounter budget:
-  $$\sum_{m \in \text{battleArea}} m.\text{level} \ge \text{card}.\text{level}$$
+When the player steps on an Encounter card (or triggers a Path-based encounter such as `Enemy Camp` or `Ambush`):
+- The encounter's total creature level budget $X$ is `Math.floor(card.level * 1.5)` ($\lfloor \text{card}.\text{level} \times 1.5 \rfloor$):
+  $$\sum_{m \in \text{battleArea}} m.\text{level} \ge \lfloor \text{card}.\text{level} \times 1.5 \rfloor$$
 - Monster draws are strictly filtered to match the encounter's terrain:
   $$\text{monster}.\text{spawnTerrains}.\text{includes}(\text{card}.\text{terrain})$$
 - Eligible creature types are defined by each catalog row's spawnTerrains. See [CATALOGS.md](CATALOGS.md#ordinary-monsters); Ramram is Grasslands-only, Goblin includes Swamp, and Stalker includes Grasslands/Forest. Cave is a Stage 2 map biome; Underground remains only a creature spawn tag until its Adventure cards are added.
-- **Creature Draw Rule**: When drawing monster cards for an encounter, if the monster LVL drawn is higher than the LVL of the encounter (`monster.level > encounterLevel`), it goes straight into the monster discard pile.
+- **Creature Draw Rule**: When drawing monster cards for an encounter, if the monster LVL drawn is higher than the encounter target budget $X$ (`monster.level > X`), it goes straight into the monster discard pile.
 - Incompatible terrain monsters drawn go back to the **bottom of the monster deck immediately instead of the discard pile**.
-- In an encounter with Level 2 budget, monsters draw until total level $\ge 2$ (e.g. 2 Level 1 monsters or 1 Level 2 monster like `Basilisk`, `Zombie`, or `Rattler`). In an encounter with Level 3 budget (e.g. `advfrs-01` Forest; Swamp encounter cards start at Level 4), monsters draw until total level $\ge 3$ (e.g. 1 Level 3 `Bullwark`, or 1 Level 2 + 1 Level 1, or 3 Level 1 monsters).
+- Examples:
+  - Grassland Encounter (Level 2): $X = \lfloor 2 \times 1.5 \rfloor = 3$ (e.g., 3 Level 1 Goblins).
+  - Forest Encounter (Level 3): $X = \lfloor 3 \times 1.5 \rfloor = 4$ (e.g., 4 Level 1 forest-compatible creatures).
+  - Swamp Encounter (Level 4): $X = \lfloor 4 \times 1.5 \rfloor = 6$ (e.g., 3 Level 2 creatures, 2 Level 3 creatures, or an unlucky draw of Level 2 + Level 3 + Level 3 = 8 total level).
 - All monsters in the battle area fight together. On the enemy turn, each living monster executes its intent. The player designates which monster to target with Attack cards.
 - **3D Monster Carousel (Single-Row Targeting for 3+ Opponents)**:
   - When 3 or more monsters are active simultaneously, opponents are displayed in a 3D perspective carousel (`.monster-carousel-track`) with the active target at center (`.is-center`, `scale(1.02)`, glowing gold border `#fbbf24`), flanked by adjacent living hostiles (`.is-prev` at `-175px` and `.is-next` at `+175px`, `scale(0.82)`, `opacity: 0.62`, clickable).
@@ -464,7 +467,7 @@ Graveyards/discard piles are public and may be inspected or searched when an abi
 
 ## Treasure level filtering and recycling
 
-Village stock accepts `max(1, village.level - 1) <= item.level <= village.level`. Thus a Level 1 store supplies Level 1, a Level 2 store supplies Levels 1–2, and a Level 3 store supplies Levels 2–3. Items outside the band go immediately to treasureDiscard and do not count toward the `5 + village level` stock target. Draw again until the target is filled, reshuffling the treasure graveyard whenever a further draw needs an empty deck.
+Village stock accepts only exact-level items (`item.level === village.level`) and never allows duplicate item options in `shopStock`. Level 1 (Grassland) supplies 4 unique Level 1 items, Level 2 (Forest) supplies 5 unique Level 2 items, Level 3 (Swamp) supplies up to 6 unique Level 3 items, and so on (`3 + village.level` slots). Wrong-level cards and duplicate draws already in `shopStock` go immediately to `treasureDiscard` and do not count toward the stock target. Draw again until the target is filled, reshuffling the treasure graveyard whenever a further draw needs an empty deck if eligible unique items remain; otherwise stop with partial stock.
 
 Undiscovered terrain rewards use `item.level <= terrain.level` as a cap. A Level 2 Forest discovery accepts Level 1 or Level 2 items. If the last card is an invalid Level 3 item, discard it, reshuffle the treasure graveyard into the new deck, and continue drawing until a valid reward appears. This is a game mechanic, not a spell/attack fizzle. Starting with an empty Treasure Deck follows the same reshuffle rule.
 

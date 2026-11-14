@@ -12,6 +12,7 @@ import {
   getMonsterIllustration,
   getItemRasterArtPath,
   getAdventurerRasterArtPath,
+  getPathRasterArtPath,
 } from './cardArt';
 import {
   getStatIcon,
@@ -124,11 +125,14 @@ import {
 import {
   eventAdventureCardHtml,
   statUpgradeWidgetHtml,
-  welcomePrepareModal,
   explorationModal,
+  pathChallengeModal,
   victoryModal,
   shrineModal,
   shrineConfirmModal,
+  endTurnConfirmModal,
+  useItemConfirmModal,
+  sellItemConfirmModal,
 } from './modals/eventModals';
 import {
   villageViewHtml,
@@ -153,6 +157,7 @@ export {
   eventAdventureCardHtml,
   statUpgradeWidgetHtml,
   explorationModal,
+  pathChallengeModal,
   victoryModal,
   villageViewHtml,
   renderWelcome,
@@ -181,6 +186,8 @@ export function voidCardCount(state: RunState): number {
     + voidBossCards().length
     + voidHeroClassIds(state.playerClass).length
     + (state.voidCards?.length ?? 0)
+    + (state.voidItems?.length ?? 0)
+    + (state.treasureVoid?.length ?? 0)
     + (state.monsterVoid?.length ?? 0);
 }
 
@@ -424,7 +431,9 @@ function gearHtml(state: RunState): string {
             <div class="bag-item-actions">
               ${
                 isConsumable
-                  ? `<button class="btn mini primary" data-action="use-item" data-id="${i.instanceId}" title="Use consumable">Use</button>`
+                  ? `<button class="btn mini primary" data-action="use-item" data-id="${i.instanceId}" title="${
+                      i.healAmount && state.playerResources && state.playerResources.hp >= state.playerResources.maxHp ? 'Already at full HP' : 'Use consumable'
+                    }" ${i.healAmount && state.playerResources && state.playerResources.hp >= state.playerResources.maxHp ? 'disabled' : ''}>Use</button>`
                   : `<button class="btn mini primary" data-action="equip" data-id="${i.instanceId}" ${
                       isCombat ? 'disabled' : ''
                     } title="Equip to ${i.category}">Equip</button>`
@@ -451,7 +460,7 @@ function gearHtml(state: RunState): string {
   </div>`;
 }
 
-type DeckPileGroupId = 'adventure' | 'monster' | 'player' | 'treasure' | 'newSkills' | 'void';
+type DeckPileGroupId = 'adventure' | 'paths' | 'monster' | 'player' | 'treasure' | 'newSkills' | 'void';
 
 interface DeckPanelConfig {
   visibleGroups: readonly DeckPileGroupId[];
@@ -479,6 +488,8 @@ function deckPileGroupDetails(state: RunState, group: DeckPileGroupId): DeckPile
   switch (group) {
     case 'adventure':
       return { icon: '🌿', title: 'Adventure Cards', deckLabel: 'Deck', deckCount: state.adventureDeck.length, discardCount: state.adventureDiscard.length, deckPile: 'adventure_deck', discardPile: 'adventure_discard', cssPrefix: 'adventure' };
+    case 'paths':
+      return { icon: '🧭', title: 'Paths Cards', deckLabel: 'Deck', deckCount: (state.pathsDeck ?? []).length, discardCount: (state.pathsDiscard ?? []).length, deckPile: 'paths_deck', discardPile: 'paths_discard', cssPrefix: 'paths' };
     case 'monster':
       return { icon: '👹', title: 'Monster Cards', deckLabel: 'Deck', deckCount: state.monsterDeck.length, discardCount: state.monsterDiscard.length, deckPile: 'monster_deck', discardPile: 'monster_discard', cssPrefix: 'monster' };
     case 'player':
@@ -578,7 +589,7 @@ export function rightSidebarHtml(state: RunState): string {
   return `
   <div class="map-sidebar-right-wrap">
     ${deckPilesPanelHtml(state, {
-      visibleGroups: ['adventure', 'monster', 'player', 'treasure', 'newSkills', 'void'],
+      visibleGroups: ['adventure', 'paths', 'monster', 'player', 'treasure', 'newSkills', 'void'],
       heading: 'Decks &amp; Discards',
     })}
   </div>`;
@@ -760,18 +771,18 @@ export function renderTcgItemCard(
         <img src="${rasterArt}" alt="${displayName}" class="tcg-art-raster item-raster" loading="lazy" />
       </div>
       <header class="tcg-header tcg-item-header">
-        <div class="tcg-header-meta">
+        <div class="tcg-item-header-main">
           <div class="tcg-type-stacked tcg-item-type-stacked">
             <span class="tcg-type-main tcg-item-type-main">${typeMain}</span>
             <span class="tcg-type-sub tcg-item-type-sub">${typeSub} <span class="item-type-icon">${slotIcon}</span></span>
           </div>
-          <div class="tcg-item-header-ribbons">
-            <span class="tcg-level-ribbon tcg-item-level-ribbon">${levelText}</span>
-            <span class="tcg-item-cost-ribbon" title="Base Gold Cost">${getResourceIcon('gold', 'header-icon')} ${item.buyPrice}g</span>
+          <div class="tcg-header-title">
+            <span class="tcg-name">${displayName}</span>
           </div>
         </div>
-        <div class="tcg-header-title">
-          <span class="tcg-name">${displayName}</span>
+        <div class="tcg-item-header-ribbons">
+          <span class="tcg-level-ribbon tcg-item-level-ribbon">${levelText}</span>
+          <span class="tcg-item-cost-ribbon" title="Base Gold Cost">${getResourceIcon('gold', 'header-icon')} ${item.buyPrice}g</span>
         </div>
       </header>
       <div class="tcg-art-spacer tcg-item-art-spacer"></div>
@@ -782,6 +793,57 @@ export function renderTcgItemCard(
         !isMini
           ? `<footer class="tcg-footer">
         <span class="tcg-card-num">${item.cardNumber ?? 'ITM · #001'}</span>
+      </footer>`
+          : ''
+      }
+    </div>
+  </div>`;
+}
+
+export function renderTcgPathCard(
+  card: {
+    templateId: string;
+    name: string;
+    cardNumber: string;
+    challengeLabel: string;
+    description: string;
+  },
+  options: TcgItemCardOptions | string = {}
+): string {
+  const opts: TcgItemCardOptions =
+    typeof options === 'string' ? { extraClasses: options } : options;
+  const isMini = Boolean(opts.isMini);
+  const extraClass = [opts.extraClasses, isMini ? 'is-mini' : ''].filter(Boolean).join(' ');
+  const rasterArt = getPathRasterArtPath(card.templateId);
+
+  return `
+  <div class="tcg-card tcg-item tcg-template-item tcg-path-card ${extraClass}" data-inspect-kind="path" data-path-id="${card.templateId}">
+    <div class="tcg-inner-frame">
+      <div class="tcg-art-window item-art-window">
+        <img src="${rasterArt}" alt="${card.name}" class="tcg-art-raster item-raster" loading="lazy" />
+      </div>
+      <header class="tcg-header tcg-item-header">
+        <div class="tcg-item-header-main">
+          <div class="tcg-type-stacked tcg-item-type-stacked">
+            <span class="tcg-type-main tcg-item-type-main">PATH</span>
+            <span class="tcg-type-sub tcg-item-type-sub">Challenge <span class="item-type-icon">🧭</span></span>
+          </div>
+          <div class="tcg-header-title">
+            <span class="tcg-name">${card.name}</span>
+          </div>
+        </div>
+        <div class="tcg-item-header-ribbons">
+          <span class="tcg-level-ribbon tcg-item-level-ribbon">${card.cardNumber}</span>
+        </div>
+      </header>
+      <div class="tcg-art-spacer tcg-item-art-spacer"></div>
+      <div class="tcg-textbox">
+        <p class="item-inspect-desc">${isMini ? `<b>${card.challengeLabel}</b>` : card.description}</p>
+      </div>
+      ${
+        !isMini
+          ? `<footer class="tcg-footer">
+        <span class="tcg-card-num">${card.cardNumber}</span>
       </footer>`
           : ''
       }
@@ -816,14 +878,16 @@ export function pileModal(pileType: PileType, state: RunState): string {
     const bosses = voidBossCards();
     const heroes = voidHeroClassIds(state.playerClass);
     const destroyed = state.voidCards ?? [];
+    const voidItems = [...(state.voidItems ?? []), ...(state.treasureVoid ?? [])];
     const voidMonsters = state.monsterVoid ?? [];
     const voidMonsterGroups = groupByCount(voidMonsters, (monster) => monster.templateId);
     const destroyedGroups = groupByCount(destroyed, (card) => card.id);
+    const voidItemGroups = groupByCount(voidItems, (item) => item.id);
     icon = '🌀';
     title = 'The Void';
-    desc = 'Public not-in-play cards. Ordinary creature copies not selected by the current scenario remain here. Static skill upgrades, Bosses, and unselected heroes remain inexhaustible; cards destroyed during Village Training are physical Void cards.';
-    totalCards = upgradeCards.length + bosses.length + heroes.length + destroyed.length + voidMonsters.length;
-    uniqueCount = upgradeCards.length + bosses.length + heroes.length + destroyedGroups.length + voidMonsterGroups.length;
+    desc = 'Public not-in-play cards. Ordinary creature copies not selected by the current scenario remain here. Static skill upgrades, Bosses, and unselected heroes remain inexhaustible; cards banished during Village Training and items sold in Village shops are physical Void cards.';
+    totalCards = upgradeCards.length + bosses.length + heroes.length + destroyed.length + voidItems.length + voidMonsters.length;
+    uniqueCount = upgradeCards.length + bosses.length + heroes.length + destroyedGroups.length + voidItemGroups.length + voidMonsterGroups.length;
     cardsHtml = [
       ...upgradeCards
         .sort((a, b) => (a.cardNumber ?? a.name).localeCompare(b.cardNumber ?? b.name))
@@ -838,6 +902,9 @@ export function pileModal(pileType: PileType, state: RunState): string {
       ...destroyedGroups
         .sort((a, b) => (a.item.cardNumber ?? a.item.name).localeCompare(b.item.cardNumber ?? b.item.name))
         .map(({ item, count }) => combatPileCardItem(item, count, totalCards, stats, state)),
+      ...voidItemGroups
+        .sort((a, b) => (a.item.cardNumber ?? a.item.name).localeCompare(b.item.cardNumber ?? b.item.name))
+        .map(({ item, count }) => treasurePileCardItem(item, count, totalCards)),
     ].join('');
   } else if (pileType === 'adventure_deck' || pileType === 'adventure_discard') {
     const isDeck = pileType === 'adventure_deck';
@@ -884,14 +951,36 @@ export function pileModal(pileType: PileType, state: RunState): string {
       })
       .map(({ item, count }) => monsterPileCardItem(item, count, totalCards))
       .join('');
+  } else if (pileType === 'paths_deck' || pileType === 'paths_discard') {
+    const isDeck = pileType === 'paths_deck';
+    const cards = isDeck ? (state.pathsDeck ?? []) : (state.pathsDiscard ?? []);
+    icon = isDeck ? '🧭' : '🗑️';
+    title = isDeck ? 'Paths Deck' : 'Paths Discard Pile';
+    desc = isDeck
+      ? 'Challenge cards drawn when stepping onto Undiscovered Terrains. Uses the Morville Infinite Deck System™ (MIDS™): reshuffled from discard when empty.'
+      : 'Resolved Path Challenge cards. Reshuffled back into the Paths Deck when it runs empty.';
+    totalCards = cards.length;
+
+    const groups = groupByCount(cards, (c) => c.templateId);
+    uniqueCount = groups.length;
+    cardsHtml = groups
+      .map(({ item, count }) => `
+        <div class="pile-card-item">
+          ${renderTcgPathCard(item, { isMini: true })}
+          <div class="pile-item-meta">
+            <span class="pile-count-badge">×${count}</span>
+            <span class="pile-prob">${totalCards > 0 ? Math.round((count / totalCards) * 100) : 0}%</span>
+          </div>
+        </div>`)
+      .join('');
   } else if (pileType === 'treasure_deck' || pileType === 'treasure_discard') {
     const isDeck = pileType === 'treasure_deck';
     const cards = isDeck ? state.treasureDeck : state.treasureDiscard;
     icon = isDeck ? '💎' : '🪙';
     title = isDeck ? 'Treasure Deck' : 'Treasure Discard Pile';
     desc = isDeck
-      ? 'Treasure item cards drawn when visiting Village Shops (5 + Village Level items per visit). Unbought cards go to the Treasure Discard Pile.'
-      : 'Treasure item cards discarded from previous shop visits or sold by the player. Reshuffled when the Treasure Deck runs empty.';
+      ? 'Treasure item cards drawn when visiting Village Shops (3 + Village Level unique exact-level items per visit). Unbought, wrong-level, and duplicate cards go to the Treasure Discard Pile.'
+      : 'Treasure item cards discarded from previous shop visits, treasure searches, or used consumables. Reshuffled when the Treasure Deck runs empty.';
     totalCards = cards.length;
 
     const groups = groupByCount(cards, (item) => item.id);
@@ -1001,17 +1090,18 @@ export function turnTrackerHtml(state: RunState): string {
 
   const nodesHtml: string[] = [];
 
-  // Start Node (Turn 0)
+  // Start Node (Turn 0) — Ornate recessed brass/obsidian well
   const isStartCurrent = currentTurn === 0;
   const isStartCompleted = currentTurn > 0;
   nodesHtml.push(`
     <div class="turn-node is-start ${isStartCurrent ? 'is-current' : ''} ${isStartCompleted ? 'is-completed' : ''}" data-turn="0" title="Turn 0: Adventure Preparation">
-      ${isStartCurrent ? meepleHtml : ''}
-      <span class="turn-node-circle start-circle">
-        <span class="turn-label">START</span>
+      <span class="turn-node-well start-well">
+        <span class="turn-well-art" aria-hidden="true"></span>
+        ${isStartCurrent ? meepleHtml : ''}
       </span>
+      <span class="turn-node-caption">START</span>
     </div>
-    <span class="turn-arrow ${currentTurn > 0 ? 'is-completed' : ''}" aria-hidden="true">&rarr;</span>
+    <span class="turn-trail-link ${currentTurn > 0 ? 'is-completed' : ''}" aria-hidden="true"></span>
   `);
 
   // Turns 1 through maxTurns
@@ -1020,40 +1110,33 @@ export function turnTrackerHtml(state: RunState): string {
     const isCompleted = currentTurn > i;
     const isBoss = i === maxTurns;
 
-    nodesHtml.push(`
-      <div class="turn-node ${isBoss ? 'is-boss-node' : ''} ${isCurrent ? 'is-current' : ''} ${isCompleted ? 'is-completed' : ''} ${!isCurrent && !isCompleted ? 'is-upcoming' : ''}" data-turn="${i}" title="${isBoss ? `Turn ${i}: Stage Boss Battle!` : `Turn ${i} of ${maxTurns}`}">
-        ${isCurrent ? meepleHtml : ''}
-        <span class="turn-node-circle ${isBoss ? 'boss-circle' : ''}">
-          ${isBoss ? '<span class="turn-boss-skull" aria-hidden="true">&#9760;</span>' : ''}
-          <span class="turn-num">${i}</span>
-        </span>
-      </div>
-      ${i < maxTurns ? `<span class="turn-arrow ${currentTurn > i ? 'is-completed' : ''}" aria-hidden="true">&rarr;</span>` : ''}
-    `);
+    if (isBoss) {
+      nodesHtml.push(`
+        <div class="turn-node is-boss-node ${isCurrent ? 'is-current' : ''} ${isCompleted ? 'is-completed' : ''} ${!isCurrent && !isCompleted ? 'is-upcoming' : ''}" data-turn="${i}" title="Turn ${i}: Stage Boss Battle!">
+          <span class="turn-node-well boss-well">
+            <span class="turn-well-art" aria-hidden="true"></span>
+            <span class="turn-boss-skull" aria-hidden="true">&#9760;</span>
+            ${isCurrent ? meepleHtml : ''}
+          </span>
+          <span class="turn-node-caption boss-caption">${i}</span>
+        </div>
+      `);
+    } else {
+      nodesHtml.push(`
+        <div class="turn-node ${isCurrent ? 'is-current' : ''} ${isCompleted ? 'is-completed' : ''} ${!isCurrent && !isCompleted ? 'is-upcoming' : ''}" data-turn="${i}" title="Turn ${i} of ${maxTurns}">
+          <span class="turn-node-socket">
+            <span class="turn-socket-art" aria-hidden="true"></span>
+            <span class="turn-num">${i}</span>
+            ${isCurrent ? meepleHtml : ''}
+          </span>
+        </div>
+        <span class="turn-trail-link ${currentTurn > i ? 'is-completed' : ''}" aria-hidden="true"></span>
+      `);
+    }
   }
 
   return `
   <div class="boardgame-turn-tracker" aria-label="Scenario Turn Track (Turn ${currentTurn} of ${maxTurns})">
-    <!-- Phase Category Banners (Bands) -->
-    <div class="turn-phase-bands-row">
-      <div class="turn-phase-band phase-start ${currentTurn === 0 ? 'is-active-phase' : ''}">
-        <span class="phase-title">Preparation</span>
-      </div>
-      <div class="turn-phase-band phase-approach ${currentTurn >= 1 && currentTurn <= 4 ? 'is-active-phase' : ''}">
-        <span class="phase-title">The Approach (1–4)</span>
-      </div>
-      <div class="turn-phase-band phase-wilds ${currentTurn >= 5 && currentTurn <= 9 ? 'is-active-phase' : ''}">
-        <span class="phase-title">The Wilds (5–9)</span>
-      </div>
-      <div class="turn-phase-band phase-dungeon ${currentTurn >= 10 && currentTurn <= 14 ? 'is-active-phase' : ''}">
-        <span class="phase-title">Deep Dungeon (10–14)</span>
-      </div>
-      <div class="turn-phase-band phase-boss ${currentTurn >= 15 ? 'is-active-phase' : ''}">
-        <span class="phase-title">Stage Boss (15)</span>
-      </div>
-    </div>
-
-    <!-- The Tabletop Track with Nodes & Meeple Standee -->
     <div class="turn-track-scroll">
       <div class="turn-track-nodes">
         ${nodesHtml.join('')}
@@ -1192,13 +1275,15 @@ export function renderPlayArea(state: RunState, ui: UiState): string {
       </aside>
     </div>
     <footer class="foot">seed: ${state.seed}</footer>
-    ${state.welcomePreparing ? welcomePrepareModal(state) : ''}
     ${ui.inspectedPile ? pileModal(ui.inspectedPile, state) : ''}
     ${ui.showDeck ? pileModal('player_deck', state) : ''}
     ${renderHook(state, ui)}
     ${ui.pendingCardPlay && state.activeHook.type === 'COMBAT' ? combatConfirmModal(state, state.activeHook.combat, ui.pendingCardPlay, stats) : ''}
     ${ui.pendingDiceRolls && ui.pendingDiceRolls.length > 0 ? combatDiceRollModal(ui.pendingDiceRolls[0]) : ''}
     ${ui.pendingFlee && state.activeHook.type === 'COMBAT' ? fleeConfirmModal(state, state.activeHook.combat, stats) : ''}
+    ${ui.pendingEndTurn && state.activeHook.type === 'COMBAT' ? endTurnConfirmModal(state.activeHook.combat) : ''}
+    ${ui.pendingUseItemId ? useItemConfirmModal(state, ui.pendingUseItemId) : ''}
+    ${ui.pendingSellItemId ? sellItemConfirmModal(state, ui.pendingSellItemId) : ''}
     ${ui.pendingTrainingAction ? trainingConfirmModal(state, ui.pendingTrainingAction) : ''}
     ${ui.pendingShrineAction ? shrineConfirmModal(state, ui.pendingShrineAction) : ''}
     ${ui.showGuide ? renderGuideModal(true, ui.guidePage ?? 1) : ''}
@@ -1256,6 +1341,8 @@ function renderHook(state: RunState, ui: UiState): string {
       return shrineModal(state, ui);
     case 'EXPLORATION':
       return explorationModal(hook.exploration, state);
+    case 'PATH_CHALLENGE':
+      return pathChallengeModal(hook.pathChallenge, state);
     case 'ENCOUNTER_CLEAR':
       return `
       <div class="modal-backdrop">

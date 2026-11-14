@@ -31,6 +31,7 @@ export class AudioManager {
       'battle-normal': publicAsset('audio/battle-normal.mp3'),
       'victory': publicAsset('audio/victory.mp3'),
       'shrine': publicAsset('audio/shrine.mp3'),
+      'village': publicAsset('audio/village.mp3'),
     };
 
     for (const [id, url] of Object.entries(trackUrls)) {

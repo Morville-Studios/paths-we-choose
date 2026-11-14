@@ -2,23 +2,36 @@ import { ShopItemDef } from '../core/types';
 
 export type ShopItemTemplate = Omit<ShopItemDef, 'instanceId'>;
 
+/**
+ * Physical supply count per item template:
+ * Health Potions have (6 - level) copies (Lvl 1: 5, Lvl 2: 4, Lvl 3: 3, Lvl 4: 2);
+ * all other treasure items have 2 physical copies.
+ */
+export function getTreasureSupplyCount(tpl: Pick<ShopItemDef, 'id' | 'category' | 'level'>): number {
+  if (tpl.category === 'consumable' && tpl.id.includes('health_potion')) {
+    return Math.max(1, 6 - (tpl.level ?? 1));
+  }
+  return 2;
+}
+
 export const SHOP_ITEM_CATALOG: ShopItemTemplate[] = [
   {
     id: 'lvl1_health_potion',
     name: 'Health Potion',
     category: 'consumable',
-    buyPrice: 6,
-    sellPrice: 3,
+    buyPrice: 12,
+    sellPrice: 6,
     level: 1,
-    healAmount: 10,
+    healAmount: 5,
     cardNumber: 'ITM · #001',
-    description: 'Restores 10 HP immediately when used.',
+    description: 'Restores 5 HP immediately when used.',
     flavorText: 'Brewed with wild meadow blossoms and mountain springs to soothe fresh battle wounds.',
   },
   {
     id: 'lvl1_iron_sword',
     name: 'Iron Sword',
     category: 'weapon',
+    weaponRange: 'melee',
     buyPrice: 10,
     sellPrice: 5,
     level: 1,
@@ -31,6 +44,7 @@ export const SHOP_ITEM_CATALOG: ShopItemTemplate[] = [
     id: 'lvl1_apprentice_staff',
     name: 'Apprentice Staff',
     category: 'weapon',
+    weaponRange: 'melee',
     buyPrice: 15,
     sellPrice: 7,
     level: 1,
@@ -127,6 +141,7 @@ export const SHOP_ITEM_CATALOG: ShopItemTemplate[] = [
     id: 'lvl2_iron_sword_plus',
     name: 'Iron Sword +',
     category: 'weapon',
+    weaponRange: 'melee',
     buyPrice: 30,
     sellPrice: 15,
     level: 2,
@@ -163,6 +178,7 @@ export const SHOP_ITEM_CATALOG: ShopItemTemplate[] = [
     id: 'lvl2_apprentice_staff_plus',
     name: 'Apprentice Staff +',
     category: 'weapon',
+    weaponRange: 'melee',
     buyPrice: 45,
     sellPrice: 22,
     level: 2,
@@ -184,45 +200,46 @@ export const SHOP_ITEM_CATALOG: ShopItemTemplate[] = [
     flavorText: 'Layered, supple leather reinforced at vital points without losing a scout’s freedom of movement.',
   },
   {
-    id: 'lvl2_health_potion_plus',
-    name: 'Health Potion +',
+    id: 'lvl2_health_potion',
+    name: 'Health Potion',
     category: 'consumable',
-    buyPrice: 14,
-    sellPrice: 7,
+    buyPrice: 34,
+    sellPrice: 17,
     level: 2,
-    healAmount: 18,
+    healAmount: 10,
     cardNumber: 'ITM · #016',
-    description: 'Restores 18 HP immediately when used.',
+    description: 'Restores 10 HP immediately when used.',
     flavorText: 'A concentrated crimson draught for wounds too deep for an ordinary potion.',
   },
   {
-    id: 'lvl3_health_potion_plus_plus',
-    name: 'Health Potion ++',
+    id: 'lvl3_health_potion',
+    name: 'Health Potion',
     category: 'consumable',
-    buyPrice: 24,
-    sellPrice: 12,
+    buyPrice: 66,
+    sellPrice: 33,
     level: 3,
-    healAmount: 24,
+    healAmount: 15,
     cardNumber: 'ITM · #017',
-    description: 'Restores 24 HP immediately when used.',
+    description: 'Restores 15 HP immediately when used.',
     flavorText: 'A masterwork restorative that seals deep wounds with a warming amber glow.',
   },
   {
-    id: 'lvl4_health_potion_plus_plus_plus',
-    name: 'Health Potion +++',
+    id: 'lvl4_health_potion',
+    name: 'Health Potion',
     category: 'consumable',
-    buyPrice: 36,
-    sellPrice: 18,
+    buyPrice: 108,
+    sellPrice: 54,
     level: 4,
-    healAmount: 28,
+    healAmount: 20,
     cardNumber: 'ITM · #018',
-    description: 'Restores 28 HP immediately when used.',
+    description: 'Restores 20 HP immediately when used.',
     flavorText: 'An exceptional restorative reserved for journeys into the deepest danger.',
   },
   {
     id: 'lvl1_dagger',
     name: 'Dagger',
     category: 'weapon',
+    weaponRange: 'melee',
     buyPrice: 10,
     sellPrice: 5,
     level: 1,
@@ -235,6 +252,7 @@ export const SHOP_ITEM_CATALOG: ShopItemTemplate[] = [
     id: 'lvl2_dagger_plus',
     name: 'Dagger +',
     category: 'weapon',
+    weaponRange: 'melee',
     buyPrice: 30,
     sellPrice: 15,
     level: 2,

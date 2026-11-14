@@ -231,17 +231,121 @@ export function createCombatAnimator({
     });
   }
 
+  function triggerMonsterAbilityEffect(
+    targetIdx: number,
+    variant: 'harden' | 'skittish' | 'heal',
+    iconPath: string,
+    label: string,
+    delayMs = 0
+  ): void {
+    const spawn = () => {
+      const monsterUnit = root.querySelector<HTMLElement>(
+        `.combat-monster-unit[data-id="${targetIdx}"]`
+      );
+      if (!monsterUnit) return;
+
+      monsterUnit
+        .querySelectorAll(`.combat-floating-damage.is-ability-${variant}`)
+        .forEach((el) => el.remove());
+
+      const floatEl = document.createElement('div');
+      floatEl.classList.add('combat-floating-damage', 'is-ability', `is-ability-${variant}`);
+      floatEl.innerHTML = `<img src="${publicAsset(iconPath)}" alt="" class="floating-ability-icon" /><span>${label}</span>`;
+      monsterUnit.appendChild(floatEl);
+
+      setTimeout(() => {
+        floatEl.remove();
+      }, 1150);
+    };
+
+    if (delayMs > 0) {
+      setTimeout(spawn, delayMs);
+    } else {
+      spawn();
+    }
+  }
+
+  function triggerHeroHealEffects(healAmount: number): void {
+    const targets = root.querySelectorAll<HTMLElement>('.hero-sidebar-vitals-card, .player-line');
+    if (targets.length === 0) return;
+    targets.forEach((targetEl) => {
+      targetEl.querySelectorAll('.combat-floating-damage.is-ability-heal').forEach((el) => el.remove());
+
+      const floatEl = document.createElement('div');
+      floatEl.classList.add('combat-floating-damage', 'is-ability', 'is-ability-heal');
+      floatEl.innerHTML = `<img src="${publicAsset('/icons/vit.png')}" alt="" class="floating-ability-icon" /><span>Heal +${healAmount}</span>`;
+      targetEl.appendChild(floatEl);
+
+      setTimeout(() => {
+        floatEl.remove();
+      }, 1150);
+    });
+  }
+
+  function triggerAbilityTriggersFromDiff(
+    prevState: RunState,
+    nextState: RunState,
+    monsterDelayMs = 0
+  ): void {
+    if (prevState.activeHook?.type !== 'COMBAT' || nextState.activeHook?.type !== 'COMBAT') {
+      return;
+    }
+
+    const heroHeal =
+      (nextState.playerResources?.hp ?? 0) - (prevState.playerResources?.hp ?? 0);
+    if (heroHeal > 0) {
+      triggerHeroHealEffects(heroHeal);
+    }
+
+    const prevMonsters = prevState.activeHook.combat.monsters;
+    const nextMonsters = nextState.activeHook.combat.monsters;
+    nextMonsters.forEach((mAfter, idx) => {
+      const mBefore = prevMonsters[idx];
+      if (!mBefore || mAfter.hp <= 0) return;
+
+      const hardenGain = (mAfter.hardenDefBonus ?? 0) - (mBefore.hardenDefBonus ?? 0);
+      if (hardenGain > 0) {
+        triggerMonsterAbilityEffect(idx, 'harden', '/icons/def.png', `Hardened +${hardenGain}`, monsterDelayMs);
+      }
+
+      const skittishGain = (mAfter.skittishEvaBonus ?? 0) - (mBefore.skittishEvaBonus ?? 0);
+      if (skittishGain > 0) {
+        triggerMonsterAbilityEffect(idx, 'skittish', '/icons/eva.png', `Skittish +${skittishGain}`, monsterDelayMs);
+      }
+
+      const healGain = mAfter.hp - mBefore.hp;
+      if (healGain > 0 && mBefore.hp > 0) {
+        const isRegen =
+          Boolean(mAfter.monster.regenOnStart || mAfter.monster.endTurnRegen) &&
+          (healGain === mAfter.monster.regenOnStart || healGain === mAfter.monster.endTurnRegen);
+        triggerMonsterAbilityEffect(
+          idx,
+          'heal',
+          '/icons/vit.png',
+          `${isRegen ? 'Regen' : 'Heal'} +${healGain}`,
+          monsterDelayMs
+        );
+      }
+    });
+  }
+
   function runTransitionWithDiceRolls(
     transition: (s: RunState) => RunState
   ): CombatAttackRollSummary[] {
+    let prevState: RunState | null = null;
     let evaluatedNext: RunState | null = null;
     let rolls: CombatAttackRollSummary[] = [];
 
     store.update((s: RunState) => {
+      prevState = s;
       evaluatedNext = transition(s);
       rolls = extractLastAttackRolls(evaluatedNext);
       return rolls.length > 0 ? s : evaluatedNext;
     });
+
+    if (evaluatedNext && rolls.length === 0 && prevState) {
+      triggerAbilityTriggersFromDiff(prevState, evaluatedNext, 0);
+    }
 
     if (evaluatedNext && rolls.length > 0) {
       const finalState: RunState = evaluatedNext;
@@ -340,8 +444,10 @@ export function createCombatAnimator({
     );
 
     if (affectedTargets.length === 0) {
+      const prevForDiff = store.get();
       store.set(nextStateToSet);
       render();
+      triggerAbilityTriggersFromDiff(prevForDiff, nextStateToSet, 0);
       return;
     }
 
@@ -402,6 +508,7 @@ export function createCombatAnimator({
     for (const target of affectedTargets) {
       triggerMonsterDamageEffects(target.targetIndex, target.damage, target.blocked);
     }
+    triggerAbilityTriggersFromDiff(s, nextStateToSet, 180);
 
     setTimeout(() => {
       let anyDied = false;

@@ -53,7 +53,7 @@ export function renderWelcome(
 
       <div class="welcome-bottom-tray">
         <p class="welcome-deckline">Build a path. Shape a hero. Survive what your choices reveal.</p>
-        <p class="tagline">A solo browser game combining tactical deck-building, MACG-3D6™ tabletop combat, and a map that grows from every decision.</p>
+        <p class="tagline">A solo browser game combining tactical deck-building, a MACG-3D6™ tabletop game, and a map that grows from every decision.</p>
         <div class="welcome-actions">
           ${canContinue ? `<button class="btn primary big welcome-start" data-action="continue-autosave"><span>Continue Adventure</span><span aria-hidden="true">→</span></button>` : ''}
           <button class="btn ${canContinue ? '' : 'primary big welcome-start'}" data-action="start">
