@@ -167,14 +167,14 @@
 html {
   width: 100%;
   height: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
   width: 100%;
   min-height: 100%;
   margin: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -187,7 +187,7 @@ body {
   width: 100%;
   max-width: 100%;
   min-height: 100dvh;
-  overflow-x: hidden;
+  overflow-x: clip;
   box-sizing: border-box;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
@@ -266,7 +266,8 @@ body:has(.guide-backdrop) .audio-btn,
 .discard-choice-count { margin-top: 8px; font-size: 0.84rem; color: #f8cf62; }
 .combat-in-play { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
 .combat-in-play-label { color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
-.combat-in-play-card { border: 1px solid #d6a72e; border-radius: 999px; background: #49340b; color: #fde68a; padding: 4px 9px; font-size: 0.84rem; font-weight: 700; }
+.combat-in-play-card { border: 1px solid #d6a72e; border-radius: 999px; background: #49340b; color: #fde68a; padding: 4px 9px; font-size: 0.84rem; font-weight: 700; font-family: inherit; cursor: pointer; transition: filter 120ms ease, transform 120ms ease; }
+.combat-in-play-card:hover { filter: brightness(1.15); transform: translateY(-1px); }
 
 .screen {
   width: 100%;
@@ -669,11 +670,11 @@ h1.small { font-size: 1.6rem; text-align: center; }
   width: 100% !important;
   min-height: 100dvh;
   margin: 0 !important;
-  padding: 24px 20px;
+  padding: 16px 20px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   align-items: center;
   justify-content: center;
   position: relative;
@@ -682,12 +683,12 @@ h1.small { font-size: 1.6rem; text-align: center; }
 }
 
 .class-select h1 {
-  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-size: clamp(1.6rem, 3.4vw, 2.2rem);
   font-weight: 800;
   letter-spacing: 0.04em;
   color: #ffffff;
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8), 0 0 24px rgba(245, 158, 11, 0.25);
-  margin: 0 0 4px 0;
+  margin: 0 0 2px 0;
 }
 
 /* Class Select Screen Viewport & Details Panel: Side-by-side flex on desktop */
@@ -718,7 +719,7 @@ h1.small { font-size: 1.6rem; text-align: center; }
 .class-carousel-track {
   position: relative;
   width: 100%;
-  height: 560px;
+  height: clamp(420px, 60dvh, 520px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -727,10 +728,10 @@ h1.small { font-size: 1.6rem; text-align: center; }
 
 .class-hero-art-frame {
   width: 100%;
-  height: 290px;
+  height: clamp(200px, 30dvh, 270px);
   border-radius: 8px;
   overflow: hidden;
-  margin-top: 10px;
+  margin-top: 8px;
   border: 1px solid rgba(245, 158, 11, 0.25);
   background: #0b1120;
   box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.7);
@@ -812,7 +813,7 @@ h1.small { font-size: 1.6rem; text-align: center; }
   z-index: 20;
 }
 
-@media (max-width: 1160px) {
+@media (max-width: 960px) {
   .class-select-viewport {
     flex-direction: column;
     gap: 16px;

@@ -375,6 +375,15 @@
   width: 100%;
 }
 
+.merchant-offer-card-wrap {
+  width: min(176px, 44vw);
+  cursor: pointer;
+}
+
+.merchant-offer-card-wrap .tcg-card {
+  width: 100%;
+}
+
 .exploration-item-header {
   display: flex;
   justify-content: space-between;
@@ -752,7 +761,7 @@
 .release-notice button { min-height: 44px; padding: 8px 16px; }
 
 /* Battle hand: centered bounded carousel with full-width track. */
-.combat-modal .hand-row {
+:is(.combat-modal, .combat-component) .hand-row {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -763,7 +772,7 @@
 .hand-carousel-heading { display: flex; justify-content: space-between; align-items: center; padding: 0 10px; color: #e2e8f0; font-size: .85rem; }
 .hand-carousel-heading [data-hand-position] { color: #fbbf24; font-variant-numeric: tabular-nums; }
 .hand-carousel { position: relative; width: 100%; min-width: 0; }
-.combat-modal .hand.hand-carousel-track {
+:is(.combat-modal, .combat-component) .hand.hand-carousel-track {
   --hand-card-width: 164px;
   position: relative;
   display: block;
@@ -782,8 +791,8 @@
   transition: transform 240ms ease, opacity 240ms ease;
   will-change: transform;
 }
-.combat-modal .hand-carousel-unit .tcg-card.tcg-action { width: 100%; min-width: 0; max-width: none; aspect-ratio: 5 / 7; margin: 0; }
-.combat-modal .hand-carousel-unit .tcg-card:hover { transform: none; }
+:is(.combat-modal, .combat-component) .hand-carousel-unit .tcg-card.tcg-action { width: 100%; min-width: 0; max-width: none; aspect-ratio: 5 / 7; margin: 0; }
+:is(.combat-modal, .combat-component) .hand-carousel-unit .tcg-card:hover { transform: none; }
 .hand-carousel-unit.is-center { z-index: 3; opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
 .hand-carousel-unit.is-prev { z-index: 2; opacity: .52; pointer-events: auto; transform: translate(calc(-50% - 112px), -50%) rotateY(14deg) scale(.78); }
 .hand-carousel-unit.is-next { z-index: 2; opacity: .52; pointer-events: auto; transform: translate(calc(-50% + 112px), -50%) rotateY(-14deg) scale(.78); }
@@ -801,12 +810,12 @@
 .hand-carousel-track .tcg-textbox, .hand-carousel-track .tcg-footer { backdrop-filter: none !important; }
 .hand-carousel-nav:focus-visible, .hand-carousel-dots button:focus-visible, .hand-preview-select:focus-visible { outline: 2px solid #fde68a; outline-offset: 3px; }
 @media (max-width: 600px) {
-  .combat-modal .hand.hand-carousel-track { --hand-card-width: 164px; }
+  :is(.combat-modal, .combat-component) .hand.hand-carousel-track { --hand-card-width: 164px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hand-carousel-unit { transition: none; }
 }
-.combat-modal .hand-carousel-unit .tcg-card.tcg-action {
+:is(.combat-modal, .combat-component) .hand-carousel-unit .tcg-card.tcg-action {
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;

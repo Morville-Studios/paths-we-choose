@@ -50,7 +50,12 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
     const scalingRows: string[] = [];
     if (card.damageScalingStat) {
       const s = card.damageScalingStat.toUpperCase();
-      const statLabel = card.damageScalingStat === 'atk' || card.damageScalingStat === 'def' ? s : `Effective ${s}`;
+      const statLabel =
+        card.damageScalingStat === 'atk' || card.damageScalingStat === 'def'
+          ? s
+          : card.damageScalingStat === 'dex_agi'
+          ? 'Effective (DEX + AGI)'
+          : `Effective ${s}`;
       const div = card.damageScalingDivisor ?? 2;
       const multiplier = card.damageScalingMultiplier ?? 1;
       const sVal = card.damageScalingStat === 'atk'
@@ -58,27 +63,39 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
           + getFighterBerzerkBonus(state.playerClass, state.playerResources?.hp, state.playerResources?.maxHp)
         : card.damageScalingStat === 'def'
         ? getPlayerDef(stats, combatGear.def)
+        : card.damageScalingStat === 'dex_agi'
+        ? stats.dex + stats.agi
         : stats[card.damageScalingStat];
-      const bonus = Math.floor(sVal / div) * multiplier;
       const liveAccModifier = state.activeHook.type === 'COMBAT'
         ? (state.activeHook.combat.playerAccMod ?? 0) + getHeroStatDebuffMods(state.activeHook.combat).acc
         : 0;
       const accValue = card.damageAddsAccuracy
         ? getPlayerAcc(stats, combatGear.acc) + liveAccModifier
         : 0;
-      const additional = eff.damage - card.baseDamage - bonus - accValue;
+      const combinedVal = card.damageAddsAccuracy && card.damageScalingIncludesAccuracy ? sVal + accValue : sVal;
+      const bonus = card.damageScalingRound === 'ceil'
+        ? Math.ceil((combinedVal / div) * multiplier)
+        : Math.floor(combinedVal / div) * multiplier;
+      const separateAcc = card.damageAddsAccuracy && !card.damageScalingIncludesAccuracy ? accValue : 0;
+      const additional = eff.damage - card.baseDamage - bonus - separateAcc;
       const additionalText = additional ? ` + ${additional} (DEX, gear and passive bonuses)` : '';
-      const formulaStat = div === 1 ? statLabel : `&lfloor;${statLabel} / ${div}&rfloor;`;
-      const calculationStat = div === 1 ? `${sVal}` : `&lfloor;${sVal} / ${div}&rfloor;`;
+      const baseFormulaStat =
+        card.damageAddsAccuracy && card.damageScalingIncludesAccuracy
+          ? `(${statLabel} + ACC)`
+          : statLabel;
+      const formulaStat = div === 1 ? baseFormulaStat : `&lfloor;${baseFormulaStat} / ${div}&rfloor;`;
+      const calculationStat = div === 1 ? `${combinedVal}` : `&lfloor;${combinedVal} / ${div}&rfloor;`;
+      const scaledFormulaTerm = `${multiplier === 1 ? '' : `${multiplier} × `}${formulaStat}`;
+      const scaledCalcTerm = `${multiplier === 1 ? '' : `${multiplier} × `}${calculationStat}`;
       const formulaTerms = [
         card.baseDamage > 0 ? `${card.baseDamage} Base DMG` : '',
-        `${multiplier === 1 ? '' : `${multiplier} × `}${formulaStat}`,
-        card.damageAddsAccuracy ? 'ACC' : '',
+        card.damageScalingRound === 'ceil' ? `&lceil;${scaledFormulaTerm}&rceil;` : scaledFormulaTerm,
+        card.damageAddsAccuracy && !card.damageScalingIncludesAccuracy ? 'ACC' : '',
       ].filter(Boolean).join(' + ');
       const calculationTerms = [
         card.baseDamage > 0 ? `${card.baseDamage}` : '',
-        `${multiplier === 1 ? '' : `${multiplier} × `}${calculationStat}`,
-        card.damageAddsAccuracy ? `${accValue} ACC` : '',
+        card.damageScalingRound === 'ceil' ? `&lceil;${scaledCalcTerm}&rceil;` : scaledCalcTerm,
+        card.damageAddsAccuracy && !card.damageScalingIncludesAccuracy ? `${accValue} ACC` : '',
       ].filter(Boolean).join(' + ');
       scalingRows.push(`
         <div class="inspect-formula-row">
@@ -98,22 +115,33 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
 
     if (card.blockScalingStat && card.baseBlock > 0) {
       const s = card.blockScalingStat.toUpperCase();
-      const statLabel = card.blockScalingStat === 'atk' || card.blockScalingStat === 'def' ? s : `Effective ${s}`;
+      const statLabel =
+        card.blockScalingStat === 'atk' || card.blockScalingStat === 'def'
+          ? s
+          : card.blockScalingStat === 'dex_agi'
+          ? 'Effective (DEX + AGI)'
+          : `Effective ${s}`;
       const div = card.blockScalingDivisor ?? 2;
       const multiplier = card.blockScalingMultiplier ?? 1;
       const sVal = card.blockScalingStat === 'def'
         ? getPlayerDef(stats, combatGear.def)
         : card.blockScalingStat === 'atk'
         ? getPlayerAtk(stats, combatGear.atk)
+        : card.blockScalingStat === 'dex_agi'
+        ? stats.dex + stats.agi
         : stats[card.blockScalingStat];
-      const bonus = Math.floor(sVal / div) * multiplier;
+      const bonus = card.blockScalingRound === 'ceil'
+        ? Math.ceil((sVal / div) * multiplier)
+        : Math.floor(sVal / div) * multiplier;
       const formulaStat = div === 1 ? statLabel : `&lfloor;${statLabel} / ${div}&rfloor;`;
       const calculationStat = div === 1 ? `${sVal}` : `&lfloor;${sVal} / ${div}&rfloor;`;
+      const scaledBlockFormula = `${multiplier === 1 ? '' : `${multiplier} × `}${formulaStat}`;
+      const scaledBlockCalc = `${multiplier === 1 ? '' : `${multiplier} × `}${calculationStat}`;
       scalingRows.push(`
         <div class="inspect-formula-row">
           <span class="formula-label">Block Formula</span>
-          <span class="formula-math">${card.baseBlock} Base Block + ${multiplier === 1 ? '' : `${multiplier} × `}${formulaStat}</span>
-          <span class="formula-calc">Hero Calculation: ${card.baseBlock} + ${multiplier === 1 ? '' : `${multiplier} × `}${calculationStat} = ${card.baseBlock} + ${bonus} = <b>${eff.block} Block</b></span>
+          <span class="formula-math">${card.baseBlock} Base Block + ${card.blockScalingRound === 'ceil' ? `&lceil;${scaledBlockFormula}&rceil;` : scaledBlockFormula}</span>
+          <span class="formula-calc">Hero Calculation: ${card.baseBlock} + ${card.blockScalingRound === 'ceil' ? `&lceil;${scaledBlockCalc}&rceil;` : scaledBlockCalc} = ${card.baseBlock} + ${bonus} = <b>${eff.block} Block</b></span>
         </div>
       `);
     } else if (card.baseBlock > 0) {
@@ -150,6 +178,7 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
     cardHtml = renderActionCardHtml(card, stats, {
       state,
       viewOnly: true,
+      referenceMode: inspected.isReference,
       className: 'tcg-inspect-card',
       artWindowClassName: 'full-inspect-art',
     });
@@ -439,7 +468,7 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
             ? `<p><b>1d6 Gold Roll:</b> Roll 1–3 for <b>+10 Gold</b>, 4–5 for <b>+20 Gold</b>, or 6 for <b>+30 Gold</b>.</p>`
             : card.templateId === 'spring_trap'
             ? `<p><b>Dodge Check:</b> <code>AGI &minus; (1 + 2&times;Lvl)</code> on the <b>MACG-3D6&trade; Success Check Bar</b>. Succeed to avoid harm; fail to suffer <b>4 direct damage</b>.</p>`
-            : `<p><b>Sneak Check:</b> <code>AGI &minus; (Terrain Lvl &times; 2)</code> on the <b>MACG-3D6&trade; Success Check Bar</b>. On failure, treat the terrain as an Encounter (fleeing forfeits Treasure Discovery).</p>
+            : `<p><b>Sneak Check:</b> <code>AGI &minus; (Terrain Lvl + 1)</code> on the <b>MACG-3D6&trade; Success Check Bar</b>. On failure, treat the terrain as an Encounter (fleeing forfeits Treasure Discovery).</p>
                <p><b>Treasure Discovery:</b> After sneaking past or winning, roll <code>DEX &minus; (Terrain Lvl &times; 2)</code>. On success, draw from the Treasure Deck until an item with <code>Lvl &le; Terrain Lvl</code> is found (higher-level cards are discarded).</p>`
         }
       </div>
@@ -500,7 +529,9 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
           ${item.statBonus?.dex ? `<li><b>Dexterity (+${item.statBonus.dex} DEX):</b> Increases Effective DEX by ${item.statBonus.dex}, boosting accuracy and physical attack scaling.</li>` : ''}
           ${item.statBonus?.int ? `<li><b>Intellect (+${item.statBonus.int} INT):</b> Increases Effective INT by ${item.statBonus.int}, boosting spell damage, MATK, and MDEF.</li>` : ''}
           ${item.statBonus?.agi ? `<li><b>Agility (+${item.statBonus.agi} AGI):</b> Increases Effective AGI by ${item.statBonus.agi}, boosting baseline Evasion.</li>` : ''}
+          ${item.statBonus?.cha ? `<li><b>Charisma (+${item.statBonus.cha} CHA):</b> Increases Effective CHA by ${item.statBonus.cha}, reducing shop prices and improving social/trade outcomes.</li>` : ''}
           ${item.healAmount ? `<li><b>Consumable Elixir:</b> Restores ${item.healAmount} HP immediately when used from backpack.</li>` : ''}
+          ${item.goldEarnedBonusPercent ? `<li><b>Golden Greed:</b> Increases Gold earned from battles by +${item.goldEarnedBonusPercent}% (rounded down).</li>` : ''}
           ${item.luckyCharmGoldBonus ? `<li><b>Fortune Blessing:</b> Produces an extra <code>1d6 - 1</code> Gold (0–5 Gold) after every victorious combat encounter!</li>` : ''}
         </ul>
       </div>

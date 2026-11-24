@@ -40,6 +40,7 @@ export interface SaveSlotRecord {
 }
 
 type SaveStorePayload = Partial<Record<string, SaveSlotRecord>>;
+const slotKey = (slotId: SaveSlotId): string => `${SAVE_STORAGE_KEY}:${slotId}`;
 
 export function getBrowserStorage(): StorageLike | null {
   try {
@@ -93,31 +94,63 @@ function migrateSaveRecord(raw: unknown): SaveSlotRecord | null {
   };
 }
 
-function readAllSlots(storage: StorageLike | null): SaveStorePayload {
-  if (!storage) return {};
+function readLegacySlots(storage: StorageLike): SaveStorePayload {
+  const raw = storage.getItem(SAVE_STORAGE_KEY);
+  if (!raw) return {};
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  if (!parsed || typeof parsed !== 'object') return {};
+  const result: SaveStorePayload = {};
+  for (const slotId of SAVE_SLOT_IDS) {
+    const migrated = migrateSaveRecord(parsed[String(slotId)]);
+    if (migrated) result[String(slotId)] = migrated;
+  }
+  return result;
+}
+
+/** Move the original single-key payload once, then write only the affected slot. */
+function migrateLegacySlots(storage: StorageLike): boolean {
+  const writtenKeys: string[] = [];
   try {
-    const raw = storage.getItem(SAVE_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (!parsed || typeof parsed !== 'object') return {};
-    const result: SaveStorePayload = {};
+    if (!storage.getItem(SAVE_STORAGE_KEY)) return true;
+    let legacy: SaveStorePayload;
+    try { legacy = readLegacySlots(storage); } catch { legacy = {}; }
     for (const slotId of SAVE_SLOT_IDS) {
-      const migrated = migrateSaveRecord(parsed[String(slotId)]);
-      if (migrated) result[String(slotId)] = migrated;
+      const record = legacy[String(slotId)];
+      if (record && !storage.getItem(slotKey(slotId))) {
+        storage.setItem(slotKey(slotId), JSON.stringify(record));
+        writtenKeys.push(slotKey(slotId));
+      }
     }
-    return result;
+    storage.removeItem(SAVE_STORAGE_KEY);
+    return true;
   } catch {
-    return {};
+    for (const key of writtenKeys) {
+      try { storage.removeItem(key); } catch { /* Keep the original payload intact. */ }
+    }
+    return false;
   }
 }
 
-function writeAllSlots(storage: StorageLike | null, payload: SaveStorePayload): boolean {
-  if (!storage) return false;
+function writeLegacySlot(storage: StorageLike, slotId: SaveSlotId, record: SaveSlotRecord | null): boolean {
   try {
-    storage.setItem(SAVE_STORAGE_KEY, JSON.stringify(payload));
+    const legacy = readLegacySlots(storage);
+    if (record) legacy[String(slotId)] = record;
+    else delete legacy[String(slotId)];
+    storage.setItem(SAVE_STORAGE_KEY, JSON.stringify(legacy));
     return true;
   } catch {
     return false;
+  }
+}
+
+function readSlot(slotId: SaveSlotId, storage: StorageLike | null): SaveSlotRecord | null {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(slotKey(slotId));
+    if (raw) return migrateSaveRecord(JSON.parse(raw));
+    return readLegacySlots(storage)[String(slotId)] ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -139,16 +172,14 @@ export function buildSaveSummary(state: RunState): SaveSlotSummary {
 export function listSaveSlots(
   storage: StorageLike | null = getBrowserStorage()
 ): (SaveSlotRecord | null)[] {
-  const all = readAllSlots(storage);
-  return SAVE_SLOT_IDS.map((slotId) => all[String(slotId)] ?? null);
+  return SAVE_SLOT_IDS.map((slotId) => readSlot(slotId, storage));
 }
 
 export function getSaveSlot(
   slotId: SaveSlotId,
   storage: StorageLike | null = getBrowserStorage()
 ): SaveSlotRecord | null {
-  const all = readAllSlots(storage);
-  return all[String(slotId)] ?? null;
+  return readSlot(slotId, storage);
 }
 
 export function hasAnySavedRun(storage: StorageLike | null = getBrowserStorage()): boolean {
@@ -177,9 +208,16 @@ function writeSlot(
     summary: buildSaveSummary(cloned),
     state: cloned,
   };
-  const all = readAllSlots(storage);
-  all[String(slotId)] = record;
-  return writeAllSlots(storage, all) ? record : null;
+  if (!storage) return null;
+  if (!migrateLegacySlots(storage)) {
+    return writeLegacySlot(storage, slotId, record) ? record : null;
+  }
+  try {
+    storage.setItem(slotKey(slotId), JSON.stringify(record));
+    return record;
+  } catch {
+    return null;
+  }
 }
 
 /** Automatically persists every play-area action/event to Slot 1 (Autosave). */
@@ -223,8 +261,12 @@ export function deleteSaveSlot(
   slotId: SaveSlotId,
   storage: StorageLike | null = getBrowserStorage()
 ): boolean {
-  const all = readAllSlots(storage);
-  if (!all[String(slotId)]) return false;
-  delete all[String(slotId)];
-  return writeAllSlots(storage, all);
+  if (!storage || !readSlot(slotId, storage)) return false;
+  if (!migrateLegacySlots(storage)) return writeLegacySlot(storage, slotId, null);
+  try {
+    storage.removeItem(slotKey(slotId));
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -608,7 +608,7 @@ export function combatViewHtml(
       ${(combat.inPlay?.length ?? 0) > 0 ? `
       <section class="combat-in-play" aria-label="Cards in play">
         <span class="combat-in-play-label">In play</span>
-        ${combat.inPlay!.map((card) => `<span class="combat-in-play-card" title="${card.flavorText ?? card.name}">🚩 ${card.name}</span>`).join('')}
+        ${combat.inPlay!.map((card) => `<button type="button" class="combat-in-play-card" data-action="inspect-action" data-inspect-kind="action" data-card-id="${card.id}" data-card-instance="${card.instanceId}" title="${card.flavorText ?? card.name}">🚩 ${card.name}</button>`).join('')}
       </section>` : ''}
       <div class="combat-actions">
         <button class="btn secondary flee-btn" data-action="flee-card" ${
@@ -617,8 +617,8 @@ export function combatViewHtml(
           combat.monsters.some((m) => m.monster.isBoss)
             ? 'Cannot flee a Boss encounter'
             : combat.playerAp < FLEE_AP_COST
-            ? 'Need 2 AP to attempt fleeing'
-            : 'Attempt to flee from battle (2 AP)'
+            ? `Need ${FLEE_AP_COST} AP to attempt fleeing`
+            : `Attempt to flee from battle (${FLEE_AP_COST} AP)`
         }">🏃 Flee (${FLEE_AP_COST} AP)</button>
         <button class="btn primary end-turn-btn" data-action="end-turn">End Turn</button>
       </div>

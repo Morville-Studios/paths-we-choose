@@ -17,9 +17,9 @@ import {
 } from '../types';
 import { PLAYER_HAND_SIZE } from './constants';
 import { applyIntentHeroStatDebuff, getHeroDamageTakenDebuff, getHeroStatDebuffMods } from './debuffs';
-import { getMonsterIntent } from './monsters';
+import { getMonsterIntent, summonMonsterFromDeckOrDiscard } from './monsters';
 import { evaluateAttackRoll } from './rolls';
-import { drawCombatCards } from './session';
+import { drawCombatCards, formatDrawEventsToLog } from './session';
 
 export function endPlayerCombatTurn(state: RunState): RunState {
   if (state.activeHook.type !== 'COMBAT' || !state.playerResources) {
@@ -115,7 +115,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       cm.defBonusTurns = defDur;
       const direction = intent.defBonus > 0 ? `gains +${intent.defBonus}` : `loses ${Math.abs(intent.defBonus)}`;
       logEntries.push(
-        `[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} uses ${intent.label} and ${direction} DEF for ${defDur} turn${defDur > 1 ? 's' : ''}.`,
+        `[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} ${direction} DEF for ${defDur} turn${defDur > 1 ? 's' : ''}.`,
       );
     }
     let healedAmount = 0;
@@ -131,9 +131,9 @@ export function endPlayerCombatTurn(state: RunState): RunState {
           ? `restores +${healedAmount} HP (${cm.hp}/${cm.monster.maxHp} HP)`
           : `is already at full health (${cm.hp}/${cm.monster.maxHp} HP)`;
       const healIcon = cm.monster.templateId === 'zombie' ? '🧟' : '💚';
-      logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${healIcon} ${name} uses ${intent.label}: ${healPart}${blockPart}.`);
+      logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${healIcon} ${name} ${healPart}${blockPart}.`);
     } else if (intent.block > 0) {
-      logEntries.push(`[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} uses ${intent.label} and gains +${intent.block} Block.`);
+      logEntries.push(`[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} gains +${intent.block} Block.`);
     }
 
     if (intent.reviveEvery && intent.reviveTemplateId) {
@@ -143,43 +143,25 @@ export function endPlayerCombatTurn(state: RunState): RunState {
         if (index >= 0) {
           const [revived] = monsterDiscard.splice(index, 1);
           monsters.push({ monster: revived, hp: revived.maxHp, block: revived.startingBlock ?? 0, patternIndex: 0 });
-          logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} uses ${intent.label}: returns ${revived.name} from the monster discard pile at full HP. It acts next round.`);
+          logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} returns ${revived.name} from the monster discard pile at full HP. It acts next round.`);
         } else {
-          logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} uses ${intent.label}: no Zombie in the monster discard pile to revive.`);
+          logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name}: no Zombie in the monster discard pile to revive.`);
         }
       }
     }
 
     if (intent.summonFromMonsterDeck) {
-      const summonIndex = monsterDeck.findIndex(monster => monster.templateId === intent.summonFromMonsterDeck);
-      if (summonIndex >= 0) {
-        const [summoned] = monsterDeck.splice(summonIndex, 1);
-        monsters.push({
-          monster: summoned,
-          hp: summoned.maxHp,
-          block: summoned.startingBlock ?? 0,
-          patternIndex: 0,
-          undyingTokensRemaining: summoned.undyingTokens,
-          isSummon: true,
-        });
-        const shuffleRes = shuffleArray(monsterDeck, rngState);
-        monsterDeck.length = 0;
-        monsterDeck.push(...shuffleRes.shuffled);
-        rngState = shuffleRes.nextState;
-        logEntries.push(`[${createTimestamp(state.logTimestamp)}] 📯 ${name} uses ${intent.label}: summoned ${summoned.name} from the Monster Deck into play and shuffled the deck. It acts next round.`);
-      } else {
-        const fallbackTemplate = intent.returnDiscardToMonsterDeckOnMiss;
-        const fallbackIndex = fallbackTemplate
-          ? monsterDiscard.findIndex(monster => monster.templateId === fallbackTemplate)
-          : -1;
-        if (fallbackIndex >= 0) {
-          const [returned] = monsterDiscard.splice(fallbackIndex, 1);
-          monsterDeck.unshift(returned);
-          logEntries.push(`[${createTimestamp(state.logTimestamp)}] 📯 ${name}'s call finds no ${fallbackTemplate} in the Monster Deck. Retrieved ${returned.name} from the Monster Discard (FIFO) and placed it on top of the Monster Deck.`);
-        } else {
-          logEntries.push(`[${createTimestamp(state.logTimestamp)}] 📯 ${name}'s call finds no ${fallbackTemplate ?? intent.summonFromMonsterDeck} in the Monster Deck or Discard.`);
-        }
-      }
+      rngState = summonMonsterFromDeckOrDiscard({
+        templateId: intent.summonFromMonsterDeck,
+        fallbackTemplateId: intent.returnDiscardToMonsterDeckOnMiss,
+        summonerName: name,
+        monsterDeck,
+        monsterDiscard,
+        monsters,
+        rngState,
+        logTimestamp: state.logTimestamp,
+        logEntries,
+      });
     }
 
     if (intent.summonUndeadFromMonsterDeck) {
@@ -204,7 +186,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
         monsterDeck.push(...shuffleRes.shuffled);
         rngState = shuffleRes.nextState;
         logEntries.push(
-          `[${createTimestamp(state.logTimestamp)}] 👑 ${name} uses ${intent.label}: summoned ${summoned.name} (Undead) from the Monster Deck into play! It acts next round.`
+          `[${createTimestamp(state.logTimestamp)}] 👑 ${name} summoned ${summoned.name} (Undead) from the Monster Deck into play! It acts next round.`
         );
       } else {
         const fallbackIndex = intent.returnUndeadDiscardToMonsterDeckOnMiss
@@ -229,7 +211,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       cm.evaBonus = intent.evaBonus;
       cm.evaBonusTurns = evaDur;
       logEntries.push(
-        `[${createTimestamp(state.logTimestamp)}] 🌿 ${name} uses ${intent.label} and gains +${intent.evaBonus} EVA for ${evaDur} turn(s)!`
+        `[${createTimestamp(state.logTimestamp)}] 🌿 ${name} gains +${intent.evaBonus} EVA for ${evaDur} turn(s)!`
       );
     } else if (cm.evaBonusTurns === 0) {
       cm.evaBonus = 0;
@@ -240,7 +222,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       cm.accBonus = intent.accBonus;
       cm.accBonusTurns = accDur;
       logEntries.push(
-        `[${createTimestamp(state.logTimestamp)}] 🐺 ${name} uses ${intent.label} and gains +${intent.accBonus} ACC for ${accDur} turn(s)!`
+        `[${createTimestamp(state.logTimestamp)}] 🐺 ${name} gains +${intent.accBonus} ACC for ${accDur} turn(s)!`
       );
     } else if (cm.accBonusTurns === 0) {
       cm.accBonus = 0;
@@ -259,7 +241,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
         cm.accBonusTurns = internalDuration;
       }
       logEntries.push(
-        `[${createTimestamp(state.logTimestamp)}] 🎲 ${name} uses ${intent.label}: gains +${intent.randomBuff.amount} ${selectedStat.toUpperCase()} for its next turn.`,
+        `[${createTimestamp(state.logTimestamp)}] 🎲 ${name} gains +${intent.randomBuff.amount} ${selectedStat.toUpperCase()} for its next turn.`,
       );
     }
 
@@ -326,7 +308,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       nextRoundEvaMod -= debuffVal;
       combat.playerEvasionMod -= debuffVal;
       logEntries.push(
-        `[${createTimestamp(state.logTimestamp)}] 🐺 ${name} uses ${intent.label}: unleashes a terrifying growl that reduces Hero's EVA by ${debuffVal} for ${duration} turns!`
+        `[${createTimestamp(state.logTimestamp)}] 🐺 ${name} unleashes a terrifying growl that reduces Hero's EVA by ${debuffVal} for ${duration} turns!`
       );
     }
 
@@ -335,7 +317,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       if (applied) {
         nextHexes = applied.nextEffects;
         const changes = Object.entries(applied.effect.stats).map(([stat, amount]) => `-${amount} ${stat.toUpperCase()}`).join(', ');
-        logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} uses ${intent.label}: Hero gets ${changes} for ${applied.effect.turnsRemaining} turn(s).`);
+        logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name}: Hero gets ${changes} for ${applied.effect.turnsRemaining} turn(s).`);
       }
     }
 
@@ -366,7 +348,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
         : Array.from({ length: hitCount }, () => intent.damage);
       let onHitDebuffApplied = false;
       if (hitDamages.length > 1) {
-        logEntries.push(`[${createTimestamp(state.logTimestamp)}] ⚔️ ${name} uses ${intent.label}: resolving ${hitDamages.length} separate attacks.`);
+        logEntries.push(`[${createTimestamp(state.logTimestamp)}] ⚔️ ${name} attacks: resolving ${hitDamages.length} separate attacks.`);
       }
       for (let hitIndex = 0; hitIndex < hitDamages.length && killedBy === null; hitIndex++) {
         const hitDmg = hitDamages[hitIndex];
@@ -391,18 +373,18 @@ export function endPlayerCombatTurn(state: RunState): RunState {
           const diabolicNote = attackRoll.isDiabolic ? ' [😈 DIABOLIC ROLL! Automatic Miss]' : '';
           const dmgLabel = intent.magicDamage ? `${hitDmg} Physical + ${intent.magicDamage} Magic DMG` : `${hitDmg} DMG`;
           logEntries.push(
-            `[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} uses ${intent.label} (${dmgLabel}): rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc} vs ${playerEva} EVA)${diabolicNote} -> 💨 DODGED!`
+            `[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} attacks (${dmgLabel}): rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc} vs ${playerEva} EVA)${diabolicNote} -> 💨 DODGED!`
           );
         } else {
           if (intent.poison) {
             nextPlayerPoison = { damage: intent.poison.damage, turnsRemaining: intent.poison.duration };
             if (!statusEffects.includes('poison')) statusEffects.push('poison');
             logEntries.push(
-              `[${createTimestamp(state.logTimestamp)}] ☠️ ${name} uses ${intent.label}: Hero is afflicted with Poison (${intent.poison.damage}, ${intent.poison.duration})!`
+              `[${createTimestamp(state.logTimestamp)}] ☠️ ${name} inflicts Poison (${intent.poison.damage}, ${intent.poison.duration}) on Hero!`
             );
           } else if (intent.poisonOnHit && !statusEffects.includes('poison')) {
             statusEffects.push('poison');
-            logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} uses ${intent.label}: Hero is poisoned (1 HP damage after each End Turn; does not stack).`);
+            logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} inflicts Poison on Hero (1 HP damage after each End Turn; does not stack).`);
           }
           if (intent.heroStatDebuffOnHit && intent.heroStatDebuff && !onHitDebuffApplied) {
             const applied = applyIntentHeroStatDebuff(activeHexes, nextHexes, cm.monster.id, intent);
@@ -410,7 +392,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
               nextHexes = applied.nextEffects;
               onHitDebuffApplied = true;
               const changes = Object.entries(applied.effect.stats).map(([stat, amount]) => `-${amount} ${stat.toUpperCase()}`).join(', ');
-              logEntries.push(`[${createTimestamp(state.logTimestamp)}] 🕸️ ${name}'s ${intent.label} hits: Hero gets ${changes} for ${applied.effect.turnsRemaining} turn(s).`);
+              logEntries.push(`[${createTimestamp(state.logTimestamp)}] 🕸️ ${name} hits: Hero gets ${changes} for ${applied.effect.turnsRemaining} turn(s).`);
             }
           }
           const vulnerable = (combat.playerVulnerableMod ?? 0) + getHeroDamageTakenDebuff({ heroStatDebuffs: activeHexes });
@@ -453,7 +435,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
             : ((heroDef > 0 ? ` [${heroDef} ${defenseType}]` : '') + (intent.ignoreDef ? ` [ignores up to ${intent.ignoreDef} DEF]` : ''));
           const netSign = attackRoll.netAcc >= 0 ? '+' : '';
           logEntries.push(
-            `[${createTimestamp(state.logTimestamp)}] ⚔️ ${name} uses ${intent.label} (${dmgLabel}${vulnNote}${defNote}): rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc} vs ${playerEva} EVA) -> 🩸 HIT! (${defAbsorbText}${damageBlocked} blocked, ${damageDealt} HP damage).`
+            `[${createTimestamp(state.logTimestamp)}] ⚔️ ${name} attacks (${dmgLabel}${vulnNote}${defNote}): rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc} vs ${playerEva} EVA) -> 🩸 HIT! (${defAbsorbText}${damageBlocked} blocked, ${damageDealt} HP damage).`
           );
           if (playerHp <= 0) killedBy = name;
 
@@ -473,7 +455,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
         lastMonsterAttackRoll = {
           attackerName: name,
           targetName: 'Hero',
-          actionName: intent.label,
+          actionName: 'Attack',
           die1: attackRoll.die1,
           die2: attackRoll.die2,
           die3: attackRoll.die3,
@@ -592,7 +574,11 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     drawPile: nextDraw.drawPile,
     hand: nextDraw.drawn,
     discardPile: nextDraw.discardPile,
-    combatLog: [...combat.combatLog, ...logEntries],
+    combatLog: [
+      ...combat.combatLog,
+      ...logEntries,
+      ...formatDrawEventsToLog(nextDraw.events, `Combat Turn ${combat.combatTurn + 1}`, state.logTimestamp),
+    ],
     lastAttackRoll: lastMonsterAttackRoll,
     lastAttackRolls: monsterAttackRolls,
     lastFleeRoll: undefined,
@@ -606,6 +592,9 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     statusEffects,
     playerResources: { ...state.playerResources, hp: playerHp },
     activeHook: { type: 'COMBAT', combat: nextCombat },
-    gameLog: appendGameLog(state, [...logEntries, `[${createTimestamp(state.logTimestamp)}] 🃏 Combat Turn ${nextCombat.combatTurn}: Drew ${nextDraw.drawn.length} Action cards.`]),
+    gameLog: appendGameLog(state, [
+      ...logEntries,
+      ...formatDrawEventsToLog(nextDraw.events, `Combat Turn ${nextCombat.combatTurn}`, state.logTimestamp),
+    ]),
   });
 }

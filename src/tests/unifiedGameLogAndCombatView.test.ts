@@ -24,10 +24,12 @@ import {
   villageTrainRemove,
 } from '../core/village';
 import { grantShrineBoonOnEnter } from '../core/shrine';
+import { parseGameLogEntry } from '../core/log';
 import { upgradeBaseStat } from '../core/stats';
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
 import {
+  combatRightSidebarHtml,
   gameLogModal,
   parseCombatLogEntry,
   renderPlayArea,
@@ -36,6 +38,22 @@ import {
 import { MonsterCard } from '../core/types';
 
 describe('Unified Game Log & In-Place Combat Component', () => {
+  it('shows only recent sidebar entries while counting the full log without duplicates', () => {
+    const state = startAdventure('fighter', 'long-log');
+    const monster: MonsterCard = { ...MONSTER_TEMPLATES.goblin, id: 'sidebar_goblin' };
+    const combat = createCombatSession([monster], state.playerMasterDeck, 12345).combat;
+    const oldEntry = '[10:00:00] Old shared entry';
+    const gameLog = [oldEntry, ...Array.from({ length: 35 }, (_, i) => `[10:00:00] Recent entry ${i}`)];
+    const html = combatRightSidebarHtml(
+      { ...state, gameLog },
+      { ...combat, combatLog: [oldEntry, '[10:00:00] Combat only entry'] },
+    );
+    expect(html).toContain('<span class="combat-log-count">37</span>');
+    expect(html).toContain('Combat only entry');
+    expect(html).not.toContain('Old shared entry');
+    expect(html).not.toContain('Recent entry 0');
+  });
+
   it('initializes gameLog with embarkation and initial board deal on startAdventure', () => {
     const state = startAdventure('fighter', 'seed-test-log');
     expect(state.gameLog).toBeDefined();
@@ -102,6 +120,28 @@ describe('Unified Game Log & In-Place Combat Component', () => {
     // Remove card
     state = villageTrainRemove(state, offer.instanceId);
     expect(state.gameLog!.some((entry) => entry.includes('Banished') && entry.includes('to the Void'))).toBe(true);
+
+    // Leave village logs departure
+    state = finishVillage(state);
+    expect(state.gameLog!.some((entry) => entry.includes('Departed from'))).toBe(true);
+
+    // Verify log actor categorization (no user/village actions mislabeled as Enemy)
+    expect(parseGameLogEntry('[19:29:15] 🔥 Banished Slash to the Void for 5 Gold.')).toMatchObject({
+      actorType: 'village',
+      actorLabel: 'Village',
+    });
+    expect(parseGameLogEntry('[19:30:51] 🛡️ Equipped Apprentice Staff.')).toMatchObject({
+      actorType: 'hero',
+      actorLabel: 'You',
+    });
+    expect(parseGameLogEntry('[19:30:51] 🛡️ Unequipped Iron Sword to backpack.')).toMatchObject({
+      actorType: 'hero',
+      actorLabel: 'You',
+    });
+    expect(parseGameLogEntry('[19:32:00] 🏡 Departed from Grassland Village.')).toMatchObject({
+      actorType: 'village',
+      actorLabel: 'Village',
+    });
   });
 
   it('appends shrine visits and base stat upgrades to gameLog', () => {
@@ -136,7 +176,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
 
     // End combat turn
     const ended = endPlayerCombatTurn(played);
-    expect(ended.gameLog!.some((entry) => entry.includes('Combat Turn 2: Drew'))).toBe(true);
+    expect(ended.gameLog!.some((entry) => entry.includes('Combat Turn 2: drew'))).toBe(true);
 
     // Flee combat
     const fled = attemptCombatFlee(ended);
@@ -242,6 +282,9 @@ describe('Unified Game Log & In-Place Combat Component', () => {
     expect(parseCombatLogEntry('[12:04:00] ⚔️ Played Slash on Pincer').actorType).toBe('hero');
     expect(parseCombatLogEntry('[12:05:00] 🏆 Victory! Defeated Pincer').actorType).toBe('system');
     expect(parseCombatLogEntry('[12:06:00] Pincer uses Shell Guard').actorType).toBe('enemy');
+    expect(parseCombatLogEntry('[12:07:00] 💎 Magical Chest (Remove Seal): rolled 3d6 = [2+4+5] = 11 -> Unlocked!').actorType).toBe('map');
+    expect(parseCombatLogEntry('[12:08:00] 🗝️ Wandered into Undiscovered Grassland (Lvl 1) and discovered a Magical Chest!').actorType).toBe('map');
+    expect(parseCombatLogEntry('[12:09:00] Something unexpected happened').actorType).toBe('system');
   });
 
   it('renders Game Log directly below the main viewport rather than in the right sidebar on the map', () => {
@@ -301,5 +344,81 @@ describe('Unified Game Log & In-Place Combat Component', () => {
     } else if (afterAttack.activeHook.type === 'COMBAT') {
       expect(afterAttack.activeHook.combat.lastAttackRolls![0].targetIndex).toBe(0);
     }
+  });
+
+  it('parses full YYYY-MM-DD HH:MM:SS.mmm timestamps and monster ability stack entries accurately', () => {
+    const enter = parseCombatLogEntry("[2026-11-14 21:49:36.125] 📑 Basilisk's Harden enters the Stack.");
+    expect(enter.timestamp).toBe('2026-11-14 21:49:36.125');
+    expect(enter.actorType).toBe('enemy');
+    expect(enter.actorLabel).toBe('Basilisk');
+
+    const effect = parseCombatLogEntry('[2026-11-14 21:49:36.125] Basilisk — Harden: gains +1 DEF for 1 turn.');
+    expect(effect.actorType).toBe('enemy');
+    expect(effect.actorLabel).toBe('Basilisk');
+
+    const resolve = parseCombatLogEntry('[2026-11-14 21:49:36.125] ✅ Harden fully resolves and moves out of the Stack.');
+    expect(resolve.actorType).toBe('enemy');
+
+    const discard = parseCombatLogEntry('[2026-11-14 21:49:36.125] 🗑️ Slash was placed in the action combat discard pile.');
+    expect(discard.actorType).toBe('hero');
+    expect(discard.actorLabel).toBe('You');
+  });
+
+  it('logs combat Stack resolution in strict LIFO chronological order when Slash hits Basilisk (Harden)', () => {
+    let state = startAdventure('fighter', 'seed-stack-order');
+    const basilisk: MonsterCard = {
+      ...MONSTER_TEMPLATES.tree_snapper,
+      id: 'bas_stack',
+      maxHp: 30,
+    };
+    const slashCard = state.playerMasterDeck.find((c) => c.name === 'Slash');
+    expect(slashCard).toBeDefined();
+
+    state = {
+      ...state,
+      logTimestamp: '2026-11-14 21:49:36.125',
+      activeHook: {
+        type: 'COMBAT',
+        combat: {
+          combatTurn: 1,
+          monsters: [{ monster: basilisk, hp: 30, block: 0, patternIndex: 0 }],
+          playerAp: 3,
+          playerMaxAp: 3,
+          playerBlock: 0,
+          playerEvasionMod: 0,
+          drawPile: [],
+          hand: [slashCard!],
+          discardPile: [],
+          combatLog: [],
+        },
+      },
+    };
+
+    // Find an RNG seed or advance rngState until Slash hits Basilisk
+    let after = playCard(state, slashCard!.instanceId, 0);
+    let attempts = 0;
+    while (
+      after.activeHook.type === 'COMBAT' &&
+      !after.activeHook.combat.combatLog.some((e) => e.includes('🎯 HIT!')) &&
+      attempts < 30
+    ) {
+      attempts++;
+      state = { ...state, rngState: (state.rngState + attempts * 7919) >>> 0 };
+      after = playCard(state, slashCard!.instanceId, 0);
+    }
+
+    expect(after.activeHook.type).toBe('COMBAT');
+    if (after.activeHook.type !== 'COMBAT') return;
+
+    const log = after.activeHook.combat.combatLog;
+    expect(log).toHaveLength(7);
+    expect(log[0]).toContain('Slash enters the Stack and begins resolving.');
+    expect(log[1]).toContain('Played Slash on Basilisk:');
+    expect(log[1]).toContain('🎯 HIT!');
+    expect(log[2]).toContain("Basilisk's Harden enters the Stack.");
+    expect(log[3]).toContain('Basilisk — Harden: gains +1 DEF for 1 turn.');
+    expect(log[4]).toContain('Harden fully resolves and moves out of the Stack.');
+    expect(log[5]).toContain('Slash fully resolves and moves out of the Stack.');
+    expect(log[6]).toContain('Slash was placed in the action combat discard pile.');
   });
 });

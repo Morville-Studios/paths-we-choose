@@ -111,4 +111,52 @@ describe('saveStorage (5-slot persistence)', () => {
     );
     expect(listSaveSlots(storage)).toEqual([null, null, null, null, null]);
   });
+
+  it('migrates the old payload and writes only the autosave key on later actions', () => {
+    const storage = createMemoryStorage();
+    const run = startAdventure('fighter', 'legacy-seed');
+    const legacyRecord = autosaveRun(run, storage, 100)!;
+    storage.removeItem(`${SAVE_STORAGE_KEY}:1`);
+    storage.setItem(SAVE_STORAGE_KEY, JSON.stringify({ '1': legacyRecord }));
+
+    const writes: string[] = [];
+    const observedStorage: StorageLike = {
+      getItem: (key) => storage.getItem(key),
+      setItem: (key, value) => { writes.push(key); storage.setItem(key, value); },
+      removeItem: (key) => storage.removeItem(key),
+    };
+    expect(getSaveSlot(1, observedStorage)?.savedAt).toBe(100);
+    autosaveRun(run, observedStorage, 200);
+    expect(storage.getItem(SAVE_STORAGE_KEY)).toBeNull();
+    writes.length = 0;
+    autosaveRun(run, observedStorage, 300);
+    expect(writes).toEqual([`${SAVE_STORAGE_KEY}:1`]);
+    expect(getSaveSlot(1, observedStorage)?.savedAt).toBe(300);
+  });
+
+  it('continues saving in the legacy format when migration exceeds storage quota', () => {
+    const setup = createMemoryStorage();
+    const run = startAdventure('fighter', 'quota-seed');
+    const auto = autosaveRun(run, setup, 100)!;
+    const manual = saveManualSlot(2, run, setup, 100)!;
+    const legacy = JSON.stringify({ '1': auto, '2': manual });
+    const data = new Map([[SAVE_STORAGE_KEY, legacy]]);
+    const storage: StorageLike = {
+      getItem: (key) => data.get(key) ?? null,
+      setItem: (key, value) => {
+        const used = [...data].reduce((sum, [storedKey, storedValue]) =>
+          sum + (storedKey === key ? 0 : storedValue.length), 0);
+        if (used + value.length > legacy.length + 10) throw new Error('Quota exceeded');
+        data.set(key, value);
+      },
+      removeItem: (key) => { data.delete(key); },
+    };
+
+    expect(autosaveRun(run, storage, 101)?.savedAt).toBe(101);
+    expect(getSaveSlot(1, storage)?.savedAt).toBe(101);
+    expect(getSaveSlot(2, storage)?.savedAt).toBe(100);
+    expect(storage.getItem(SAVE_STORAGE_KEY)).not.toBeNull();
+    expect(deleteSaveSlot(2, storage)).toBe(true);
+    expect(getSaveSlot(2, storage)).toBeNull();
+  });
 });

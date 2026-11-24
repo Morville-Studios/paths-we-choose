@@ -25,15 +25,15 @@ import {
 } from '../ui/render';
 
 describe('Treasure Deck & Village Shop Draw Mechanics', () => {
-  it('buildStage1TreasureDeck places Level 1-2 items (43 cards) in deck and Level 3+ items (5 cards) in void', () => {
+  it('buildStage1TreasureDeck places Level 1-2 items (57 cards) in deck and Level 3+ items (49 cards) in void', () => {
     const { deck, void: treasureVoid } = buildStage1TreasureDeck(12345);
-    expect(deck.length).toBe(43);
-    expect(treasureVoid.length).toBe(5);
+    expect(deck.length).toBe(57);
+    expect(treasureVoid.length).toBe(49);
     expect(deck.every((c) => (c.level ?? 1) >= 1 && (c.level ?? 1) <= 2)).toBe(true);
     expect(treasureVoid.every((c) => (c.level ?? 1) > 2)).toBe(true);
 
     const allCards = [...deck, ...treasureVoid];
-    expect(allCards.length).toBe(48);
+    expect(allCards.length).toBe(106);
 
     const expectedCounts: Record<string, number> = {
       lvl1_health_potion: 5,
@@ -54,10 +54,10 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     const s = startAdventure('fighter', 'seed-treasure-test');
     const shopStockCount = s.activeHook.type === 'VILLAGE' ? s.activeHook.village.shopStock.length : 0;
     expect(shopStockCount).toBe(4);
-    expect(s.treasureDeck.length + s.treasureDiscard.length + shopStockCount).toBe(41);
-    expect(s.treasureVoid?.length).toBe(5);
+    expect(s.treasureDeck.length + s.treasureDiscard.length + shopStockCount).toBe(55);
+    expect(s.treasureVoid?.length).toBe(49);
     expect(s.treasureReshuffleCount).toBe(0);
-    // Physical supply conservation: 41 in Scenario 1 deck/discard/shop + 2 equipped starting gear + 5 in treasureVoid = 48
+    // Physical supply conservation: 55 in Scenario 1 deck/discard/shop + 2 equipped starting gear + 49 in treasureVoid = 106
     const allDeckCards = [
       ...s.treasureDeck,
       ...s.treasureDiscard,
@@ -98,7 +98,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     if (inVillage.activeHook.type !== 'VILLAGE') return;
     // Stock is prepared on entry, before Shop is opened.
     expect(inVillage.activeHook.village.shopStock.length).toBe(4);
-    expect(inVillage.treasureDeck.length + inVillage.treasureDiscard.length).toBe(37);
+    expect(inVillage.treasureDeck.length + inVillage.treasureDiscard.length).toBe(51);
     const preparedStock = inVillage.activeHook.village.shopStock;
 
     // Open shop
@@ -112,7 +112,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     expect(village.shopStock.length).toBe(4);
     expect(village.shopStock).toEqual(preparedStock);
     expect(new Set(village.shopStock.map(item => item.id)).size).toBe(4);
-    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(37);
+    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(51);
     expect(village.shopStock.every(item => (item.level ?? 1) === 1)).toBe(true);
     const stockIds = new Set(village.shopStock.map(item => item.id));
     const newlyDiscarded = inShop.treasureDiscard.slice(s.treasureDiscard.length);
@@ -147,7 +147,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
     if (inShop.activeHook.type !== 'VILLAGE') return;
 
     expect(inShop.activeHook.village.shopStock.length).toBe(5);
-    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(36);
+    expect(inShop.treasureDeck.length + inShop.treasureDiscard.length).toBe(50);
     expect(inShop.activeHook.village.shopStock.every(item => item.level === 2)).toBe(true);
     expect(new Set(inShop.activeHook.village.shopStock.map(item => item.id)).size).toBe(5);
   });
@@ -437,7 +437,7 @@ describe('Treasure Deck & Village Shop Draw Mechanics', () => {
 
     const s1InPlay = [...s1.treasureDeck, ...s1.treasureDiscard, ...getActiveShopStock(s1)];
     expect(s1InPlay.every((item) => (item.level ?? 1) >= 1 && (item.level ?? 1) <= 2)).toBe(true);
-    expect((s1.treasureVoid ?? []).length).toBe(5);
+    expect((s1.treasureVoid ?? []).length).toBe(49);
     expect((s1.treasureVoid ?? []).every((item) => (item.level ?? 1) >= 3)).toBe(true);
 
     // Sell a starting item so it enters voidItems (permanently banished)

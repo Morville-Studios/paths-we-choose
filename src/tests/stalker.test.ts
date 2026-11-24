@@ -37,7 +37,7 @@ describe('Stalker', () => {
     expect(battle(state).monsters[0]).toMatchObject({ evaBonus: 1, accBonus: 1, evaBonusTurns: 2, accBonusTurns: 1 });
     state = endPlayerCombatTurn(state);
     expect(battle(state).monsters[0]).toMatchObject({ evaBonus: 1, accBonus: 0, evaBonusTurns: 1, accBonusTurns: 0 });
-    expect(battle(state).lastAttackRoll).toMatchObject({ actionName: 'Pounce', netAcc: 1 });
+    expect(battle(state).lastAttackRoll).toMatchObject({ actionName: 'Attack', netAcc: 1 });
     state = endPlayerCombatTurn(state);
     expect(battle(state).monsters[0]).toMatchObject({ evaBonus: 1, accBonus: 1, evaBonusTurns: 2, accBonusTurns: 1 });
     // Remove further Sprint casts to observe expiration rather than refresh.

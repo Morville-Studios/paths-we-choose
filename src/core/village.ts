@@ -1,7 +1,8 @@
 import { appendGameLog, createTimestamp } from './log';
 import { drawNewSkillsWithReshuffle, drawTreasureCardsWithReshuffle } from './deck';
 import { coordToKey } from './grid';
-import { reconcileRunNewSkills } from './newSkills';
+import { getTrainOfferCount, reconcileRunNewSkills } from './newSkills';
+export { getTrainOfferCount };
 import { calculateGoodsPrice, getEffectiveStatsFromState, syncVitals } from './stats';
 import {
   ActiveVillageState,
@@ -67,9 +68,10 @@ export function prepareVillage(state: RunState, coord: GridCoord, turn: number):
   const trainDraw = drawNewSkillsWithReshuffle(
     reconciledState.newSkillsDeck,
     reconciledState.newSkillsDiscard,
-    TRAIN_OPTION_COUNT,
+    getTrainOfferCount(villageLevel),
     stockDraw.nextState,
-    state.newSkillsReshuffleCount
+    state.newSkillsReshuffleCount,
+    villageLevel
   );
 
   return {
@@ -221,13 +223,33 @@ export function villageBackToMenu(state: RunState): RunState {
 }
 
 export function equipItem(state: RunState, instanceId: string): RunState {
-  if (state.activeHook.type === 'COMBAT') return state;
+  if (state.activeHook.type === 'COMBAT' && state.activeHook.combat.playerAp < 1) return state;
   const item = state.backpack.find((i) => i.instanceId === instanceId);
   if (!item || item.category === 'consumable') return state;
   const slot = item.category as EquipmentSlot;
   const previous = state.equippedGear[slot];
   const nextBackpack = state.backpack.filter((i) => i.instanceId !== instanceId);
   if (previous) nextBackpack.push(previous);
+  if (state.activeHook.type === 'COMBAT') {
+    const combat = state.activeHook.combat;
+    const logMsg = `[${createTimestamp(state.logTimestamp)}] 🛡️ Equipped ${item.name} (-1 AP).`;
+    const next: RunState = {
+      ...state,
+      equippedGear: { ...state.equippedGear, [slot]: item },
+      backpack: nextBackpack,
+      activeHook: {
+        ...state.activeHook,
+        combat: {
+          ...combat,
+          playerAp: combat.playerAp - 1,
+          combatLog: [...combat.combatLog, logMsg],
+        },
+      },
+      gameLog: appendGameLog(state, logMsg),
+      bannerMessage: `Equipped ${item.name} (-1 AP).`,
+    };
+    return syncVitals(state, next);
+  }
   const next: RunState = {
     ...state,
     equippedGear: { ...state.equippedGear, [slot]: item },
@@ -372,12 +394,14 @@ export function villageOpenTrain(state: RunState): RunState {
   if (village.trainOptions.length > 0) {
     return withVillage(state, { ...village, subView: 'train' });
   }
+  const villageLevel = state.board[coordToKey(village.coord)]?.card?.level ?? 1;
   const fallback = drawNewSkillsWithReshuffle(
     state.newSkillsDeck,
     state.newSkillsDiscard,
-    TRAIN_OPTION_COUNT,
+    getTrainOfferCount(villageLevel),
     state.rngState,
-    state.newSkillsReshuffleCount
+    state.newSkillsReshuffleCount,
+    villageLevel
   );
   return {
     ...withVillage(state, { ...village, subView: 'train', trainOptions: fallback.drawn }),

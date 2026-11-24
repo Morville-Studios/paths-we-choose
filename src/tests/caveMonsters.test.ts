@@ -159,7 +159,7 @@ describe('cave monster catalog and combat mechanics', () => {
     expect(next.playerResources?.hp).toBe(92);
     expect(battle(next).playerBlock).toBe(0);
     expect(battle(next).combatLog.join(' ')).toContain('resolving 2 separate attacks');
-    expect(battle(next).combatLog.filter(line => line.includes('T2 (7 DMG') || line.includes('T2 (6 DMG')).length).toBe(2);
+    expect(battle(next).combatLog.filter(line => line.includes('attacks (7 DMG') || line.includes('attacks (6 DMG')).length).toBe(2);
   });
 
   it('Cultist Mage Channel (1, 3) stacks +1 MATK per turn up to +3 after 3 turns', () => {

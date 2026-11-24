@@ -23,9 +23,26 @@ export function findInspectedCard(state: RunState, cardEl: HTMLElement): Inspect
   } = cardEl.dataset;
 
   if (inspectKind === 'action') {
+    const isReference = cardEl.dataset.inspectReference === 'true';
+    if (isReference) {
+      if (cardId === FLEE_CARD_ID) {
+        return { kind: 'action', card: createFleeCard(state.playerClass ?? 'fighter'), isReference: true };
+      }
+      if (cardId) {
+        try {
+          return { kind: 'action', card: createCombatCardInstance(cardId, 'inspect'), isReference: true };
+        } catch {
+          // Ignore unknown catalog IDs during DOM inspection.
+        }
+      }
+      return null;
+    }
+
     if (state.activeHook.type === 'COMBAT') {
       const fromHand = state.activeHook.combat.hand.find((c) => c.instanceId === cardInstance);
       if (fromHand) return { kind: 'action', card: fromHand };
+      const fromInPlay = state.activeHook.combat.inPlay?.find((c) => c.instanceId === cardInstance);
+      if (fromInPlay) return { kind: 'action', card: fromInPlay };
     }
     const fromDeck = state.playerMasterDeck.find((c) => c.instanceId === cardInstance);
     if (fromDeck) return { kind: 'action', card: fromDeck };
@@ -69,7 +86,7 @@ export function findInspectedCard(state: RunState, cardEl: HTMLElement): Inspect
             name: cm.monster.templateId === 'bullwark' ? 'Chaotic Impulse' : 'Temporary Attack Boon',
             value: `+${bonus} ATK`,
             description: damagingIntent
-              ? `${damagingIntent.label} currently deals ${baseDamage + bonus} DMG (Base ${baseDamage} + ${bonus} Boon).`
+              ? `Current attack deals ${baseDamage + bonus} DMG (Base ${baseDamage} + ${bonus} Boon).`
               : `Gains +${bonus} ATK while this temporary boon remains active.`,
           });
         }

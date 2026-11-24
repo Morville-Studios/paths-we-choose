@@ -368,7 +368,8 @@ export function drawNewSkillsWithReshuffle(
   discard: CombatCardDef[],
   count: number,
   rngState: number,
-  reshuffleCount: number
+  reshuffleCount: number,
+  maxLevel?: number
 ): {
   drawn: CombatCardDef[];
   deck: CombatCardDef[];
@@ -381,6 +382,8 @@ export function drawNewSkillsWithReshuffle(
   let rng = rngState;
   let reshuffles = reshuffleCount;
   const drawn: CombatCardDef[] = [];
+  let checkedSinceLastDraw = 0;
+
   while (drawn.length < count) {
     if (currentDeck.length === 0) {
       if (currentDiscard.length === 0) break;
@@ -390,7 +393,17 @@ export function drawNewSkillsWithReshuffle(
       rng = shuffled.nextState;
       reshuffles += 1;
     }
-    drawn.push(currentDeck.shift()!);
+    const card = currentDeck.shift()!;
+    if (maxLevel === undefined || (card.level ?? 1) <= maxLevel) {
+      drawn.push(card);
+      checkedSinceLastDraw = 0;
+    } else {
+      currentDiscard.push(card);
+      checkedSinceLastDraw += 1;
+      if (checkedSinceLastDraw >= currentDeck.length + currentDiscard.length) {
+        break;
+      }
+    }
   }
   return { drawn, deck: currentDeck, discard: currentDiscard, nextState: rng, reshuffleCount: reshuffles };
 }

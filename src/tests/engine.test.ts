@@ -516,9 +516,10 @@ describe('village', () => {
     expect(s.activeHook.village.subView).toBe('main');
 
     // Go back into shop and buy an item
+    s = { ...s, playerResources: { ...s.playerResources!, gold: 100 } };
     s = villageChooseShop(s);
     if (s.activeHook.type !== 'VILLAGE') throw new Error('expected village');
-    const stocked = s.activeHook.village.shopStock.find(item => item.buyPrice <= 20)!;
+    const stocked = s.activeHook.village.shopStock[0];
     s = buyItem(s, stocked.instanceId);
     if (s.activeHook.type !== 'VILLAGE') throw new Error('expected village');
     const stockAfterPurchase = s.activeHook.village.shopStock;
@@ -1213,7 +1214,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     if (next.activeHook.type === 'COMBAT') {
       const mon = next.activeHook.combat.monsters[0];
       expect(mon.hp).toBe(3); // Healed +1 HP from 2
-      expect(next.activeHook.combat.combatLog.some((l) => l.includes('Blob uses Ooze Bump: restores +1 HP'))).toBe(true);
+      expect(next.activeHook.combat.combatLog.some((l) => l.includes('Blob restores +1 HP'))).toBe(true);
     }
   });
 
@@ -1255,7 +1256,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     if (next.activeHook.type === 'COMBAT') {
       const mon = next.activeHook.combat.monsters[0];
       expect(mon.accBonus).toBe(2);
-      expect(next.activeHook.combat.combatLog.some((l) => l.includes('Scavenger uses Lunging Bite and gains +2 ACC'))).toBe(true);
+      expect(next.activeHook.combat.combatLog.some((l) => l.includes('Scavenger gains +2 ACC'))).toBe(true);
     }
   });
 });
@@ -1584,7 +1585,7 @@ describe('Charisma (CHA) price discounts and goods pricing', () => {
     let s = start('wizard'); // Wizard has 2 CHA (10% discount)
     s = {
       ...s,
-      playerResources: { ...s.playerResources!, gold: 20 },
+      playerResources: { ...s.playerResources!, gold: 30 },
       activeHook: {
         type: 'VILLAGE',
         village: { coord: { col: 0, row: 1 }, turn: 1, subView: 'shop', trainOptions: [], shopStock: [], actionTaken: false },
@@ -1593,9 +1594,9 @@ describe('Charisma (CHA) price discounts and goods pricing', () => {
 
     if (s.activeHook.type !== 'VILLAGE') throw new Error('expected village');
     s.activeHook.village.shopStock = [{ ...SHOP_ITEM_CATALOG.find(item => item.id === 'lvl1_iron_sword')!, instanceId: 'stock_sword' }];
-    // Iron Sword has base buyPrice: 10. With 2 CHA (10% off), cost is 9 gold.
+    // Iron Sword has base buyPrice: 25. With CHA discount (calculateGoodsPrice), cost is 21 gold.
     s = buyItem(s, 'lvl1_iron_sword');
-    expect(s.playerResources?.gold).toBe(11); // 20 - 9 = 11
+    expect(s.playerResources?.gold).toBe(9); // 30 - 21 = 9
     expect(s.equippedGear.weapon?.id).toBe('lvl1_iron_sword');
   });
 });
@@ -1630,8 +1631,8 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     expect(wizard.playerResources?.gold).toBe(20);
   });
 
-  it('shop catalog contains all 21 items with clean names, correct levels, prices, and bonuses', () => {
-    expect(SHOP_ITEM_CATALOG).toHaveLength(21);
+  it('shop catalog contains all 50 items with clean names, correct levels, prices, and bonuses', () => {
+    expect(SHOP_ITEM_CATALOG).toHaveLength(50);
     expect(SHOP_ITEM_CATALOG.every((i) => !i.name.startsWith('LVL'))).toBe(true);
     const ids = SHOP_ITEM_CATALOG.map((i) => i.id);
     expect(ids).toEqual([
@@ -1656,6 +1657,35 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
       'lvl1_dagger',
       'lvl2_dagger_plus',
       'lvl2_focus_ring',
+      'lvl1_oakwood_bow',
+      'lvl2_oakwood_bow_plus',
+      'lvl1_spelleater',
+      'lvl2_spelleater_plus',
+      'lvl3_spelleater_plus_plus',
+      'lvl4_spelleater_plus_plus_plus',
+      'lvl4_beast_ring_plus',
+      'lvl4_focus_ring_plus',
+      'lvl4_goldstar_plus',
+      'lvl4_hermes_gear_plus',
+      'lvl4_spellbinder_plus',
+      'lvl2_plated_armor',
+      'lvl4_plated_armor_plus',
+      'lvl3_chainmail_plus_plus',
+      'lvl4_chainmail_plus_plus_plus',
+      'lvl3_leather_gear_plus_plus',
+      'lvl4_leather_gear_plus_plus_plus',
+      'lvl3_robe_plus_plus',
+      'lvl4_robe_plus_plus_plus',
+      'lvl2_holy_shield',
+      'lvl4_holy_shield_plus',
+      'lvl2_druidic_charm',
+      'lvl4_druidic_charm_plus',
+      'lvl3_master_staff',
+      'lvl4_master_staff_plus',
+      'lvl3_steel_sword',
+      'lvl4_steel_sword_plus',
+      'lvl3_dagger_plus_plus',
+      'lvl4_dagger_plus_plus_plus',
     ]);
 
     const potion = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_health_potion')!;
@@ -1663,46 +1693,49 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     expect(potion.healAmount).toBe(5);
 
     const sword = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_iron_sword')!;
-    expect(sword.buyPrice).toBe(10);
+    expect(sword.buyPrice).toBe(25);
     expect(sword.gearBonus?.atk).toBe(1);
 
     const swordPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_iron_sword_plus')!;
-    expect(swordPlus.buyPrice).toBe(30);
+    expect(swordPlus.buyPrice).toBe(75);
     expect(swordPlus.gearBonus?.atk).toBe(2);
     expect(swordPlus.gearBonus?.acc).toBe(1);
 
     const staff = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_apprentice_staff')!;
-    expect(staff.buyPrice).toBe(15);
+    expect(staff.buyPrice).toBe(25);
     expect(staff.gearBonus?.matk).toBe(1);
     expect(staff.gearBonus?.mdef).toBeUndefined();
 
     const staffPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_apprentice_staff_plus')!;
-    expect(staffPlus.buyPrice).toBe(45);
+    expect(staffPlus.buyPrice).toBe(75);
     expect(staffPlus.gearBonus?.matk).toBe(2);
     expect(staffPlus.gearBonus?.atk).toBe(1);
 
     const robe = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_robe')!;
-    expect(robe.buyPrice).toBe(15);
+    expect(robe.buyPrice).toBe(30);
     expect(robe.gearBonus?.mdef).toBe(1);
 
     const robePlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_robe_plus')!;
-    expect(robePlus.buyPrice).toBe(45);
+    expect(robePlus.buyPrice).toBe(90);
     expect(robePlus.gearBonus?.mdef).toBe(2);
     expect(robePlus.gearBonus?.def).toBe(1);
 
     const chainmail = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_chainmail')!;
-    expect(chainmail.buyPrice).toBe(15);
+    expect(chainmail.buyPrice).toBe(30);
     expect(chainmail.gearBonus?.def).toBe(1);
 
     const chainmailPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_chainmail_plus')!;
-    expect(chainmailPlus.buyPrice).toBe(45);
+    expect(chainmailPlus.buyPrice).toBe(90);
     expect(chainmailPlus.gearBonus?.def).toBe(2);
     expect(chainmailPlus.gearBonus?.eva).toBe(1);
 
     const leather = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_leather_gear')!;
     const leatherPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_leather_gear_plus')!;
     expect(leather.name).toBe('Leather Gear');
-    expect(leatherPlus.gearBonus).toMatchObject({ eva: 2, def: 1 });
+    expect(leather.buyPrice).toBe(30);
+    expect(leather.gearBonus).toMatchObject({ eva: 2 });
+    expect(leatherPlus.buyPrice).toBe(90);
+    expect(leatherPlus.gearBonus).toMatchObject({ eva: 3, def: 1 });
 
     const consumables = SHOP_ITEM_CATALOG.filter((i) => i.category === 'consumable');
     expect(consumables.map((i) => [i.name, i.level, i.healAmount, i.buyPrice])).toEqual([
@@ -1714,14 +1747,52 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
 
     const dagger = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_dagger')!;
     const daggerPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_dagger_plus')!;
-    expect(dagger).toMatchObject({ buyPrice: 10, level: 1, gearBonus: { pen: 1 } });
-    expect(daggerPlus).toMatchObject({ buyPrice: 30, level: 2, gearBonus: { pen: 2, atk: 1 } });
+    expect(dagger).toMatchObject({ buyPrice: 25, level: 1, gearBonus: { pen: 2 } });
+    expect(daggerPlus).toMatchObject({ buyPrice: 75, level: 2, gearBonus: { pen: 4, atk: 1 } });
 
-    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_spellbinder')).toMatchObject({ name: 'Spellbinder', level: 2, buyPrice: 20, statBonus: { int: 1 } });
-    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_beast_ring')).toMatchObject({ name: 'Beast Ring', level: 2, buyPrice: 20, statBonus: { str: 1 } });
-    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_goldstar')).toMatchObject({ name: 'Goldstar', level: 2, buyPrice: 20, luckyCharmGoldBonus: true });
-    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_hermes_gear')).toMatchObject({ name: 'Hermes Gear', level: 2, buyPrice: 20, statBonus: { agi: 1 } });
-    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_focus_ring')).toMatchObject({ level: 2, buyPrice: 20, statBonus: { dex: 1 } });
+    const bow = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_oakwood_bow')!;
+    const bowPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_oakwood_bow_plus')!;
+    expect(bow).toMatchObject({ name: 'Oakwood Bow', buyPrice: 20, level: 1, weaponRange: 'ranged', gearBonus: { acc: 2 } });
+    expect(bowPlus).toMatchObject({ name: 'Oakwood Bow +', buyPrice: 75, level: 2, weaponRange: 'ranged', gearBonus: { acc: 4, pen: 1 } });
+
+    const spelleater = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_spelleater')!;
+    const spelleaterPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_spelleater_plus')!;
+    const spelleaterPlus2 = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl3_spelleater_plus_plus')!;
+    const spelleaterPlus3 = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_spelleater_plus_plus_plus')!;
+    expect(spelleater).toMatchObject({ name: 'Spelleater', buyPrice: 30, level: 1, category: 'accessory', gearBonus: { mdef: 1 } });
+    expect(spelleaterPlus).toMatchObject({ name: 'Spelleater +', buyPrice: 90, level: 2, category: 'accessory', gearBonus: { mdef: 2 } });
+    expect(spelleaterPlus2).toMatchObject({ name: 'Spelleater ++', buyPrice: 270, level: 3, category: 'accessory', gearBonus: { mdef: 3 } });
+    expect(spelleaterPlus3).toMatchObject({ name: 'Spelleater +++', buyPrice: 810, level: 4, category: 'accessory', gearBonus: { mdef: 4 } });
+
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_spellbinder')).toMatchObject({ name: 'Spellbinder', level: 2, buyPrice: 50, statBonus: { int: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_beast_ring')).toMatchObject({ name: 'Beast Ring', level: 2, buyPrice: 50, statBonus: { str: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_goldstar')).toMatchObject({ name: 'Goldstar', level: 2, buyPrice: 100, statBonus: { cha: 1 }, goldEarnedBonusPercent: 10 });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_hermes_gear')).toMatchObject({ name: 'Hermes Gear', level: 2, buyPrice: 50, statBonus: { agi: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_focus_ring')).toMatchObject({ level: 2, buyPrice: 50, statBonus: { dex: 1 } });
+
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_beast_ring_plus')).toMatchObject({ name: 'Beast Ring +', level: 4, buyPrice: 450, statBonus: { str: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_focus_ring_plus')).toMatchObject({ name: 'Focus Ring +', level: 4, buyPrice: 450, statBonus: { dex: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_goldstar_plus')).toMatchObject({ name: 'Goldstar +', level: 4, buyPrice: 900, statBonus: { cha: 2 }, goldEarnedBonusPercent: 15 });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_hermes_gear_plus')).toMatchObject({ name: 'Hermes Gear +', level: 4, buyPrice: 450, statBonus: { agi: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_spellbinder_plus')).toMatchObject({ name: 'Spellbinder +', level: 4, buyPrice: 450, statBonus: { int: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_plated_armor')).toMatchObject({ name: 'Plated Armor', level: 2, buyPrice: 90, category: 'armor', gearBonus: { def: 2, mdef: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_plated_armor_plus')).toMatchObject({ name: 'Plated Armor +', level: 4, buyPrice: 810, category: 'armor', gearBonus: { def: 4, mdef: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl3_chainmail_plus_plus')).toMatchObject({ name: 'Chainmail ++', level: 3, buyPrice: 270, gearBonus: { def: 3, mdef: 1, eva: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_chainmail_plus_plus_plus')).toMatchObject({ name: 'Chainmail +++', level: 4, buyPrice: 810, gearBonus: { def: 4, mdef: 1, eva: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl3_leather_gear_plus_plus')).toMatchObject({ name: 'Leather Gear ++', level: 3, buyPrice: 270, gearBonus: { eva: 4, mdef: 1, def: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_leather_gear_plus_plus_plus')).toMatchObject({ name: 'Leather Gear +++', level: 4, buyPrice: 810, gearBonus: { eva: 5, mdef: 1, def: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl3_robe_plus_plus')).toMatchObject({ name: 'Robe ++', level: 3, buyPrice: 270, gearBonus: { mdef: 3, def: 1, eva: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_robe_plus_plus_plus')).toMatchObject({ name: 'Robe +++', level: 4, buyPrice: 810, gearBonus: { mdef: 4, def: 2, eva: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_holy_shield')).toMatchObject({ name: 'Holy Shield', level: 2, buyPrice: 50, category: 'accessory', gearBonus: { def: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_holy_shield_plus')).toMatchObject({ name: 'Holy Shield +', level: 4, buyPrice: 450, category: 'accessory', gearBonus: { def: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_druidic_charm')).toMatchObject({ name: 'Druidic Charm', level: 2, buyPrice: 50, category: 'accessory', statBonus: { vit: 1 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_druidic_charm_plus')).toMatchObject({ name: 'Druidic Charm +', level: 4, buyPrice: 450, category: 'accessory', statBonus: { vit: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl3_master_staff')).toMatchObject({ name: 'Master Staff', level: 3, buyPrice: 225, gearBonus: { matk: 4, acc: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_master_staff_plus')).toMatchObject({ name: 'Master Staff +', level: 4, buyPrice: 675, gearBonus: { matk: 5, acc: 3 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl3_steel_sword')).toMatchObject({ name: 'Steel Sword', level: 3, buyPrice: 225, gearBonus: { atk: 4, acc: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_steel_sword_plus')).toMatchObject({ name: 'Steel Sword +', level: 4, buyPrice: 675, gearBonus: { atk: 5, acc: 3 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl3_dagger_plus_plus')).toMatchObject({ name: 'Dagger ++', level: 3, buyPrice: 225, gearBonus: { pen: 5, atk: 2 } });
+    expect(SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl4_dagger_plus_plus_plus')).toMatchObject({ name: 'Dagger +++', level: 4, buyPrice: 675, gearBonus: { pen: 6, atk: 3 } });
   });
 
   it('Hero DEF scales from (STR + AGI + VIT) / 5 and from gear, reducing physical damage intake', () => {
@@ -2011,10 +2082,13 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     expect(afterUnequip.equippedGear.weapon).not.toBeNull();
     expect(afterUnequip.backpack).toHaveLength(1);
 
-    // Equipping during combat is rejected
+    // Equipping during combat succeeds at the cost of 1 AP
     const afterEquip = equipItem(s, 'test_ring');
-    expect(afterEquip.equippedGear.accessory).toBeNull();
-    expect(afterEquip.backpack).toHaveLength(1);
+    expect(afterEquip.equippedGear.accessory?.instanceId).toBe('test_ring');
+    expect(afterEquip.backpack).toHaveLength(0);
+    if (afterEquip.activeHook.type === 'COMBAT') {
+      expect(afterEquip.activeHook.combat.playerAp).toBe(2);
+    }
   });
 });
 
@@ -2175,26 +2249,26 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
 
   it('Level 2 equipment items grant correct stats and pricing', () => {
     const swordPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_iron_sword_plus')!;
-    expect(swordPlus.buyPrice).toBe(30);
-    expect(swordPlus.sellPrice).toBe(15);
+    expect(swordPlus.buyPrice).toBe(75);
+    expect(swordPlus.sellPrice).toBe(37);
     expect(swordPlus.gearBonus?.atk).toBe(2);
     expect(swordPlus.gearBonus?.acc).toBe(1);
 
     const chainPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_chainmail_plus')!;
-    expect(chainPlus.buyPrice).toBe(45);
-    expect(chainPlus.sellPrice).toBe(22);
+    expect(chainPlus.buyPrice).toBe(90);
+    expect(chainPlus.sellPrice).toBe(45);
     expect(chainPlus.gearBonus?.def).toBe(2);
     expect(chainPlus.gearBonus?.eva).toBe(1);
 
     const robePlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_robe_plus')!;
-    expect(robePlus.buyPrice).toBe(45);
-    expect(robePlus.sellPrice).toBe(22);
+    expect(robePlus.buyPrice).toBe(90);
+    expect(robePlus.sellPrice).toBe(45);
     expect(robePlus.gearBonus?.mdef).toBe(2);
     expect(robePlus.gearBonus?.def).toBe(1);
 
     const staffPlus = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_apprentice_staff_plus')!;
-    expect(staffPlus.buyPrice).toBe(45);
-    expect(staffPlus.sellPrice).toBe(22);
+    expect(staffPlus.buyPrice).toBe(75);
+    expect(staffPlus.sellPrice).toBe(37);
     expect(staffPlus.gearBonus?.matk).toBe(2);
     expect(staffPlus.gearBonus?.atk).toBe(1);
 
@@ -2320,6 +2394,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     expect(healedState.playerResources!.hp).toBe(10);
     expect(healedState.backpack.length).toBe(0);
     if (healedState.activeHook.type === 'COMBAT') {
+      expect(healedState.activeHook.combat.playerAp).toBe(3); // 0 AP cost
       const log = healedState.activeHook.combat.combatLog;
       expect(log.some((l) => l.includes('Used Health Potion: restored +5 HP'))).toBe(true);
     }
@@ -2331,6 +2406,48 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     };
     const unchanged = useConsumable(fullHpState, 'potion_in_combat');
     expect(unchanged.backpack.length).toBe(1);
+  });
+
+  it('equipItem in active combat equips gear for 1 AP and requires at least 1 AP', () => {
+    let s = finishVillage(start('fighter', 'combat-equip-seed'));
+    const ironSword = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_iron_sword')!;
+    const prevWeapon = s.equippedGear.weapon!;
+    s = {
+      ...s,
+      backpack: [{ ...ironSword, instanceId: 'combat_iron_sword' }],
+      activeHook: {
+        type: 'COMBAT',
+        combat: {
+          combatTurn: 1,
+          monsters: [{ monster: { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin' }, hp: 6, block: 0, patternIndex: 0 }],
+          playerAp: 2,
+          playerMaxAp: 3,
+          playerBlock: 0,
+          playerEvasionMod: 0,
+          drawPile: [],
+          hand: [],
+          discardPile: [],
+          combatLog: [],
+        },
+      },
+    };
+
+    const equipped = equipItem(s, 'combat_iron_sword');
+    expect(equipped.equippedGear.weapon?.instanceId).toBe('combat_iron_sword');
+    expect(equipped.backpack.some((i) => i.instanceId === prevWeapon.instanceId)).toBe(true);
+    expect(equipped.activeHook.type).toBe('COMBAT');
+    if (equipped.activeHook.type === 'COMBAT') {
+      expect(equipped.activeHook.combat.playerAp).toBe(1);
+      expect(equipped.activeHook.combat.combatLog.some((l) => l.includes('Equipped Iron Sword (-1 AP)'))).toBe(true);
+    }
+
+    // Cannot equip when AP is 0
+    const noApState: RunState =
+      equipped.activeHook.type === 'COMBAT'
+        ? { ...equipped, activeHook: { type: 'COMBAT', combat: { ...equipped.activeHook.combat, playerAp: 0 } } }
+        : equipped;
+    const blocked = equipItem(noApState, prevWeapon.instanceId!);
+    expect(blocked.equippedGear.weapon?.instanceId).toBe('combat_iron_sword');
   });
 
   describe('Stage 2: Cult of Trolls & Boss Encounter', () => {
@@ -2546,8 +2663,31 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       if (entered.activeHook.type !== 'PATH_CHALLENGE') return;
       expect(entered.activeHook.pathChallenge.pathCard.name).toBe('Enemy Camp');
       expect(entered.activeHook.pathChallenge.phase).toBe('sneak_prompt');
-      // Fighter starts with AGI 2; Grassland Lvl 1 * 2 = 2 -> Net 0 (Tier 4 baseline, 81.5%)
+      // Fighter starts with AGI 2; Grassland (Lvl 1 + 1 = 2) -> Net 0 (Tier 4 baseline, 81.5%)
       expect(entered.activeHook.pathChallenge.sneakNet).toBe(0);
+
+      // Verify Enemy Camp Sneak Check formula AGI - (Terrain Lvl + 1) on Lvl 3 Swamp with effective AGI 3 (1 innate + 2 base) -> -1 (Tier 3)
+      const zeroStats = { str: 0, int: 0, vit: 0, dex: 0, agi: 0, cha: 0 };
+      const swampCheck = resolvePathSneakCheck({
+        ...entered,
+        playerBaseStats: { ...zeroStats, agi: 2 },
+        playerClassBonuses: zeroStats,
+        equippedGear: { weapon: null, armor: null, accessory: null },
+        playerBlessingBonuses: zeroStats,
+        activeHook: {
+          type: 'PATH_CHALLENGE',
+          pathChallenge: {
+            ...entered.activeHook.pathChallenge,
+            terrainCard: { ...card, name: 'Undiscovered Swamp', terrain: 'swamp', level: 3 },
+            phase: 'sneak_prompt',
+          },
+        },
+      });
+      expect(swampCheck.activeHook.type).toBe('PATH_CHALLENGE');
+      if (swampCheck.activeHook.type === 'PATH_CHALLENGE') {
+        expect(swampCheck.activeHook.pathChallenge.sneakNet).toBe(-1);
+        expect(swampCheck.activeHook.pathChallenge.sneakRoll?.tier).toBe(3);
+      }
 
       let sneakFailed = false;
       let sneakPassed = false;
@@ -3243,7 +3383,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
           expect(after.monsterDiscard.some((m) => m.id === 'flee_gob')).toBe(true);
         } else if (after.activeHook.type === 'COMBAT') {
           sawFail = true;
-          expect(after.activeHook.combat.playerAp).toBe(1);
+          expect(after.activeHook.combat.playerAp).toBe(2);
           expect(after.activeHook.combat.lastFleeRoll?.success).toBe(false);
           expect(after.activeHook.combat.lastFleeRoll!.roll).toBeGreaterThan(1);
         }
@@ -3252,9 +3392,9 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       expect(sawFail).toBe(true);
     });
 
-    it('cannot flee with less than 2 AP or from a boss', () => {
+    it('cannot flee with less than 1 AP or from a boss', () => {
       const base = start('rogue');
-      const lowAp = buildCombat(base, false, 1);
+      const lowAp = buildCombat(base, false, 0);
       expect(attemptFlee(lowAp)).toBe(lowAp);
       const boss = buildCombat(base, true, 3);
       expect(attemptFlee(boss)).toBe(boss);

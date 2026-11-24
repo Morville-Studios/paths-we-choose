@@ -153,6 +153,7 @@ export function upgradeShrineSkill(state: RunState, sourceInstanceId: string): R
     playerMasterDeck: state.playerMasterDeck.map((card) =>
       card.instanceId === sourceInstanceId ? upgradedCard : card
     ),
+    voidCards: [...(state.voidCards ?? []), option.source],
     bannerMessage: `${option.source.name} was upgraded into ${upgradedCard.name} by the Void (${option.goldCost} Gold, ${option.statPointCost} SP).`,
   };
 }

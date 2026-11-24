@@ -767,7 +767,21 @@
   justify-content: flex-end;
 }
 
-.player-line { position: relative; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin: 10px 0; font-size: 0.82rem; }
+.player-line {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+  margin: 10px 0 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 0.82rem;
+}
 .hand { display: flex; gap: 8px; justify-content: center; }
 .hand.wrap { flex-wrap: wrap; }
 .combat-actions {
@@ -2722,15 +2736,15 @@
 .void-inspect-link { flex: 0 0 auto; border: 1px solid #a855f7; border-radius: 6px; background: rgba(126, 34, 206, 0.18); color: #e9d5ff; padding: 5px 7px; font-size: 0.72rem; font-weight: 700; cursor: pointer; }
 .void-upgrade-rule { margin: 8px 0; color: #d8b4fe; font-size: 0.78rem; line-height: 1.35; }
 .void-upgrade-empty { margin: 8px 0 0; font-size: 0.8rem; }
-.void-upgrade-option { display: grid; grid-template-columns: 250px minmax(160px, 1fr) auto; gap: 14px; align-items: center; border: 1px solid rgba(168, 85, 247, 0.45); border-radius: 8px; padding: 12px; margin-top: 10px; background: rgba(76, 29, 149, 0.12); }
-.void-upgrade-cards { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; }
-.void-upgrade-card-source, .void-upgrade-card-target { width: 112px; flex: 0 0 112px; }
-.void-upgrade-card-source .tcg-card, .void-upgrade-card-target .tcg-card { width: 112px; min-height: 157px; }
-.void-upgrade-arrow { color: #d8b4fe; font-size: 1.2rem; font-weight: 900; }
-.void-upgrade-details { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 0.75rem; }
+.void-upgrade-option { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; border: 1px solid rgba(168, 85, 247, 0.45); border-radius: 8px; padding: 14px; margin-top: 10px; background: rgba(76, 29, 149, 0.12); }
+.void-upgrade-cards { display: flex; align-items: center; justify-content: center; gap: 8px; flex: 0 0 auto; }
+.void-upgrade-card-source, .void-upgrade-card-target { width: 145px; flex: 0 0 145px; }
+.void-upgrade-card-source .tcg-card, .void-upgrade-card-target .tcg-card { width: 145px; min-height: 203px; }
+.void-upgrade-arrow { color: #d8b4fe; font-size: 1.25rem; font-weight: 900; }
+.void-upgrade-details { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; min-width: 0; font-size: 0.82rem; }
 .void-upgrade-details b { color: #f3e8ff; }
 .void-upgrade-details span { color: #c4b5fd; }
-.void-upgrade-btn { white-space: nowrap; font-size: 0.72rem; padding: 7px 9px; }
+.void-upgrade-btn { white-space: nowrap; font-size: 0.78rem; padding: 8px 12px; flex: 0 0 auto; }
 .skill-upgrade-tag { font-size: 0.48rem; font-weight: 900; letter-spacing: 0.04em; color: #f3e8ff; background: #7e22ce; border: 1px solid #d8b4fe; border-radius: 3px; padding: 1px 3px; white-space: nowrap; }
 .tcg-adventurer-card { background: linear-gradient(155deg, #1e3a5f, #101827 58%, #0f172a); border-color: #60a5fa; box-shadow: 0 0 0 2px #1d4ed8, 0 5px 14px rgba(30, 64, 175, 0.38); }
 .tcg-adventurer-card .tcg-art-window { border-bottom-color: #60a5fa; }
@@ -2818,7 +2832,7 @@
   .play-sidebar {
     order: 1;
     position: sticky;
-    top: 16px;
+    top: 146px;
     margin-top: 0;
   }
   .play-main {
@@ -2828,7 +2842,7 @@
   .play-sidebar-right {
     order: 3;
     position: sticky;
-    top: 16px;
+    top: 146px;
     margin-top: 0;
   }
 }

@@ -116,6 +116,7 @@ describe('reconciled MACG-3D6 attack and replay rules', () => {
 
   it('rejects unstocked purchases and transfers the stocked instance without creating a card', () => {
     const state = startAdventure('fighter', 'stock');
+    state.playerResources = { ...state.playerResources!, gold: 50 };
     const item = { ...SHOP_ITEM_CATALOG.find(item => item.id === 'lvl1_iron_sword')!, instanceId: 'owned_stock' };
     state.activeHook = { type: 'VILLAGE', village: { coord: { col: 0, row: 1 }, turn: 1, subView: 'shop', trainOptions: [], shopStock: [], actionTaken: false } };
     expect(buyItem(state, item.id)).toBe(state);

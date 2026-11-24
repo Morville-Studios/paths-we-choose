@@ -24,27 +24,38 @@ export function parseGameLogEntry(entry: string): ParsedGameLogEntry {
   let timestamp = '';
   let text = entry.trim();
 
-  // Extract [HH:MM:SS] if present at the start
-  const timeMatch = text.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.*)$/s);
+  // Extract [YYYY-MM-DD HH:MM:SS.mmm] or [HH:MM:SS] if present at the start
+  const timeMatch = text.match(/^\[((?:\d{4}-\d{2}-\d{2}\s+)?\d{1,2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?)\]\s*(.*)$/s);
   if (timeMatch) {
     timestamp = timeMatch[1];
     text = timeMatch[2].trim();
   }
 
   // Determine actor type and display label
-  let actorType: LogActorType = 'enemy';
-  let actorLabel = 'Enemy';
+  let actorType: LogActorType = 'system';
+  let actorLabel = 'System';
+
+  const isMonsterAbilityStack =
+    /^(?:📑|✅)?\s*(?:.+?'s\s+(?:Harden|Skittish)\s+enters the Stack|(?:Harden|Skittish)\s+fully resolves)/i.test(text);
+
+  const creatureMatch = text.match(
+    /^[^\w\s]*\s*([A-Za-z0-9 '\-]+?)(?:\s+(?:uses|attacks|gains|loses|restores|returns|summoned|unleashes|inflicts|hits|gathers|did nothing|drains life|is already)\b|:|'s\b|\s+—\s+)/i
+  );
 
   if (
-    text.includes('Played ') ||
-    text.includes('enters the Stack') ||
-    text.includes('fully resolves') ||
-    /:\s*(?:discarded|drew|regained)\b/i.test(text) ||
-    text.includes('Battle Flag:') ||
-    text.includes('[Steal]') ||
-    text.includes('[Conserve]') ||
-    text.includes('Used ') ||
-    /^(?:⚔️|🛡️|💰|✨|🧪)?\s*(?:You|Hero)\b/i.test(text)
+    !isMonsterAbilityStack &&
+    (text.includes('Played ') ||
+      text.includes('enters the Stack') ||
+      text.includes('fully resolves') ||
+      text.includes('was placed in the action combat discard pile') ||
+      /:\s*(?:discarded|drew|regained)\b/i.test(text) ||
+      text.includes('Battle Flag:') ||
+      text.includes('[Steal]') ||
+      text.includes('[Conserve]') ||
+      text.includes('Used ') ||
+      text.includes('Equipped ') ||
+      text.includes('Unequipped ') ||
+      /^(?:⚔️|🛡️|💰|✨|🧪)?\s*(?:You|Hero)\b/i.test(text))
   ) {
     actorType = 'hero';
     actorLabel = 'You';
@@ -57,6 +68,8 @@ export function parseGameLogEntry(entry: string): ParsedGameLogEntry {
     text.includes('Bought ') ||
     text.includes('Learned skill') ||
     text.includes('Purged ') ||
+    text.includes('Banished ') ||
+    text.includes('Departed from ') ||
     text.includes('Arrived at ')
   ) {
     actorType = 'village';
@@ -74,10 +87,26 @@ export function parseGameLogEntry(entry: string): ParsedGameLogEntry {
     text.includes('🎴') ||
     text.includes('🧭') ||
     text.includes('🍃') ||
+    text.includes('🧳') ||
+    text.includes('🌿') ||
+    text.includes('🗝️') ||
+    text.includes('🪤') ||
+    text.includes('💎') ||
     text.includes('Turn ') ||
     text.includes('Chose path') ||
     text.includes('Explored ') ||
-    text.includes('Dealt ')
+    text.includes('Dealt ') ||
+    text.includes('Wandered into') ||
+    text.includes('Path Card') ||
+    text.includes('Magical Chest') ||
+    text.includes('Trapped Chest') ||
+    text.includes('Gold Stash') ||
+    text.includes('Spring Trap') ||
+    text.includes('Enemy Camp') ||
+    text.includes('Sneak Check') ||
+    text.includes('Treasure Discovery') ||
+    text.includes('Wandering Merchant') ||
+    text.includes('Sanctuary')
   ) {
     actorType = 'map';
     actorLabel = 'Map';
@@ -90,16 +119,12 @@ export function parseGameLogEntry(entry: string): ParsedGameLogEntry {
   ) {
     actorType = 'system';
     actorLabel = /Encountered\b/i.test(text) ? 'Encounter' : 'System';
-  } else {
+  } else if (isMonsterAbilityStack || (creatureMatch && creatureMatch[1].trim())) {
     actorType = 'enemy';
-    const creatureMatch = text.match(
-      /^[^\w\s]*\s*([A-Za-z0-9 '\-]+?)(?:\s+uses\b|\s+gathers\b|\s+did nothing|\s+drains life|'s\b)/i
-    );
-    if (creatureMatch && creatureMatch[1].trim()) {
-      actorLabel = creatureMatch[1].trim();
-    } else {
-      actorLabel = 'Enemy';
-    }
+    actorLabel = creatureMatch && creatureMatch[1].trim() ? creatureMatch[1].trim() : 'Enemy';
+  } else {
+    actorType = 'system';
+    actorLabel = 'System';
   }
 
   return {

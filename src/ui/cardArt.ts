@@ -238,6 +238,8 @@ function getItemRasterArtRelativePath(itemId?: string): string {
       return '/cards/items/leather_clothes.jpg';
     case 'chainmail':
       return '/cards/items/chainmail.jpg';
+    case 'plated_armor':
+      return '/cards/items/plated_armor.jpg';
     case 'book_of_spells':
     case 'spellbinder':
       return '/cards/items/book_of_spells.jpg';
@@ -254,6 +256,18 @@ function getItemRasterArtRelativePath(itemId?: string): string {
       return '/cards/items/lucky_charm.jpg';
     case 'dagger':
       return '/cards/items/dagger.jpg';
+    case 'oakwood_bow':
+      return '/cards/items/oakwood_bow.jpg';
+    case 'spelleater':
+      return '/cards/items/spelleater.jpg';
+    case 'holy_shield':
+      return '/cards/items/holy_shield.jpg';
+    case 'druidic_charm':
+      return '/cards/items/druidic_charm.jpg';
+    case 'master_staff':
+      return '/cards/items/master_staff.jpg';
+    case 'steel_sword':
+      return '/cards/items/steel_sword.jpg';
     default:
       return '/cards/items/wooden_sword.jpg';
   }

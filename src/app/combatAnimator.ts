@@ -231,10 +231,56 @@ export function createCombatAnimator({
     });
   }
 
+  function triggerHeroDamageEffects(damage: number, blocked: number): void {
+    const targets = root.querySelectorAll<HTMLElement>('.hero-sidebar-vitals-card, .player-line');
+    if (targets.length === 0) return;
+    audioManager.playSlashSound();
+    targets.forEach((targetEl) => {
+      targetEl.querySelectorAll('.combat-floating-damage').forEach((el) => {
+        if (!el.classList.contains('is-shield') && !el.classList.contains('is-ability')) {
+          el.remove();
+        }
+      });
+      targetEl.classList.remove('is-damage-shaking');
+      void targetEl.offsetWidth;
+      targetEl.classList.add('is-damage-shaking');
+
+      const floatEl = document.createElement('div');
+      floatEl.className =
+        'combat-floating-damage' + (damage === 0 && blocked > 0 ? ' is-blocked' : '');
+      floatEl.textContent = damage > 0 ? `-${damage}` : '🛡️ BLOCKED';
+      targetEl.appendChild(floatEl);
+
+      setTimeout(() => {
+        targetEl.classList.remove('is-damage-shaking');
+        floatEl.remove();
+      }, 1100);
+    });
+  }
+
+  function applyHeroHpToDom(currentHp: number, maxHp: number, block = 0): void {
+    const pct = Math.max(0, Math.min(100, Math.round((currentHp / Math.max(1, maxHp)) * 100)));
+    root.querySelectorAll<HTMLElement>('.hero-sidebar-vitals-card').forEach((card) => {
+      const hpFill = card.querySelector<HTMLElement>('.hero-sidebar-hp-fill');
+      if (hpFill) {
+        hpFill.style.width = `${pct}%`;
+      }
+      const hpText = card.querySelector<HTMLElement>('.hero-sidebar-hp-text');
+      if (hpText) {
+        const blockText = block > 0 ? ` (+${block} &#128737;)` : '';
+        hpText.innerHTML = `<b>${currentHp}</b> / ${maxHp} HP${blockText}`;
+      }
+      const track = card.querySelector<HTMLElement>('.hero-sidebar-hp-track');
+      if (track) {
+        track.setAttribute('aria-valuenow', String(currentHp));
+      }
+    });
+  }
+
   function triggerMonsterAbilityEffect(
     targetIdx: number,
-    variant: 'harden' | 'skittish' | 'heal',
-    iconPath: string,
+    variant: 'harden' | 'skittish' | 'heal' | 'undying',
+    iconPath: string | null,
     label: string,
     delayMs = 0
   ): void {
@@ -250,12 +296,15 @@ export function createCombatAnimator({
 
       const floatEl = document.createElement('div');
       floatEl.classList.add('combat-floating-damage', 'is-ability', `is-ability-${variant}`);
-      floatEl.innerHTML = `<img src="${publicAsset(iconPath)}" alt="" class="floating-ability-icon" /><span>${label}</span>`;
+      const iconHtml = iconPath
+        ? `<img src="${publicAsset(iconPath)}" alt="" class="floating-ability-icon" />`
+        : `<span class="floating-ability-emoji" aria-hidden="true">🎲</span>`;
+      floatEl.innerHTML = `${iconHtml}<span>${label}</span>`;
       monsterUnit.appendChild(floatEl);
 
       setTimeout(() => {
         floatEl.remove();
-      }, 1150);
+      }, 1350);
     };
 
     if (delayMs > 0) {
@@ -286,22 +335,91 @@ export function createCombatAnimator({
     prevState: RunState,
     nextState: RunState,
     monsterDelayMs = 0
-  ): void {
-    if (prevState.activeHook?.type !== 'COMBAT' || nextState.activeHook?.type !== 'COMBAT') {
-      return;
+  ): number {
+    if (prevState.activeHook?.type !== 'COMBAT') {
+      return 0;
+    }
+    const nextCombat =
+      nextState.activeHook?.type === 'COMBAT'
+        ? nextState.activeHook.combat
+        : nextState.activeHook?.type === 'VICTORY'
+        ? nextState.activeHook.victory.finalCombatState
+        : undefined;
+    if (!nextCombat) {
+      return 0;
     }
 
-    const heroHeal =
-      (nextState.playerResources?.hp ?? 0) - (prevState.playerResources?.hp ?? 0);
-    if (heroHeal > 0) {
-      triggerHeroHealEffects(heroHeal);
+    if (nextState.activeHook?.type === 'COMBAT') {
+      const heroHeal =
+        (nextState.playerResources?.hp ?? 0) - (prevState.playerResources?.hp ?? 0);
+      if (heroHeal > 0) {
+        triggerHeroHealEffects(heroHeal);
+      }
     }
 
     const prevMonsters = prevState.activeHook.combat.monsters;
-    const nextMonsters = nextState.activeHook.combat.monsters;
+    const nextMonsters = nextCombat.monsters;
+    const newLogs = nextCombat.combatLog.slice(prevState.activeHook.combat.combatLog.length);
+    let extraReviveDelayMs = 0;
+
     nextMonsters.forEach((mAfter, idx) => {
       const mBefore = prevMonsters[idx];
-      if (!mBefore || mAfter.hp <= 0) return;
+      if (!mBefore) return;
+
+      const tokensConsumed =
+        (mBefore.undyingTokensRemaining ?? 0) - (mAfter.undyingTokensRemaining ?? 0);
+      const undyingLogs = newLogs.filter((entry) =>
+        entry.includes(`${mAfter.monster.name} — Undying:`)
+      );
+      const resilientLogs = newLogs.filter((entry) =>
+        entry.includes(`${mAfter.monster.name} — Resilient:`)
+      );
+
+      if (tokensConsumed > 0 || undyingLogs.length > 0) {
+        if (undyingLogs.length > 0) {
+          undyingLogs.forEach((entry, attemptIdx) => {
+            const rollMatch = entry.match(/rolled 1d6 = (\d+)/);
+            const rollVal = rollMatch ? rollMatch[1] : '?';
+            const revived = entry.includes('Revives');
+            const label = revived
+              ? `Undying 1d6=${rollVal}: Revived!`
+              : `Undying 1d6=${rollVal}: Failed`;
+            triggerMonsterAbilityEffect(
+              idx,
+              'undying',
+              null,
+              label,
+              monsterDelayMs + attemptIdx * 600
+            );
+          });
+          extraReviveDelayMs = Math.max(extraReviveDelayMs, undyingLogs.length * 600 + 350);
+        } else {
+          const revived = mAfter.hp > 0;
+          triggerMonsterAbilityEffect(
+            idx,
+            'undying',
+            null,
+            revived ? 'Undying: Revived!' : 'Undying: Failed',
+            monsterDelayMs
+          );
+          extraReviveDelayMs = Math.max(extraReviveDelayMs, 650);
+        }
+      } else if (resilientLogs.length > 0) {
+        const entry = resilientLogs[0];
+        const rollMatch = entry.match(/rolled 1d6 = (\d+)/);
+        const rollVal = rollMatch ? rollMatch[1] : '?';
+        const revived = entry.includes('Returns to life');
+        triggerMonsterAbilityEffect(
+          idx,
+          'undying',
+          null,
+          revived ? `Resilient 1d6=${rollVal}: Revived!` : `Resilient 1d6=${rollVal}: Failed`,
+          monsterDelayMs
+        );
+        extraReviveDelayMs = Math.max(extraReviveDelayMs, 650);
+      }
+
+      if (mAfter.hp <= 0) return;
 
       const hardenGain = (mAfter.hardenDefBonus ?? 0) - (mBefore.hardenDefBonus ?? 0);
       if (hardenGain > 0) {
@@ -314,7 +432,7 @@ export function createCombatAnimator({
       }
 
       const healGain = mAfter.hp - mBefore.hp;
-      if (healGain > 0 && mBefore.hp > 0) {
+      if (healGain > 0 && mBefore.hp > 0 && tokensConsumed === 0 && resilientLogs.length === 0) {
         const isRegen =
           Boolean(mAfter.monster.regenOnStart || mAfter.monster.endTurnRegen) &&
           (healGain === mAfter.monster.regenOnStart || healGain === mAfter.monster.endTurnRegen);
@@ -327,6 +445,8 @@ export function createCombatAnimator({
         );
       }
     });
+
+    return extraReviveDelayMs;
   }
 
   function runTransitionWithDiceRolls(
@@ -343,8 +463,15 @@ export function createCombatAnimator({
       return rolls.length > 0 ? s : evaluatedNext;
     });
 
-    if (evaluatedNext && rolls.length === 0 && prevState) {
-      triggerAbilityTriggersFromDiff(prevState, evaluatedNext, 0);
+    const prevSnapshot = prevState as RunState | null;
+    const nextSnapshot = evaluatedNext as RunState | null;
+    if (nextSnapshot && rolls.length === 0 && prevSnapshot) {
+      triggerAbilityTriggersFromDiff(prevSnapshot, nextSnapshot, 0);
+      const hpLost =
+        (prevSnapshot.playerResources?.hp ?? 0) - (nextSnapshot.playerResources?.hp ?? 0);
+      if (hpLost > 0 && prevSnapshot.activeHook?.type === 'COMBAT') {
+        triggerHeroDamageEffects(hpLost, 0);
+      }
     }
 
     if (evaluatedNext && rolls.length > 0) {
@@ -443,8 +570,35 @@ export function createCombatAnimator({
       (t) => t.isHit && (t.damage > 0 || t.blocked > 0)
     );
 
+    const enemyHitRolls = actionRolls.filter(
+      (r) => r.attackerName !== 'Hero' && r.isHit && (r.damageDealt > 0 || r.damageBlocked > 0)
+    );
+    const enemyDamage = enemyHitRolls.reduce((sum, r) => sum + r.damageDealt, 0);
+    const enemyBlocked = enemyHitRolls.reduce((sum, r) => sum + r.damageBlocked, 0);
+
     if (affectedTargets.length === 0) {
       const prevForDiff = store.get();
+      if (enemyHitRolls.length > 0 && prevForDiff.activeHook?.type === 'COMBAT') {
+        combatAnimating = true;
+        render();
+        triggerHeroDamageEffects(enemyDamage, enemyBlocked);
+        const nextHp = nextStateToSet.playerResources?.hp ?? 0;
+        const maxHp =
+          nextStateToSet.playerResources?.maxHp ?? prevForDiff.playerResources?.maxHp ?? 10;
+        const nextBlock =
+          nextStateToSet.activeHook?.type === 'COMBAT' ? nextStateToSet.activeHook.combat.playerBlock : 0;
+
+        setTimeout(() => {
+          applyHeroHpToDom(nextHp, maxHp, nextBlock);
+          store.set(nextStateToSet);
+          setTimeout(() => {
+            combatAnimating = false;
+            render();
+            triggerAbilityTriggersFromDiff(prevForDiff, nextStateToSet, 0);
+          }, 400);
+        }, 520);
+        return;
+      }
       store.set(nextStateToSet);
       render();
       triggerAbilityTriggersFromDiff(prevForDiff, nextStateToSet, 0);
@@ -508,7 +662,7 @@ export function createCombatAnimator({
     for (const target of affectedTargets) {
       triggerMonsterDamageEffects(target.targetIndex, target.damage, target.blocked);
     }
-    triggerAbilityTriggersFromDiff(s, nextStateToSet, 180);
+    const extraReviveDelayMs = triggerAbilityTriggersFromDiff(s, nextStateToSet, 220);
 
     setTimeout(() => {
       let anyDied = false;
@@ -587,7 +741,7 @@ export function createCombatAnimator({
           }, 350);
         }
       }, 750);
-    }, 520);
+    }, 520 + extraReviveDelayMs);
   }
 
   return {

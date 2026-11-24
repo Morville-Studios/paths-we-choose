@@ -84,17 +84,17 @@ describe('treasure mechanics: exact shop level, deduplication, and exploration c
     expect(new Set(shop.activeHook.village.shopStock.map(item => item.id)).size).toBe(3 + level);
     const equipped = Object.values(shop.equippedGear).filter((item): item is NonNullable<typeof item> => item !== null);
     const cards = [...shop.treasureDeck, ...shop.treasureDiscard, ...shop.activeHook.village.shopStock, ...equipped, ...(shop.treasureVoid ?? [])];
-    expect(cards).toHaveLength(48);
-    expect(new Set(cards.map(item => item.instanceId)).size).toBe(48);
+    expect(cards).toHaveLength(106);
+    expect(new Set(cards.map(item => item.instanceId)).size).toBe(106);
   });
 
   it('fills a Level 3 store in Scenario 2 with available unique Level 3 physical cards without minting copies', () => {
     const shop = villageChooseShop(village(3, 2));
     if (shop.activeHook.type !== 'VILLAGE') throw new Error('Expected village');
-    expect(shop.activeHook.village.shopStock).toHaveLength(1);
+    expect(shop.activeHook.village.shopStock).toHaveLength(6);
     expect(shop.activeHook.village.shopStock.every(item => item.level === 3)).toBe(true);
     const equipped = Object.values(shop.equippedGear).filter((item): item is NonNullable<typeof item> => item !== null);
-    expect([...shop.treasureDeck, ...shop.treasureDiscard, ...shop.activeHook.village.shopStock, ...equipped, ...(shop.treasureVoid ?? [])]).toHaveLength(48);
+    expect([...shop.treasureDeck, ...shop.treasureDiscard, ...shop.activeHook.village.shopStock, ...equipped, ...(shop.treasureVoid ?? [])]).toHaveLength(106);
   });
 
   it('stops cleanly with empty stock in a Level 5 store (no Level 5 items defined) and does not redraw when reopening', () => {
@@ -102,7 +102,7 @@ describe('treasure mechanics: exact shop level, deduplication, and exploration c
     if (shop.activeHook.type !== 'VILLAGE') throw new Error('Expected village');
     expect(shop.activeHook.village.shopStock).toHaveLength(0);
     expect(shop.activeHook.village.shopStockDrawn).toBe(true);
-    expect(shop.treasureDiscard).toHaveLength(41);
+    expect(shop.treasureDiscard).toHaveLength(55);
     const reopened = villageChooseShop(villageGoBack(shop));
     expect(reopened.treasureDeck).toEqual(shop.treasureDeck);
     expect(reopened.treasureDiscard).toEqual(shop.treasureDiscard);

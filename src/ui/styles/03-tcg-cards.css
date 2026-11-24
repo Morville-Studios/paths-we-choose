@@ -924,6 +924,27 @@
   animation: heroShieldGainPulse 0.9s ease-out;
 }
 
+.hero-sidebar-vitals-card.is-damage-shaking,
+.player-line.is-damage-shaking {
+  animation: violentMonsterShake 0.52s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  box-shadow: 0 0 24px rgba(239, 68, 68, 0.75), inset 0 0 14px rgba(239, 68, 68, 0.35);
+}
+
+.hero-sidebar-vitals-card,
+.player-line {
+  position: relative;
+}
+
+.hero-sidebar-vitals-card .combat-floating-damage {
+  top: 15%;
+  left: 50%;
+}
+
+.player-line .combat-floating-damage {
+  top: -16px;
+  left: 50%;
+}
+
 .hero-sidebar-vitals-card .combat-floating-damage.is-shield {
   top: 15%;
   left: 50%;
@@ -988,6 +1009,16 @@
 
 .combat-floating-damage.is-ability-heal .floating-ability-icon {
   filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.95));
+}
+
+.combat-floating-damage.is-ability-undying {
+  color: #fbbf24;
+  font-size: 0.96rem;
+  white-space: nowrap;
+  text-shadow:
+    0 0 10px rgba(0, 0, 0, 0.95),
+    0 0 18px rgba(245, 158, 11, 0.9),
+    0 2px 6px rgba(0, 0, 0, 0.95);
 }
 
 .hero-sidebar-vitals-card .combat-floating-damage.is-ability-heal {

@@ -583,7 +583,9 @@ export function pathChallengeModal(
               const itemId = item.instanceId ?? item.id;
               return `
                 <div class="merchant-offer-card" style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                  ${renderTcgItemCard(item, { isMini: true })}
+                  <div class="merchant-offer-card-wrap" data-inspect-kind="item" data-item-id="${item.id}" data-item-instance="${itemId}" title="Right-click or hold to inspect ${item.name}">
+                    ${renderTcgItemCard(item, { isMini: true })}
+                  </div>
                   <div class="merchant-offer-price muted" style="font-size:0.84rem;">
                     Base: <s>${item.buyPrice}G</s> &rarr; <b>${cost} Gold</b>
                   </div>
@@ -613,7 +615,7 @@ export function pathChallengeModal(
         ${itemsHtml}
         <div class="exploration-actions">
           <button class="btn secondary big exploration-btn" data-action="path-done">
-            ${stock.length > 0 ? 'Decline &amp; Leave &rarr;' : 'Continue Journey &rarr;'}
+            ${stock.length > 0 ? 'Leave &rarr;' : 'Continue Journey &rarr;'}
           </button>
         </div>
       </div>
@@ -630,7 +632,7 @@ export function pathChallengeModal(
           You wandered into <b>${card.name}</b> (Lvl ${card.level}) and see hostiles ahead! Perform a <b>Sneak Check</b> to avoid being noticed.
         </p>
         <p class="muted" style="font-size:0.84rem;">
-          <b>MACG-3D6™ Success Check Bar:</b> AGI (${eff.agi}) &minus; (Terrain Lvl ${card.level} &times; 2) = <b>${net >= 0 ? '+' : ''}${net}</b> &middot; <b>Tier ${tier}</b> (${prob.hitPercent}%)
+          <b>MACG-3D6™ Success Check Bar:</b> AGI (${eff.agi}) &minus; (Terrain Lvl ${card.level} + 1) = <b>${net >= 0 ? '+' : ''}${net}</b> &middot; <b>Tier ${tier}</b> (${prob.hitPercent}%)
           <br />If you fail, you must fight the hostiles—<b>fleeing from that battle forfeits your Treasure Discovery roll</b>.
         </p>
         ${qteBarHtml}

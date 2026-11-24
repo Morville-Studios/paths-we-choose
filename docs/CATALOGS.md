@@ -45,7 +45,7 @@ Bosses are spawned separately and excluded from ordinary-deck conservation. Stag
 
 | Name | Template | Level | HP | DEF | MDEF | ACC | EVA | SP | Gold | Pattern | Abilities |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Grundy | goblin_chieftain | 5 | 30 | 3 | 1 | 3 | 3 | 12 | 50 | 1. Call Goblin: summon one goblin from Monster Deck into play; if summon misses, return one discarded goblin to top of Monster Deck<br>2. Goblin March: 6 physical damage | Grundy's ATK and DEF increases for each other goblin creatures in play |
+| Grundy | goblin_chieftain | 5 | 36 | 3 | 2 | 3 | 3 | 12 | 50 | 1. Goblin March: 6 physical damage | Grundy's ATK and DEF increases for each other goblin creatures in play; Summons a Goblin from the Monster Deck at 50% HP and 25% HP |
 | Troll Healer | troll_healer | 4 | 25 | 1 | 3 | 3 | 2 | 10 | 40 | 1. Troll Mending: +2 Block | Troll Mending (Heals a random troll for 10 HP each round) |
 | Troll Hexer | troll_hexer | 4 | 25 | 2 | 2 | 3 | 2 | 10 | 40 | 1. Troll Hex: +2 Block<br>2. Cursed Recoil: 2 magical damage; +2 damage per active Hero debuff | Hex Curse (Casts a stacking random 5-turn debuff: -1 ACC, +1 DMG taken, or -1 EVA) |
 | Troll Warrior | troll_brute | 4 | 25 | 3 | 1 | 4 | 2 | 10 | 40 | 1. Troll Smash: 6 physical damage | Relentless Assault (Attacks hero for 6 DMG each round) |
@@ -78,31 +78,60 @@ All missions contain 30 land cards. Start Tile is separate.
 
 ## Shop and Treasure
 
-Treasure deck: two copies per item, 42 cards total. Prices below are before Charisma discount.
+Treasure deck: two copies per item, 100 cards total. Prices below are before Charisma discount.
 
 | Item | ID | Slot/type | Level | Buy Gold | Sell Gold | Effects |
 | --- | --- | --- | --- | --- | --- | --- |
 | Health Potion | lvl1_health_potion | consumable | 1 | 12 | 6 | Restores 5 HP immediately when used. |
-| Iron Sword | lvl1_iron_sword | weapon | 1 | 10 | 5 | Weapon Slot: +1 ATK (boosts physical attack card damage). |
-| Apprentice Staff | lvl1_apprentice_staff | weapon | 1 | 15 | 7 | Weapon Slot: +1 MATK (boosts magical spell damage). |
-| Robe | lvl1_robe | armor | 1 | 15 | 7 | Armor Slot: +1 MDEF (reduces incoming magic damage intake). |
-| Leather Gear | lvl1_leather_gear | armor | 1 | 12 | 6 | Armor Slot: +1 EVA (increases evasion against all 3d6 attacks). |
-| Chainmail | lvl1_chainmail | armor | 1 | 15 | 7 | Armor Slot: +1 DEF (reduces incoming physical attack damage). |
-| Spellbinder | lvl2_spellbinder | accessory | 2 | 20 | 10 | Accessory Slot: +1 INT (boosts spellcraft and intellect). |
-| Beast Ring | lvl2_beast_ring | accessory | 2 | 20 | 10 | Accessory Slot: +1 STR (boosts melee attack and physical defense scaling). |
-| Hermes Gear | lvl2_hermes_gear | accessory | 2 | 20 | 10 | Accessory Slot: +1 AGI (improves agility and baseline evasion). |
-| Goldstar | lvl2_goldstar | accessory | 2 | 20 | 10 | Accessory Slot: Produces an additional (1d6 - 1) Gold per victory. |
-| Iron Sword + | lvl2_iron_sword_plus | weapon | 2 | 30 | 15 | Weapon Slot: +2 ATK and +1 ACC (boosts physical attack damage and hit rolls). |
-| Chainmail + | lvl2_chainmail_plus | armor | 2 | 45 | 22 | Armor Slot: +2 DEF and +1 EVA (reduces physical damage and improves dodging). |
-| Robe + | lvl2_robe_plus | armor | 2 | 45 | 22 | Armor Slot: +2 MDEF and +1 DEF (reduces magical and physical damage intake). |
-| Apprentice Staff + | lvl2_apprentice_staff_plus | weapon | 2 | 45 | 22 | Weapon Slot: +2 MATK and +1 ATK (amplifies magical and physical attacks). |
-| Leather Gear + | lvl2_leather_gear_plus | armor | 2 | 45 | 22 | Armor Slot: +2 EVA and +1 DEF (improves dodging and reduces physical damage). |
+| Iron Sword | lvl1_iron_sword | weapon | 1 | 25 | 12 | Weapon Slot: +1 ATK (boosts physical attack card damage). |
+| Apprentice Staff | lvl1_apprentice_staff | weapon | 1 | 25 | 12 | Weapon Slot: +1 MATK (boosts magical spell damage). |
+| Robe | lvl1_robe | armor | 1 | 30 | 15 | Armor Slot: +1 MDEF (reduces incoming magic damage intake). |
+| Leather Gear | lvl1_leather_gear | armor | 1 | 30 | 15 | Armor Slot: +2 EVA (increases evasion against all 3d6 attacks). |
+| Chainmail | lvl1_chainmail | armor | 1 | 30 | 15 | Armor Slot: +1 DEF (reduces incoming physical attack damage). |
+| Spellbinder | lvl2_spellbinder | accessory | 2 | 50 | 25 | Accessory Slot: +1 INT (boosts spellcraft and intellect). |
+| Beast Ring | lvl2_beast_ring | accessory | 2 | 50 | 25 | Accessory Slot: +1 STR (boosts melee attack and physical defense scaling). |
+| Hermes Gear | lvl2_hermes_gear | accessory | 2 | 50 | 25 | Accessory Slot: +1 AGI (improves agility and baseline evasion). |
+| Goldstar | lvl2_goldstar | accessory | 2 | 100 | 50 | Accessory Slot: +1 CHA and +10% Gold earned from battles (rounded down). |
+| Iron Sword + | lvl2_iron_sword_plus | weapon | 2 | 75 | 37 | Weapon Slot: +2 ATK and +1 ACC (boosts physical attack damage and hit rolls). |
+| Chainmail + | lvl2_chainmail_plus | armor | 2 | 90 | 45 | Armor Slot: +2 DEF and +1 EVA (reduces physical damage and improves dodging). |
+| Robe + | lvl2_robe_plus | armor | 2 | 90 | 45 | Armor Slot: +2 MDEF and +1 DEF (reduces magical and physical damage intake). |
+| Apprentice Staff + | lvl2_apprentice_staff_plus | weapon | 2 | 75 | 37 | Weapon Slot: +2 MATK and +1 ATK (amplifies magical and physical attacks). |
+| Leather Gear + | lvl2_leather_gear_plus | armor | 2 | 90 | 45 | Armor Slot: +3 EVA and +1 DEF (improves dodging and reduces physical damage). |
 | Health Potion | lvl2_health_potion | consumable | 2 | 34 | 17 | Restores 10 HP immediately when used. |
 | Health Potion | lvl3_health_potion | consumable | 3 | 66 | 33 | Restores 15 HP immediately when used. |
 | Health Potion | lvl4_health_potion | consumable | 4 | 108 | 54 | Restores 20 HP immediately when used. |
-| Dagger | lvl1_dagger | weapon | 1 | 10 | 5 | Weapon Slot: +1 PEN (physical attacks ignore 1 enemy DEF). |
-| Dagger + | lvl2_dagger_plus | weapon | 2 | 30 | 15 | Weapon Slot: +2 PEN and +1 ATK (physical attacks ignore 2 enemy DEF). |
-| Focus Ring | lvl2_focus_ring | accessory | 2 | 20 | 10 | Accessory Slot: +1 DEX (improves accuracy and physical attack scaling). |
+| Dagger | lvl1_dagger | weapon | 1 | 25 | 12 | Weapon Slot: +2 PEN (physical attacks ignore 2 enemy DEF). |
+| Dagger + | lvl2_dagger_plus | weapon | 2 | 75 | 37 | Weapon Slot: +4 PEN and +1 ATK (physical attacks ignore 4 enemy DEF). |
+| Focus Ring | lvl2_focus_ring | accessory | 2 | 50 | 25 | Accessory Slot: +1 DEX (improves accuracy and physical attack scaling). |
+| Oakwood Bow | lvl1_oakwood_bow | weapon | 1 | 20 | 10 | Weapon Slot (Ranged): +2 ACC (improves attack hit rolls). |
+| Oakwood Bow + | lvl2_oakwood_bow_plus | weapon | 2 | 75 | 37 | Weapon Slot (Ranged): +4 ACC and +1 PEN (improves hit rolls and ignores 1 enemy DEF). |
+| Spelleater | lvl1_spelleater | accessory | 1 | 30 | 15 | Accessory Slot: +1 MDEF (reduces incoming magic damage intake). |
+| Spelleater + | lvl2_spelleater_plus | accessory | 2 | 90 | 45 | Accessory Slot: +2 MDEF (reduces incoming magic damage intake). |
+| Spelleater ++ | lvl3_spelleater_plus_plus | accessory | 3 | 270 | 135 | Accessory Slot: +3 MDEF (reduces incoming magic damage intake). |
+| Spelleater +++ | lvl4_spelleater_plus_plus_plus | accessory | 4 | 810 | 405 | Accessory Slot: +4 MDEF (reduces incoming magic damage intake). |
+| Beast Ring + | lvl4_beast_ring_plus | accessory | 4 | 450 | 225 | Accessory Slot: +2 STR (boosts melee attack and physical defense scaling). |
+| Focus Ring + | lvl4_focus_ring_plus | accessory | 4 | 450 | 225 | Accessory Slot: +2 DEX (improves accuracy and physical attack scaling). |
+| Goldstar + | lvl4_goldstar_plus | accessory | 4 | 900 | 450 | Accessory Slot: +2 CHA and +15% Gold earned from battles (rounded down). |
+| Hermes Gear + | lvl4_hermes_gear_plus | accessory | 4 | 450 | 225 | Accessory Slot: +2 AGI (improves agility and baseline evasion). |
+| Spellbinder + | lvl4_spellbinder_plus | accessory | 4 | 450 | 225 | Accessory Slot: +2 INT (boosts spellcraft and intellect). |
+| Plated Armor | lvl2_plated_armor | armor | 2 | 90 | 45 | Armor Slot: +2 DEF and +1 MDEF (reduces physical and magic damage intake). |
+| Plated Armor + | lvl4_plated_armor_plus | armor | 4 | 810 | 405 | Armor Slot: +4 DEF and +2 MDEF (reduces physical and magic damage intake). |
+| Chainmail ++ | lvl3_chainmail_plus_plus | armor | 3 | 270 | 135 | Armor Slot: +3 DEF, +1 MDEF, and +1 EVA (reduces physical/magic damage and improves dodging). |
+| Chainmail +++ | lvl4_chainmail_plus_plus_plus | armor | 4 | 810 | 405 | Armor Slot: +4 DEF, +1 MDEF, and +2 EVA (reduces physical/magic damage and improves dodging). |
+| Leather Gear ++ | lvl3_leather_gear_plus_plus | armor | 3 | 270 | 135 | Armor Slot: +4 EVA, +1 MDEF, and +1 DEF (improves dodging and reduces physical/magic damage). |
+| Leather Gear +++ | lvl4_leather_gear_plus_plus_plus | armor | 4 | 810 | 405 | Armor Slot: +5 EVA, +1 MDEF, and +2 DEF (improves dodging and reduces physical/magic damage). |
+| Robe ++ | lvl3_robe_plus_plus | armor | 3 | 270 | 135 | Armor Slot: +3 MDEF, +1 DEF, and +1 EVA (reduces magic/physical damage and improves dodging). |
+| Robe +++ | lvl4_robe_plus_plus_plus | armor | 4 | 810 | 405 | Armor Slot: +4 MDEF, +2 DEF, and +1 EVA (reduces magic/physical damage and improves dodging). |
+| Holy Shield | lvl2_holy_shield | accessory | 2 | 50 | 25 | Accessory Slot: +1 DEF (reduces incoming physical attack damage). |
+| Holy Shield + | lvl4_holy_shield_plus | accessory | 4 | 450 | 225 | Accessory Slot: +2 DEF (reduces incoming physical attack damage). |
+| Druidic Charm | lvl2_druidic_charm | accessory | 2 | 50 | 25 | Accessory Slot: +1 VIT (increases max HP and physical defense scaling). |
+| Druidic Charm + | lvl4_druidic_charm_plus | accessory | 4 | 450 | 225 | Accessory Slot: +2 VIT (increases max HP and physical defense scaling). |
+| Master Staff | lvl3_master_staff | weapon | 3 | 225 | 112 | Weapon Slot: +4 MATK and +2 ACC (amplifies magical spells and hit rolls). |
+| Master Staff + | lvl4_master_staff_plus | weapon | 4 | 675 | 337 | Weapon Slot: +5 MATK and +3 ACC (amplifies magical spells and hit rolls). |
+| Steel Sword | lvl3_steel_sword | weapon | 3 | 225 | 112 | Weapon Slot: +4 ATK and +2 ACC (boosts physical attack damage and hit rolls). |
+| Steel Sword + | lvl4_steel_sword_plus | weapon | 4 | 675 | 337 | Weapon Slot: +5 ATK and +3 ACC (boosts physical attack damage and hit rolls). |
+| Dagger ++ | lvl3_dagger_plus_plus | weapon | 3 | 225 | 112 | Weapon Slot: +5 PEN and +2 ATK (physical attacks ignore 5 enemy DEF). |
+| Dagger +++ | lvl4_dagger_plus_plus_plus | weapon | 4 | 675 | 337 | Weapon Slot: +6 PEN and +3 ATK (physical attacks ignore 6 enemy DEF). |
 
 ## Combat Cards
 
@@ -113,24 +142,24 @@ Fields below are base data, not complete effective damage. STR damage also adds 
 | Slash | melee_atk | 1 | 3 | 1×atk/1 | 0 | None | 0 | 0 | Starter / New Skills | None |
 | Defend | shield_def | 1 | 0 | None | 4 | 1×def/1 | 0 | 0 | Starter / New Skills | None |
 | High Strike | heavy_cleave | 1 | 0 | 1×atk/1 + ACC | 0 | None | 0 | 0 | Starter / New Skills | None |
-| Parry | iron_parry | 1 | 0 | None | 1 | 1×agi/2 | 2 | 0 | Starter / New Skills | None |
-| Fortify | battle_focus | 1 | 0 | None | 5 | 1×def/2 | 0 | 0 | Starter / New Skills | None |
-| High Strike + | high_strike_plus | 1 | 0 | 2×atk/1 + ACC | 0 | None | 0 | 0 | Void | heavy_cleave |
-| Parry + | parry_plus | 2 | 0 | None | 7 | None | 2 | 0 | Void | iron_parry |
-| Fortify + | fortify_plus | 2 | 0 | None | 4 | 2×def/1 | 0 | 0 | Void | battle_focus |
+| Parry | iron_parry | 1 | 0 | None | 1 | 1×dex_agi/2 | 1 | 0 | Starter / New Skills | None |
+| Fortify | battle_focus | 1 | 0 | None | 3 | 1×def/1 | 0 | 0 | Starter / New Skills | None |
+| High Strike + | high_strike_plus | 1 | 0 | 1.5×atk/1 + ACC | 0 | None | 0 | 0 | Void | heavy_cleave |
+| Parry + | parry_plus | 2 | 0 | None | 2 | 1×dex_agi/2 | 2 | 0 | Void | iron_parry |
+| Fortify + | fortify_plus | 1 | 0 | None | 4 | 1.5×def/1 | 0 | 0 | Void | battle_focus |
 | Whirlwind | whirlwind | 1 | 1 | 1×atk/1 | 0 | None | 0 | -1 | Starter / New Skills | None |
-| Whirlwind + | whirlwind_plus | 2 | 2 | 2×atk/1 | 0 | None | 0 | -1 | Void | whirlwind |
+| Whirlwind + | whirlwind_plus | 1 | 2 | 1.5×atk/1 | 0 | None | 0 | -1 | Void | whirlwind |
 | Battlecry | battlecry | 1 | 0 | None | 0 | None | 0 | 0 | Starter / New Skills | None |
-| Battlecry + | battlecry_plus | 2 | 0 | None | 0 | None | 0 | 0 | Void | battlecry |
+| Battlecry + | battlecry_plus | 1 | 0 | None | 0 | None | 0 | 0 | Void | battlecry |
 | Battle Flag | battle_flag | 1 | 0 | None | 0 | None | 0 | 0 | Starter / New Skills | None |
 | Adrenalin | adrenalin | 1 | 0 | None | 0 | None | 0 | 0 | Starter / New Skills | None |
-| Final Smash | final_smash | 3 | 6 | 2×atk/1 | 0 | None | 0 | 0 | Starter / New Skills | None |
+| Execute | final_smash | 2 | 6 | 2×atk/1 | 0 | None | 0 | 0 | Starter / New Skills | None |
 | Fireball ATK | fireball_atk | 1 | 2 | 1×int/2 | 0 | None | 0 | 0 | Starter / New Skills | None |
 | Force Field DEF | force_field_def | 1 | 0 | None | 2 | 1×int/2 | 1 | 0 | Starter / New Skills | None |
 | Arcane Blast | arcane_blast | 2 | 5 | 1×int/1 | 0 | None | 0 | 0 | Starter / New Skills | None |
-| Frost Nova | frost_nova | 1 | 2 | 1×int/2 | 2 | 1×int/2 | 1 | 0 | Starter / New Skills | None |
+| Frost Nova | frost_nova | 2 | 2 | 1×int/2 | 2 | 1×int/2 | 1 | 0 | Starter / New Skills | None |
 | Blink Ward | blink_ward | 1 | 0 | None | 2 | 1×int/2 | 2 | 0 | Starter / New Skills | None |
 
-Train pools: fighter: melee_atk, shield_def, heavy_cleave, iron_parry, battle_focus, whirlwind, battlecry, battle_flag, adrenalin, final_smash; wizard: fireball_atk, force_field_def, arcane_blast, frost_nova, blink_ward; rogue: melee_atk, shield_def, heavy_cleave, iron_parry, battle_focus.
+Train pools: fighter: melee_atk, shield_def, heavy_cleave, iron_parry, battle_focus, whirlwind, battlecry, battle_flag, adrenalin, final_smash; wizard: fireball_atk, force_field_def, arcane_blast, frost_nova, blink_ward; rogue: melee_atk, shield_def, heavy_cleave, iron_parry, battle_focus, final_smash.
 
 Void cards: High Strike + (upgrades High Strike); Parry + (upgrades Parry); Fortify + (upgrades Fortify); Whirlwind + (upgrades Whirlwind); Battlecry + (upgrades Battlecry). Void cards are not trainable or physically counted in New Skills decks.

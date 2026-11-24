@@ -1,4 +1,6 @@
-import { ActiveCombatState, CombatMonster, MonsterIntent } from '../types';
+import { createTimestamp } from '../log';
+import { shuffleArray } from '../rng';
+import { ActiveCombatState, CombatMonster, MonsterCard, MonsterIntent } from '../types';
 
 export function getMonsterChannelMatkBonus(cm: CombatMonster): number {
   return (cm.channelStacks ?? []).reduce((sum, s) => sum + s.amount, 0);
@@ -80,4 +82,69 @@ export function getMonsterIntent(
 
 export function firstLivingMonsterIndex(combat: ActiveCombatState): number {
   return combat.monsters.findIndex((m) => m.hp > 0);
+}
+
+/**
+ * Summons the first matching monster template from the Monster Deck into play (as a summon)
+ * and shuffles the deck. If none is found in the draw pile, optionally retrieves one from
+ * the Monster Discard (FIFO) onto the top of the Monster Deck.
+ */
+export function summonMonsterFromDeckOrDiscard(params: {
+  templateId: string;
+  fallbackTemplateId?: string;
+  summonerName: string;
+  monsterDeck: MonsterCard[];
+  monsterDiscard: MonsterCard[];
+  monsters: CombatMonster[];
+  rngState: number;
+  logTimestamp?: string;
+  logEntries: string[];
+}): number {
+  const {
+    templateId,
+    fallbackTemplateId,
+    summonerName,
+    monsterDeck,
+    monsterDiscard,
+    monsters,
+    logTimestamp,
+    logEntries,
+  } = params;
+  let nextRng = params.rngState;
+  const summonIndex = monsterDeck.findIndex((m) => m.templateId === templateId);
+  if (summonIndex >= 0) {
+    const [summoned] = monsterDeck.splice(summonIndex, 1);
+    monsters.push({
+      monster: summoned,
+      hp: summoned.maxHp,
+      block: summoned.startingBlock ?? 0,
+      patternIndex: 0,
+      undyingTokensRemaining: summoned.undyingTokens,
+      isSummon: true,
+    });
+    const shuffleRes = shuffleArray(monsterDeck, nextRng);
+    monsterDeck.length = 0;
+    monsterDeck.push(...shuffleRes.shuffled);
+    nextRng = shuffleRes.nextState;
+    logEntries.push(
+      `[${createTimestamp(logTimestamp)}] 📯 ${summonerName} summoned ${summoned.name} from the Monster Deck into play and shuffled the deck. It acts next round.`
+    );
+    return nextRng;
+  }
+
+  const fallbackIndex = fallbackTemplateId
+    ? monsterDiscard.findIndex((m) => m.templateId === fallbackTemplateId)
+    : -1;
+  if (fallbackIndex >= 0) {
+    const [returned] = monsterDiscard.splice(fallbackIndex, 1);
+    monsterDeck.unshift(returned);
+    logEntries.push(
+      `[${createTimestamp(logTimestamp)}] 📯 ${summonerName}'s call finds no ${fallbackTemplateId} in the Monster Deck. Retrieved ${returned.name} from the Monster Discard (FIFO) and placed it on top of the Monster Deck.`
+    );
+  } else {
+    logEntries.push(
+      `[${createTimestamp(logTimestamp)}] 📯 ${summonerName}'s call finds no ${fallbackTemplateId ?? templateId} in the Monster Deck or Discard.`
+    );
+  }
+  return nextRng;
 }

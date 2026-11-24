@@ -583,7 +583,7 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
       };
     } else {
       const eff = getEffectiveStatsFromState(next);
-      const sneakNet = eff.agi - card.level * 2;
+      const sneakNet = eff.agi - (card.level + 1);
       next = {
         ...next,
         pathsDeck: drawnPath.deck,
@@ -663,7 +663,7 @@ export function resolvePathSneakCheck(state: RunState): RunState {
   if (pc.phase !== 'sneak_prompt') return state;
 
   const eff = getEffectiveStatsFromState(state);
-  const sneakNet = eff.agi - pc.terrainCard.level * 2;
+  const sneakNet = eff.agi - (pc.terrainCard.level + 1);
   const { result, nextState } = rollMacg3d6Check(sneakNet, state.rngState);
   const time = createTimestamp(state.logTimestamp);
   const diceStr = `[${result.dice.join(', ')}] = ${result.total}`;
@@ -952,6 +952,12 @@ export function resolvePathChestAttempt(
   );
   const drawnItem = treasureDraw.drawn[0] ?? null;
   const diceStr = `[${rollOut.result.dice.join('+')}] = ${rollOut.result.total}`;
+  const methodLabel =
+    method === 'remove_seal'
+      ? 'Remove Seal'
+      : method === 'lockpick'
+        ? 'Lockpick'
+        : 'Force Open';
 
   if (rollOut.result.success) {
     return {
@@ -975,8 +981,8 @@ export function resolvePathChestAttempt(
       gameLog: appendGameLog(
         state,
         drawnItem
-          ? `[${time}] 💎 ${pc.pathCard.name} (${method}): rolled 3d6 = ${diceStr} -> Unlocked! Found ${drawnItem.name}!`
-          : `[${time}] 💎 ${pc.pathCard.name} (${method}): rolled 3d6 = ${diceStr} -> Unlocked, but the Treasure Deck was empty.`
+          ? `[${time}] 💎 ${pc.pathCard.name} (${methodLabel}): rolled 3d6 = ${diceStr} -> Unlocked! Found ${drawnItem.name}!`
+          : `[${time}] 💎 ${pc.pathCard.name} (${methodLabel}): rolled 3d6 = ${diceStr} -> Unlocked, but the Treasure Deck was empty.`
       ),
       bannerMessage: drawnItem ? `Opened ${pc.pathCard.name}! Found ${drawnItem.name}!` : `Opened ${pc.pathCard.name}!`,
     };
@@ -985,7 +991,7 @@ export function resolvePathChestAttempt(
   // Failed: chest explodes, destroying the item inside to Void and dealing 3 damage
   const nextHp = Math.max(0, state.playerResources.hp - 3);
   const nextVoidItems = drawnItem ? [...(state.voidItems ?? []), drawnItem] : state.voidItems;
-  const failLog = `[${time}] 💥 ${pc.pathCard.name} (${method}): rolled 3d6 = ${diceStr} -> FAILED! The chest exploded for 3 DMG${
+  const failLog = `[${time}] 💥 ${pc.pathCard.name} (${methodLabel}): rolled 3d6 = ${diceStr} -> FAILED! The chest exploded for 3 DMG${
     drawnItem ? ` and destroyed ${drawnItem.name}` : ''
   }.`;
 
@@ -1271,7 +1277,9 @@ function handleCombatVictory(
 ): RunState {
   const boss = defeated.find((m) => m.isBoss);
   const mission = state.currentMission ?? 1;
-  const bossTitle = boss ? (mission === 1 ? 'Grundy' : 'Cult of Trolls') : undefined;
+  const bossTitle = boss
+    ? (mission === 1 ? 'Grundy' : mission === 2 ? 'Cult of Trolls' : 'Fallen King')
+    : undefined;
 
   const victory: CombatVictoryState = {
     defeatedMonsters: defeated,
@@ -1583,11 +1591,18 @@ export function shrineDoChoosePrayer(state: RunState, optionId: ShrinePrayerOpti
 export function finishVillage(state: RunState): RunState {
   if (state.activeHook.type !== 'VILLAGE') return state;
   const village = state.activeHook.village;
+  const villageName =
+    state.board[toGridKey(state.playerPosition.col, state.playerPosition.row)]?.card?.name ??
+    'Village';
   const next: RunState = {
     ...state,
     treasureDiscard: [...state.treasureDiscard, ...village.shopStock],
     newSkillsDiscard: [...state.newSkillsDiscard, ...village.trainOptions],
     activeHook: { type: 'VILLAGE', village: { ...village, shopStock: [], trainOptions: [] } },
+    gameLog: appendGameLog(
+      state,
+      `[${createTimestamp(state.logTimestamp)}] 🏡 Departed from ${villageName}.`
+    ),
   };
   return afterTileResolved(next);
 }

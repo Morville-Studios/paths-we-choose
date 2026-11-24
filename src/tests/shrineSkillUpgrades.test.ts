@@ -34,7 +34,8 @@ describe('Void skill upgrades at Shrines', () => {
     expect(renderPlayArea(state, ui)).toContain('data-pile="void_deck"');
     const voidModal = pileModal('void_deck', state);
     expect(voidModal).toContain('The Void');
-    expect(voidModal).toContain('VOID UPGRADE');
+    expect(voidModal).toContain('High Strike +');
+    expect(voidModal).not.toContain('VOID UPGRADE');
     expect(voidModal).toContain('Grundy');
     expect(voidModal).toContain('Troll Healer');
     expect(voidModal).toContain('Wizard');
@@ -59,6 +60,7 @@ describe('Void skill upgrades at Shrines', () => {
     expect(option).toMatchObject({ upgrade: { apCost: 1 }, goldCost: 10, statPointCost: 2 });
     const upgraded = upgradeShrineSkill(level2, option!.source.instanceId);
     expect(upgraded.playerMasterDeck.some((card) => card.id === 'high_strike_plus')).toBe(true);
+    expect(upgraded.voidCards?.some((card) => card.instanceId === option!.source.instanceId)).toBe(true);
     expect(upgraded.playerResources).toMatchObject({ gold: 90, statPoints: 98 });
   });
 });

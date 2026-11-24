@@ -8,14 +8,33 @@ const catalogs = Object.fromEntries(Object.entries(generated).map(([locale, entr
   ...(entries as Record<string, string>),
   ...EDITORIAL_OVERRIDES[locale as Exclude<GameLocale, 'en'>],
 }])) as Catalog;
-const catalogEntries = Object.fromEntries(Object.entries(catalogs).map(([locale, entries]) => [
-  locale,
-  Object.entries(entries).filter(([english]) => english.length >= 4).sort((a, b) => b[0].length - a[0].length).map(([english, localized]) => {
-    const escaped = english.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = new RegExp(`${/^[A-Za-z]/.test(english) ? '(?<![A-Za-z])' : ''}${escaped}${/[A-Za-z]$/.test(english) ? '(?![A-Za-z])' : ''}`, 'g');
-    return { english, localized, pattern };
-  }),
-])) as Record<Exclude<GameLocale, 'en'>, Array<{ english: string; localized: string; pattern: RegExp }>>;
+type TranslatedLocale = Exclude<GameLocale, 'en'>;
+type CatalogEntry = { english: string; localized: string; pattern: RegExp };
+type CatalogIndex = { entries: CatalogEntry[]; byPrefix: Map<string, number[]> };
+const catalogIndexCache = new Map<TranslatedLocale, CatalogIndex>();
+
+function getCatalogIndex(locale: TranslatedLocale): CatalogIndex {
+  const cached = catalogIndexCache.get(locale);
+  if (cached) return cached;
+  const entries = Object.entries(catalogs[locale])
+    .filter(([english]) => english.length >= 4)
+    .sort((a, b) => b[0].length - a[0].length)
+    .map(([english, localized]) => {
+      const escaped = english.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(`${/^[A-Za-z]/.test(english) ? '(?<![A-Za-z])' : ''}${escaped}${/[A-Za-z]$/.test(english) ? '(?![A-Za-z])' : ''}`, 'g');
+      return { english, localized, pattern };
+    });
+  const byPrefix = new Map<string, number[]>();
+  entries.forEach(({ english }, index) => {
+    const prefix = english.slice(0, 2);
+    const matches = byPrefix.get(prefix) ?? [];
+    matches.push(index);
+    byPrefix.set(prefix, matches);
+  });
+  const index = { entries, byPrefix };
+  catalogIndexCache.set(locale, index);
+  return index;
+}
 const originalText = new WeakMap<Text, { source: string; output: string }>();
 const originalAttributes = new WeakMap<Element, Map<string, { source: string; output: string }>>();
 const ATTRIBUTES = ['alt', 'aria-label', 'title', 'placeholder'] as const;
@@ -41,7 +60,15 @@ function translate(source: string, locale: GameLocale): string {
   // Dynamic labels combine a translated phrase with live numbers or card names.
   // Replace only source-language phrases, in longest-first order, once per node.
   let result = source;
-  for (const { english, localized, pattern } of catalogEntries[locale]) {
+  const { entries, byPrefix } = getCatalogIndex(locale);
+  const candidateIndices = new Set<number>();
+  for (let i = 0; i < source.length - 1; i++) {
+    for (const index of byPrefix.get(source.slice(i, i + 2)) ?? []) {
+      candidateIndices.add(index);
+    }
+  }
+  for (const index of [...candidateIndices].sort((a, b) => a - b)) {
+    const { english, localized, pattern } = entries[index];
     if (!result.includes(english)) continue;
     result = result.replace(pattern, () => localized);
   }

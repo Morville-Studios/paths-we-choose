@@ -2,7 +2,12 @@
    HUD & Tabletop Boardgame Turn Tracker
    =========================================================================== */
 .hud {
-  background: linear-gradient(180deg, rgba(20, 27, 41, 0.95) 0%, rgba(13, 18, 28, 0.98) 100%);
+  position: sticky;
+  top: 8px;
+  z-index: 40;
+  background: linear-gradient(180deg, rgba(20, 27, 41, 0.96) 0%, rgba(13, 18, 28, 0.98) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 12px;
   padding: 8px 14px 10px;
@@ -854,6 +859,7 @@
 .foot { text-align: center; color: var(--muted); font-size: 0.7rem; margin-top: 10px; }
 
 /* Modals */
+.play-overlays { display: contents; }
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(5, 8, 12, 0.82); display: grid; place-items: center; z-index: 10;
   padding: calc(8px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom));

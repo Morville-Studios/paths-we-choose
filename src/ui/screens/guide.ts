@@ -14,6 +14,15 @@ import {
 } from '../../data/stages';
 import { renderActionCardHtml } from '../actionCard';
 import { renderAdventureCardHtml } from '../adventureCard';
+import {
+  getMarketStockFormulaText,
+  getPathsDeckSummary,
+  getSkillSectionCounts,
+  getTrainOfferRangeText,
+  getTreasureDeckSummary,
+  renderGuideClassBoxHtml,
+  renderGuideScenarioBoxHtml,
+} from '../components/guideHelpers';
 import { renderQteHitCheckBarHtml } from '../components/qteBar';
 import { fullCreatureCardHtml, monsterRaritySymbolHtml, renderTcgItemCard, renderTcgPathCard } from '../render';
 
@@ -179,12 +188,13 @@ function renderGuideSkillCardItem(tpl: CombatCardTemplate, previewClass?: ClassI
   const stats = getClassPreviewStats(previewClass ?? tpl.classId);
   const cardHtml = renderActionCardHtml(card, stats, {
     viewOnly: true,
+    referenceMode: true,
     className: 'guide-action-card-preview',
   });
   const supplyLabel = getSkillSupplyLabel(tpl);
 
   return `
-    <div class="guide-bestiary-card-item guide-skill-card-item" data-action="inspect-action" data-inspect-kind="action" data-card-id="${tpl.id}" role="button" tabindex="0">
+    <div class="guide-bestiary-card-item guide-skill-card-item" data-action="inspect-action" data-inspect-kind="action" data-inspect-reference="true" data-card-id="${tpl.id}" role="button" tabindex="0">
       <div class="guide-bestiary-card-wrapper">
         ${cardHtml}
       </div>
@@ -202,11 +212,12 @@ function renderGuideFleeCardItem(): string {
   const card = createFleeCard('fighter');
   const cardHtml = renderActionCardHtml(card, getClassPreviewStats('fighter'), {
     viewOnly: true,
+    referenceMode: true,
     className: 'guide-action-card-preview',
   });
 
   return `
-    <div class="guide-bestiary-card-item guide-skill-card-item" data-action="inspect-action" data-inspect-kind="action" data-card-id="${card.id}" role="button" tabindex="0">
+    <div class="guide-bestiary-card-item guide-skill-card-item" data-action="inspect-action" data-inspect-kind="action" data-inspect-reference="true" data-card-id="${card.id}" role="button" tabindex="0">
       <div class="guide-bestiary-card-wrapper">
         ${cardHtml}
       </div>
@@ -292,6 +303,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
         <!-- ============================================================ -->
         <!-- PAGE 1: Frontispiece & Core Dungeon Crawl Loop               -->
         <!-- ============================================================ -->
+        ${p === 1 ? `
         <article class="guide-book-page ${p === 1 ? 'is-active' : ''}" data-page="1">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
@@ -327,13 +339,13 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
 
               <h4 class="guide-section-heading">&#9884; Terrain &amp; Dungeon Hazards</h4>
               <p class="guide-body-text">
-                The realm spans four primary biomes: <b>Grasslands</b>, <b>Forest</b>, <b>Swamp</b>, and subterranean <b>Caves</b>:
+                The realm spans five biomes: <b>Grasslands</b>, <b>Forest</b>, <b>Swamp</b>, subterranean <b>Caves</b>, and <b>Underground</b> depths:
               </p>
               <ul class="adnd-bullet-list">
                 <li><b>Hostile Lands:</b> Initiates battle against local creatures drawn to meet the card's danger level.</li>
                 <li><b>Settlements &amp; Villages:</b> Provide Inn Rest, market shops, and training / Void removal.</li>
                 <li><b>Sacred Shrines:</b> Grant an automatic divine boon and allow permanent Base Stat upgrades with SP.</li>
-                <li><b>Undiscovered Lands:</b> 1d6 check: roll 6 for treasure, &le; tile level triggers an ambush!</li>
+                <li><b>Undiscovered Lands:</b> Draws a card from the <b>Paths Deck</b> (MIDS&trade;), revealing sidequests, ambushes, chests, traps, merchants, or sanctuaries.</li>
               </ul>
             </div>
 
@@ -342,68 +354,9 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               <p class="guide-body-text">
                 Each scenario features a deterministic deck setup across its Adventure, Monster, and Treasure card pools:
               </p>
-
-              <div class="adnd-parchment-box">
-                <h5 class="adnd-box-title">SCENARIO 1: THE GOBLIN KING</h5>
-                <ul class="adnd-bullet-list">
-                  <li><b>Adventure Deck (30 Cards):</b>
-                    <br/>&bull; <b>17 Grasslands:</b> 3 Undiscovered, 8 Plains (Hostile Lvl 1), 3 Village, 3 Shrine
-                    <br/>&bull; <b>11 Forest:</b> 2 Undiscovered, 5 Deep Forest (Hostile Lvl 2), 2 Village, 2 Shrine
-                    <br/>&bull; <b>2 Swamp:</b> 1 Undiscovered, 1 Murky Swamp (Hostile Lvl 3)
-                  </li>
-                  <li><b>Monster Deck (45 Cards in Deck &bull; 40 in Void):</b>
-                    <br/>&bull; <b>25 Grasslands (Full Supply):</b> 6 Goblin, 4 Pink Slime, 4 Beetle, 4 Wild Dog, 4 Stalker, 3 Ramram
-                    <br/>&bull; <b>15 Forest (~2/3 Supply):</b> 4 Zombie, 3 Bullwark, 3 Tree Snapper, 3 Ghoul, 2 Rattler
-                    <br/>&bull; <b>5 Swamp (~1/3 Supply):</b> 2 Assassin, 1 Leech, 1 Witch, 1 Creeper
-                    <br/>&bull; <i>Cave creatures remain in the Void.</i>
-                    <br/>&bull; <b>Stage Boss:</b> Grundy (Turn 15 Culmination)
-                  </li>
-                  <li><b>Treasure Deck (48 Cards):</b>
-                    <br/>&bull; 2 copies each of 17 gear items, plus <code>6 - Level</code> Health Potions (12 Weapons, 12 Armor, 10 Accessories, 14 Potions: Lvl 1&times;5, Lvl 2&times;4, Lvl 3&times;3, Lvl 4&times;2)
-                  </li>
-                </ul>
-              </div>
-
-              <div class="adnd-parchment-box">
-                <h5 class="adnd-box-title">SCENARIO 2: CULT OF TROLLS</h5>
-                <ul class="adnd-bullet-list">
-                  <li><b>Adventure Deck (30 Cards):</b>
-                    <br/>&bull; <b>17 Forest:</b> 3 Undiscovered, 8 Deep Forest (Hostile Lvl 2), 3 Village, 3 Shrine
-                    <br/>&bull; <b>11 Swamp:</b> 2 Undiscovered, 5 Murky Swamp (Hostile Lvl 3), 2 Village, 2 Shrine
-                    <br/>&bull; <b>2 Cave:</b> 1 Undiscovered, 1 Dark Cavern (Hostile Lvl 4)
-                  </li>
-                  <li><b>Monster Deck (37 Cards in Deck &bull; 48 in Void):</b>
-                    <br/>&bull; <b>21 Forest (Full Supply):</b> 6 Zombie, 4 Bullwark, 4 Tree Snapper, 4 Ghoul, 3 Rattler
-                    <br/>&bull; <b>12 Swamp (~2/3 Supply):</b> 4 Assassin, 3 Leech, 3 Witch, 2 Creeper
-                    <br/>&bull; <b>4 Cave (~1/3 Supply):</b> 2 Cultist Mage, 1 Lurker, 1 Phalanx
-                    <br/>&bull; <i>Grasslands creatures remain in the Void.</i>
-                    <br/>&bull; <b>Stage Bosses:</b> Cult of Trolls &mdash; Troll Healer, Troll Hexer &amp; Troll Warrior (Turn 15)
-                  </li>
-                  <li><b>Treasure Deck (48 Cards):</b>
-                    <br/>&bull; 2 copies each of 17 gear items + <code>6 - Level</code> Health Potions; villages stock exact-level items
-                  </li>
-                </ul>
-              </div>
-
-              <div class="adnd-parchment-box">
-                <h5 class="adnd-box-title">SCENARIO 3: TOMB OF THE FALLEN KING</h5>
-                <ul class="adnd-bullet-list">
-                  <li><b>Adventure Deck (30 Cards):</b>
-                    <br/>&bull; <b>17 Swamp:</b> 3 Undiscovered, 8 Murky Swamp (Hostile Lvl 3), 3 Village, 3 Shrine
-                    <br/>&bull; <b>11 Cave:</b> 2 Undiscovered, 5 Dark Cavern (Hostile Lvl 4), 2 Village, 2 Shrine
-                    <br/>&bull; <b>2 Underground:</b> 1 Undiscovered, 1 Eerie Underground (Hostile Lvl 5)
-                  </li>
-                  <li><b>Monster Deck (30 Cards in Deck &bull; 55 in Void):</b>
-                    <br/>&bull; <b>17 Swamp (~2/3 Supply):</b> 6 Assassin, 4 Leech, 4 Witch, 3 Creeper
-                    <br/>&bull; <b>10 Cave (~1/3 Supply):</b> 4 Cultist Mage, 3 Lurker, 3 Phalanx
-                    <br/>&bull; <b>3 Underground (~1/3 Supply):</b> 2 Dark Orc, 1 Orc Shaman
-                    <br/>&bull; <b>Stage Boss:</b> Fallen King (Turn 15 Culmination)
-                  </li>
-                  <li><b>Treasure Deck (48 Cards):</b>
-                    <br/>&bull; 2 copies each of 17 gear items + <code>6 - Level</code> Health Potions (Lvl 1&times;5, Lvl 2&times;4, Lvl 3&times;3, Lvl 4&times;2)
-                  </li>
-                </ul>
-              </div>
+              ${renderGuideScenarioBoxHtml(1)}
+              ${renderGuideScenarioBoxHtml(2)}
+              ${renderGuideScenarioBoxHtml(3)}
 
               <div class="adnd-parchment-box callout-quest">
                 <h5 class="adnd-box-title">&#127922; MACG-3D6™ CORE MECHANICS &amp; PATHS DECK</h5>
@@ -411,7 +364,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                   <b>The Paths We Choose</b> is a <b>MACG-3D6™ tabletop game</b>. Whenever you make a combat attack, Path Sneak Check, or Treasure Discovery Check, roll <b>3d6</b> against the <b>MACG-3D6™ Success Check Bar</b>. <b>Tier 4 (+0 Net)</b> is the baseline (7&ndash;14, 81.5%): each +1 Net expands the success band outward, <b>10 &amp; 11</b> are always <b>Sure Hit Rolls</b> (25.0% floor), and <b>3 &amp; 18</b> are <b>Diabolic Rolls</b> that always fail.
                 </p>
                 <p class="adnd-box-text">
-                  <b>Paths Deck (17 Cards · MIDS™):</b> Stepping onto an <b>Undiscovered Terrain</b> draws a Path Card (<code>5&times; Enemy Camp</code>, <code>2&times; Merchant</code>, <code>2&times; Sanctuary</code>, <code>2&times; Ambush</code>, <code>1&times; Magical Chest</code>, <code>1&times; Trapped Chest</code>, <code>2&times; Gold Stash</code>, <code>2&times; Spring Trap</code>). Under the <b>Morville Infinite Deck System™ (MIDS™)</b>, empty decks automatically reshuffle from their discard pile. See the Path Card Compendium for each card&apos;s exact rules.
+                  <b>Paths Deck (${getPathsDeckSummary().totalCards} Cards · MIDS™):</b> Stepping onto an <b>Undiscovered Terrain</b> draws a Path Card (${getPathsDeckSummary().breakdownText}). Under the <b>Morville Infinite Deck System™ (MIDS™)</b>, empty decks automatically reshuffle from their discard pile. See the Path Card Compendium for each card&apos;s exact rules.
                 </p>
               </div>
 
@@ -492,11 +445,12 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               </div>
             </div>
           </div>
-        </article>
+        </article>` : ''}
 
         <!-- ============================================================ -->
         <!-- PAGE 2: Chapter I — Combat & The Stack                       -->
         <!-- ============================================================ -->
+        ${p === 2 ? `
         <article class="guide-book-page ${p === 2 ? 'is-active' : ''}" data-page="2">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
@@ -539,6 +493,22 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             </div>
 
             <div class="guide-folio-col">
+              <div class="adnd-parchment-box">
+                <h5 class="adnd-box-title">&#128209; MOREVILLE CARD GAME STACK MECHANIC (MCGSM&trade;)</h5>
+                <p class="adnd-box-text">
+                  Every played card and reactive ability resolves using the <b>Moreville Card Game Stack Mechanic (MCGSM&trade;)</b>, a strict <b>Last-In, First-Out (LIFO)</b> chain:
+                </p>
+                <ol class="adnd-numbered-list">
+                  <li><b>Card Enters the Stack:</b> A played card leaves your hand and enters the Stack while its costs, draws, and hits execute.</li>
+                  <li><b>1-by-1 Draws on the Stack:</b> Drawing multiple cards (e.g. <i>Draw 3 cards</i>) acts as <b>3&times; separate &ldquo;Draw a card&rdquo; entries</b> on the Stack, resolved one by one so any <b>On-Draw</b> effect (such as <b>Adrenalin</b>) enters on top of the Stack and resolves before the next card is drawn.</li>
+                  <li><b>Triggers Stack on Top:</b> Any reactive ability triggered mid-resolution (such as a creature&rsquo;s <b>Harden</b> or <b>Skittish</b> on hit) enters <i>on top</i> of the Stack, applies its effect, and resolves first.</li>
+                  <li><b>Bottom Card Resolves &amp; Discards:</b> Only after all triggers above it have left the Stack does the played card finish resolving and move to your <b>Player Combat Discard Pile</b> (or into play if it is a lasting card).</li>
+                </ol>
+                <p class="adnd-box-text">
+                  <b>Example (Slash &rarr; Basilisk):</b> <code>Slash</code> enters Stack &rarr; <code>Slash</code> hits Basilisk &rarr; <code>Harden</code> enters Stack &rarr; Basilisk gains +1 DEF &rarr; <code>Harden</code> resolves &rarr; <code>Slash</code> resolves &rarr; <code>Slash</code> moves to discard.
+                </p>
+              </div>
+
               <h4 class="guide-section-heading">&#9884; Combat Attacks &amp; MACG-3D6™</h4>
               <p class="guide-body-text">
                 All physical attacks and monster strikes roll <b>three six-sided dice (3d6)</b> on the <b>MACG-3D6™ Success Check Bar</b> using <code>Net ACC = Attacker ACC &minus; Defender EVA</code> (see <b>Ch. I</b> for the full Tier 1&ndash;7 Success Roll Range Table).
@@ -554,11 +524,12 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               </div>
             </div>
           </div>
-        </article>
+        </article>` : ''}
 
         <!-- ============================================================ -->
         <!-- PAGE 3: Chapter II — The Six Attributes                      -->
         <!-- ============================================================ -->
+        ${p === 3 ? `
         <article class="guide-book-page ${p === 3 ? 'is-active' : ''}" data-page="3">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
@@ -657,11 +628,12 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               </div>
             </div>
           </div>
-        </article>
+        </article>` : ''}
 
         <!-- ============================================================ -->
         <!-- PAGE 4: Chapter III — The Adventurer Classes                 -->
         <!-- ============================================================ -->
+        ${p === 4 ? `
         <article class="guide-book-page ${p === 4 ? 'is-active' : ''}" data-page="4">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
@@ -676,61 +648,28 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 <span class="guide-drop-cap">E</span>ach adventurer begins with <b>Base Stats of 1</b> across all six attributes plus an <b>Innate +1 Stat Bonus</b> across all attributes, elevated by <b>1 Primary Stat (+2 bonus)</b> and <b>2 Secondary Stats (+1 bonus each)</b>, an innate combat passive, and a distinct starter deck.
               </p>
 
-              <div class="adnd-class-box">
-                <div class="adnd-class-header">
-                  <h5 class="adnd-class-title">&#9876;&#65039; Fighter</h5>
-                  <span class="adnd-class-role">Primary: STR (+2) &bull; Secondary: VIT (+1), DEX (+1)</span>
-                </div>
-                <p class="adnd-class-summary">A battle-hardened warrior who dominates the frontline with brute strength, high HP, and heavy shield defense.</p>
-                <div class="adnd-class-stats-strip">
-                  <span><b>STR 4</b></span> &bull; <span><b>DEX 3</b></span> &bull; <span><b>AGI 2</b></span> &bull; <span><b>INT 2</b></span> &bull; <span><b>CHA 2</b></span> &bull; <span><b>VIT 3</b></span>
-                </div>
-                <ul class="adnd-stat-perks">
-                  <li><b>Starting Vitals:</b> <b>16 Max HP</b>, 3 ACC, 2 EVA, 3 ATK, 0 DEF, 3 AP.</li>
-                  <li><b>Passive &mdash; <code>[Berzerk]</code>:</b> Gains <b>+1 ATK</b> when at 50% HP or lower; increases to <b>+2 ATK</b> when critically wounded at 25% HP or lower.</li>
-                  <li><b>Starter Combat Deck:</b> 8&times; Slash (1 AP, 5 physical damage + ATK) &bull; 2&times; Defend (1 AP, 4 Block).</li>
-                  <li><b>Starter Gear:</b> LVL 1 Iron Sword (+1 ATK) &bull; LVL 1 Chainmail (+1 DEF).</li>
-                  <li><b>Tactics:</b> High starting HP lets the Fighter absorb hits while scaling melee strikes through both STR and DEX. Exploit Berzerk surges during fierce boss fights!</li>
-                </ul>
-              </div>
+              ${renderGuideClassBoxHtml(
+                'fighter',
+                '&#9876;&#65039;',
+                'physical',
+                'High starting HP lets the Fighter absorb hits while scaling melee strikes through both STR and DEX. Exploit Berzerk surges during fierce boss fights!'
+              )}
             </div>
 
             <div class="guide-folio-col">
-              <div class="adnd-class-box">
-                <div class="adnd-class-header">
-                  <h5 class="adnd-class-title">&#128302; Wizard</h5>
-                  <span class="adnd-class-role">Primary: INT (+2) &bull; Secondary: DEX (+1), CHA (+1)</span>
-                </div>
-                <p class="adnd-class-summary">A tactical scholar commanding elemental flame, bending action economy, and outsmarting opponents with high wit.</p>
-                <div class="adnd-class-stats-strip">
-                  <span><b>STR 2</b></span> &bull; <span><b>DEX 3</b></span> &bull; <span><b>AGI 2</b></span> &bull; <span><b>INT 4</b></span> &bull; <span><b>CHA 3</b></span> &bull; <span><b>VIT 2</b></span>
-                </div>
-                <ul class="adnd-stat-perks">
-                  <li><b>Starting Vitals:</b> <b>14 Max HP</b>, 3 ACC, 2 EVA, 2 MATK, 0 MDEF, 3 AP.</li>
-                  <li><b>Passive &mdash; <code>[Conserve]</code>:</b> Unspent Action Points (AP) at the end of a battle turn are saved and carried over into the next round.</li>
-                  <li><b>Starter Combat Deck:</b> 8&times; Fireball (1 AP, 5 magic damage + MATK) &bull; 2&times; Force Field (1 AP, 4 Block).</li>
-                  <li><b>Starter Gear:</b> LVL 1 Apprentice Staff (+1 MATK) &bull; LVL 1 Robe (+1 MDEF).</li>
-                  <li><b>Tactics:</b> Save AP during quiet turns to unleash explosive multi-spell combos. Enjoys an immediate 15% discount in village shops from starting CHA 3.</li>
-                </ul>
-              </div>
+              ${renderGuideClassBoxHtml(
+                'wizard',
+                '&#128302;',
+                'magic',
+                'Save AP during quiet turns to unleash explosive multi-spell combos. Enjoys an immediate 15% discount in village shops from starting CHA 3.'
+              )}
 
-              <div class="adnd-class-box">
-                <div class="adnd-class-header">
-                  <h5 class="adnd-class-title">&#128481;&#65039; Rogue</h5>
-                  <span class="adnd-class-role">Primary: AGI (+2) &bull; Secondary: DEX (+1), STR (+1)</span>
-                </div>
-                <p class="adnd-class-summary">An elusive infiltrator blending lightning reflexes, tactical perceptiveness, and opportunistic thievery.</p>
-                <div class="adnd-class-stats-strip">
-                  <span><b>STR 3</b></span> &bull; <span><b>DEX 3</b></span> &bull; <span><b>AGI 4</b></span> &bull; <span><b>INT 2</b></span> &bull; <span><b>CHA 2</b></span> &bull; <span><b>VIT 2</b></span>
-                </div>
-                <ul class="adnd-stat-perks">
-                  <li><b>Starting Vitals:</b> <b>14 Max HP</b>, 3 ACC, 4 EVA, 2 ATK, 1 DEF, 3 AP.</li>
-                  <li><b>Passive &mdash; <code>[Steal]</code>:</b> Rolling any matching pair on a 3d6 attack hit check (e.g. [6, 6, 2], [5, 3, 5], [1, 1, 4]) instantly pickpockets Gold equal to the matching die number (e.g. pair of 6s steals <b>+6 Gold</b>, pair of 5s steals <b>+5 Gold</b>, and even a pair of 1s steals <b>+1 Gold</b>).</li>
-                  <li><b>Starter Combat Deck:</b> 8&times; Slash (1 AP, 5 physical damage + ATK) &bull; 2&times; Defend (1 AP, 4 Block).</li>
-                  <li><b>Starter Gear:</b> LVL 1 Dagger (+1 ACC) &bull; LVL 1 Leather Gear (+1 EVA).</li>
-                  <li><b>Tactics:</b> High EVA causes enemy attacks to miss; starts with 1 natural DEF from AGI 4; generates bonus gold in battle to buy elite gear quickly.</li>
-                </ul>
-              </div>
+              ${renderGuideClassBoxHtml(
+                'rogue',
+                '&#128481;&#65039;',
+                'physical',
+                'High EVA causes enemy attacks to miss; starts with natural DEF from AGI 4 and armor-piercing PEN from Dagger; generates bonus gold in battle to buy elite gear quickly.'
+              )}
 
               <div class="adnd-page-jump-row">
                 <span class="adnd-jump-label">Next Chapter:</span>
@@ -738,11 +677,12 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               </div>
             </div>
           </div>
-        </article>
+        </article>` : ''}
 
         <!-- ============================================================ -->
         <!-- PAGE 5: Chapter IV — Shrines, Villages & The Void            -->
         <!-- ============================================================ -->
+        ${p === 5 ? `
         <article class="guide-book-page ${p === 5 ? 'is-active' : ''}" data-page="5">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
@@ -772,9 +712,9 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               <h4 class="guide-section-heading">&#9884; Villages, treasure, and decks</h4>
               <ul class="adnd-bullet-list">
                 <li><b>Resting:</b> Resting at the inn restores 1 HP per <code>1 + Terrain Level</code> Gold (e.g. Level 1 costs 2g/HP; Level 3 costs 4g/HP). Accessible anytime while visiting a village.</li>
-                <li><b>Market Trading:</b> Stores stock up to <code>3 + Village Level</code> unique item cards matching the village&rsquo;s exact level (Grassland 4, Forest 5, Swamp 6, Cave 7) drawn from the 48-card Treasure Deck. Wrong-level or duplicate draws go to the Treasure Discard Pile; if eligible supply runs out after reshuffling, the shop opens with what is available. Equipped gear is marked <b>Equipped</b> and must be unequipped before selling; selling an item requires confirmation and <b>Banishes</b> it to <b>The Void</b> so you won&rsquo;t re-draw sold gear.</li>
-                <li><b>Training &amp; Banishing:</b> Draft 1 of 3 learnable cards from the Skills Deck, or pay Gold to <b>Banish</b> an unwanted card out of the game into <b>The Void</b>.</li>
-                <li><b>Undiscovered Exploration:</b> Stepping onto an Undiscovered Terrain draws a Path Card from the <b>17-card Paths Deck</b> (<b>MIDS™</b>), triggering sidequests, ambushes, chests, traps, merchants, or sanctuaries.</li>
+                <li><b>Market Trading:</b> Stores stock up to ${getMarketStockFormulaText()} unique item cards matching the village&rsquo;s exact level (Grassland 4, Forest 5, Swamp 6, Cave 7) drawn from the ${getTreasureDeckSummary().totalCards}-card Treasure Deck. Wrong-level or duplicate draws go to the Treasure Discard Pile; if eligible supply runs out after reshuffling, the shop opens with what is available. Equipped gear is marked <b>Equipped</b> and must be unequipped before selling; selling an item requires confirmation and <b>Banishes</b> it to <b>The Void</b> so you won&rsquo;t re-draw sold gear.</li>
+                <li><b>Training &amp; Banishing:</b> ${getTrainOfferRangeText()}, or pay Gold to <b>Banish</b> an unwanted card out of the game into <b>The Void</b>.</li>
+                <li><b>Undiscovered Exploration:</b> Stepping onto an Undiscovered Terrain draws a Path Card from the <b>${getPathsDeckSummary().totalCards}-card Paths Deck</b> (<b>MIDS™</b>), triggering sidequests, ambushes, chests, traps, merchants, or sanctuaries.</li>
                 <li><b>The Void (Game Box):</b> <b>The Void</b> is not a deck—it is the game box where you can inspect cards not currently in use (unselected monster/terrain copies, Shrine upgrade templates, and <b>Banished</b> cards). Full creature cards use the New Paths set symbol for rarity: <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.goblin, 'guide-set-symbol')} bronze = Common</span>, <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.stalker, 'guide-set-symbol')} silver = Uncommon</span>, and <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.rattler, 'guide-set-symbol')} gold = Rare</span>.</li>
               </ul>
 
@@ -792,11 +732,12 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               </div>
             </div>
           </div>
-        </article>
+        </article>` : ''}
 
         <!-- ============================================================ -->
         <!-- PAGE 6: Chapter VI — The Monstrous Compendium (Bestiary)     -->
         <!-- ============================================================ -->
+        ${p === 6 ? `
         <article class="guide-book-page ${p === 6 ? 'is-active' : ''}" data-page="6">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
@@ -885,11 +826,12 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               </div>
             </div>
           </div>
-        </article>
+        </article>` : ''}
 
         <!-- ============================================================ -->
         <!-- PAGE 7: Chapter VII — The Grand Armory (Equipment & Items)   -->
         <!-- ============================================================ -->
+        ${p === 7 ? `
         <article class="guide-book-page ${p === 7 ? 'is-active' : ''}" data-page="7">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
@@ -947,11 +889,12 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               </div>
             </div>
           </div>
-        </article>
+        </article>` : ''}
 
         <!-- ============================================================ -->
         <!-- PAGE 8: Chapter VIII — Realm Terrains (Adventure Cards)      -->
         <!-- ============================================================ -->
+        ${p === 8 ? `
         <article class="guide-book-page ${p === 8 ? 'is-active' : ''}" data-page="8">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
@@ -1027,11 +970,12 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               </div>
             </div>
           </div>
-        </article>
+        </article>` : ''}
 
         <!-- ============================================================ -->
         <!-- PAGE 9: Chapter IX — Combat Arts & Spells (Action Cards)     -->
         <!-- ============================================================ -->
+        ${p === 9 ? `
         <article class="guide-book-page ${p === 9 ? 'is-active' : ''}" data-page="9">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
@@ -1040,18 +984,18 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
           </header>
 
           <nav class="guide-bestiary-quicknav" aria-label="Skill Sections">
-            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-fighter">⚔️ Martial / Fighter (10)</button>
-            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-wizard">🔮 Wizard Spells (5)</button>
-            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-upgrades">✨ Shrine Void Upgrades (3)</button>
-            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-universal">🏃 Universal (1)</button>
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-fighter">⚔️ Martial / Fighter (${getSkillSectionCounts().fighter})</button>
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-wizard">🔮 Wizard Spells (${getSkillSectionCounts().wizard})</button>
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-upgrades">✨ Shrine Void Upgrades (${getSkillSectionCounts().upgrades})</button>
+            <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="skills-universal">🏃 Universal (${getSkillSectionCounts().universal})</button>
           </nav>
 
           <div class="guide-folio-grid">
             <div class="guide-folio-col">
               <section id="skills-fighter" class="guide-bestiary-category">
                 <div class="guide-bestiary-cat-header">
-                  <h4 class="guide-bestiary-cat-title"><span>⚔️</span> Martial &amp; Fighter Arts <small>(Fighter &amp; Rogue Pool)</small></h4>
-                  <p class="guide-bestiary-cat-sub">Slash, Defend, High Strike, Parry &amp; Fortify are shared with Rogue; Whirlwind through Final Smash are Fighter-exclusive</p>
+                  <h4 class="guide-bestiary-cat-title"><span>⚔️</span> Martial &amp; Fighter Arts <small>(Common Weapons Master &amp; Fighter Pool)</small></h4>
+                  <p class="guide-bestiary-cat-sub">Common Weapons Master (Slash, Defend, High Strike, Parry, Fortify &amp; Execute) are shared with Rogue; Whirlwind, Battlecry, Battle Flag &amp; Adrenalin are Fighter-exclusive</p>
                 </div>
                 <div class="guide-bestiary-grid">
                   ${Object.values(COMBAT_CARD_CATALOG)
@@ -1106,11 +1050,12 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               </div>
             </div>
           </div>
-        </article>
+        </article>` : ''}
 
         <!-- ============================================================ -->
         <!-- PAGE 10: Keyword Glossary (MTG-style Card Vocabulary)         -->
         <!-- ============================================================ -->
+        ${p === 10 ? `
         <article class="guide-book-page ${p === 10 ? 'is-active' : ''}" data-page="10">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
@@ -1166,11 +1111,12 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="11">Turn to Ch. XI: Paths &rarr;</button>
             </div>
           </div>
-        </article>
+        </article>` : ''}
 
         <!-- ============================================================ -->
         <!-- PAGE 11: Realm Paths (Paths Deck Compendium)                 -->
         <!-- ============================================================ -->
+        ${p === 11 ? `
         <article class="guide-book-page ${p === 11 ? 'is-active' : ''}" data-page="11">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
@@ -1220,7 +1166,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               <button class="btn primary guide-jump-btn" data-action="close-guide">${inGame ? 'Back to Game' : 'Ready to Begin'}</button>
             </div>
           </div>
-        </article>
+        </article>` : ''}
 
         </div>
         </div>

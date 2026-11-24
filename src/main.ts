@@ -20,6 +20,7 @@ import {
   PileType,
   renderClassSelect,
   renderPlayArea,
+  renderPlayAreaOverlays,
   renderWelcome,
   UiState,
   updateClassCarouselDom,
@@ -59,6 +60,9 @@ const ui: UiState = {
   inspectedPile: null,
 };
 
+let lastRenderedPlayState: ReturnType<Store['get']> | null = null;
+let lastPlayShellKey = '';
+
 function render(): void {
   const languageSelect = languageControl.querySelector('select');
   if (languageSelect) languageSelect.value = getGameLocale();
@@ -70,11 +74,19 @@ function render(): void {
   root.querySelectorAll<HTMLElement>('.modal, .sheet').forEach((el, i) => scroll.set(String(i), el.scrollTop));
 
   const isMuted = audioManager.isTrackMuted();
+  const playShellKey = [ui.villageTab, ui.villageRestTicks, ui.targetIndex, ui.handIndex, isMuted, Boolean(ui.showGuide)].join('|');
   const audioBtnHtml = ui.showGuide
     ? ''
     : `<button class="audio-btn ${isMuted ? 'muted' : ''}" data-action="toggle-audio" title="${isMuted ? 'Unmute Music' : 'Mute Music'}" aria-label="Toggle Music">${isMuted ? '🔇' : '🔊'}</button>`;
 
-  if (s.screen === 'welcome') {
+  const existingOverlays = s.screen === 'play_area' && lastRenderedPlayState === s && lastPlayShellKey === playShellKey
+    ? root.querySelector<HTMLElement>('[data-ui-overlays]')
+    : null;
+  let localizationRoot: HTMLElement = root;
+  if (existingOverlays) {
+    existingOverlays.innerHTML = renderPlayAreaOverlays(s, ui);
+    localizationRoot = existingOverlays;
+  } else if (s.screen === 'welcome') {
     root.innerHTML =
       renderWelcome(
         Boolean(ui.showGuide),
@@ -95,7 +107,9 @@ function render(): void {
     root.innerHTML = renderPlayArea(s, ui) + audioBtnHtml;
   }
 
-  localizeGameTree(root);
+  lastRenderedPlayState = s.screen === 'play_area' ? s : null;
+  lastPlayShellKey = playShellKey;
+  localizeGameTree(localizationRoot);
 
   root.querySelectorAll<HTMLElement>('.modal, .sheet').forEach((el, i) => {
     el.scrollTop = scroll.get(String(i)) ?? 0;

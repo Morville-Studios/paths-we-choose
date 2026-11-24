@@ -9,7 +9,16 @@ export class Store {
 
   constructor(initial: RunState, private readonly clock: () => string = () => {
     const now = new Date();
-    return [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+    const date = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+    const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
+      .map((n) => String(n).padStart(2, '0'))
+      .join(':');
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
+    return `${date} ${time}.${ms}`;
   }) {
     this.state = syncAudioState(initial);
   }

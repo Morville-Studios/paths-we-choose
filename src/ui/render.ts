@@ -432,11 +432,23 @@ function gearHtml(state: RunState): string {
               ${
                 isConsumable
                   ? `<button class="btn mini primary" data-action="use-item" data-id="${i.instanceId}" title="${
-                      i.healAmount && state.playerResources && state.playerResources.hp >= state.playerResources.maxHp ? 'Already at full HP' : 'Use consumable'
+                      i.healAmount && state.playerResources && state.playerResources.hp >= state.playerResources.maxHp
+                        ? 'Already at full HP'
+                        : isCombat
+                        ? 'Use consumable (0 AP)'
+                        : 'Use consumable'
                     }" ${i.healAmount && state.playerResources && state.playerResources.hp >= state.playerResources.maxHp ? 'disabled' : ''}>Use</button>`
                   : `<button class="btn mini primary" data-action="equip" data-id="${i.instanceId}" ${
-                      isCombat ? 'disabled' : ''
-                    } title="Equip to ${i.category}">Equip</button>`
+                      isCombat && state.activeHook.type === 'COMBAT' && state.activeHook.combat.playerAp < 1
+                        ? 'disabled'
+                        : ''
+                    } title="${
+                      isCombat
+                        ? state.activeHook.type === 'COMBAT' && state.activeHook.combat.playerAp < 1
+                          ? 'Need 1 AP to equip in combat'
+                          : `Equip to ${i.category} (Costs 1 AP)`
+                        : `Equip to ${i.category}`
+                    }">${isCombat ? 'Equip (1 AP)' : 'Equip'}</button>`
               }
             </div>
           </div>`;
@@ -545,8 +557,12 @@ export function deckPilesPanelHtml(state: RunState, config: DeckPanelConfig): st
 export function combatRightSidebarHtml(state: RunState, combat: ActiveCombatState): string {
   const gameEntries = state.gameLog ?? [];
   const combatEntries = combat.combatLog ?? [];
-  const missingFromGame = combatEntries.filter((c) => !gameEntries.includes(c));
-  const logEntries = missingFromGame.length > 0 ? [...gameEntries, ...missingFromGame] : (gameEntries.length > 0 ? gameEntries : combatEntries);
+  const gameEntrySet = new Set(gameEntries);
+  const missingFromGame = combatEntries.filter((entry) => !gameEntrySet.has(entry));
+  const logCount = gameEntries.length + missingFromGame.length;
+  const logEntries = missingFromGame.length > 0
+    ? [...gameEntries.slice(-30), ...missingFromGame.slice(-30)].slice(-30)
+    : (gameEntries.length > 0 ? gameEntries.slice(-30) : combatEntries.slice(-30));
   return `
   <aside class="combat-log-sidebar" aria-label="Battle Log">
     ${deckPilesPanelHtml(state, {
@@ -559,7 +575,7 @@ export function combatRightSidebarHtml(state: RunState, combat: ActiveCombatStat
     })}
     <div class="combat-log-header">
       <span class="combat-log-header-title">📜 Battle Log</span>
-      <span class="combat-log-count">${logEntries.length}</span>
+      <span class="combat-log-count">${logCount || combatEntries.length}</span>
       <button class="btn mini secondary log-expand-btn" data-action="open-log" title="View Full Game Log">View All</button>
     </div>
     <ul class="combat-sidebar-log log">
@@ -1147,7 +1163,12 @@ export function turnTrackerHtml(state: RunState): string {
 
 export function bossApproachViewHtml(state: RunState, bossMonsters: MonsterCard[]): string {
   const mission = state.currentMission ?? 1;
-  const stageTitle = mission === 1 ? 'Stage 1 · The Goblin King' : 'Stage 2 · Cult of Trolls';
+  const stageTitle =
+    mission === 1
+      ? 'Stage 1 · The Goblin King'
+      : mission === 2
+        ? 'Stage 2 · Cult of Trolls'
+        : 'Stage 3 · Tomb of the Fallen King';
   const bossNames = bossMonsters.map((m) => m.name).join(' & ');
 
   const bossCardsHtml = bossMonsters
@@ -1194,6 +1215,28 @@ export function bossApproachViewHtml(state: RunState, bossMonsters: MonsterCard[
       <span class="boss-approach-hint muted">You can also click the boss card directly or press <b>Enter</b> / <b>Space</b></span>
     </div>
   </section>`;
+}
+
+export function renderPlayAreaOverlays(state: RunState, ui: UiState): string {
+  const stats = getEffectiveStatsFromState(state);
+  return `
+    ${ui.inspectedPile ? pileModal(ui.inspectedPile, state) : ''}
+    ${ui.showDeck ? pileModal('player_deck', state) : ''}
+    ${renderHook(state, ui)}
+    ${ui.pendingCardPlay && state.activeHook.type === 'COMBAT' ? combatConfirmModal(state, state.activeHook.combat, ui.pendingCardPlay, stats) : ''}
+    ${ui.pendingDiceRolls && ui.pendingDiceRolls.length > 0 ? combatDiceRollModal(ui.pendingDiceRolls[0]) : ''}
+    ${ui.pendingFlee && state.activeHook.type === 'COMBAT' ? fleeConfirmModal(state, state.activeHook.combat, stats) : ''}
+    ${ui.pendingEndTurn && state.activeHook.type === 'COMBAT' ? endTurnConfirmModal(state.activeHook.combat) : ''}
+    ${ui.pendingUseItemId ? useItemConfirmModal(state, ui.pendingUseItemId) : ''}
+    ${ui.pendingSellItemId ? sellItemConfirmModal(state, ui.pendingSellItemId) : ''}
+    ${ui.pendingTrainingAction ? trainingConfirmModal(state, ui.pendingTrainingAction) : ''}
+    ${ui.pendingShrineAction ? shrineConfirmModal(state, ui.pendingShrineAction) : ''}
+    ${ui.showGuide ? renderGuideModal(true, ui.guidePage ?? 1) : ''}
+    ${ui.showLog ? gameLogModal(state, ui) : ''}
+    ${ui.showSaves ? saveModalHtml(state, ui.pendingSaveAction ?? null) : ''}
+    ${ui.inspectedCard ? cardInspectModal(ui.inspectedCard, state) : ''}
+    ${ui.inspectedStat ? statInspectModal(ui.inspectedStat, state) : ''}
+  `;
 }
 
 export function renderPlayArea(state: RunState, ui: UiState): string {
@@ -1275,22 +1318,7 @@ export function renderPlayArea(state: RunState, ui: UiState): string {
       </aside>
     </div>
     <footer class="foot">seed: ${state.seed}</footer>
-    ${ui.inspectedPile ? pileModal(ui.inspectedPile, state) : ''}
-    ${ui.showDeck ? pileModal('player_deck', state) : ''}
-    ${renderHook(state, ui)}
-    ${ui.pendingCardPlay && state.activeHook.type === 'COMBAT' ? combatConfirmModal(state, state.activeHook.combat, ui.pendingCardPlay, stats) : ''}
-    ${ui.pendingDiceRolls && ui.pendingDiceRolls.length > 0 ? combatDiceRollModal(ui.pendingDiceRolls[0]) : ''}
-    ${ui.pendingFlee && state.activeHook.type === 'COMBAT' ? fleeConfirmModal(state, state.activeHook.combat, stats) : ''}
-    ${ui.pendingEndTurn && state.activeHook.type === 'COMBAT' ? endTurnConfirmModal(state.activeHook.combat) : ''}
-    ${ui.pendingUseItemId ? useItemConfirmModal(state, ui.pendingUseItemId) : ''}
-    ${ui.pendingSellItemId ? sellItemConfirmModal(state, ui.pendingSellItemId) : ''}
-    ${ui.pendingTrainingAction ? trainingConfirmModal(state, ui.pendingTrainingAction) : ''}
-    ${ui.pendingShrineAction ? shrineConfirmModal(state, ui.pendingShrineAction) : ''}
-    ${ui.showGuide ? renderGuideModal(true, ui.guidePage ?? 1) : ''}
-    ${ui.showLog ? gameLogModal(state, ui) : ''}
-    ${ui.showSaves ? saveModalHtml(state, ui.pendingSaveAction ?? null) : ''}
-    ${ui.inspectedCard ? cardInspectModal(ui.inspectedCard, state) : ''}
-    ${ui.inspectedStat ? statInspectModal(ui.inspectedStat, state) : ''}
+    <div class="play-overlays" data-ui-overlays>${renderPlayAreaOverlays(state, ui)}</div>
   </main>`;
 }
 

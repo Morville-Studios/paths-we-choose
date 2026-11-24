@@ -73,6 +73,7 @@ export interface ShopItemDef {
   weaponRange?: 'melee' | 'ranged';
   healAmount?: number;
   luckyCharmGoldBonus?: boolean;
+  goldEarnedBonusPercent?: number;
   cardNumber?: string;
   flavorText?: string;
 }
@@ -92,7 +93,7 @@ export interface PlayerResources {
 
 export type CombatCardType = 'attack' | 'defense' | 'skill' | 'enchantment';
 export type ScalingStat = 'str' | 'dex' | 'agi' | 'int' | 'cha' | 'vit';
-export type CombatScalingStat = ScalingStat | 'atk' | 'def';
+export type CombatScalingStat = ScalingStat | 'atk' | 'def' | 'dex_agi';
 export type CombatTargetMode = 'single_enemy' | 'all_enemies' | 'self';
 export type CardDiscardMode = 'none' | 'exact' | 'any';
 
@@ -102,17 +103,22 @@ export interface CombatCardDef {
   name: string;
   classId: ClassId;
   cardType: CombatCardType;
+  level?: number;
   apCost: number;
   baseDamage: number;
   damageScalingStat?: CombatScalingStat;
   damageScalingDivisor?: number; // 2 for +1 per 2 stat; 1 for +1 per 1 stat
   damageScalingMultiplier?: number;
+  damageScalingRound?: 'floor' | 'ceil';
   /** Add the hero's current derived ACC once after ordinary damage scaling. */
   damageAddsAccuracy?: boolean;
+  /** When true alongside damageAddsAccuracy, apply scaling multiplier/divisor to (stat + ACC) together. */
+  damageScalingIncludesAccuracy?: boolean;
   baseBlock: number;
   blockScalingStat?: CombatScalingStat;
   blockScalingDivisor?: number;
   blockScalingMultiplier?: number;
+  blockScalingRound?: 'floor' | 'ceil';
   evasionScalingStat?: ScalingStat;
   evasionMultiplier?: number;    // 1 for -1 per 1 AGI; 2 for -2 per 1 AGI
   accBonus?: number;             // Bonus to attacker ACC when playing this card
@@ -126,6 +132,7 @@ export interface CombatCardDef {
   gainAp?: number;
   staysInPlay?: boolean;
   drawOnApGain?: boolean;
+  drawOnEnterHand?: number;
   /** This card is an upgrade template stored in the Void, not a learnable card. */
   isSkillUpgrade?: boolean;
   /** Template ID of the owned card this Void card replaces at a Shrine. */
@@ -273,6 +280,8 @@ export interface CombatMonster {
   defBonus?: number;
   /** True if this creature was summoned into battle (awards no gold/SP and returns immediately to discard). */
   isSummon?: boolean;
+  /** HP percentage thresholds (e.g. 50, 25) that have already triggered passive summons. */
+  triggeredHpThresholds?: number[];
 }
 
 export interface CombatAttackRollSummary {
@@ -619,7 +628,7 @@ export interface RunState {
 }
 
 export type InspectedCardInfo =
-  | { kind: 'action'; card: CombatCardDef }
+  | { kind: 'action'; card: CombatCardDef; isReference?: boolean }
   | {
       kind: 'monster';
       monster: MonsterCard;

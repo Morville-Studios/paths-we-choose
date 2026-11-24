@@ -3,7 +3,8 @@ import {
   computeCombatGearBonuses,
   getFighterBerzerkBonus,
 } from '../core/stats';
-import { CharacterStats, CombatCardDef, RunState } from '../core/types';
+import { CharacterStats, CombatCardDef, CombatScalingStat, RunState } from '../core/types';
+import { CLASS_TRAIN_POOLS } from '../data/combatCards';
 import { getActionCardIllustration } from './cardArt';
 import { getDerivedStatIcon } from './icons';
 
@@ -13,8 +14,28 @@ export interface ActionCardRenderOptions {
   mini?: boolean;
   state?: RunState;
   viewOnly?: boolean;
+  referenceMode?: boolean;
   className?: string;
   artWindowClassName?: string;
+}
+
+function formatReferenceScalingTerm(
+  stat: CombatScalingStat,
+  divisor = 2,
+  multiplier = 1,
+  round: 'floor' | 'ceil' = 'floor',
+  includesAcc = false,
+): string {
+  const statLabel = stat === 'dex_agi' ? '(DEX + AGI)' : stat.toUpperCase();
+  const base = includesAcc
+    ? (stat === 'dex_agi' ? '(DEX + AGI + ACC)' : `(${statLabel} + ACC)`)
+    : statLabel;
+  const expr = divisor === 1
+    ? base
+    : round === 'ceil'
+      ? `&lceil;${base} / ${divisor}&rceil;`
+      : `&lfloor;${base} / ${divisor}&rfloor;`;
+  return multiplier === 1 ? expr : `${multiplier} &times; ${expr}`;
 }
 
 /** Compute one action card's live effect from the current run, if supplied. */
@@ -44,22 +65,53 @@ export function getActionCardText(
   card: CombatCardDef,
   stats: CharacterStats,
   state?: RunState,
+  referenceMode = false,
 ): string {
   if (card.id === 'action_flee') {
     return `3d6 Escape Check (Hero EVA &minus; Enemy ACC)<br/>No rewards`;
   }
   const effect = getActionCardEffect(card, stats, state);
   const parts: string[] = [];
-  if (effect.damage > 0) {
-    parts.push(`Deal <b>${effect.damage}</b> ${card.id === 'melee_atk' ? 'Normal DMG' : 'DMG'}${card.targetMode === 'all_enemies' ? ' to all enemies' : ''}`);
+  if (referenceMode) {
+    if (card.baseDamage > 0) {
+      const scaleExpr = card.damageScalingStat
+        ? formatReferenceScalingTerm(
+            card.damageScalingStat,
+            card.damageScalingDivisor ?? 2,
+            card.damageScalingMultiplier ?? 1,
+            card.damageScalingRound ?? 'floor',
+            Boolean(card.damageAddsAccuracy && card.damageScalingIncludesAccuracy),
+          )
+        : '';
+      const accExpr = card.damageAddsAccuracy && !card.damageScalingIncludesAccuracy ? ' + ACC' : '';
+      parts.push(`Deal <b>${card.baseDamage}</b>${scaleExpr ? ` + ${scaleExpr}` : ''}${accExpr} ${card.id === 'melee_atk' ? 'Normal DMG' : 'DMG'}${card.targetMode === 'all_enemies' ? ' to all enemies' : ''}`);
+    }
+    if (card.accBonus) parts.push(`${card.accBonus > 0 ? '+' : ''}<b>${card.accBonus}</b> ACC on rolls`);
+    if (card.baseBlock > 0) {
+      const blockScaleExpr = card.blockScalingStat
+        ? formatReferenceScalingTerm(
+            card.blockScalingStat,
+            card.blockScalingDivisor ?? 2,
+            card.blockScalingMultiplier ?? 1,
+            card.blockScalingRound ?? 'floor',
+          )
+        : '';
+      parts.push(`Gain <b>${card.baseBlock}</b>${blockScaleExpr ? ` + ${blockScaleExpr}` : ''} Block this turn`);
+    }
+    if (effect.evasionBonus > 0) parts.push(`+<b>${effect.evasionBonus}</b> EVA this round`);
+  } else {
+    if (effect.damage > 0) {
+      parts.push(`Deal <b>${effect.damage}</b> ${card.id === 'melee_atk' ? 'Normal DMG' : 'DMG'}${card.targetMode === 'all_enemies' ? ' to all enemies' : ''}`);
+    }
+    if (card.accBonus) parts.push(`${card.accBonus > 0 ? '+' : ''}<b>${card.accBonus}</b> ACC on rolls`);
+    if (effect.block > 0) parts.push(`Gain <b>${effect.block}</b> Block this turn`);
+    if (effect.evasionBonus > 0) parts.push(`+<b>${effect.evasionBonus}</b> EVA this round`);
   }
-  if (card.accBonus) parts.push(`${card.accBonus > 0 ? '+' : ''}<b>${card.accBonus}</b> ACC on rolls`);
-  if (effect.block > 0) parts.push(`Gain <b>${effect.block}</b> Block this turn`);
-  if (effect.evasionBonus > 0) parts.push(`+<b>${effect.evasionBonus}</b> EVA this round`);
   if (card.discardMode === 'exact') parts.push(`Discard <b>${card.discardCount ?? 0}</b>, draw <b>${card.drawCards ?? 0}</b>`);
   if (card.discardMode === 'any') parts.push(`Discard <b>X</b>${card.damagePerDiscard ? `: +${card.damagePerDiscard} DMG each` : ': +1 AP each'}`);
   if (card.gainAp && card.id !== 'adrenalin') parts.push(`Regain <b>${card.gainAp}</b> AP`);
   if (card.drawOnApGain) parts.push(`When another card grants AP, draw <b>1</b> card`);
+  if (card.drawOnEnterHand) parts.push(`When put into hand, draw <b>${card.drawOnEnterHand}</b> card`);
   if (card.staysInPlay) parts.push('<b>Stays in play</b>');
   return parts.join('<br/>');
 }
@@ -79,6 +131,7 @@ export function renderActionCardHtml(
     mini = false,
     state,
     viewOnly = false,
+    referenceMode = false,
     className = '',
     artWindowClassName = '',
   } = options;
@@ -111,7 +164,8 @@ export function renderActionCardHtml(
             <span class="tcg-type-main">ACTION</span>
             <span class="tcg-type-sub">${card.id === 'action_flee' ? 'Escape 🏃' : cardKind}</span>
           </div>
-          ${card.isSkillUpgrade ? '<span class="skill-upgrade-tag">VOID UPGRADE</span>' : ''}
+          ${!mini && card.isSkillUpgrade ? '<span class="skill-upgrade-tag">VOID UPGRADE</span>' : ''}
+          <span class="tcg-level-ribbon action-level-ribbon">Lvl ${card.level ?? 1}</span>
           <span class="tcg-ap-bubble">${card.apCost} AP</span>
         </div>
         <div class="tcg-header-title">
@@ -120,11 +174,11 @@ export function renderActionCardHtml(
       </header>
       <div class="tcg-art-spacer"></div>
       <div class="tcg-textbox action-text">
-        <div class="tcg-action-effect">${getActionCardText(card, stats, state)}</div>
+        <div class="tcg-action-effect">${getActionCardText(card, stats, state, referenceMode)}</div>
       </div>
       ${!mini ? `<footer class="tcg-footer">
         <span class="tcg-card-num">${card.cardNumber ?? (isAttack ? 'ATK' : 'DEF')}</span>
-        <span class="tcg-class-tag">${card.classId.toUpperCase()}</span>
+        <span class="tcg-class-tag">${card.classId === 'fighter' && CLASS_TRAIN_POOLS.rogue.includes(card.id) ? 'COMMON' : card.classId.toUpperCase()}</span>
       </footer>` : ''}
     </div>
   </${tag}>`;

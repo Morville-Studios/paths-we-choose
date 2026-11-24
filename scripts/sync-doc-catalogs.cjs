@@ -3,10 +3,12 @@ const path = require('node:path');
 const ts = require('typescript');
 const root = path.resolve(__dirname, '..');
 function catalog(file) {
-  const source = fs.readFileSync(path.join(root, 'src/data', file), 'utf8');
-  const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+  const filePath = path.join(root, 'src/data', file);
+  const source = fs.readFileSync(filePath, 'utf8');
+  const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
   const result = {};
-  new Function('exports', js)(result);
+  const localRequire = (id) => require(id.startsWith('.') ? path.resolve(path.dirname(filePath), id) : id);
+  new Function('exports', 'require', js)(result, localRequire);
   return result;
 }
 const { CLASS_CATALOG, STARTING_BASE_STATS } = catalog('classes.ts');

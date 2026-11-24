@@ -33,6 +33,34 @@ function add(value, set) {
   set.add(clean);
 }
 
+const PLAYER_JSON_KEYS = new Set([
+  'name',
+  'title',
+  'description',
+  'flavorText',
+  'challengeLabel',
+  'creatureType',
+  'abilities',
+  'label',
+  'cardNumber',
+]);
+
+function walkJsonPlayerText(node, set, key = '') {
+  if (typeof node === 'string') {
+    if (PLAYER_JSON_KEYS.has(key)) add(node, set);
+    return;
+  }
+  if (Array.isArray(node)) {
+    for (const item of node) walkJsonPlayerText(item, set, key);
+    return;
+  }
+  if (node && typeof node === 'object') {
+    for (const [k, v] of Object.entries(node)) {
+      walkJsonPlayerText(v, set, k);
+    }
+  }
+}
+
 function collect() {
   const set = new Set();
   for (const file of files) {
@@ -52,6 +80,13 @@ function collect() {
       ts.forEachChild(node, walk);
     }
     walk(ast);
+  }
+  if (fs.existsSync('data')) {
+    for (const entry of fs.readdirSync('data')) {
+      if (!entry.endsWith('.json')) continue;
+      const json = JSON.parse(fs.readFileSync(`data/${entry}`, 'utf8'));
+      walkJsonPlayerText(json, set);
+    }
   }
   return [...set].sort((a,b) => a.localeCompare(b));
 }

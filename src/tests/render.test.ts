@@ -23,6 +23,7 @@ import {
 import { MONSTER_TEMPLATES } from '../data/monsters';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
 import { createCombatCardInstance } from '../data/combatCards';
+import { getTreasureDeckSummary } from '../ui/components/guideHelpers';
 import { ADVENTURE_CARD_CATALOG } from '../data/stages';
 import { getActionRasterArtPath } from '../ui/cardArt';
 import { AdventureCard, CombatVictoryState, MonsterCard, RunState } from '../core/types';
@@ -50,16 +51,17 @@ describe('Render Play Area and Shop Layout', () => {
     const ui: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0, showGuide: true };
     const html = renderPlayArea(state, ui);
     expect(html).toContain('hud-guide-btn');
-    expect(html).toContain('Battles in one minute');
     expect(html).toContain('Undiscovered Lands');
-    expect(welcomeGuide).toContain('Player Combat Deck');
-    expect(welcomeGuide).toContain('Player Combat Discard Pile');
-    expect(welcomeGuide).toContain('one single card at a time');
-    expect(welcomeGuide).toContain('refreshes');
+    expect(renderGuideModal(true, 2)).toContain('Battles in one minute');
+    const battleGuide = renderWelcome(true, 2);
+    expect(battleGuide).toContain('Player Combat Deck');
+    expect(battleGuide).toContain('Player Combat Discard Pile');
+    expect(battleGuide).toContain('one single card at a time');
+    expect(battleGuide).toContain('refreshes');
   });
 
   it('features a comprehensive Player Class Guide and Understanding Stats section in the How to Play guide', () => {
-    const welcomeGuide = renderWelcome(true);
+    const welcomeGuide = renderWelcome(true, 3);
     // Stats section
     expect(welcomeGuide).toContain('Understanding Stats & Attributes');
     expect(welcomeGuide).toContain('Strength (STR)');
@@ -72,13 +74,14 @@ describe('Render Play Area and Shop Layout', () => {
     expect(welcomeGuide).toContain('Physical Defense (DEF)');
 
     // Player Class Guide
-    expect(welcomeGuide).toContain('Player Class Guide');
-    expect(welcomeGuide).toContain('Fighter');
-    expect(welcomeGuide).toContain('[Berzerk]');
-    expect(welcomeGuide).toContain('Wizard');
-    expect(welcomeGuide).toContain('[Conserve]');
-    expect(welcomeGuide).toContain('Rogue');
-    expect(welcomeGuide).toContain('[Steal]');
+    const classGuide = renderWelcome(true, 4);
+    expect(classGuide).toContain('Player Class Guide');
+    expect(classGuide).toContain('Fighter');
+    expect(classGuide).toContain('[Berzerk]');
+    expect(classGuide).toContain('Wizard');
+    expect(classGuide).toContain('[Conserve]');
+    expect(classGuide).toContain('Rogue');
+    expect(classGuide).toContain('[Steal]');
   });
 
   it('renders an AD&D-inspired rulebook with sticky wiki sidebar across 9 chapters including Bestiary, Armory, Terrain, and Skills', () => {
@@ -93,6 +96,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(page1Html).toContain('guide-page-medallion');
     expect(page1Html).toContain('PAGE 1 OF 11');
     expect(page1Html).toContain('guide-book-page is-active" data-page="1"');
+    expect(page1Html.match(/<article class="guide-book-page/g)).toHaveLength(1);
     expect(page1Html).toContain('data-action="guide-jump-page" data-page="1"');
     expect(page1Html).toContain('data-action="guide-jump-page" data-page="5"');
     expect(page1Html).toContain('data-action="guide-jump-page" data-page="6"');
@@ -101,21 +105,22 @@ describe('Render Play Area and Shop Layout', () => {
     expect(page1Html).toContain('data-action="guide-jump-page" data-page="9"');
     expect(page1Html).toContain('data-action="guide-jump-page" data-page="10"');
     expect(page1Html).toContain('data-action="guide-jump-page" data-page="11"');
-    expect(page1Html).toContain('/cards/paths/enemy_camp.jpg');
+    expect(page1Html).not.toContain('<article class="guide-book-page " data-page="11"');
     expect(page1Html).toContain('SCENARIO 1: THE GOBLIN KING');
     expect(page1Html).toContain('SCENARIO 2: CULT OF TROLLS');
     expect(page1Html).toContain('Adventure Deck (30 Cards)');
     expect(page1Html).toContain('Monster Deck (45 Cards in Deck');
     expect(page1Html).toContain('Monster Deck (37 Cards in Deck');
-    expect(page1Html).toContain('Treasure Deck (48 Cards)');
+    expect(page1Html).toContain(`Treasure Deck (${getTreasureDeckSummary().totalCards} Cards)`);
+    expect(page1Html).not.toContain('guide-book-page is-active" data-page="2"');
     expect(page1Html).toContain('Turn to Ch. II: Battle &rarr;');
 
     const page2Html = renderWelcome(true, 2);
     expect(page2Html).toContain('PAGE 2 OF 11');
     expect(page2Html).toContain('MACG-3D6');
-    expect(page2Html).toContain('qte-bar-container');
-    expect(page2Html).toContain('/icons/qte-token.png');
-    expect(page2Html).toContain('adnd-prob-table');
+    expect(page1Html).toContain('qte-bar-container');
+    expect(page1Html).toContain('/icons/qte-token.png');
+    expect(page1Html).toContain('adnd-prob-table');
     expect(page2Html).not.toContain('Combat Note');
     expect(page1Html).toContain('MACG-3D6™ SUCCESS ROLL RANGE TABLE REFERENCE');
     expect(page1Html).toContain('<b>Tier 1</b> <small>(&le; -3 Net · Sure Hit Rolls)</small>');
@@ -200,9 +205,9 @@ describe('Render Play Area and Shop Layout', () => {
     const page10Html = renderWelcome(true, 10);
     expect(page10Html).toContain('PAGE 10 OF 11');
     expect(page10Html).toContain('CHAPTER X: KEYWORD GLOSSARY');
-    expect(page10Html).toContain('Regenerate (X)');
-    expect(page10Html).toContain('ATK (X)');
-    expect(page10Html).toContain('MATK (X)');
+    expect(page2Html).toContain('Regenerate (X)');
+    expect(page2Html).toContain('ATK (X)');
+    expect(page2Html).toContain('MATK (X)');
 
     // Page 11: Realm Paths
     const page11Html = renderWelcome(true, 11);
@@ -1172,7 +1177,7 @@ describe('Render Play Area and Shop Layout', () => {
       pendingCardPlay: { cardInstanceId: battlecry.instanceId, targetIndex: 0 },
     });
 
-    expect(html).toContain('Choose exactly 2 cards to discard');
+    expect(html).toContain('Choose exactly 1 cards to discard');
     expect(html).toContain('class="discard-choice-card');
     expect(html).toContain('class="discard-choice-art"');
     expect(html).toContain('/cards/actions/blade.jpg');

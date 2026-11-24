@@ -29,16 +29,16 @@ describe('New Skills Deck', () => {
     const beforeDiscardLen = state.newSkillsDiscard.length;
     state = prepareVillage(state, { col: 0, row: 1 }, 1);
     expect(state.activeHook.type === 'VILLAGE' && state.activeHook.village.trainOptions).toHaveLength(3);
-    expect(state.newSkillsDeck).toHaveLength(beforeDeckLen - 3);
+    expect(state.newSkillsDeck.length + state.newSkillsDiscard.length).toBe(beforeDeckLen + beforeDiscardLen - 3);
 
     state = villageChooseTrain(state);
     if (state.activeHook.type !== 'VILLAGE') throw new Error('expected village');
     const offer = state.activeHook.village.trainOptions[0];
     const learned = villageDoTrainDraft(state, offer.instanceId);
     expect(learned.playerMasterDeck.some((card) => card.id === offer.id && card.instanceId.includes('_trained_t'))).toBe(true);
-    expect(learned.newSkillsDeck).toHaveLength(beforeDeckLen - 3);
+    expect(learned.newSkillsDeck.length + learned.newSkillsDiscard.length).toBe(beforeDeckLen + beforeDiscardLen - 3);
     const left = finishVillage(learned);
-    expect(left.newSkillsDiscard).toHaveLength(beforeDiscardLen + 2);
+    expect(left.newSkillsDiscard.length).toBeGreaterThanOrEqual(beforeDiscardLen + 2);
     const allPhysicalSkills = [...left.newSkillsDeck, ...left.newSkillsDiscard, ...left.playerMasterDeck.filter((card) => card.instanceId.includes('_trained_'))];
     expect(allPhysicalSkills).toHaveLength(16);
   });
@@ -101,5 +101,45 @@ describe('New Skills Deck', () => {
       ...reconciled.newSkillsDiscard,
       ...(reconciled.voidCards ?? []),
     ].filter((card) => card.id === 'battlecry')).toHaveLength(2);
+  });
+
+  it('filters training offers by village level and scales offer count to 2 + villageLevel', () => {
+    const base = finishVillage(startAdventure('fighter', 'new-skills-level-filter'));
+
+    // Direct deck draw with maxLevel = 1 skips higher-level cards without losing them
+    const drawLvl1 = drawNewSkillsWithReshuffle(base.newSkillsDeck, base.newSkillsDiscard, 5, base.rngState, 0, 1);
+    expect(drawLvl1.drawn).toHaveLength(5);
+    expect(drawLvl1.drawn.every((card) => (card.level ?? 1) <= 1)).toBe(true);
+    expect(drawLvl1.drawn.length + drawLvl1.deck.length + drawLvl1.discard.length).toBe(
+      base.newSkillsDeck.length + base.newSkillsDiscard.length
+    );
+
+    // Village Level 1 => 3 offers (2 + 1), all Lvl 1
+    const v1 = prepareVillage(base, { col: 0, row: 1 }, 1);
+    const v1Offers = v1.activeHook.type === 'VILLAGE' ? v1.activeHook.village.trainOptions : [];
+    expect(v1Offers).toHaveLength(3);
+    expect(v1Offers.every((card) => (card.level ?? 1) <= 1)).toBe(true);
+
+    // Village Level 2 => 4 offers (2 + 2), all Lvl <= 2
+    const key = Object.keys(base.board)[0];
+    const coord = base.board[key].coord;
+    const boardWithLvl2Village = {
+      ...base.board,
+      [key]: { ...base.board[key], card: { ...base.board[key].card!, level: 2 } },
+    };
+    const v2 = prepareVillage({ ...base, board: boardWithLvl2Village }, coord, 1);
+    const v2Offers = v2.activeHook.type === 'VILLAGE' ? v2.activeHook.village.trainOptions : [];
+    expect(v2Offers).toHaveLength(4);
+    expect(v2Offers.every((card) => (card.level ?? 1) <= 2)).toBe(true);
+
+    // Village Level 3 => 5 offers (2 + 3), all Lvl <= 3
+    const boardWithLvl3Village = {
+      ...base.board,
+      [key]: { ...base.board[key], card: { ...base.board[key].card!, level: 3 } },
+    };
+    const v3 = prepareVillage({ ...base, board: boardWithLvl3Village }, coord, 1);
+    const v3Offers = v3.activeHook.type === 'VILLAGE' ? v3.activeHook.village.trainOptions : [];
+    expect(v3Offers).toHaveLength(5);
+    expect(v3Offers.every((card) => (card.level ?? 1) <= 3)).toBe(true);
   });
 });
