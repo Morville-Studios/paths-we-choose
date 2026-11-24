@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://morvillestudios.com/games/the-paths-we-choose/sitemap.xml
+Sitemap: https://morvillestudios.com/games/paths-to-odamyrus/sitemap.xml

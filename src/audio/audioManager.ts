@@ -36,9 +36,10 @@ export class AudioManager {
 
     for (const [id, url] of Object.entries(trackUrls)) {
       try {
-        const audio = new Audio(url);
+        const audio = new Audio();
         audio.loop = true;
-        audio.preload = 'auto';
+        audio.preload = 'none';
+        audio.src = url;
         audio.volume = this.volume;
         this.tracks.set(id, audio);
       } catch (e) {

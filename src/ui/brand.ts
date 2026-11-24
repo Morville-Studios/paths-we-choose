@@ -1,8 +1,8 @@
 import { publicAsset } from './publicAsset';
 
 export const MORVILLE_STUDIOS_URL = 'https://morvillestudios.com/';
-export const GAME_CANONICAL_URL = 'https://morvillestudios.com/games/the-paths-we-choose/';
-export const GAME_LOGO_ART = 'brand/paths-we-choose-logo.png';
+export const GAME_CANONICAL_URL = 'https://morvillestudios.com/games/paths-to-odamyrus/';
+export const GAME_LOGO_ART = '/brand/paths-to-odamyrus-logo.webp';
 
 export interface StudioBrandOptions {
   className?: string;
@@ -24,11 +24,11 @@ export interface GameLogoOptions {
   height?: number;
 }
 
-/** The Paths We Choose tabletop AD&D boardgame-style vector logo. */
+/** Painted Paths to Odamyrus game logo. */
 export function gameLogoHtml(options: GameLogoOptions = {}): string {
   const className = options.className ? ` ${options.className}` : '';
-  const alt = options.alt ?? 'The Paths We Choose';
+  const alt = options.alt ?? 'Paths to Odamyrus';
   const width = options.width ?? 900;
-  const height = options.height ?? 380;
+  const height = options.height ?? 450;
   return `<img class="game-logo-art${className}" src="${publicAsset(GAME_LOGO_ART)}" alt="${alt}" width="${width}" height="${height}" />`;
 }

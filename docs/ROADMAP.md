@@ -12,7 +12,7 @@ This is a current implementation/status map, not a historical milestone archive.
 - Grasslands, Forest, Swamp, Cave and Underground map cards, undiscovered exploration rolls, treasure finds, three-row lookahead and deck recycling.
 - An 85-card ordinary creature supply is partitioned from the public Void by scenario level, creature rarity, and main-terrain bands. Scenario 1 builds 45 cards; Scenario 2 builds 37; Scenario 3 builds 30. Grundy, the three-Troll bosses, and Fallen King are separate. Creature MDEF, physical/magical damage, poison, DEF piercing, life drain, resurrection, Sprint, Skittish, seeded random buffs, independent multi-hit intents, hit-gated debuffs and direct retaliation are implemented.
 - MACG-3D6™ attack checks with success ranges, Diabolic misses on totals 3 and 18, no critical-hit multiplier, five-card hands, INT-based AP and monster targeting carousel.
-- Village Rest/Shop/Train, 21-item shop catalog, 42-card Treasure Deck, Charisma discounts, weapon/armor/accessory slots, consumables and physical PEN. Canonical item names are generated from SHOP_ITEM_CATALOG.
+- Village Rest/Shop/Train, catalog-backed shop and Treasure Deck, Charisma discounts, weapon/armor/accessory slots, consumables and physical PEN. Current item types and physical supply are generated in [CATALOGS.md](CATALOGS.md#shop-and-treasure).
 - Victory acknowledgement, reward breakdown, ordinary Flee and Stage 1→2→3 continuation.
 - Raster card art/icons, inspection, keyboard/touch navigation, safe-area styling, combat logs and hero panels.
 - Intro/map/battle looped soundtracks with mute/volume and autoplay unlock.
@@ -22,7 +22,6 @@ This is a current implementation/status map, not a historical milestone archive.
 
 ## Pending or incomplete
 
-- Resolve remaining findings in [DISCREPANCIES.md](DISCREPANCIES.md), including any open gameplay choices.
 - Capacitor installation, Android/iOS projects and native packaging pipelines.
 - Verify headers and cross-release update/rollback behavior on the actual Cloudflare deployment.
 - Content-versioned media with long CDN caching, based on the Bocarena/Morville comparison. Current media uses conservative revalidation; this optimization is not yet implemented.

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
-const advDir = path.resolve(__dirname, '../public/cards/adventure');
+const advDir = path.resolve(__dirname, '../assets/raw/cards/adventure');
 if (!fs.existsSync(advDir)) fs.mkdirSync(advDir, { recursive: true });
 
 // Seeded pseudorandom generator for deterministic, natural procedural generation

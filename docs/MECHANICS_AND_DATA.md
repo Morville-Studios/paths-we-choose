@@ -1,8 +1,8 @@
 # Mechanics, Grid Math, Decks, Village, Shrines, Equipment & Combat Formulas
 
-This document defines the exact rules, Base Stat + Class Bonus + Gear formulas, Base Stat upgrade costs at Shrines, 3-row pyramid vision cone, Adventure/Monster/Player decks, Village Menu (`Rest`, `Shop`, `Train`), Equipment Slots, Shrines, Hostile Level encounter budgets, Turn 15 Boss, and TypeScript interfaces for **The Paths We Choose**.
+This document defines the exact rules, Base Stat + Class Bonus + Gear formulas, Base Stat upgrade costs at Shrines, 3-row pyramid vision cone, Adventure/Monster/Player decks, Village Menu (`Rest`, `Shop`, `Train`), Equipment Slots, Shrines, Hostile Level encounter budgets, Turn 15 Boss, and TypeScript interfaces for **Paths to Odamyrus**.
 
-Ordinary creatures have a finite **76-card physical supply**. Scenario setup pulls the current scenario's three main-terrain bands from the public Void into its Monster Deck; every unused creature copy stays in the Void. Exact per-type supply and scenario quantities are generated in [CATALOGS.md](CATALOGS.md#ordinary-monsters). Bosses are separate.
+Ordinary creatures have a finite **85-card physical supply**. Scenario setup pulls the current scenario's three main-terrain bands from the public Void into its Monster Deck; every unused creature copy stays in the Void. Exact per-type supply and scenario quantities are generated in [CATALOGS.md](CATALOGS.md#ordinary-monsters). Bosses are separate.
 
 ---
 
@@ -84,10 +84,10 @@ Visiting a Sacred Shrine automatically bestows a random eligible divine boon upo
 ## 2. Classic RPG Equipment Slots & Village Shop Catalog
 
 ### 2.1 Village Rest Cost Formula & Resting Eligibility
-The Village inn uses a slider. Each selected tick restores `2 HP` and costs `1 Gold`; the final tick is always labelled **Full** and restores any remaining odd point.
+The Village inn uses a slider. Each selected tick restores `1 HP` and costs `1 + Village Level` Gold (Level 1: 2 Gold per HP; Level 3: 4 Gold per HP). The final tick is labelled **Full** and restores the last missing HP.
 
-$$\text{Max Rest Ticks} = \left\lceil \frac{\max(0, \text{maxHp} - \text{hp})}{2} \right\rceil$$
-$$\text{Rest Cost} = \text{selected ticks Gold}$$
+$$\text{Max Rest Ticks} = \max(0, \text{maxHp} - \text{hp})$$
+$$\text{Rest Cost} = \text{selected ticks} \times (1 + \max(1, \text{Village Level})) \text{ Gold}$$
 
 Rest does not cleanse status ailments. It is disabled when `hp >= maxHp`, or when the player lacks Gold for the selected ticks. A successful rest stays in the Village so the player can use other services.
 
@@ -115,10 +115,10 @@ To keep the character sidebar uncluttered, stat rows display only essential attr
 
 ### 2.2 Village Shop Inventory Visibility, Treasure Deck & Live Comparison Preview
 When entering a Village:
-- **Treasure Deck & Stock Draw**: Stores no longer offer the entire item catalog. At game start, the **Treasure Deck** is built from `data/treasures.json` (2 copies of each gear item plus `6 - level` copies of Health Potions: Lvl 1×5, Lvl 2×4, Lvl 3×3, Lvl 4×2) and shuffled. Village entry draws up to **`3 + Village Level` unique item cards** (Grassland 4, Forest 5, Swamp 6, Cave 7) from the top of the Treasure Deck into `shopStock`. A store accepts **only items matching its exact level** (`item.level === village.level`) and **no duplicate items** in `shopStock`: wrong-level or duplicate draws go immediately to `treasureDiscard` while stocking continues. If `treasureDeck` empties mid-draw, `treasureDiscard` is reshuffled if eligible unique items remain; otherwise stocking stops safely with whatever unique exact-level items are available.
+- **Treasure Deck & Stock Draw**: Stores do not offer the entire item catalog. The physical supply is built from `data/treasures.json` (2 copies of each gear item plus `6 - level` copies of Health Potions: Lvl 1×5, Lvl 2×4, Lvl 3×3, Lvl 4×2). Scenario 1 activates Level 1–2 cards in `treasureDeck` and keeps higher levels in `treasureVoid`; later scenarios repartition surviving, unowned, unbanished cards by level. Village entry draws up to **`3 + Village Level` unique item cards** (Grassland 4, Forest 5, Swamp 6, Cave 7) from the top of the active Treasure Deck into `shopStock`. A store accepts **only items matching its exact level** (`item.level === village.level`) and **no duplicate items** in `shopStock`: wrong-level or duplicate draws go immediately to `treasureDiscard` while stocking continues. If `treasureDeck` empties mid-draw, `treasureDiscard` is reshuffled if eligible unique items remain; otherwise stocking stops safely with whatever unique exact-level items are available.
 - **Card Art on Options**: Every option in the shop options list displays its standard 5:7 raster card artwork (`/cards/items/*.jpg`), level badge, slot icon, and description.
 - **Unbought Card Discard**: Upon leaving or completing the village visit, remaining unbought cards in `shopStock` are automatically swept into `treasureDiscard`.
-- **Selling Items**: Selling gear moves the sold item card to `treasureDiscard`.
+- **Selling Items**: Selling unequipped gear banishes that physical item card to `voidItems`; it does not enter `treasureDiscard` or return to future Treasure Decks.
 - **Endless Reshuffle**: When the Treasure Deck is exhausted, `treasureDiscard` is shuffled to form the new Treasure Deck.
 - The player directly sees their **3 Equipment Slots**, current backpack items, and effective stats.
 - For each item available for purchase or sale, the UI runs `previewGearChange(state, slot, item)`:
@@ -127,11 +127,13 @@ When entering a Village:
   - Renders live stat comparison chips: e.g. `STR 4 -> 5 (+1)`, `Max HP 18 -> 20 (+2)`.
 - **Submenu Reversibility**: The player can return from Shop or Train to Village options at any time. The prepared stock and training offers are retained rather than rerolled. Unbought stock is discarded only when leaving the Village.
 
-### 2.3 Village Shop Catalog (21 Physical TCG Items, Levels 1 through 4)
+### 2.3 Village Shop Catalog
+
+Purchases transfer a physical card currently in Village stock, matched by its instance ID or exact catalog ID. Unknown item IDs do not purchase a substitute card.
 
 Adventurers start every adventure with **`20 Gold`**. All items feature dedicated standard 5:7 physical card raster paintings in `/cards/items/*.jpg` and can be inspected via right-click or long-press.
 
-See the generated [Shop and Treasure catalog](CATALOGS.md#shop-and-treasure) for all 21 items, levels, canonical names, prices and bonuses.
+See the generated [Shop and Treasure catalog](CATALOGS.md#shop-and-treasure) for current items, levels, canonical names, prices, supply and bonuses.
 
 ### 2.4 Derived Combat Stat Formulas
 - **Physical ATK**: $\text{Hero ATK} = \lfloor \text{Effective STR} / 2 \rfloor + \lfloor \text{Effective DEX} / 3 \rfloor + \text{gear.atk}$
@@ -156,7 +158,7 @@ Base card fields, class train pools and starter lists are in [CATALOGS.md](CATAL
 - **Combat hand cycle**: A battle opens and each later player turn begins with five cards. At End Turn, every remaining hand card moves to the action discard pile. The engine then draws five cards one at a time; if an individual draw finds the draw pile empty, it deterministically shuffles the action discard pile into a new draw pile and continues. Played cards and cards paid as discard costs likewise go to action discard, while battle-long enchantments remain in `inPlay`. The permanent Flee action is not a physical combat-deck card.
 
 - Village training offers are prepared once per Village entry by drawing `2 + villageLevel` cards (Lvl 1 = 3, Lvl 2 = 4, Lvl 3 = 5) from the class's **New Skills Deck**, filtered to skills with `level <= villageLevel` (Lvl 1 Villages offer LVL 1 skills only; Lvl 2 Villages offer LVL 2 and below; Lvl 3 Villages offer LVL 3 and below, etc.). Higher-level cards skipped during a lower-level Village draw are returned to `newSkillsDiscard` without loss. The Training screen keeps the player's current Gold and SP visible in a sticky resource sidebar. Each starter combat card remains exclusive to the initial 8 attacks / 2 defenses; each non-starter class skill has exactly two physical New Skills copies. Selecting an offer opens a purchase confirmation before resources are spent. Learning transfers its exact card to `playerMasterDeck`; unlearned offers go to `newSkillsDiscard` when leaving and are deterministically reshuffled only after `newSkillsDeck` empties. Learning a 1/2/3 AP card costs respectively `5/10/20 Gold` and `1/2/4 SP`.
-- **Destroying cards**: Training says **Destroy**, never Remove. Selecting a player card opens a destructive confirmation showing the card, current resources, and price. Confirmation transfers that physical card from `playerMasterDeck` into `voidCards`. Destruction costs `5 + trainRemovalCount` Gold (minimum deck size 5), and increments `trainRemovalCount` for the run.
+- **Destroying cards**: Training says **Destroy**, never Remove. Selecting a player card opens a destructive confirmation showing the card, current resources, and price. Confirmation transfers that physical card from `playerMasterDeck` into `voidCards`. With `trainRemovalCount` prior destructions, the Gold cost is `ceil(10 × 1.5^trainRemovalCount)`: 10, 15, 23, 34, 51, then 76 Gold. Round the base exponential once for each price, not the previously displayed price. The minimum deck size is 5, and a successful destruction increments `trainRemovalCount` for the run.
 - **Content-update reconciliation**: when a release adds learnable skills, an active run is reconciled before Village training and when the New Skills deck is inspected. Existing cards in the deck, discard, active offers, master deck, and physical destroyed cards in `voidCards` count first; only missing copies are added and shuffled into the New Skills Deck. Players therefore keep their run and the invariant remains exactly two copies of every non-starter class skill.
 
 - The Fighter has 8 non-starter skill types (16 physical New Skills cards): **High Strike**, **Parry**, **Fortify**, **Whirlwind**, **Battlecry**, **Battle Flag**, **Adrenalin**, and **Execute**. `Heavy Cleave`, `Iron Parry`, `Battle Focus`, and `Final Smash` are the retained collector IDs for High Strike, Parry, Fortify, and Execute respectively. The five `+` cards are **Void upgrades**, never trainable New Skills cards.
@@ -168,7 +170,7 @@ Base card fields, class train pools and starter lists are in [CATALOGS.md](CATAL
 - **Resolving Stack (MCGSM™)**: See **Section 3.1.1** below.
 
 ### 3.1.1 Moreville Card Game Stack Mechanic (MCGSM™)
-Combat and card-effect resolution across *The Paths We Choose* and future Morville card games follows the **Moreville Card Game Stack Mechanic (MCGSM™)**, a strict **Last-In, First-Out (LIFO)** resolution stack:
+Combat and card-effect resolution across *Paths to Odamyrus* and future Morville card games follows the **Moreville Card Game Stack Mechanic (MCGSM™)**, a strict **Last-In, First-Out (LIFO)** resolution stack:
 
 1. **Entering the Stack**: When a card is played from hand, it leaves the hand and enters the Stack (`<Card> enters the Stack and begins resolving.`). Chosen discard costs enter the action discard pile first, then printed draws resolve one card at a time (with deterministic discard-pile reshuffling if the draw pile empties), then AP gains and attack/effect steps execute.
 2. **1-by-1 Card Draws on the Stack**: Whenever a card or turn step draws multiple cards (e.g., `Draw 3 cards`), it is queued as **3× individual `Draw a card` entries** on the Stack and resolved **1 by 1**. After each single card is drawn, the engine immediately checks whether an **On-Draw / Enter-Hand** trigger activates (such as **Adrenalin**'s *"When Adrenalin is put into your hand, draw an extra card"* or a future top-deck manipulation effect). Any triggered effect enters **on top of the Stack** and resolves completely before the next `Draw a card` entry executes.
@@ -336,7 +338,7 @@ Stepping onto an undiscovered card (`advgrs-00`, `advfrs-00`, `advsmp-00`, or `a
   - **17 Swamp (~2/3 Supply)**: 6 Assassin, 4 Leech, 4 Witch, 3 Creeper.
   - **10 Cave (~1/3 Supply)**: 4 Cultist Mage, 3 Lurker, 3 Phalanx.
   - **3 Underground (~1/3 Supply)**: 2 Dark Orc, 1 Orc Shaman.
-- **Treasure Deck (42 Cards)**: Exactly 2 copies each of all treasure items Level 3 to 4.
+- **Treasure Deck**: Scenario 3 activates surviving Level 3–4 physical item cards. Its exact count depends on earlier ownership and banishment; item types and original supply are generated in [CATALOGS.md](CATALOGS.md#shop-and-treasure).
 - **Turn 15 Boss: Fallen King**:
   - Level 7 Undead Boss: 40 HP, 5 DEF, 5 MDEF, 6 ACC, 5 EVA, 16 SP, 70 Gold.
   - Passive **[Unholy Aura]**: Heals all living Undead (including himself) by 3 HP at the start of his turn.

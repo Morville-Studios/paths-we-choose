@@ -71,6 +71,7 @@ function renderGuideBestiaryCardItem(templateId: MonsterTemplateId): string {
     monster: monsterCard,
     className: 'guide-creature-card-preview',
     attributes: 'tabindex="-1"',
+    loading: 'lazy',
   });
 
   const supplyCount = m.isBoss ? 1 : getMonsterSupplyCount(m);
@@ -250,7 +251,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
           <span class="guide-tome-sigil" aria-hidden="true">&#9884;</span>
           <div>
             <span class="guide-tome-eyebrow">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; 2ND EDITION</span>
-            <h2 id="guide-book-title" class="guide-tome-title">The Paths We Choose &mdash; Player's Handbook</h2>
+            <h2 id="guide-book-title" class="guide-tome-title">Paths to Odamyrus &mdash; Player's Handbook</h2>
           </div>
         </div>
         <button class="modal-close-btn guide-tome-close" data-action="close-guide" aria-label="Close rulebook" title="Close Tome (Esc)">&times;</button>
@@ -315,7 +316,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             <div class="guide-folio-col">
               <h4 class="guide-section-heading">&#9884; The Adventurer's Call</h4>
               <p class="guide-body-text">
-                <span class="guide-drop-cap">H</span>arken, brave wanderer. Before thee stretches the perilous wilderness of <i>The Paths We Choose</i>. In this tabletop card expedition, thou must forge a route across treacherous terrain, nurture thy hero's attributes, master the martial art of three six-sided dice, and slay the slumbering monstrosity awaiting at the journey's terminus.
+                <span class="guide-drop-cap">H</span>arken, brave wanderer. Before thee stretch the perilous roads to <i>Odamyrus</i>, the realm beyond the known frontier. In this tabletop card expedition, thou must forge a route across treacherous terrain, nurture thy hero's attributes, master the martial art of three six-sided dice, and slay the slumbering monstrosity awaiting at the journey's terminus.
               </p>
 
               <div class="adnd-parchment-box">
@@ -361,7 +362,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
               <div class="adnd-parchment-box callout-quest">
                 <h5 class="adnd-box-title">&#127922; MACG-3D6™ CORE MECHANICS &amp; PATHS DECK</h5>
                 <p class="adnd-box-text">
-                  <b>The Paths We Choose</b> is a <b>MACG-3D6™ tabletop game</b>. Whenever you make a combat attack, Path Sneak Check, or Treasure Discovery Check, roll <b>3d6</b> against the <b>MACG-3D6™ Success Check Bar</b>. <b>Tier 4 (+0 Net)</b> is the baseline (7&ndash;14, 81.5%): each +1 Net expands the success band outward, <b>10 &amp; 11</b> are always <b>Sure Hit Rolls</b> (25.0% floor), and <b>3 &amp; 18</b> are <b>Diabolic Rolls</b> that always fail.
+                  <b>Paths to Odamyrus</b> is a <b>MACG-3D6™ tabletop game</b>. Whenever you make a combat attack, Path Sneak Check, or Treasure Discovery Check, roll <b>3d6</b> against the <b>MACG-3D6™ Success Check Bar</b>. <b>Tier 4 (+0 Net)</b> is the baseline (7&ndash;14, 81.5%): each +1 Net expands the success band outward, <b>10 &amp; 11</b> are always <b>Sure Hit Rolls</b> (25.0% floor), and <b>3 &amp; 18</b> are <b>Diabolic Rolls</b> that always fail.
                 </p>
                 <p class="adnd-box-text">
                   <b>Paths Deck (${getPathsDeckSummary().totalCards} Cards · MIDS™):</b> Stepping onto an <b>Undiscovered Terrain</b> draws a Path Card (${getPathsDeckSummary().breakdownText}). Under the <b>Morville Infinite Deck System™ (MIDS™)</b>, empty decks automatically reshuffle from their discard pile. See the Path Card Compendium for each card&apos;s exact rules.
@@ -462,7 +463,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             <div class="guide-folio-col">
               <h4 class="guide-section-heading">&#9884; Turn Flow &amp; Action Points (AP)</h4>
               <p class="guide-body-text">
-                <span class="guide-drop-cap">C</span>ombat in <i>The Paths We Choose</i> fuses tactical deckbuilding with classic tabletop dice checks. At the inception of battle&mdash;and at the beginning of each hero turn&mdash;you draw <b>5 cards</b> from your <b>Player Combat Deck</b>.
+                <span class="guide-drop-cap">C</span>ombat in <i>Paths to Odamyrus</i> fuses tactical deckbuilding with classic tabletop dice checks. At the inception of battle&mdash;and at the beginning of each hero turn&mdash;you draw <b>5 cards</b> from your <b>Player Combat Deck</b>.
               </p>
               <ul class="adnd-bullet-list">
                 <li><b>Action Cards:</b> Represent attacks, defensive shields, elemental incantations, and combat maneuvers.</li>
@@ -714,6 +715,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 <li><b>Resting:</b> Resting at the inn restores 1 HP per <code>1 + Terrain Level</code> Gold (e.g. Level 1 costs 2g/HP; Level 3 costs 4g/HP). Accessible anytime while visiting a village.</li>
                 <li><b>Market Trading:</b> Stores stock up to ${getMarketStockFormulaText()} unique item cards matching the village&rsquo;s exact level (Grassland 4, Forest 5, Swamp 6, Cave 7) drawn from the ${getTreasureDeckSummary().totalCards}-card Treasure Deck. Wrong-level or duplicate draws go to the Treasure Discard Pile; if eligible supply runs out after reshuffling, the shop opens with what is available. Equipped gear is marked <b>Equipped</b> and must be unequipped before selling; selling an item requires confirmation and <b>Banishes</b> it to <b>The Void</b> so you won&rsquo;t re-draw sold gear.</li>
                 <li><b>Training &amp; Banishing:</b> ${getTrainOfferRangeText()}, or pay Gold to <b>Banish</b> an unwanted card out of the game into <b>The Void</b>.</li>
+                <li>Card destruction costs 10, 15, 23, 34, 51 Gold and keeps growing by 50% from the original price, rounded up.</li>
                 <li><b>Undiscovered Exploration:</b> Stepping onto an Undiscovered Terrain draws a Path Card from the <b>${getPathsDeckSummary().totalCards}-card Paths Deck</b> (<b>MIDS™</b>), triggering sidequests, ambushes, chests, traps, merchants, or sanctuaries.</li>
                 <li><b>The Void (Game Box):</b> <b>The Void</b> is not a deck—it is the game box where you can inspect cards not currently in use (unselected monster/terrain copies, Shrine upgrade templates, and <b>Banished</b> cards). Full creature cards use the New Paths set symbol for rarity: <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.goblin, 'guide-set-symbol')} bronze = Common</span>, <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.stalker, 'guide-set-symbol')} silver = Uncommon</span>, and <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.rattler, 'guide-set-symbol')} gold = Rare</span>.</li>
               </ul>

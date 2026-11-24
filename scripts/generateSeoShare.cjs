@@ -3,9 +3,9 @@ const fs = require('node:fs/promises');
 const sharp = require('sharp');
 
 const root = path.resolve(__dirname, '..');
-const background = path.join(root, 'public', 'background', 'start-screen.png');
+const background = path.join(root, 'assets', 'raw', 'background', 'start-screen.png');
 const outputDirectory = path.join(root, 'public', 'seo');
-const output = path.join(outputDirectory, 'the-paths-we-choose-share-1200x630.jpg');
+const output = path.join(outputDirectory, 'paths-to-odamyrus-share-1200x630.jpg');
 
 const overlay = Buffer.from(`
   <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
@@ -22,8 +22,8 @@ const overlay = Buffer.from(`
     </g>
     <text x="124" y="91" fill="#f1efe8" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" letter-spacing="5">MORVILLE</text>
     <text x="126" y="118" fill="#9dafff" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" letter-spacing="8">STUDIOS</text>
-    <text x="64" y="285" fill="#ffffff" font-family="Georgia, Times New Roman, serif" font-size="75" font-weight="600">The Paths</text>
-    <text x="64" y="362" fill="#ffffff" font-family="Georgia, Times New Roman, serif" font-size="75" font-weight="600">We Choose</text>
+    <text x="64" y="285" fill="#ffffff" font-family="Georgia, Times New Roman, serif" font-size="75" font-weight="600">Paths to</text>
+    <text x="64" y="362" fill="#ffffff" font-family="Georgia, Times New Roman, serif" font-size="75" font-weight="600">Odamyrus</text>
     <text x="67" y="414" fill="#e4bd65" font-family="Georgia, Times New Roman, serif" font-size="24">Build a path. Shape a hero. Survive the consequence.</text>
     <rect x="64" y="470" width="430" height="52" rx="3" fill="#e4bd65"/>
     <text x="88" y="504" fill="#171207" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="1">PLAY FREE IN YOUR BROWSER</text>

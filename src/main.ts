@@ -4,13 +4,14 @@ import { GUIDE_PAGE_COUNT } from './ui/screens/guide';
 import { ACTION_HANDLERS } from './app/actions';
 import { createCombatAnimator } from './app/combatAnimator';
 import { findInspectedCard } from './app/inspect';
+import { patchPlayArea, snapshotPlayArea, type PlayRegionMarkup } from './app/patchPlayArea';
 import type { ActionContext } from './app/types';
 import { firstLivingMonsterIndex } from './core/combat';
 import { confirmCombatVictory, createInitialState, startAdventure, startBossCombat } from './core/engine';
 import { computeCombatGearBonuses, getEffectiveStatsFromState, getPlayerAcc } from './core/stats';
 import type { StatKey } from './core/types';
 import { gameLanguageControl, getGameLocale, setGameLocale, type GameLocale } from './i18n';
-import { localizeGameTree, observeLocalizedGame } from './i18n/presentation';
+import { ensureGameTranslations, localizeGameTree, observeLocalizedGame } from './i18n/presentation';
 import { autosaveRun } from './state/saveStorage';
 import { Store } from './state/store';
 import {
@@ -36,12 +37,25 @@ function newSeed(): string {
 const root = document.getElementById('app') as HTMLElement;
 const languageControl = gameLanguageControl();
 document.body.append(languageControl);
-languageControl.querySelector('select')?.addEventListener('change', (event) => {
-  setGameLocale((event.target as HTMLSelectElement).value as GameLocale);
+let localeRequest = 0;
+async function activateLocale(locale: GameLocale, saveChoice: boolean): Promise<void> {
+  const request = ++localeRequest;
+  try {
+    await ensureGameTranslations(locale);
+  } catch {
+    if (request !== localeRequest) return;
+    locale = 'en';
+    saveChoice = true;
+  }
+  if (request !== localeRequest) return;
+  if (saveChoice) setGameLocale(locale);
   root.replaceChildren();
   render();
   const updateNotice = document.querySelector('.release-notice');
   if (updateNotice) localizeGameTree(updateNotice);
+}
+languageControl.querySelector('select')?.addEventListener('change', (event) => {
+  void activateLocale((event.target as HTMLSelectElement).value as GameLocale, true);
 });
 observeLocalizedGame(root);
 
@@ -62,6 +76,7 @@ const ui: UiState = {
 
 let lastRenderedPlayState: ReturnType<Store['get']> | null = null;
 let lastPlayShellKey = '';
+let lastPlayMarkup: PlayRegionMarkup | null = null;
 
 function render(): void {
   const languageSelect = languageControl.querySelector('select');
@@ -82,10 +97,11 @@ function render(): void {
   const existingOverlays = s.screen === 'play_area' && lastRenderedPlayState === s && lastPlayShellKey === playShellKey
     ? root.querySelector<HTMLElement>('[data-ui-overlays]')
     : null;
-  let localizationRoot: HTMLElement = root;
+  let localizationRoots: HTMLElement[] = [root];
   if (existingOverlays) {
     existingOverlays.innerHTML = renderPlayAreaOverlays(s, ui);
-    localizationRoot = existingOverlays;
+    lastPlayMarkup?.set('[data-ui-overlays]', existingOverlays.outerHTML);
+    localizationRoots = [existingOverlays];
   } else if (s.screen === 'welcome') {
     root.innerHTML =
       renderWelcome(
@@ -104,12 +120,23 @@ function render(): void {
       root.innerHTML = renderClassSelect(ui) + audioBtnHtml;
     }
   } else {
-    root.innerHTML = renderPlayArea(s, ui) + audioBtnHtml;
+    const playHtml = renderPlayArea(s, ui);
+    const patched = lastPlayMarkup && lastPlayShellKey === playShellKey
+      ? patchPlayArea(root, playHtml, lastPlayMarkup)
+      : null;
+    if (patched) {
+      lastPlayMarkup = patched.markup;
+      localizationRoots = patched.changed;
+    } else {
+      root.innerHTML = playHtml + audioBtnHtml;
+      lastPlayMarkup = snapshotPlayArea(root);
+    }
   }
 
   lastRenderedPlayState = s.screen === 'play_area' ? s : null;
   lastPlayShellKey = playShellKey;
-  localizeGameTree(localizationRoot);
+  if (s.screen !== 'play_area') lastPlayMarkup = null;
+  localizationRoots.forEach(localizeGameTree);
 
   root.querySelectorAll<HTMLElement>('.modal, .sheet').forEach((el, i) => {
     el.scrollTop = scroll.get(String(i)) ?? 0;
@@ -595,5 +622,4 @@ document.addEventListener('focusout', (ev) => {
   if (token) hideKwTooltip();
 });
 
-audioManager.sync(store.get());
-render();
+void activateLocale(getGameLocale(), false).then(() => audioManager.sync(store.get()));

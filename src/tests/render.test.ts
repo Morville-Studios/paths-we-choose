@@ -157,6 +157,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(page6Html).toContain('data-action="inspect-monster"');
     expect(page6Html).toContain('data-inspect-kind="monster"');
     expect(page6Html).toContain('data-monster-id="goblin"');
+    expect(page6Html).toMatch(/src="\/cards\/creatures\/goblin\.jpg"[^>]*loading="lazy"/);
     expect(page6Html).toContain('data-monster-id="stalker"');
     expect(page6Html).toContain('data-monster-id="goblin_chieftain"');
     expect(page6Html).toContain('Inspect Info');
@@ -304,6 +305,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(training).toContain('Your Resources');
     expect(training).toContain('Destroy a card');
     expect(training).toContain('Destroyed cards go to the Void');
+    expect(training).toContain('Next: 15 Gold');
 
     const purchase = renderPlayArea(state, {
       ...baseUi,
@@ -1345,7 +1347,7 @@ describe('Render Play Area and Shop Layout', () => {
     // 1. Logo in game header
     expect(html).toContain('hud-logo-col');
     expect(html).toContain('hud-game-logo');
-    expect(html).toContain('paths-we-choose-logo.png');
+    expect(html).toContain('paths-to-odamyrus-logo.webp');
 
     // 2. Header does not have Gold and SP chips
     const headerHtml = html.split('</header>')[0];
@@ -1479,7 +1481,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('class="welcome-floating-logo-wrap"');
     expect(html).toContain('class="welcome-game-logo"');
     expect(html).toContain('class="welcome-bottom-tray"');
-    expect(html).toContain('alt="The Paths We Choose"');
+    expect(html).toContain('alt="Paths to Odamyrus"');
     expect(html).toContain('data-action="start"');
     expect(html).toContain('Start Adventure');
   });

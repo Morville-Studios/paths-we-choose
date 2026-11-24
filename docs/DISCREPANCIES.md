@@ -1,6 +1,6 @@
 # Documentation and Implementation Discrepancy Register
 
-Audit refreshed: **2026-11-13 (Asia/Manila)**. Status: **34 resolved, 0 pending** (34 findings).
+Audit refreshed: **2026-11-24 (Asia/Manila)**. Status: **37 resolved, 0 pending** (37 findings).
 
 This records the discrepancies identified in the current local working tree, including staged and unstaged work. It is an evidence register, not a replacement specification. Implementation is evidence of current behavior, not automatic authority. No gameplay decision is approved by this document. Source locations use file/section or symbol names so ordinary line shifts do not break the references.
 
@@ -61,6 +61,9 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 | [D032](#d032) | ACC and EVA documentation lagged behind 1:1 stat scaling | Documentation conflict | Resolved |
 | [D033](#d033) | 3d6 success-range prose and one UI label described a one-sided threshold | Documentation and UI conflict | Resolved |
 | [D034](#d034) | Progression and reward modernization (Linear rewards, B×10 upgrades, 10 start SP, 85-card supply, Scenario 3) | Cross-repository game design & documentation synchronization | Resolved |
+| [D035](#d035) | Village rest healing and price | Gameplay decision | Resolved |
+| [D036](#d036) | Expanded Treasure supply versus older prose | Content decision | Resolved |
+| [D037](#d037) | Sold gear destination and Treasure conservation | Gameplay decision | Resolved |
 
 ## Findings
 
@@ -487,6 +490,27 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
   6. Summoned creatures receive `isSummon: true`, visual summon tokens, award 0 Gold and 0 SP on defeat, and return immediately to discard.
 - **Implementation evidence:** `src/core/stats.ts:getBaseStatUpgradeCost`; `src/data/monsters.ts:getDefaultMonsterRewards, MONSTER_TEMPLATES`; `src/data/stages.ts:STAGE_3_DECK_COMPOSITION, STAGE_3_MONSTER_DECK_COMPOSITION`; `src/core/engine.ts:startAdventure, defeatEncounterMonster`.
 - **Resolution:** Synchronized all documentation (`README.md`, `AGENTS.md`, `docs/GAME_DESIGN.md`, `docs/MECHANICS_AND_DATA.md`, `docs/ROADMAP.md`, `docs/CATALOGS.md`), data catalogs, unit tests, and the in-game Player's Handbook. Added dedicated tests in `scenario3.test.ts` and `monsterRewards.test.ts`.
+
+<a id="d035"></a>
+### D035 — Village rest healing and price
+
+- **Status:** Resolved by user decision (2026-11-24).
+- **Conflict:** `src/core/village.ts:getVillageRestOption` and its tests restore 1 HP per tick and charge restored HP × (1 + Village level). `docs/MECHANICS_AND_DATA.md` and `docs/GAME_DESIGN.md` describe 2 HP per tick for 1 Gold.
+- **Accepted decision:** Keep the implemented 1 HP tick and Village-level Gold scaling. Updated the canonical mechanics formula, player guide, and stale core comment. The existing rest tests cover the behavior.
+
+<a id="d036"></a>
+### D036 — Expanded Treasure supply versus older prose
+
+- **Status:** Resolved by user decision (2026-11-24).
+- **Conflict:** `data/treasures.json`, generated `docs/CATALOGS.md`, and conservation tests describe 50 item types and 106 physical cards. Older prose still describes 21 types and 42 cards; Scenario 3's 42-card claim also predates the current level-filtered supply.
+- **Accepted decision:** Keep the expanded catalog. Removed old item tables and supply counts from noncanonical prose; the generated catalog remains the item-count source. Scenario-specific Treasure piles contain surviving eligible cards, so their counts can change after ownership and banishment.
+
+<a id="d037"></a>
+### D037 — Sold gear destination and Treasure conservation
+
+- **Status:** Resolved by user decision (2026-11-24).
+- **Conflict:** `src/core/village.ts:sellItem`, tests, and `docs/GAME_DESIGN.md` banish sold gear to `voidItems`. `docs/MECHANICS_AND_DATA.md` says sold gear goes to `treasureDiscard`. The Treasure conservation equation in `docs/ARCHITECTURE.md` omits banished items and misstates the Scenario 1 level partition.
+- **Accepted decision:** Keep permanent banishment. The mechanics spec now sends sold gear to `voidItems`, and the architecture invariant includes `voidItems` and inactive `treasureVoid` in the physical supply.
 
 ## Reconciliation batch validation
 

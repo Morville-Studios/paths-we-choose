@@ -1,6 +1,6 @@
 # AGENTS.md — AI Agent & Developer Guidelines
 
-Welcome to **The Paths We Choose** (`paths-we-choose`), a tabletop-inspired dungeon-crawl and path-building card game inspired by *Slay the Spire* and *AD&D*.
+Welcome to **Paths to Odamyrus** (`paths-we-choose`), a tabletop-inspired dungeon-crawl and path-building card game inspired by *Slay the Spire* and *AD&D*.
 
 Keep this file concise (~6 KB) so it never truncates in agent context. Do **not** duplicate gameplay numbers, card tables, or UI specs here—link to the Single Source of Truth (SSOT) below.
 
@@ -48,7 +48,7 @@ Go directly to the domain module you need instead of scanning unrelated code:
 - **UI Presentation (`src/ui/`)** — Pure HTML-string templates:
   - `types.ts`: `UiState`, `PileType`, modal/pending types, `hasBlockingUiOverlay`.
   - `render.ts`: Play area, HUD/sidebars, pile modal, and barrel re-exports for screens/modals.
-  - `screens/`: `welcome.ts`, `guide.ts` (7-page rulebook), `classSelect.ts`, `combatView.ts`, `villageView.ts`.
+  - `screens/`: `welcome.ts`, `guide.ts` (player rulebook), `classSelect.ts`, `combatView.ts`, `villageView.ts`.
   - `modals/`: `eventModals.ts` (prep, exploration, victory, shrine), `inspectModals.ts` (card/stat/log modals), `saveModal.ts` (5-slot save/load modal).
   - `components/`: `qteBar.ts` (3d6 hit bar); plus `actionCard.ts`, `adventureCard.ts`, `grouping.ts`, `terrainPresentation.ts`, `cardArt.ts`, `icons.ts`, `brand.ts`, `publicAsset.ts`.
   - `styles/` (imported in cascade order by `styles.css`): `01-base-and-screens.css` through `08-responsive-and-qte.css`.
@@ -83,6 +83,7 @@ Follow these exact patterns regardless of which model or agent edits the repo:
    - After `src/data/` edits → run `npm run docs:sync`.
    - After formula/rule/invariant edits → update the **one** canonical doc in the SSOT table (plus inline JSDoc on the changed function). Never copy rules into `AGENTS.md`.
    - After player-facing UI string edits → update localization keys/overrides and verify with `npm run i18n:check`.
+8. **Media Assets**: Keep original images, icon sprites, and music in `assets/raw/`; publish only optimized derivatives to `public/`. Generators must write to `assets/raw/`. After media changes, run the matching `art:optimize`/`art:check` or `audio:optimize`/`audio:check` scripts. Preserve original audio before encoding and use browser measurements to judge load performance. Follow the workflow in [`docs/ARCHITECTURE.md`](file:///d:/adoni/repos/paths-we-choose/docs/ARCHITECTURE.md).
 
 ---
 
@@ -92,4 +93,5 @@ Run these before finishing any task:
 - `npm test` — Vitest unit & UI suite
 - `npm run docs:check` — verifies `docs/CATALOGS.md` matches `src/data/`
 - `npm run i18n:check` — verifies all 5 locales have exact key parity
-- `npm run build` — runs `docs:check`, `i18n:check`, strict `tsc`, and `vite build`
+- `npm run seo:check` — verifies the canonical game URL, metadata, sitemap, structured data, and referenced images
+- `npm run build` — runs `docs:check`, `i18n:check`, `seo:check`, strict `tsc`, and `vite build`

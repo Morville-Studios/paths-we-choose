@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
-const itemsDir = path.resolve(__dirname, '../public/cards/items');
+const itemsDir = path.resolve(__dirname, '../assets/raw/cards/items');
 if (!fs.existsSync(itemsDir)) fs.mkdirSync(itemsDir, { recursive: true });
 
 async function svgToJpg(svg, outPath) {
@@ -14,7 +14,7 @@ async function svgToJpg(svg, outPath) {
 }
 
 async function generateAll() {
-  console.log('Generating item raster art for all 10 physical TCG items...');
+  console.log('Generating item raster art...');
 
   // 1. Health Potion
   const healthPotionSvg = `
@@ -104,85 +104,7 @@ async function generateAll() {
   `;
   await svgToJpg(healthPotionSvg, path.join(itemsDir, 'health_potion.jpg'));
 
-  // 2. Wooden Sword
-  const woodenSwordSvg = `
-  <svg width="600" height="840" viewBox="0 0 600 840" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="forestBack" cx="50%" cy="40%" r="65%">
-        <stop offset="0%" stop-color="#1e3a1e"/>
-        <stop offset="50%" stop-color="#0d2310"/>
-        <stop offset="100%" stop-color="#040d05"/>
-      </radialGradient>
-      <linearGradient id="oakBlade" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#78350f"/>
-        <stop offset="45%" stop-color="#b45309"/>
-        <stop offset="50%" stop-color="#fef3c7"/>
-        <stop offset="55%" stop-color="#b45309"/>
-        <stop offset="100%" stop-color="#78350f"/>
-      </linearGradient>
-      <linearGradient id="steelTrim" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#f8fafc"/>
-        <stop offset="50%" stop-color="#94a3b8"/>
-        <stop offset="100%" stop-color="#475569"/>
-      </linearGradient>
-      <filter id="swordShine" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="12" result="blur"/>
-        <feMerge>
-          <feMergeNode in="blur"/>
-          <feMergeNode in="SourceGraphic"/>
-        </feMerge>
-      </filter>
-    </defs>
-    <rect width="600" height="840" fill="url(#forestBack)"/>
-
-    <!-- Sun Ray Angle -->
-    <polygon points="120,0 280,0 420,840 260,840" fill="#fef08a" opacity="0.08"/>
-
-    <!-- Glowing Blade Aura -->
-    <line x1="160" y1="680" x2="440" y2="160" stroke="#fef08a" stroke-width="48" opacity="0.2" filter="url(#swordShine)"/>
-
-    <!-- The Sword Group (Rotated diagonally) -->
-    <g transform="translate(300, 420) rotate(-45) translate(-300, -420)">
-      <!-- Sword Tip & Blade -->
-      <path d="M280,140 L300,90 L320,140 L320,530 L280,530 Z" fill="url(#oakBlade)" stroke="#451a03" stroke-width="3"/>
-      <!-- Blade Fuller Center Ridge Line -->
-      <line x1="300" y1="120" x2="300" y2="480" stroke="#451a03" stroke-width="4"/>
-      <line x1="302" y1="120" x2="302" y2="480" stroke="#fde68a" stroke-width="2"/>
-
-      <!-- Carved Leaf Runes on Blade -->
-      <circle cx="300" cy="220" r="6" fill="#84cc16"/>
-      <circle cx="300" cy="270" r="5" fill="#84cc16"/>
-      <circle cx="300" cy="320" r="6" fill="#84cc16"/>
-
-      <!-- Crossguard (Oak + Iron Bands) -->
-      <rect x="200" y="530" width="200" height="32" rx="8" fill="#581c87" stroke="url(#steelTrim)" stroke-width="3"/>
-      <rect x="195" y="532" width="210" height="28" rx="6" fill="#92400e" stroke="#451a03" stroke-width="2"/>
-      <circle cx="215" cy="546" r="8" fill="url(#steelTrim)"/>
-      <circle cx="385" cy="546" r="8" fill="url(#steelTrim)"/>
-      <polygon points="300,534 314,546 300,558 286,546" fill="#22c55e" stroke="#14532d" stroke-width="2"/>
-
-      <!-- Leather Wrapped Hilt Grip -->
-      <rect x="282" y="562" width="36" height="130" rx="4" fill="#7c2d12" stroke="#431407" stroke-width="3"/>
-      <!-- Leather cross-bindings -->
-      <line x1="282" y1="585" x2="318" y2="595" stroke="#fef3c7" stroke-width="3"/>
-      <line x1="282" y1="615" x2="318" y2="625" stroke="#fef3c7" stroke-width="3"/>
-      <line x1="282" y1="645" x2="318" y2="655" stroke="#fef3c7" stroke-width="3"/>
-      <line x1="282" y1="675" x2="318" y2="685" stroke="#fef3c7" stroke-width="3"/>
-
-      <!-- Pommel -->
-      <circle cx="300" cy="710" r="24" fill="url(#steelTrim)" stroke="#334155" stroke-width="3"/>
-      <circle cx="300" cy="710" r="14" fill="#b45309"/>
-      <circle cx="300" cy="710" r="6" fill="#facc15"/>
-    </g>
-
-    <!-- Sparkles of sharpness -->
-    <polygon points="460,180 466,196 482,202 466,208 460,224 454,208 438,202 454,196" fill="#ffffff" filter="url(#swordShine)"/>
-    <polygon points="210,630 214,640 224,644 214,648 210,658 206,648 196,644 206,640" fill="#fef08a" filter="url(#swordShine)"/>
-  </svg>
-  `;
-  await svgToJpg(woodenSwordSvg, path.join(itemsDir, 'wooden_sword.jpg'));
-
-  // 3. Apprentice Staff
+  // 2. Apprentice Staff
   const apprenticeStaffSvg = `
   <svg width="600" height="840" viewBox="0 0 600 840" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -249,7 +171,7 @@ async function generateAll() {
   `;
   await svgToJpg(apprenticeStaffSvg, path.join(itemsDir, 'apprentice_staff.jpg'));
 
-  // 4. Robe
+  // 3. Robe
   const robeSvg = `
   <svg width="600" height="840" viewBox="0 0 600 840" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -311,7 +233,7 @@ async function generateAll() {
   `;
   await svgToJpg(robeSvg, path.join(itemsDir, 'robe.jpg'));
 
-  // 5. Leather Clothes
+  // 4. Leather Clothes
   const leatherClothesSvg = `
   <svg width="600" height="840" viewBox="0 0 600 840" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -366,7 +288,7 @@ async function generateAll() {
   `;
   await svgToJpg(leatherClothesSvg, path.join(itemsDir, 'leather_clothes.jpg'));
 
-  // 6. Chainmail
+  // 5. Chainmail
   const chainmailSvg = `
   <svg width="600" height="840" viewBox="0 0 600 840" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -422,7 +344,7 @@ async function generateAll() {
   `;
   await svgToJpg(chainmailSvg, path.join(itemsDir, 'chainmail.jpg'));
 
-  // 7. Book of Spells
+  // 6. Book of Spells
   const bookOfSpellsSvg = `
   <svg width="600" height="840" viewBox="0 0 600 840" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -495,7 +417,7 @@ async function generateAll() {
   `;
   await svgToJpg(bookOfSpellsSvg, path.join(itemsDir, 'book_of_spells.jpg'));
 
-  // 8. Ring of Beasts
+  // 7. Ring of Beasts
   const ringOfBeastsSvg = `
   <svg width="600" height="840" viewBox="0 0 600 840" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -568,7 +490,7 @@ async function generateAll() {
   `;
   await svgToJpg(ringOfBeastsSvg, path.join(itemsDir, 'ring_of_beasts.jpg'));
 
-  // 9. Sandals of Swiftness
+  // 8. Sandals of Swiftness
   const sandalsSvg = `
   <svg width="600" height="840" viewBox="0 0 600 840" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -634,7 +556,7 @@ async function generateAll() {
   `;
   await svgToJpg(sandalsSvg, path.join(itemsDir, 'sandals_of_swiftness.jpg'));
 
-  // 10. Lucky Charm
+  // 9. Lucky Charm
   const luckyCharmSvg = `
   <svg width="600" height="840" viewBox="0 0 600 840" xmlns="http://www.w3.org/2000/svg">
     <defs>

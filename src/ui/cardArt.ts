@@ -12,11 +12,11 @@ function getMonsterRasterArtRelativePath(templateId: string): string {
     case 'witch':
       return '/cards/creatures/witch.jpg';
     case 'phalanx':
-      return '/cards/creatures/phalanx.png';
+      return '/cards/creatures/phalanx.jpg';
     case 'cultist_mage':
-      return '/cards/creatures/cultist_mage.png';
+      return '/cards/creatures/cultist_mage.jpg';
     case 'lurker':
-      return '/cards/creatures/lurker.png';
+      return '/cards/creatures/lurker.jpg';
     case 'leech':
       return '/cards/creatures/leech.jpg';
     case 'stalker':
@@ -180,9 +180,9 @@ export function getActionRasterArtPath(cardId: string, cardType: 'attack' | 'def
   return publicAsset(getActionRasterArtRelativePath(cardId, cardType));
 }
 
-export function getMonsterIllustration(templateId: string): string {
+export function getMonsterIllustration(templateId: string, loading: 'eager' | 'lazy' = 'eager'): string {
   const rasterPath = getMonsterRasterArtPath(templateId);
-  return `<img src="${rasterPath}" alt="${templateId}" class="tcg-art-raster" loading="eager" />`;
+  return `<img src="${rasterPath}" alt="${templateId}" class="tcg-art-raster" loading="${loading}" />`;
 }
 
 export function getAdventureCardIllustration(card: AdventureCard): string {
@@ -191,9 +191,9 @@ export function getAdventureCardIllustration(card: AdventureCard): string {
   return `<img src="${rasterPath}" alt="${alt}" class="tcg-art-raster adventure-raster" loading="lazy" />`;
 }
 
-export function getActionCardIllustration(cardId: string, cardType: 'attack' | 'defense' | 'skill' | 'enchantment'): string {
+export function getActionCardIllustration(cardId: string, cardType: 'attack' | 'defense' | 'skill' | 'enchantment', loading: 'eager' | 'lazy' = 'eager'): string {
   const rasterPath = getActionRasterArtPath(cardId, cardType);
-  return `<img src="${rasterPath}" alt="${cardId}" class="tcg-art-raster action-raster" loading="eager" />`;
+  return `<img src="${rasterPath}" alt="${cardId}" class="tcg-art-raster action-raster" loading="${loading}" />`;
 }
 
 function getAdventurerRasterArtRelativePath(classId?: string | null): string {
@@ -218,7 +218,7 @@ export function getAdventurerIllustration(classId?: string | null, name = 'Adven
 }
 
 function getItemRasterArtRelativePath(itemId?: string): string {
-  if (!itemId) return '/cards/items/wooden_sword.jpg';
+  if (!itemId) return '/cards/items/iron_sword.jpg';
   const cleanId = itemId.replace(/^lvl\d+_/, '').replace(/(?:_plus)+$/, '');
   switch (cleanId) {
     case 'health_potion': {
@@ -226,7 +226,6 @@ function getItemRasterArtRelativePath(itemId?: string): string {
       const level = levelMatch ? levelMatch[1] : '1';
       return `/cards/items/health_potion${level}.jpg`;
     }
-    case 'wooden_sword':
     case 'iron_sword':
       return '/cards/items/iron_sword.jpg';
     case 'apprentice_staff':
@@ -269,7 +268,7 @@ function getItemRasterArtRelativePath(itemId?: string): string {
     case 'steel_sword':
       return '/cards/items/steel_sword.jpg';
     default:
-      return '/cards/items/wooden_sword.jpg';
+      return '/cards/items/iron_sword.jpg';
   }
 }
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setGameLocale } from '../i18n';
-import { localizePlayerText } from '../i18n/presentation';
+import { ensureGameTranslations, localizePlayerText } from '../i18n/presentation';
 
 afterEach(() => setGameLocale('en'));
 
@@ -10,7 +10,8 @@ describe('bundled player translations', () => {
     ['zh-Hans', '开始冒险', '战士'],
     ['ja', '冒険を始める', '戦士'],
     ['ko', '모험 시작', '전사'],
-  ] as const)('translates the title action and game terms in %s', (locale, start, fighter) => {
+  ] as const)('translates the title action and game terms in %s', async (locale, start, fighter) => {
+    await ensureGameTranslations(locale);
     setGameLocale(locale);
     expect(localizePlayerText('Start Adventure')).toBe(start);
     expect(localizePlayerText('Fighter')).toBe(fighter);

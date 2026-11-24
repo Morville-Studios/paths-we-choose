@@ -1,14 +1,32 @@
-import generated from './generated.json';
 import { getGameLocale } from './index';
 import type { GameLocale } from './locale';
 import { EDITORIAL_OVERRIDES } from './overrides';
 
 type Catalog = Record<Exclude<GameLocale, 'en'>, Record<string, string>>;
-const catalogs = Object.fromEntries(Object.entries(generated).map(([locale, entries]) => [locale, {
-  ...(entries as Record<string, string>),
-  ...EDITORIAL_OVERRIDES[locale as Exclude<GameLocale, 'en'>],
-}])) as Catalog;
 type TranslatedLocale = Exclude<GameLocale, 'en'>;
+const catalogs: Partial<Catalog> = {};
+const catalogLoads = new Map<TranslatedLocale, Promise<void>>();
+const localeLoaders: Record<TranslatedLocale, () => Promise<{ default: Record<string, string> }>> = {
+  'zh-Hant': () => import('virtual:game-locale:zh-Hant'),
+  'zh-Hans': () => import('virtual:game-locale:zh-Hans'),
+  ja: () => import('virtual:game-locale:ja'),
+  ko: () => import('virtual:game-locale:ko'),
+};
+
+/** Load bundled translations before rendering a non-English locale. */
+export function ensureGameTranslations(locale: GameLocale): Promise<void> {
+  if (locale === 'en' || catalogs[locale]) return Promise.resolve();
+  const pending = catalogLoads.get(locale);
+  if (pending) return pending;
+  const load = localeLoaders[locale]().then(({ default: entries }) => {
+    catalogs[locale] = { ...entries, ...EDITORIAL_OVERRIDES[locale] };
+  }).catch((error: unknown) => {
+    catalogLoads.delete(locale);
+    throw error;
+  });
+  catalogLoads.set(locale, load);
+  return load;
+}
 type CatalogEntry = { english: string; localized: string; pattern: RegExp };
 type CatalogIndex = { entries: CatalogEntry[]; byPrefix: Map<string, number[]> };
 const catalogIndexCache = new Map<TranslatedLocale, CatalogIndex>();
@@ -16,7 +34,7 @@ const catalogIndexCache = new Map<TranslatedLocale, CatalogIndex>();
 function getCatalogIndex(locale: TranslatedLocale): CatalogIndex {
   const cached = catalogIndexCache.get(locale);
   if (cached) return cached;
-  const entries = Object.entries(catalogs[locale])
+  const entries = Object.entries(catalogs?.[locale] ?? {})
     .filter(([english]) => english.length >= 4)
     .sort((a, b) => b[0].length - a[0].length)
     .map(([english, localized]) => {
@@ -53,7 +71,8 @@ function useGameTerminology(value: string, locale: Exclude<GameLocale, 'en'>): s
 
 function translate(source: string, locale: GameLocale): string {
   if (locale === 'en') return source;
-  const catalog = catalogs[locale];
+  const catalog = catalogs?.[locale];
+  if (!catalog) return source;
   const trim = source.trim();
   const exact = catalog[trim];
   if (exact) return source.replace(trim, useGameTerminology(exact, locale));

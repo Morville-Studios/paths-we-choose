@@ -135,7 +135,7 @@ export function renderActionCardHtml(
     className = '',
     artWindowClassName = '',
   } = options;
-  const illustration = getActionCardIllustration(card.id, card.cardType);
+  const illustration = getActionCardIllustration(card.id, card.cardType, referenceMode ? 'lazy' : 'eager');
   const isAttack = card.cardType === 'attack';
   const cardKind = card.cardType === 'enchantment'
     ? 'Enchantment 🚩'

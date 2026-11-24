@@ -124,9 +124,9 @@ describe('cave monster catalog and combat mechanics', () => {
       { label: 'T2', damage: 0, heal: 12, block: 0, defBonus: -2, bonusDuration: 1 },
     ]);
 
-    expect(getMonsterRasterArtPath('phalanx')).toBe('/cards/creatures/phalanx.png');
-    expect(getMonsterRasterArtPath('cultist_mage')).toBe('/cards/creatures/cultist_mage.png');
-    expect(getMonsterRasterArtPath('lurker')).toBe('/cards/creatures/lurker.png');
+    expect(getMonsterRasterArtPath('phalanx')).toBe('/cards/creatures/phalanx.jpg');
+    expect(getMonsterRasterArtPath('cultist_mage')).toBe('/cards/creatures/cultist_mage.jpg');
+    expect(getMonsterRasterArtPath('lurker')).toBe('/cards/creatures/lurker.jpg');
     const phalanxHtml = cardInspectModal({ kind: 'monster', monster: phalanx }, setup(phalanx)).replace(/<\/?b>/g, '');
     expect(phalanxHtml).toContain('Skittish (2)');
     expect(phalanxHtml).toContain('ATK (7)');

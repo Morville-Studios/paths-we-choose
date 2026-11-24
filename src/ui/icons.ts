@@ -1,5 +1,5 @@
 /**
- * Game Icon helpers for raster icons sliced from public/icons/icons.png
+ * Game Icon helpers for raster icons sliced from assets/raw/icons/icons.png
  */
 
 import { publicAsset } from './publicAsset';

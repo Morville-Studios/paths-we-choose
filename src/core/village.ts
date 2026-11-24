@@ -18,7 +18,8 @@ export { syncVitals };
 export const MIN_DECK_SIZE = 5;
 export const TRAIN_OPTION_COUNT = 3;
 export const REST_HP_PER_TICK = 1;
-export const TRAIN_REMOVAL_BASE_GOLD_COST = 5;
+export const TRAIN_REMOVAL_BASE_GOLD_COST = 10;
+const TRAIN_REMOVAL_GROWTH_FACTOR = 1.5;
 
 export interface VillageRestOption {
   ticks: number;
@@ -109,11 +110,12 @@ function withVillage(state: RunState, village: ActiveVillageState): RunState {
 // Rest
 // ---------------------------------------------------------------------------
 
-/** Every inn-rest tick heals two HP and costs one Gold; its final tick restores all remaining HP. */
+/** Return the Gold needed to restore all missing HP at the current Village level. */
 export function calculateRestCost(res: PlayerResources, villageLevel = 1): number {
   return getVillageRestOption(res, undefined, villageLevel).cost;
 }
 
+/** Each rest tick heals 1 HP and costs 1 + Village level Gold. */
 export function getVillageRestOption(res: PlayerResources, requestedTicks?: number, villageLevel = 1): VillageRestOption {
   const missingHp = Math.max(0, res.maxHp - res.hp);
   const maxTicks = Math.ceil(missingHp / REST_HP_PER_TICK);
@@ -283,6 +285,7 @@ export function unequipItem(state: RunState, slotOrInstanceId: string): RunState
   return syncVitals(state, next);
 }
 
+/** Buy only a physical card currently in shop stock, matched by instance or catalog ID. */
 export function buyItem(state: RunState, itemIdentifier: string): RunState {
   const village = getVillage(state);
   if (!village || village.subView !== 'shop' || !state.playerResources) return state;
@@ -291,8 +294,7 @@ export function buyItem(state: RunState, itemIdentifier: string): RunState {
   const stockIndex = (village.shopStock ?? []).findIndex(
     (i) =>
       i.instanceId === itemIdentifier ||
-      i.id === itemIdentifier ||
-      (itemIdentifier === 'lvl1_wooden_sword' && i.id === 'lvl1_iron_sword')
+      i.id === itemIdentifier
   );
 
   // A purchase must transfer a physical stock card; never mint a catalog copy.
@@ -417,8 +419,10 @@ export function getTrainingSkillCost(card: { apCost: number }): TrainingSkillCos
   return { gold: 5 * factor, statPoints: factor };
 }
 
-export function getTrainRemovalCost(state: Pick<RunState, 'trainRemovalCount'>): number {
-  return TRAIN_REMOVAL_BASE_GOLD_COST + (state.trainRemovalCount ?? 0);
+/** Price for the current or a future removal; round the unrounded exponential once. */
+export function getTrainRemovalCost(state: Pick<RunState, 'trainRemovalCount'>, additionalRemovals = 0): number {
+  const count = Math.max(0, (state.trainRemovalCount ?? 0) + additionalRemovals);
+  return Math.ceil(TRAIN_REMOVAL_BASE_GOLD_COST * TRAIN_REMOVAL_GROWTH_FACTOR ** count);
 }
 
 export function villageTrainRemove(state: RunState, instanceId: string): RunState {
@@ -436,7 +440,7 @@ export function villageTrainRemove(state: RunState, instanceId: string): RunStat
     playerResources: { ...state.playerResources, gold: state.playerResources.gold - cost },
     trainRemovalCount: (state.trainRemovalCount ?? 0) + 1,
     gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] 🔥 Banished ${card.name} to the Void for ${cost} Gold.`),
-    bannerMessage: `Banished ${card.name} for ${cost} Gold and sent it to the Void. Next banishment costs ${cost + 1} Gold.`,
+    bannerMessage: `Banished ${card.name} for ${cost} Gold and sent it to the Void. Next banishment costs ${getTrainRemovalCost(state, 1)} Gold.`,
   };
 }
 

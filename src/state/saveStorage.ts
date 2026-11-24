@@ -2,6 +2,7 @@ import { syncAudioState } from '../core/audio';
 import type { ActiveHook, ClassId, RunState } from '../core/types';
 import { CLASS_CATALOG } from '../data/classes';
 
+// Keep the original key so a title change never hides existing player saves.
 export const SAVE_STORAGE_KEY = 'paths-we-choose:saves:v1';
 export const SAVE_SCHEMA_VERSION = 1;
 export const SAVE_SLOT_IDS = [1, 2, 3, 4, 5] as const;

@@ -563,6 +563,7 @@ describe('village', () => {
     expect(drafted.activeHook.village.trainOptions).toHaveLength(2);
 
     const removalCost = getTrainRemovalCost(drafted);
+    expect(removalCost).toBe(10);
     const destroyedCard = drafted.playerMasterDeck[0];
     const removed = villageDoTrainRemove(drafted, destroyedCard.instanceId);
     expect(removed.playerMasterDeck.length).toBe(10);
@@ -570,7 +571,18 @@ describe('village', () => {
     expect(removed.trainRemovalCount).toBe(1);
     expect(removed.voidCards).toContainEqual(destroyedCard);
     expect(removed.bannerMessage).toContain('sent it to the Void');
-    expect(getTrainRemovalCost(removed)).toBe(removalCost + 1);
+    expect(getTrainRemovalCost(removed)).toBe(15);
+    const nextCard = removed.playerMasterDeck[0];
+    const removedAgain = villageDoTrainRemove(removed, nextCard.instanceId);
+    expect(removedAgain.voidCards).toContainEqual(nextCard);
+    expect(removedAgain.trainRemovalCount).toBe(2);
+    expect(removedAgain.playerResources?.gold).toBe(100 - skillCost.gold - 10 - 15);
+    expect(getTrainRemovalCost(removedAgain)).toBe(23);
+  });
+
+  it('rounds each removal price from the original 10 Gold base', () => {
+    expect(Array.from({ length: 6 }, (_, trainRemovalCount) => getTrainRemovalCost({ trainRemovalCount })))
+      .toEqual([10, 15, 23, 34, 51, 76]);
   });
 });
 
@@ -1594,6 +1606,7 @@ describe('Charisma (CHA) price discounts and goods pricing', () => {
 
     if (s.activeHook.type !== 'VILLAGE') throw new Error('expected village');
     s.activeHook.village.shopStock = [{ ...SHOP_ITEM_CATALOG.find(item => item.id === 'lvl1_iron_sword')!, instanceId: 'stock_sword' }];
+    expect(buyItem(s, 'unknown_item')).toBe(s);
     // Iron Sword has base buyPrice: 25. With CHA discount (calculateGoodsPrice), cost is 21 gold.
     s = buyItem(s, 'lvl1_iron_sword');
     expect(s.playerResources?.gold).toBe(9); // 30 - 21 = 9

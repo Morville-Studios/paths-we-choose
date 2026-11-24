@@ -1,6 +1,6 @@
-# Game Design Specification — *The Paths We Choose*
+# Game Design Specification — *Paths to Odamyrus*
 
-> *"The paths we choose is a game about choices we take that create risks and opportunities."*
+> *"Every road to Odamyrus is made by the choices taken along it."*
 
 Ordinary creatures come from a finite **85-card physical supply** in the public Void. A scenario pulls three main-terrain bands into its Monster Deck using its level; unused copies remain in the Void. Exact quantities are generated in [CATALOGS.md](CATALOGS.md#ordinary-monsters). Bosses are separate.
 
@@ -8,9 +8,9 @@ Ordinary creatures come from a finite **85-card physical supply** in the public 
 
 ## 1. Vision & Pillars
 
-**The Paths We Choose** blends the tactical node-pathing and deckbuilding combat of *Slay the Spire* with classic tabletop dungeon-crawl mechanics, the proprietary MACG-3D6™ success-range system, equipment slots, and attribute archetypes (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`).
+**Paths to Odamyrus** blends the tactical node-pathing and deckbuilding combat of *Slay the Spire* with classic tabletop dungeon-crawl mechanics, the proprietary MACG-3D6™ success-range system, equipment slots, and attribute archetypes (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`). Odamyrus is the mythic destination that draws expeditions across changing terrain; each stage can have its own journey length.
 
-An in-game **How to Play** guide explains the core loop in short, plain-language sections for players age 10 and above. It is available from the title screen before starting and from the persistent `📖 Guide` control in the game HUD. The guide features an AD&D-inspired two-page tome layout with chapter ribbons (I. The Journey, II. Battle, III. Attributes, IV. Classes, V. Shrines & Void, VI. Bestiary, and VII. Armory). **Chapter VI: The Monstrous Compendium** presents full TCG creature cards for all 22 monsters grouped by territory and Legendary Bosses. **Chapter VII: The Grand Armory** showcases full TCG cards for all 21 equipment and treasure cards (Weapons, Armor, Accessories, and Consumables); clicking any card in either compendium opens the full inspection modal showing complete profiles, scaling formulas, effects, and lore.
+An in-game **How to Play** guide explains the core loop in short, plain-language sections for players age 10 and above. It is available from the title screen before starting and from the persistent `📖 Guide` control in the game HUD. The guide features an AD&D-inspired two-page tome layout with chapter ribbons (I. The Journey, II. Battle, III. Attributes, IV. Classes, V. Shrines & Void, VI. Bestiary, and VII. Armory). **Chapter VI: The Monstrous Compendium** presents full TCG creature cards grouped by territory and Legendary Bosses. **Chapter VII: The Grand Armory** showcases the current equipment and treasure cards (Weapons, Armor, Accessories, and Consumables); clicking any card in either compendium opens the full inspection modal showing complete profiles, scaling formulas, effects, and lore. Exact catalog counts belong to [CATALOGS.md](CATALOGS.md).
 
 Players can switch between English, Traditional Chinese, Simplified Chinese, Japanese, and Korean from the title screen or during play. Browser language sets the first-visit default when supported, and an explicit player choice is saved. Cards, creature lore, combat text, and the handbook follow the chosen language without changing the current run.
 
@@ -73,10 +73,10 @@ In tabletop board game strategy, 3d6 produces 216 combinations where rolls natur
      - **Stage 1 ("The Goblin King")**: 30 cards composed of Grassland (`advgrs-00` x3, `advgrs-01` x8, `advgrs-03` x3, `advgrs-04` x3), Forest (`advfrs-00` x2, `advfrs-01` x5, `advfrs-03` x2, `advfrs-04` x2), and Swamp (`advsmp-00` x1, `advsmp-01` x1).
      - **Stage 2 ("Cult of Trolls")**: 30 cards composed of Forest (`advfrs-00` x3, `advfrs-01` x8, `advfrs-03` x3, `advfrs-04` x3), Swamp (`advsmp-00` x2, `advsmp-01` x5, `advsmp-03` x2, `advsmp-04` x2), and Cave (`advcav-00` x1, `advcav-01` x1).
    - **Scenario-built Monster Deck**: The 85 ordinary physical creature cards begin in the Void. Common/Uncommon/Rare types supply 6/4/3 copies. A Scenario Level `L` pulls 100% of main-terrain `L`, rounded two-thirds of `L+1`, and rounded one-third of `L+2`; all other copies stay publicly inspectable in the Void. Scenario 1 builds 45 cards from Grassland/Forest/Swamp, Scenario 2 builds 37 from Forest/Swamp/Cave, and Scenario 3 builds 30 from Swamp/Cave/Underground. Encounter draws are still filtered by the card's exact terrain eligibility and encounter level.
-   - **Treasure Deck (42 cards)**: Two copies of each of 21 shop items circulate through shops, inventory and treasure finds.
+   - **Treasure Deck**: Physical item cards circulate through shops, inventory and treasure finds; exact supply and scenario composition are in [CATALOGS.md](CATALOGS.md).
    - **Player Combat Deck (10 starter cards)**: Drawn `5` cards per combat turn with **`3 + floor(INT/5)` maximum Action Points (AP)** per turn, where every card's power scales directly with the hero's **Effective Stats**.
 5. **Village Menu, Turn 15 Bosses & Multi-Stage Progression**:
-   - Stepping on a **Village Tile** shows its full-art named card and level, then opens a repeatable-services menu: **Rest**, **Shop**, and **Train**. Shop stock and three class training offers are deterministically prepared once on entry, so returning to the menu never rerolls them.
+   - Stepping on a **Village Tile** shows its full-art named card and level, then opens a repeatable-services menu: **Rest**, **Shop**, and **Train**. Shop stock and class training offers are deterministically prepared once on entry, so returning to the menu never rerolls them.
    - Reaching **Turn 15** in Stage 1 triggers **Grundy**, the Level 5 Goblin Warlord. Defeating him unlocks the Stage Completion modal, allowing the adventurer to proceed directly to Stage 2: **"Cult of Trolls"**.
    - Reaching **Turn 15** in Stage 2 triggers the **Cult of Trolls Boss Encounter** featuring three Level 4, 25-HP Trolls simultaneously: **Troll Healer** (2 MDEF, 1 EVA; heals a random damaged troll for 10 HP), **Troll Hexer** (2 MDEF, 1 EVA; alternates stacking five-turn hexes with Cursed Recoil), and **Troll Warrior** (2 DEF, 1 EVA; attacks for 6 DMG). Each grants 10 SP and 40 Gold.
    - Reaching **Turn 15** in Stage 3 triggers the **Fallen King**, the Level 7 Undead Boss: 40 HP, 5 DEF / 5 MDEF / 6 ACC / 5 EVA, 16 SP / 70 Gold. Unholy Aura heals living undead allies and himself for 3 HP at the start of his turn; he summons Undead minions and attacks with Corrupted Blade (7 ATK + 7 MATK).
@@ -88,9 +88,9 @@ In tabletop board game strategy, 3d6 produces 216 combinations where rolls natur
 Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Exploration, Combat, Village or Shrine overlays. Combat resolves through Victory acknowledgement or GameOver; ordinary Flee returns to the map without rewards. Acknowledging boss victory opens StageComplete; Stage 1 can continue into Cult of Trolls. See the complete [state diagram](ARCHITECTURE.md#state-machine).
 
 ### 2.1 Welcome Screen
-- Atmospheric full-screen presentation featuring **height-maximized background artwork** (`/background/start-screen.png`, spanning `100dvh` viewport height edge-to-edge).
+- Atmospheric full-screen presentation featuring **height-maximized background artwork** (`/background/start-screen.webp`, spanning `100dvh` viewport height edge-to-edge).
 - Reusable **Morville Studios** brand lockup identifies the studio publisher.
-- Responsive split editorial hero presents **The Paths We Choose**, its browser-play value proposition, feature facts, and a three-card visual showcase; it collapses to a readable single column on narrow or short viewports.
+- Responsive split editorial hero presents **Paths to Odamyrus**, its browser-play value proposition, feature facts, and a three-card visual showcase; it collapses to a readable single column on narrow or short viewports.
 - Primary CTA: **Start Adventure** (transitions to Class Selection). Secondary CTA: **How to Play** (opens the reusable guide overlay).
 - Plays the looping intro soundtrack (`start-screen.mp3`), with fixed audio mute/unmute control.
 
@@ -130,7 +130,7 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 
 ### 2.3 Play Area Screen & Character Sheet HUD
 1. **Top HUD & Boardgame Turn Tracker**:
-   - **Game Logo & Badges**: Features the official vector game logo (`/brand/paths-we-choose-logo.png`) paired with the scenario badge and active hero class badge on the left, divine protection/status indicators in the center, and persistent `📜 Log` and `📖 Guide` buttons on the right.
+   - **Game Logo & Badges**: Features the official raster game logo (`/brand/paths-to-odamyrus-logo.webp`) paired with the scenario badge and active hero class badge on the left, divine protection/status indicators in the center, and persistent `📜 Log` and `📖 Guide` buttons on the right.
    - **Boardgame Turn Tracker**: Physical boardgame-themed turn tracker strip featuring phase category bands (`Preparation`, `The Approach 1–4`, `The Wilds 5–9`, `Deep Dungeon 10–14`, `Stage Boss 15`), track nodes (`START` + `1`–`15`), connecting arrows, boss skull icon (`☠ 15`), and an animated tabletop adventurer meeple/standee marker tracking the hero party's position.
 2. **Character & Gear Left Sidebar**:
    - **Hero Resources (Gold & SP)**: Positioned prominently at the top of the sidebar directly above the health bar, displaying current **Gold** and **Stat Points (`SP`)** with `/icons/gold.png` and `/icons/sp.png` chips.
@@ -155,21 +155,21 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 
 ## 3. Village Tiles & the Village Menu
 
-5 of the cards in the Stage 1 Adventure Deck are **Village Cards** (3x `Grassland Village` at Level 1 and 2x `Forest Village` at Level 2, `hasVillage: true`). Swamp Village cards occur in Stage 2. Stepping onto a Village Card activates the in-place **Village View Component**, which replaces the adventure board directly inside the center `.play-main` viewport rather than opening a screen-blocking dialog overlay. The hero's **Character & Gear** panel on the left and **Decks & Discards** on the right remain fully visible, inspectable, and interactive throughout the visit. Level 3 Swamp Village draws `5 + 3 = 8` cards, Forest Village draws `5 + 2 = 7` cards, and Grassland Village draws `5 + 1 = 6` cards:
+5 of the cards in the Stage 1 Adventure Deck are **Village Cards** (3x `Grassland Village` at Level 1 and 2x `Forest Village` at Level 2, `hasVillage: true`). Swamp Village cards occur in Stage 2. Stepping onto a Village Card activates the in-place **Village View Component**, which replaces the adventure board directly inside the center `.play-main` viewport rather than opening a screen-blocking dialog overlay. The hero's **Character & Gear** panel on the left and **Decks & Discards** on the right remain fully visible, inspectable, and interactive throughout the visit. Stock size follows Village level; exact draw rules are in [MECHANICS_AND_DATA.md](MECHANICS_AND_DATA.md).
 
 ### 3.1 Prepared Inventory & Navigation
 - The menu header shows the visited card's official art, name (for example, **Grassland Village**) and level.
-- On entry, the game draws up to `3 + Village Level` unique exact-level shop cards (Grassland 4, Forest 5, Swamp 6, Cave 7) and three class training offers using the run's seeded RNG. These inventories are retained while switching between the menu, Shop, and Train; they cannot be rerolled by backing out.
+- On entry, the game draws up to `3 + Village Level` unique exact-level shop cards (Grassland 4, Forest 5, Swamp 6, Cave 7) and level-scaled class training offers using the run's seeded RNG. These inventories are retained while switching between the menu, Shop, and Train; they cannot be rerolled by backing out.
 - Services do not end the visit. The player may return to **Village options** after resting, buying/selling, learning, or destroying cards, and chooses **Leave village** only when ready. Remaining unbought shop cards go to the Treasure Discard on departure.
 
 ### 3.2 Village Actions
 1. **Rest (Inn / Campfire)**:
-   - A rest-slider tick restores **2 HP** and costs **1 Gold**. The last selectable tick is labelled **Full** and heals the remaining HP (including an odd final point).
+   - A rest-slider tick restores **1 HP** and costs **1 + Village Level Gold**. The last selectable tick is labelled **Full** and heals the final missing HP.
    - Rest is disabled at full HP and when the selected duration costs more Gold than the hero has. It restores HP only; it does not cleanse status ailments.
 2. **Shop (Village Merchant — Buy / Sell Equipment & Consumables)**:
    - **Starting Gold**: Adventurers start every run with **20 Gold** (`gold: 20`).
    - **Treasure Deck & Dynamic Shop Stock**:
-     - At game start, the **Treasure Deck** (generated from `data/treasures.json`: 2 copies of each gear item plus `6 - level` copies of Health Potions: Lvl 1×5, Lvl 2×4, Lvl 3×3, Lvl 4×2; see `docs/CATALOGS.md` for current totals) is shuffled deterministically.
+     - The physical item supply is generated from `data/treasures.json`. Each scenario activates its eligible levels in the Treasure Deck and keeps other levels in the public Void; see [CATALOGS.md](CATALOGS.md#shop-and-treasure) for current supply.
      - The shop no longer sells the entire catalog at once. On entering a Village, up to **`3 + Village Level` unique item cards** (Grassland 4, Forest 5, Swamp 6, Cave 7) are drawn from the top of the Treasure Deck and placed into `shopStock`. Eligible stock must match the Village's exact level (`item.level === village.level`), and any drawn card whose item is already in `shopStock` is discarded to `treasureDiscard` instead of creating a duplicate option. Wrong-level draws also go to `treasureDiscard`.
      - **Card Arts in Shop Options**: Every option displayed in the store features its official 5:7 raster card artwork (`/cards/items/*.jpg`), item type, stats, level badge, and Charisma price discount.
      - **Discarding Unbought Items**: When the player leaves the village, all remaining unbought cards in `shopStock` are automatically swept into the `treasureDiscard` pile.
@@ -179,41 +179,13 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
    - **Stat Comparison Preview**: For every piece of gear in the shop, the player sees:
      - Which slot it fits and which currently equipped item it replaces (moving the old item to the backpack).
      - Live stat delta chips: e.g. `STR 4 -> 5 (+1)`, `ATK 1 -> 2 (+1)`, `DEF 0 -> 1 (+1)`, `Max HP 18 -> 20 (+2)`.
-   - **21 Shop Item Catalog (Levels 1–4)**:
-     - `Health Potion` (Consumable, 6g, Level 1): Restores 10 HP immediately.
-     - `Iron Sword` (Weapon, 10g, Level 1): +1 ATK (boosts physical attack card damage).
-     - `Apprentice Staff` (Weapon, 15g, Level 1): +1 MATK (boosts spell damage).
-     - `Robe` (Armor, 15g, Level 1): +1 MDEF (reduces incoming magic damage intake).
-     - `Leather Gear` (Armor, 12g, Level 1): +1 EVA.
-     - `Chainmail` (Armor, 15g, Level 1): +1 DEF (reduces physical attack damage intake).
-     - `Spellbinder` (Accessory, 20g, Level 2): +1 INT.
-     - `Beast Ring` (Accessory, 20g, Level 2): +1 STR.
-     - `Hermes Gear` (Accessory, 20g, Level 2): +1 AGI.
-     - `Goldstar` (Accessory, 20g, Level 2): Produces an extra `(1d6 - 1)` Gold (0–5 Gold) after every victory.
-     - `Iron Sword +` (Weapon, 30g, Level 2): +2 ATK and +1 ACC.
-     - `Chainmail +` (Armor, 45g, Level 2): +2 DEF and +1 EVA.
-     - `Robe +` (Armor, 45g, Level 2): +2 MDEF and +1 DEF.
-     - `Apprentice Staff +` (Weapon, 45g, Level 2): +2 MATK and +1 ATK.
-     - `Leather Gear +` (Armor, 45g, Level 2): +2 EVA and +1 DEF.
-     - `Health Potion` (Consumable, 14g, Level 2): Restores 18 HP.
-     - `Health Potion` (Consumable, 24g, Level 3): Restores 24 HP.
-     - `Health Potion` (Consumable, 36g, Level 4): Restores 28 HP.
-     - `Dagger` (Weapon, 10g, Level 1): +1 PEN.
-     - `Dagger +` (Weapon, 30g, Level 2): +2 PEN and +1 ATK.
-     - `Focus Ring` (Accessory, 20g, Level 2): +1 DEX.
-   - **Treasure Deck & Village Stock**: Treasure Deck built from `data/treasures.json` (2 copies of each gear item plus `6 - level` Health Potions: Lvl 1×5, Lvl 2×4, Lvl 3×3, Lvl 4×2). Village entry draws up to `3 + Village Level` unique exact-level cards into `shopStock`; opening and returning to the Shop preserves that inventory.
-   - **Derived Combat Stats**:
-     - **Hero ATK**: $\lfloor \text{STR} / 2 \rfloor + \lfloor \text{DEX} / 3 \rfloor + \text{gear.atk}$.
-     - **Hero DEF**: $\lfloor \text{STR} / 5 \rfloor + \lfloor \text{VIT} / 5 \rfloor + \lfloor \text{AGI} / 3 \rfloor + \text{gear.def}$. Reduces physical damage intake when hit.
-     - **Hero MATK & MDEF**: $\text{MATK} = \lfloor \text{INT} / 2 \rfloor + \text{gear.matk}$; $\text{MDEF} = \lfloor \text{INT} / 5 \rfloor + \text{gear.mdef}$. Boosts spell scaling and magical resistance.
-     - **Hero ACC & EVA**: $\text{ACC} = \lfloor \text{DEX} / 2 \rfloor + \text{gear.acc}$, $\text{EVA} = \lfloor \text{AGI} / 2 \rfloor + \text{gear.eva}$.
-     - **Hero PEN**: `gear.pen`; physical hero attacks ignore up to this much enemy natural DEF before temporary Block. Magical attacks use MDEF and do not gain PEN.
+   - **Catalog and formulas**: See [CATALOGS.md](CATALOGS.md#shop-and-treasure) for current items, supply, prices and bonuses, and [MECHANICS_AND_DATA.md](MECHANICS_AND_DATA.md) for exact stat and purchase formulas.
    - Players can buy items with **Gold** (subject to Charisma discounts) or sell owned items for `50%` of their Gold value. Each item features full-bleed physical TCG raster art.
 3. **Train (Guild Hall — Deck Improvement)**:
    - A sticky resource sidebar shows the hero's current Gold and SP plus the current learning/destruction costs.
-   - Three class-applicable offers are prepared on village entry by drawing from the visible **New Skills Deck**. Starter cards remain exclusive to the initial eight attack and two defense cards; every other class skill has two physical copies in this deck.
+   - Class-applicable offers are prepared on village entry by drawing from the visible **New Skills Deck**. Starter cards remain exclusive to the initial eight attack and two defense cards; every other class skill has two physical copies in this deck.
    - Selecting a skill opens a purchase confirmation before resources are spent. Learning transfers that exact offer into the player's Combat Deck and costs **5 Gold + 1 SP** for a 1 AP card, **10 Gold + 2 SP** for a 2 AP card, or **20 Gold + 4 SP** for a 3 AP card. Unlearned offers enter New Skills Discard on leaving and recycle deterministically only when the deck is empty.
-   - **Destroy 1 Card** opens a destructive confirmation, then transfers that physical card from `playerMasterDeck` to the public **Void** (minimum deck size `5`). It starts at **5 Gold** and increases by **1 Gold for every destruction** for the rest of the run. Destroyed learnable cards still count toward their two physical copies and are not recreated by content reconciliation.
+   - **Destroy 1 Card** opens a destructive confirmation, then transfers that physical card from `playerMasterDeck` to the public **Void** (minimum deck size `5`). The first destruction costs **10 Gold**; later prices rise by 50% from the original base and round up: **15, 23, 34, 51 Gold**, and so on. Destroyed learnable cards still count toward their two physical copies and are not recreated by content reconciliation.
 
 ### 3.4 Undiscovered Terrains & Exploration Mechanic
 - Adventure cards without pre-determined structures or encounters are designated as **Undiscovered Terrains**:
@@ -450,9 +422,13 @@ The game features dynamic, looped audio tracking synchronized with game state:
   - Modern browser autoplay restrictions are gracefully handled with a user gesture unlock listener (`pointerdown`, `click`, `keydown`).
   - A discreet floating audio button allows players to toggle mute/unmute at any point during gameplay.
 
+## Saving and resuming
+
+During an adventure, Slot 1 automatically saves each resolved action and event in this browser, including a game-over result. The player can also manage four manual slots from **Save & Load Adventures**. An existing autosave offers **Continue Adventure** on the title screen; saved runs can be loaded from the save menu. Loading a manual slot also updates the autosave timeline. Game-over autosaves cannot be continued, and manual saving is unavailable after game over. These saves are local to the current browser and device.
+
 ## Game updates
 
-When a new deployment is detected, an unobtrusive notice offers **Reload to update**. Checks run on launch, every minute while the tab is visible, and when returning to the tab. Gameplay continues until the player chooses to reload. Reloading an active adventure requires confirmation because run saving is not yet available; cancelling keeps the adventure running. Network failures do not interrupt play. Normal visits and reloads revalidate cached game files, so players do not need to clear their browser cache. Deployment details and launch verification are documented in ARCHITECTURE.md under Cloudflare releases and cache freshness.
+When a new deployment is detected, an unobtrusive notice offers **Reload to update**. Checks run on launch, every minute while the tab is visible, and when returning to the tab. Gameplay continues until the player chooses to reload. Reloading an active adventure requires confirmation and notes that the current adventure is auto-saved; cancelling keeps the adventure running. Network failures do not interrupt play. Normal visits and reloads revalidate cached game files, so players do not need to clear their browser cache. Deployment details and launch verification are documented in ARCHITECTURE.md under Cloudflare releases and cache freshness.
 
 ## Leech creature
 

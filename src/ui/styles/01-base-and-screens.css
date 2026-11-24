@@ -292,7 +292,7 @@ body:has(.class-select) #app,
 
 body:has(.welcome) {
   background-color: #080b12;
-  background-image: url('/background/start-screen.png');
+  background-image: url('/background/start-screen.webp');
   background-repeat: no-repeat;
   background-position: center center;
   background-size: cover;
@@ -315,7 +315,7 @@ body:has(.welcome) {
   overflow-y: auto;
   box-sizing: border-box;
   background-color: #080b12;
-  background-image: url('/background/start-screen.png');
+  background-image: url('/background/start-screen.webp');
   background-repeat: no-repeat;
   background-position: center center;
   background-size: cover;

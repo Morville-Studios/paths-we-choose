@@ -75,8 +75,8 @@ describe('shared UI presentation helpers', () => {
 
   it('renders the tabletop AD&D style game logo', () => {
     const logo = gameLogoHtml();
-    expect(logo).toContain('paths-we-choose-logo.png');
-    expect(logo).toContain('alt="The Paths We Choose"');
+    expect(logo).toContain('paths-to-odamyrus-logo.webp');
+    expect(logo).toContain('alt="Paths to Odamyrus"');
   });
 
   it('equips class starting gear and maps dagger & health potion art paths', () => {

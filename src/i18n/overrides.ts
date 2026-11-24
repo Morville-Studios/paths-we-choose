@@ -5,8 +5,8 @@ type Translations = Record<Exclude<GameLocale, 'en'>, Record<string, string>>;
 // Game-specific vocabulary needs editorial translations rather than generic
 // machine translations (for example, a card deck is not a wooden floor).
 const rows: Array<[string, string, string, string, string]> = [
-  ['The Paths We Choose', '抉擇之路', '抉择之路', '選択の道', '선택의 길'],
-  ["The Paths We Choose — Player's Handbook", '抉擇之路 — 玩家手冊', '抉择之路 — 玩家手册', '選択の道 — プレイヤーズハンドブック', '선택의 길 — 플레이어 핸드북'],
+  ['Paths to Odamyrus', '通往奧達米魯斯之路', '通往奥达米鲁斯之路', 'オダミルスへの道', '오다미루스로 가는 길'],
+  ["Paths to Odamyrus — Player's Handbook", '通往奧達米魯斯之路 — 玩家手冊', '通往奥达米鲁斯之路 — 玩家手册', 'オダミルスへの道 — プレイヤーズハンドブック', '오다미루스로 가는 길 — 플레이어 핸드북'],
   ['Start Adventure', '開始冒險', '开始冒险', '冒険を始める', '모험 시작'],
   ['How to Play', '遊戲說明', '游戏说明', '遊び方', '게임 방법'],
   ['Choose your class', '選擇職業', '选择职业', 'クラスを選ぶ', '직업 선택'],

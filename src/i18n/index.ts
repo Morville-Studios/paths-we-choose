@@ -1,13 +1,14 @@
 import { GAME_LOCALES, normalizeGameLocale, resolveGameLocale, type GameLocale } from './locale';
 export { GAME_LOCALES, normalizeGameLocale, resolveGameLocale, type GameLocale } from './locale';
 
+// Keep the original key so returning players retain their language choice.
 const STORAGE_KEY = 'morville:paths-we-choose:language';
 const PAGE_TITLES: Record<GameLocale, string> = {
-  en: 'The Paths We Choose — Tabletop Card Adventure | Morville Studios · Morville Games',
-  'zh-Hant': '抉擇之路 — 桌上卡牌冒險 | Morville Studios',
-  'zh-Hans': '抉择之路 — 桌面卡牌冒险 | Morville Studios',
-  ja: '選択の道 — テーブルトップカードアドベンチャー | Morville Studios',
-  ko: '선택의 길 — 테이블톱 카드 모험 | Morville Studios',
+  en: 'Paths to Odamyrus — Free Fantasy Card Game | Morville Studios',
+  'zh-Hant': '通往奧達米魯斯之路 — 免費奇幻卡牌遊戲 | Morville Studios',
+  'zh-Hans': '通往奥达米鲁斯之路 — 免费奇幻卡牌游戏 | Morville Studios',
+  ja: 'オダミルスへの道 — 無料ファンタジーカードゲーム | Morville Studios',
+  ko: '오다미루스로 가는 길 — 무료 판타지 카드 게임 | Morville Studios',
 };
 
 function storedChoice(): string | null {

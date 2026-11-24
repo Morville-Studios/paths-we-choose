@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
-const actionsDir = path.resolve(__dirname, '../public/cards/actions');
+const actionsDir = path.resolve(__dirname, '../assets/raw/cards/actions');
 if (!fs.existsSync(actionsDir)) fs.mkdirSync(actionsDir, { recursive: true });
 
 async function svgToJpg(svg, outPath) {

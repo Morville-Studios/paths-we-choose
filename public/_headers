@@ -11,24 +11,24 @@
 
 # These equivalents apply when the build is mounted at its canonical route in
 # the shared Morville Studios Cloudflare project.
-/games/the-paths-we-choose/
+/games/paths-to-odamyrus/
   Cache-Control: no-cache, no-store, must-revalidate
 
-/games/the-paths-we-choose/index.html
+/games/paths-to-odamyrus/index.html
   Cache-Control: no-cache, no-store, must-revalidate
 
-/games/the-paths-we-choose/version.json
+/games/paths-to-odamyrus/version.json
   Cache-Control: no-cache, no-store, must-revalidate
 
 # Vite fingerprints these filenames; they are safe to cache permanently.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
-/games/the-paths-we-choose/assets/*
+/games/paths-to-odamyrus/assets/*
   Cache-Control: public, max-age=31536000, immutable
 
 /seo/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 
-/games/the-paths-we-choose/seo/*
+/games/paths-to-odamyrus/seo/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800

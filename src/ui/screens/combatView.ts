@@ -162,6 +162,7 @@ interface FullCreatureCardOptions {
   artWindowClassName?: string;
   artOverlayHtml?: string;
   attributes?: string;
+  loading?: 'eager' | 'lazy';
 }
 
 /**
@@ -179,9 +180,10 @@ export function fullCreatureCardHtml({
   artWindowClassName = '',
   artOverlayHtml = '',
   attributes = '',
+  loading = 'eager',
 }: FullCreatureCardOptions): string {
   const templateClass = monster.isBoss ? 'is-boss tcg-template-boss' : 'tcg-template-grassland';
-  const illustration = getMonsterIllustration(monster.templateId);
+  const illustration = getMonsterIllustration(monster.templateId, loading);
   const pattern = monster.pattern?.length ? monster.pattern : [{ label: 'Idle', damage: 0, block: 0 }];
 
   return `

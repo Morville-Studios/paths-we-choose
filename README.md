@@ -1,8 +1,14 @@
-# The Paths We Choose
+# Paths to Odamyrus
 
-A Morville Studios Games browser dungeon-crawl and path-building card adventure inspired by tabletop RPGs and deck-builders. Built with strict TypeScript, Vite, DOM and CSS. Capacitor packaging is planned; the current repository is a web application.
+A Morville Studios Games browser dungeon crawl and path building card adventure inspired by tabletop RPGs and deck builders. Built with strict TypeScript, Vite, DOM and CSS.
 
-Public portfolio route: `https://morvillestudios.com/games/the-paths-we-choose/`.
+Canonical public route: [morvillestudios.com/games/paths-to-odamyrus](https://morvillestudios.com/games/paths-to-odamyrus/).
+
+## Current game
+
+Choose Fighter, Wizard or Rogue, explore one of three missions, build a combat deck, and face a boss at the end of each mission. The game includes villages, shrines, equipment, creature encounters, and a **How to Play** guide. English, Traditional Chinese, Simplified Chinese, Japanese and Korean are available.
+
+Runs can be resumed from a browser autosave or managed in four manual save slots. Updates are announced in the game; players choose when to reload. The current release is a web application. Native packaging and live Cloudflare deployment verification remain planned work.
 
 ## Run locally
 
@@ -10,37 +16,19 @@ Public portfolio route: `https://morvillestudios.com/games/the-paths-we-choose/`
 npm install
 npm run dev
 npm test
-npm run docs:sync   # regenerate tables after changing src/data
-npm run docs:check  # verify generated catalogs
-npm run i18n:check  # verify bundled translation coverage
-npm run seo:assets  # regenerate the 1200x630 social preview
-npm run build      # catalog check, TypeScript check and Vite build
+npm run build
 npm run preview
 ```
 
+After catalog changes, run `npm run docs:sync`. After media changes, follow the raw asset workflow in [AGENTS.md](AGENTS.md) and [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Documentation
 
-- [AGENTS.md](AGENTS.md): contributor rules and architectural invariants.
+- [AGENTS.md](AGENTS.md): contributor rules and verification commands.
 - [GAME_DESIGN.md](docs/GAME_DESIGN.md): player experience and gameplay rules.
-- [MECHANICS_AND_DATA.md](docs/MECHANICS_AND_DATA.md): exact mechanics, formulas and ability timing.
-- [CATALOGS.md](docs/CATALOGS.md): generated class, monster, boss, adventure, shop and combat-card data.
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md): runtime structure, transitions, conservation and deployment.
-- [BRANDING_AND_SEO.md](docs/BRANDING_AND_SEO.md): Morville Studios Games identity, canonical URL, portfolio handoff, metadata and caching.
+- [MECHANICS_AND_DATA.md](docs/MECHANICS_AND_DATA.md): exact mechanics, formulas and timing.
+- [CATALOGS.md](docs/CATALOGS.md): generated class, monster, adventure, shop and card data.
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md): runtime structure, state boundaries and deployment.
+- [BRANDING_AND_SEO.md](docs/BRANDING_AND_SEO.md): identity, route, metadata and caching.
 - [ROADMAP.md](docs/ROADMAP.md): implemented capabilities and remaining work.
-- [DISCREPANCIES.md](docs/DISCREPANCIES.md): reconciliation decisions and outstanding questions.
-
-## Current game
-
-Choose Fighter, Wizard or Rogue. All six Base Stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) start at 1, augmented by an Innate +1 Stat Bonus on all attributes (`Effective = 1 (Innate) + Base + Class + Blessing + Gear`); a class adds +2 to its Primary stat and +1 to two Secondary stats. Under 1:1 DEX-to-ACC and AGI-to-EVA scaling, all starting heroes begin with 3 ACC; Fighter and Wizard start with 2 EVA while Rogue starts with 4 EVA. Before preparation upgrades, equipment or blessings, Fighter has 16 Max HP, Wizard 14 and Rogue 14. Each starts with 20 Gold, 10 SP and a 10-card combat deck.
-
-Base-stat upgrades cost `currentBase * 10` SP. Spend them during Turn 0 preparation or at a Shrine; a Shrine can raise Base Stats only through Shrine Level + 1. Shrine arrival shows the stepped-on card, lore, and the same reusable player-info widget as the Map. Select a stat first: affordable choices reveal a confirmed Upgrade action, while unaffordable choices show missing SP. Leaving also requires confirmation. Arrival automatically grants one eligible random boon (Cleanse, +1 Stat Blessing, Divine Protection granting +1 DEF and +1 MDEF, or Revitalize) and replaces the previous blessing; map blessings expire after boss victory acknowledgement.
-
-Explore a three-row offset-brick board with two forward choices and three lookahead tiles. Each mission has a 30-card Adventure Deck across three implemented scenarios: The Goblin King, Cult of Trolls, and Tomb of the Fallen King. Ordinary creatures come from an 85-card physical supply in the public Void: Common types have 6 copies, Uncommon types 4, and Rare types 3. Scenario setup pulls 100%, rounded 2/3, and rounded 1/3 of the creature types whose main terrains match its terrain bands; unused copies stay in the Void. Scenario 1 builds a 45-card Monster Deck (40 in Void), Scenario 2 builds 37 cards (48 in Void), and Scenario 3 builds 30 cards (55 in Void); bosses are spawned separately. Treasure contains 42 cards: two copies of each of 21 shop items. Default creature rewards scale by level: ordinary monsters grant `level * 5` Gold and `level + 1` SP (LVL 1: 5G/2SP, LVL 2: 10G/3SP, LVL 3: 15G/4SP, LVL 4: 20G/5SP, LVL 5: 25G/6SP, LVL 6: 30G/7SP, LVL 7: 35G/8SP). Boss creatures grant double rewards based on their level (`level * 10` Gold, `(level + 1) * 2` SP: LVL 4 Boss: 40G/10SP, LVL 5 Boss: 50G/12SP, LVL 7 Boss: 70G/16SP). Exact compositions and inscriptions are in the generated catalogs.
-
-Combat draws five cards and uses `3 + floor(INT/5)` maximum AP, 3d6 attack checks under the **Morville Adventure Card Game "3d6 Success Roll Range Table Reference" (MACG-3D6™)** with 10–11 Sure Hit Rolls (25.0% baseline), ACC versus EVA range expansion, Diabolic rolls (3 & 18 always miss), and interactive QTE hit check bars without random critical hit multipliers. Played actions remain on a resolving Stack until all costs, draws, AP gains and triggers finish, so a card cannot redraw itself. PEN on equipment bypasses the same amount of an enemy's natural DEF for physical hero attacks before Block; magical attacks use MDEF and do not gain PEN. Village training draws learnable cards from a visible, finite New Skills Deck, confirms purchases and destruction, and sends destroyed physical cards to the Void. Starter cards remain exclusive to the initial 8/2 deck and each non-starter class skill has two physical copies. A plain-language **How to Play** guide is available from the title screen and from the in-game HUD. The Turn 15 tile always resolves and is acknowledged before Grundy, the three Cult of Trolls bosses, or the Fallen King appears. Summoned creatures bear a summon token, award 0 Gold/SP upon defeat, and return immediately to the discard pile.
-
-Cards use full-art illustrations at a 5:7 ratio. Right-click or long-press inspects rules and live stats. Keyboard and touch navigation are supported. Class selection and map navigation share the map soundtrack; combat has its own track.
-
-The language picker offers English, Traditional Chinese, Simplified Chinese, Japanese, and Korean. On a first visit the game follows the browser's preferred supported language; the player's selection is remembered locally. English remains the fallback. Changing language during a run keeps the current game state.
-
-Runs currently live in memory. Updates are announced in-app and reloading an active run requires confirmation because progress is not saved. The public build is branded for Morville Studios Games, carries crawlable game metadata, and resolves runtime assets correctly beneath its canonical `/games/the-paths-we-choose/` route. Cloudflare release verification, persistence and native packaging remain launch work; see architecture, branding and roadmap documentation.
+- [DISCREPANCIES.md](docs/DISCREPANCIES.md): historical reconciliations and open decisions.

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
-const outDir = path.resolve(__dirname, '../public/cards/adventure');
+const outDir = path.resolve(__dirname, '../assets/raw/cards/adventure');
 if (!fs.existsSync(outDir)) {
   fs.mkdirSync(outDir, { recursive: true });
 }

@@ -1277,7 +1277,7 @@ export function renderPlayArea(state: RunState, ui: UiState): string {
   <main class="screen play ${isCombat ? 'is-in-combat' : ''}">
     <header class="hud">
       <div class="hud-logo-col">
-        <img src="${publicAsset('brand/paths-we-choose-logo.png')}" alt="The Paths We Choose" class="hud-game-logo" width="220" height="92" />
+        <img src="${publicAsset('/brand/paths-to-odamyrus-logo.webp')}" alt="Paths to Odamyrus" class="hud-game-logo" width="220" height="110" />
       </div>
 
       <div class="hud-content-col">

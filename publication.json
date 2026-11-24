@@ -1,10 +1,10 @@
 {
   "version": 1,
   "publicEnabled": true,
-  "publicName": "The Paths We Choose",
+  "publicName": "Paths to Odamyrus",
   "publisher": "Morville Studios",
   "division": "Morville Studios Games",
-  "route": "/games/the-paths-we-choose/",
-  "canonicalUrl": "https://morvillestudios.com/games/the-paths-we-choose/",
+  "route": "/games/paths-to-odamyrus/",
+  "canonicalUrl": "https://morvillestudios.com/games/paths-to-odamyrus/",
   "status": "playable-prototype"
 }

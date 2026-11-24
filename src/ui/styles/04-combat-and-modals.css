@@ -589,7 +589,7 @@
   font-size: 0.65rem;
 }
 
-/* Official Raster Game Icons (Sliced from public/icons/icons.png) */
+/* Official Raster Game Icons (Sliced from assets/raw/icons/icons.png) */
 .game-icon {
   display: inline-block;
   vertical-align: middle;

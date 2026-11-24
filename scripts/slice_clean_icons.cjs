@@ -2,8 +2,8 @@ const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 
-const srcPath = 'public/icons/icons.png';
-const outDir = 'public/icons';
+const srcPath = 'assets/raw/icons/icons.png';
+const outDir = 'assets/raw/icons';
 
 const icons = [
   // Base Stats (Row 1)

@@ -278,7 +278,7 @@ export function villageViewHtml(state: RunState, village: ActiveVillageState, ui
         </section>
         <section class="train-section">
           <h3>Destroy a card <small>${canRemove ? `(${removalCost} Gold)` : '(deck at minimum size)'}</small></h3>
-          <p class="muted">Destroyed cards go to the Void. Each destruction increases the next cost by 1 Gold for this adventure.</p>
+          <p class="muted">Destroyed cards go to the Void. Costs start at 10 Gold and grow by 50% per destruction, rounded up.</p>
           <div class="train-card-grid">${state.playerMasterDeck
             .map((c) => `<div class="train-card-offer">${combatCardHtml(c, stats, canRemove && canAffordRemoval, 'train-remove', false, state)}<span>${removalCost} Gold</span></div>`)
             .join('')}</div>
@@ -292,7 +292,7 @@ export function villageViewHtml(state: RunState, village: ActiveVillageState, ui
         <h4>Learning costs</h4>
         <ul><li>1 AP: 5 Gold + 1 SP</li><li>2 AP: 10 Gold + 2 SP</li><li>3 AP: 20 Gold + 4 SP</li></ul>
         <h4>Destroy cost</h4>
-        <p><b>${removalCost} Gold</b> now<br/><small>Next: ${removalCost + 1} Gold</small></p>
+        <p><b>${removalCost} Gold</b> now<br/><small>Next: ${getTrainRemovalCost(state, 1)} Gold</small></p>
         <button class="void-inspect-link" data-action="open-pile" data-pile="void_deck">Inspect Void (${voidCardCount(state)})</button>
       </aside>
     </div>
@@ -323,7 +323,7 @@ export function trainingConfirmModal(state: RunState, pending: PendingTrainingAc
   const title = pending.kind === 'learn' ? `Learn ${card.name}?` : `Destroy ${card.name}?`;
   const detail = pending.kind === 'learn'
     ? `This exact card will move from the New Skills offer into your Combat Deck.`
-    : `This card will permanently leave your Combat Deck and move to the Void. The next destruction will cost ${destroyCost + 1} Gold.`;
+    : `This card will permanently leave your Combat Deck and move to the Void. The next destruction will cost ${getTrainRemovalCost(state, 1)} Gold.`;
 
   return `
   <div class="modal-backdrop transaction-confirm-backdrop" data-action="cancel-training-action-backdrop">

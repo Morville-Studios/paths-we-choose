@@ -1,4 +1,4 @@
-# System Architecture — The Paths We Choose
+# System Architecture — Paths to Odamyrus
 
 ## Runtime and boundaries
 
@@ -23,10 +23,14 @@ Strict TypeScript, Vite, DOM and CSS form the current web application. There is 
 - `src/ui/grouping.ts`: stable one-pass repeated-card grouping used by every pile viewer.
 - `src/ui/brand.ts` and `src/ui/publicAsset.ts`: canonical Morville Studios brand presentation and deployment-base-aware public asset URLs.
 - `src/ui/cardArt.ts`, `src/ui/icons.ts`, `src/ui/components/qteBar.ts` and `src/ui/styles/` (`styles.css` manifest): art lookup, icon helpers, 3d6 QTE bar, and layered CSS partials (`01-base-and-screens.css` through `08-responsive-and-qte.css`).
-- `src/audio/audioManager.ts`: HTML audio and gesture unlock. `src/core/audio.ts` determines the track without browser APIs.
+- `src/audio/audioManager.ts`: HTML audio and gesture unlock. Inactive tracks do not preload, and initial music sync follows the first visual render. `src/core/audio.ts` determines the track without browser APIs.
 - `src/updates.ts`: production release polling and player-controlled reload.
 - `src/i18n/`: browser language selection, saved player preference, bundled translations, and presentation-only translation. English catalog values and state identifiers remain canonical so switching languages during a run never changes rules or random outcomes.
 - `src/tests/`: core, deck, audio, rendering, release-check and individual-creature coverage. Use `npm test` for current suite totals.
+
+## Media asset boundary
+
+`assets/raw/` holds original raster artwork, the icon sprite, and original music outside Vite's public asset copy. `public/` holds browser-ready derivatives only: compressed JPEG card art, transparent WebP logo, WebP welcome background, individual PNG icons, and 128 kbps MP3 music without embedded cover art. Art generation and icon slicing scripts write to `assets/raw/`; `npm run art:optimize` publishes those sources and removes orphan raster outputs, while `npm run art:check` verifies the published images and rejects orphans. Both commands require the raw sources to exist. Run `npm run audio:optimize` after changing original music, then `npm run audio:check`; these commands require FFmpeg and FFprobe and check that each published track is smaller, contains one audio stream with no cover image, and preserves duration within 0.1 seconds. Keep the raw originals so lossy audio is never repeatedly transcoded. Card art retains enough pixels for the 280px inspection view at common high-density displays; it is not resized to a single CSS size because the same image appears in several contexts. Check network transfer and image decode timing in a browser when diagnosing load speed; file size alone does not prove the bottleneck.
 
 ## Determinism
 
@@ -36,7 +40,7 @@ All game rules remain in core. Catalog tables are generated with `npm run docs:s
 
 ## Localization
 
-The web game offers English, Traditional Chinese, Simplified Chinese, Japanese, and Korean. An explicit `?lang=` choice takes precedence over the saved preference, then the browser's ordered languages; unsupported languages fall back to English. The player can change language while playing. The UI rebuilds from the same `RunState` and translates presentation text and accessibility labels, including card catalog text and handbook content. Localization must stay outside `src/core/`; core logs and card identifiers remain deterministic English source data. Bundled locale data is generated during authoring and requires no translation network call from a player's browser.
+The web game offers English, Traditional Chinese, Simplified Chinese, Japanese, and Korean. An explicit `?lang=` choice takes precedence over the saved preference, then the browser's ordered languages; unsupported languages fall back to English. The player can change language while playing. The UI rebuilds from the same `RunState` and translates presentation text and accessibility labels, including card catalog text and handbook content. Localization must stay outside `src/core/`; core logs and card identifiers remain deterministic English source data. Bundled locale data is generated during authoring and loaded as a separate chunk when a non-English language is needed; no external translation service is used.
 
 ## Component-based frontend architecture (Native ES6+ & Zero Framework Runtime)
 
@@ -55,7 +59,7 @@ The application does **not use React, Vue, or any external UI framework runtime*
    - **Capacitor & Mobile Webview Optimization**: No virtual DOM reconciliation cycles or memory leak hazards on low-end iOS/Android devices.
    - **Standard Longevity**: Built on standard ECMAScript template literals and DOM APIs that will run identically years from now without framework churn.
 3. **Unidirectional Data Flow**:
-   - State is held immutably in a single store (`RunState`). User interactions trigger top-level **Event Delegation** via `data-action` attributes in `src/main.ts`. Handlers invoke pure core transitions in `src/core/`, which return a new `RunState` and trigger a top-level render re-evaluation. UI-only overlay changes update the overlay container when the play-area state and shell inputs are unchanged.
+   - State is held immutably in a single store (`RunState`). User interactions trigger top-level **Event Delegation** via `data-action` attributes in `src/main.ts`. Handlers invoke pure core transitions in `src/core/`, which return a new `RunState` and trigger a top-level render re-evaluation. During play, `patchPlayArea` preserves HUD, sidebar, main view, footer, or overlay regions whose source HTML is unchanged; UI-only overlay changes update only the overlay container when shell inputs are unchanged.
 4. **Targeted In-Place DOM Transitions**:
    - High-frequency animations (such as the 3D Adventurer class carousel and Monster carousel) use targeted in-place DOM updates (`updateClassCarouselDom`, `updateMonsterCarouselDom`) to modify classes and transform styles without destroying nodes, preserving hardware-accelerated CSS transitions.
 
@@ -131,21 +135,11 @@ stateDiagram-v2
     GameOver --> Welcome: New run
 ```
 
-Flee is disabled for bosses. The current public continuation is Stage 1 to Stage 2; the diagram is not a claim of a third mission. Stage continuation preserves character progression and inventories while creating the next 30-card map.
+Flee is disabled for bosses. Stage continuation supports Stage 1→2→3 and preserves character progression and inventories while creating the next mission map.
 
-## Formula and flow invariants
+## Rule ownership and flow boundaries
 
-- Effective attribute = 1 (Innate) + Base + Class + Blessing + Equipped Gear. Every attribute receives an innate +1 baseline so leveling Base from 1 to 2 scales effective power smoothly (2 -> 3, a +50% progression rather than a jarring 100% jump).
-- Upgrading Base B to B+1 costs `(B+1)^2` SP, only during initial preparation or at a Shrine. A Shrine caps the target Base at Shrine Level + 1; Turn 0 preparation has no Shrine-level cap. No character level or XP exists.
-- ACC = Effective DEX + gear ACC, plus card and temporary accuracy modifiers. Iron Sword + currently grants +1 direct ACC; DEX equipment affects the base calculation.
-- EVA = Effective AGI + gear EVA + temporary EVA.
-- ATK = floor(STR/2) + floor(DEX/3) + gear ATK; DEF = floor((STR + AGI + VIT) / 5) + gear DEF; Max HP = 10 + Effective VIT * 2.
-- MATK = floor(INT/2) + gear MATK; MDEF = floor(INT/5) + gear MDEF; maximum AP = 3 + floor(INT/5).
-- MACG-3D6 has no critical-hit multiplier, snake-eyes rule or boxcars rule. Totals 3 and 18 are Diabolic misses. Card scaling and passives are specified in MECHANICS_AND_DATA.md.
-- One eligible shrine boon is granted on arrival. A new blessing replaces the old one; map favors clear upon acknowledging boss victory. The Shrine overlay shows the stepped-on card/lore and reuses the same `playerInfoWidgetHtml` component as the Map. Stat choice is transient UI state: selecting never mutates the run, unaffordable choices show missing SP, and confirmed Upgrade/Leave actions alone invoke core transitions. No manual three-option prayer choice is needed.
-- Village Rest uses selectable one-Gold ticks that heal 2 HP (the final **Full** tick heals the remainder). Rest is disabled at full HP and does not cleanse statuses.
-- Village entry pre-draws Shop and Train inventories. Shop/Train always return to the main menu without rerolls; services remain available until the player leaves. Training shows current Gold/SP in a dedicated sidebar and requires confirmation before learning or destroying a card.
-
+Exact stat, combat, shrine and village rules belong to [MECHANICS_AND_DATA.md](MECHANICS_AND_DATA.md); card counts, prices and content belong to the generated [CATALOGS.md](CATALOGS.md). Core transitions implement those rules without browser APIs. UI selections, confirmations and previews stay transient until an action invokes a core transition. Village stock and training offers are prepared on entry and retained while the player navigates the village UI.
 
 ## Unified Adventure Chronicle (Game Log) & In-Place Battle Component
 
@@ -175,7 +169,7 @@ These equations count ownership, not UI references. They apply to nonterminal or
 2. Monsters: monsterDeck + monsterDiscard + monsterVoid + all non-boss cards owned by an active COMBAT encounter = 85. Scenario setup partitions the complete physical supply between Monster Deck and Void using rarity/main-terrain rules. Count both living and defeated participants until encounter resolution; exclude separately spawned bosses. Victory showcase references point to cards already returned to discard, so do not count them twice. Leech moves an existing Zombie from discard to encounter; Creeper revives its own instance without creating a card.
 3. Player Combat: during combat, draw pile + hand + discard + resolving `stack` + `inPlay` = playerMasterDeck length. The master deck is a definition list, not additional owned copies. A played card remains on the Stack until all costs, draws, AP gains and triggered effects finish; only then does it enter discard or `inPlay`. Battle-long enchantments occupy `inPlay` until destroyed or combat ends; the permanent Flee action is not in any of these piles. Village Train can change master-deck length.
 4. New Skills: `newSkillsDeck` + `newSkillsDiscard` + active Village `trainOptions` + learned non-starter cards in `playerMasterDeck` + destroyed learnable cards in `voidCards` equals two copies of every trainable non-starter class skill. Starter cards are created only in the initial 8/2 starter deck. Static Void upgrade templates, Boss cards, and unselected hero cards are inexhaustible catalog entries; cards destroyed during Training and ordinary cards in `monsterVoid` are physical Void cards.
-5. Treasure: draw pile + treasureDiscard + current village shopStock + backpack items + equipped items = total Treasure supply (currently 106 cards: 2 copies each of all 46 gear items in `data/treasures.json` + `6 - level` copies of Health Potions: Lvl 1×5, Lvl 2×4, Lvl 3×3, Lvl 4×2) minus consumed item copies. This emulates a physical tabletop card game: **no card is ever instantiated out of thin air**. The Void represents the game box of cards not currently in play. During setup, scenario decks are prepared first from the physical supply (Stage 1 places all Treasure cards into `treasureDeck`). Hero setup then equips the class's starting gear by checking the Void first and otherwise searching and pulling those exact physical copies out of `treasureDeck` (auto-equipping empty slots or placing into `backpack`), leaving `total - 2` cards in `treasureDeck` and only 1 remaining copy of each starter item to draw later. Purchases and sales transfer existing copies; unbought stock is discarded on village exit. Consuming a potion removes its physical copy from circulation. UI previews and exploration found-item references are not additional copies.
+5. Treasure: `treasureDeck` + `treasureDiscard` + `treasureVoid` (inactive scenario supply) + current village `shopStock` + backpack + equipped items + `voidItems` (permanently banished copies) = the physical Treasure supply. The current source has 106 cards; exact item counts come from [CATALOGS.md](CATALOGS.md#shop-and-treasure). Scenario 1 activates Level 1–2 cards and holds Level 3–4 cards in `treasureVoid`. Starting gear is transferred from this supply, not minted. Purchases move stocked cards to inventory; sold cards enter `voidItems`, unbought stock enters `treasureDiscard`, and used potions enter `treasureDiscard`. Stage continuation repartitions surviving, unowned, unbanished cards by level without recreating copies. UI previews and exploration references are not additional copies.
 
 Spell/ability searches use one bounded current-deck pass and return null/fizzled on failure; they recycle only if the search starts empty. Encounter generation instead recycles during the mechanic whenever another draw needs an empty deck and eligible graveyard supply remains. Terrain rejects stay on the bottom and are examined only once per pass; a full pass with only incompatible terrain cards stops without accessing a nonempty deck's graveyard. If the budget cannot be filled, existing draws still fight; an empty encounter enters `ENCOUNTER_CLEAR`, shows the encounter result for acknowledgement, awards no rewards, then retains the Turn 15 boss check. This is unavailable eligible supply, not ability fizzle. Ordinary fixed-count draws recycle normally. See MECHANICS_AND_DATA.md for exact search boundaries and public graveyard/hidden deck-order rules.
 
@@ -185,7 +179,7 @@ Welcome loops start-screen. Class selection and play_area/NONE use map-area. COM
 
 ## Cloudflare releases and cache freshness
 
-Deploy the complete `dist/` directory from `npm run build` atomically beneath `/games/the-paths-we-choose/`, using Cloudflare Pages or Workers Static Assets. Runtime public assets use `publicAsset()`, which appends `?v=__BUILD_ID__` in production builds, and Vite's relative base so they remain inside that route instead of leaking to domain-root `/cards`, `/icons`, or `/audio` paths and never serve stale artwork or audio across releases. `public/_headers` is copied to `dist/_headers`: `index.html` and `version.json` use no-cache/no-store revalidation, content-fingerprinted Vite bundles under `assets/` cache immutably for one year, fixed-name public media uses the fallback `max-age=0, must-revalidate`, and social previews use a bounded one-day cache with stale-while-revalidate. Do not apply Cache Everything to HTML or the release manifest. Workers/Functions that generate responses must set equivalent headers themselves; `_headers` applies to static asset responses.
+Deploy the complete `dist/` directory from `npm run build` atomically beneath `/games/paths-to-odamyrus/`, using Cloudflare Pages or Workers Static Assets. Runtime public assets use `publicAsset()`, which appends `?v=__BUILD_ID__` in production builds, and Vite's relative base so they remain inside that route instead of leaking to domain-root `/cards`, `/icons`, or `/audio` paths and never serve stale artwork or audio across releases. `public/_headers` is copied to `dist/_headers`: `index.html` and `version.json` use no-cache/no-store revalidation, content-fingerprinted Vite bundles under `assets/` cache immutably for one year, fixed-name public media uses the fallback `max-age=0, must-revalidate`, and social previews use a bounded one-day cache with stale-while-revalidate. Do not apply Cache Everything to HTML or the release manifest. Workers/Functions that generate responses must set equivalent headers themselves; `_headers` applies to static asset responses.
 
 Every production build generates a unique build ID embedded in the client and emitted in `version.json`. The browser checks this manifest on startup, every minute while visible, and when returning to the tab, with `cache: no-store` and a cache-busting `?t=<timestamp>` query parameter plus a ten-second timeout. Any different valid build ID (including rollback) displays a persistent update notice outside the game renderer. Failed/offline checks are silent and retried later. Development mode does not poll.
 

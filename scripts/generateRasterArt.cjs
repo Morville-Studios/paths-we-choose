@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
-const publicCardsDir = path.resolve(__dirname, '../public/cards');
+const publicCardsDir = path.resolve(__dirname, '../assets/raw/cards');
 const adventureDir = path.join(publicCardsDir, 'adventure');
 const creaturesDir = path.join(publicCardsDir, 'creatures');
 
