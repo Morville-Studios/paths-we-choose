@@ -13,7 +13,7 @@ export interface AudioStateResolution {
  * 1. Intro: Welcome / start screen plays 'start-screen.mp3'.
  * 2. Class Select & Map: Map music ('map-area.mp3') begins on the character selection screen ('class_select') and continues into map navigation ('play_area' with activeHook.type === 'NONE').
  * 3. Battle: Encounter / combat ('play_area' with activeHook.type === 'COMBAT') plays 'battle-normal.mp3'.
- * 4. Victory: Defeating monsters and showing rewards ('play_area' with activeHook.type === 'VICTORY') plays 'victory.mp3'; fades and stops when exiting.
+ * 4. Victory: Defeating enemies and showing rewards ('play_area' with activeHook.type === 'VICTORY') plays 'victory.mp3'; fades and stops when exiting.
  * 5. Shrine: Entering a sacred shrine ('play_area' with activeHook.type === 'SHRINE') plays 'shrine.mp3'; fades and stops upon exiting.
  * 6. Village: Entering a village ('play_area' with activeHook.type === 'VILLAGE') plays 'village.mp3'; fades and stops upon exiting.
  * 7. Exiting map navigation state (stage complete, game over) stops map music.

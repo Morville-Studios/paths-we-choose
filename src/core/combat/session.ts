@@ -1,10 +1,10 @@
 import { createTimestamp } from '../log';
 import { shuffleArray } from '../rng';
-import { ActiveCombatState, CombatCardDef, MonsterCard } from '../types';
+import { ActiveCombatState, ActionCardDef, EnemyCard } from '../types';
 import { PLAYER_HAND_SIZE, PLAYER_MAX_AP } from './constants';
 
 export interface DrawStepEvent {
-  card: CombatCardDef;
+  card: ActionCardDef;
   triggeredBy?: string;
 }
 
@@ -32,22 +32,22 @@ export function formatDrawEventsToLog(
   return entries;
 }
 
-export function drawCombatCards(
-  drawPile: CombatCardDef[],
-  discardPile: CombatCardDef[],
+export function drawActionCards(
+  drawPile: ActionCardDef[],
+  discardPile: ActionCardDef[],
   count: number,
   rngState: number
 ): {
-  drawn: CombatCardDef[];
+  drawn: ActionCardDef[];
   events: DrawStepEvent[];
-  drawPile: CombatCardDef[];
-  discardPile: CombatCardDef[];
+  drawPile: ActionCardDef[];
+  discardPile: ActionCardDef[];
   nextState: number;
 } {
   let currentDraw = [...drawPile];
   let currentDiscard = [...discardPile];
   let currentRng = rngState;
-  const drawn: CombatCardDef[] = [];
+  const drawn: ActionCardDef[] = [];
   const events: DrawStepEvent[] = [];
 
   // LIFO stack of individual "Draw a card" entries so multi-card draws resolve 1-by-1
@@ -86,14 +86,14 @@ export function drawCombatCards(
 }
 
 export function createCombatSession(
-  monsters: MonsterCard[],
-  masterDeck: CombatCardDef[],
+  enemies: EnemyCard[],
+  masterDeck: ActionCardDef[],
   rngState: number,
   playerMaxAp = PLAYER_MAX_AP,
   logTimestamp = '00:00:00'
 ): { combat: ActiveCombatState; nextState: number } {
   const shuffledDeck = shuffleArray(masterDeck, rngState);
-  const initialDraw = drawCombatCards(
+  const initialDraw = drawActionCards(
     shuffledDeck.shuffled,
     [],
     PLAYER_HAND_SIZE,
@@ -101,12 +101,12 @@ export function createCombatSession(
   );
 
   const combat: ActiveCombatState = {
-    monsters: monsters.map((monster) => ({
-      monster,
-      hp: monster.maxHp,
-      block: monster.startingBlock ?? 0,
+    enemies: enemies.map((enemy) => ({
+      enemy,
+      hp: enemy.maxHp,
+      block: enemy.startingBlock ?? 0,
       patternIndex: 0,
-      undyingTokensRemaining: monster.undyingTokens,
+      undyingTokensRemaining: enemy.undyingTokens,
     })),
     combatTurn: 1,
     playerAp: playerMaxAp,
@@ -119,7 +119,7 @@ export function createCombatSession(
     hand: initialDraw.drawn,
     discardPile: initialDraw.discardPile,
     combatLog: [
-      `[${createTimestamp(logTimestamp)}] Encountered ${monsters
+      `[${createTimestamp(logTimestamp)}] Encountered ${enemies
         .map((m) => `${m.name} (Lvl ${m.level}, ${m.maxHp} HP)`)
         .join(' + ')}!`,
     ],

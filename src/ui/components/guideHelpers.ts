@@ -3,18 +3,18 @@ import {
   computeEffectiveStats,
   getDerivedCombatStats,
 } from '../../core/stats';
-import { ClassId, EquippedGear, MonsterTerrain, ShopItemDef, TerrainType } from '../../core/types';
+import { ClassId, EquippedGear, EnemyTerrain, ShopItemDef, TerrainType } from '../../core/types';
 import { getTrainOfferCount, VILLAGE_SHOP_BASE_SLOTS } from '../../core/village';
 import { CLASS_CATALOG, STARTING_BASE_STATS } from '../../data/classes';
-import { COMBAT_CARD_CATALOG } from '../../data/combatCards';
+import { ACTION_CARD_CATALOG } from '../../data/actionCards';
 import {
-  getMonsterMainTerrain,
-  getMonsterSupplyCount,
-  getScenarioMonsterDeckComposition,
-  MONSTER_TEMPLATES,
-  MONSTER_TERRAIN_LEVELS,
-  ORDINARY_MONSTER_TEMPLATE_IDS,
-} from '../../data/monsters';
+  getEnemyMainTerrain,
+  getEnemySupplyCount,
+  getScenarioEnemyDeckComposition,
+  ENEMY_TEMPLATES,
+  ENEMY_TERRAIN_LEVELS,
+  ORDINARY_ENEMY_TEMPLATE_IDS,
+} from '../../data/enemies';
 import { PATH_CARD_CATALOG } from '../../data/paths';
 import { getTreasureSupplyCount, SHOP_ITEM_CATALOG, ShopItemTemplate } from '../../data/shopItems';
 import {
@@ -31,7 +31,7 @@ import {
   STAGE_3_MISSION_NAME,
 } from '../../data/stages';
 
-const TERRAIN_LABELS: Record<TerrainType | MonsterTerrain, string> = {
+const TERRAIN_LABELS: Record<TerrainType | EnemyTerrain, string> = {
   start: 'Start',
   grasslands: 'Grasslands',
   forest: 'Forest',
@@ -55,19 +55,19 @@ const SCENARIO_CONFIG: Record<1 | 2 | 3, {
     name: STAGE_1_MISSION_NAME,
     maxTurns: STAGE_1_MAX_TURNS,
     adventureComposition: STAGE_1_DECK_COMPOSITION,
-    bossLabel: `${MONSTER_TEMPLATES.goblin_chieftain.name} (Turn ${STAGE_1_MAX_TURNS} Culmination)`,
+    bossLabel: `${ENEMY_TEMPLATES.goblin_chieftain.name} (Turn ${STAGE_1_MAX_TURNS} Culmination)`,
   },
   2: {
     name: STAGE_2_MISSION_NAME,
     maxTurns: STAGE_2_MAX_TURNS,
     adventureComposition: STAGE_2_DECK_COMPOSITION,
-    bossLabel: `Cult of Trolls &mdash; ${MONSTER_TEMPLATES.troll_healer.name}, ${MONSTER_TEMPLATES.troll_hexer.name} &amp; ${MONSTER_TEMPLATES.troll_brute.name} (Turn ${STAGE_2_MAX_TURNS})`,
+    bossLabel: `Cult of Trolls &mdash; ${ENEMY_TEMPLATES.troll_healer.name}, ${ENEMY_TEMPLATES.troll_hexer.name} &amp; ${ENEMY_TEMPLATES.troll_brute.name} (Turn ${STAGE_2_MAX_TURNS})`,
   },
   3: {
     name: STAGE_3_MISSION_NAME,
     maxTurns: STAGE_3_MAX_TURNS,
     adventureComposition: STAGE_3_DECK_COMPOSITION,
-    bossLabel: `${MONSTER_TEMPLATES.king_nezenheim.name} (Turn ${STAGE_3_MAX_TURNS} Culmination)`,
+    bossLabel: `${ENEMY_TEMPLATES.king_nezenheim.name} (Turn ${STAGE_3_MAX_TURNS} Culmination)`,
   },
 };
 
@@ -107,7 +107,7 @@ export function getSkillSectionCounts(): {
   upgrades: number;
   universal: number;
 } {
-  const cards = Object.values(COMBAT_CARD_CATALOG);
+  const cards = Object.values(ACTION_CARD_CATALOG);
   return {
     fighter: cards.filter((tpl) => tpl.classId === 'fighter' && !tpl.isSkillUpgrade).length,
     wizard: cards.filter((tpl) => tpl.classId === 'wizard' && !tpl.isSkillUpgrade).length,
@@ -156,30 +156,30 @@ export function renderGuideScenarioBoxHtml(scenarioLevel: 1 | 2 | 3): string {
     })
     .join('');
 
-  // Monster deck & Void counts
-  const totalOrdinarySupply = ORDINARY_MONSTER_TEMPLATE_IDS.reduce(
-    (sum, id) => sum + getMonsterSupplyCount(MONSTER_TEMPLATES[id]),
+  // Enemy deck & Void counts
+  const totalOrdinarySupply = ORDINARY_ENEMY_TEMPLATE_IDS.reduce(
+    (sum, id) => sum + getEnemySupplyCount(ENEMY_TEMPLATES[id]),
     0
   );
-  const monsterEntries = getScenarioMonsterDeckComposition(scenarioLevel);
-  const monsterInDeck = monsterEntries.reduce((sum, e) => sum + e.count, 0);
-  const monsterInVoid = Math.max(0, totalOrdinarySupply - monsterInDeck);
+  const enemyEntries = getScenarioEnemyDeckComposition(scenarioLevel);
+  const enemyInDeck = enemyEntries.reduce((sum, e) => sum + e.count, 0);
+  const enemyInVoid = Math.max(0, totalOrdinarySupply - enemyInDeck);
 
-  const monByTerrain = new Map<MonsterTerrain, { total: number; parts: string[] }>();
-  for (const entry of monsterEntries) {
-    const tpl = MONSTER_TEMPLATES[entry.templateId];
-    const terrain = getMonsterMainTerrain(tpl);
+  const monByTerrain = new Map<EnemyTerrain, { total: number; parts: string[] }>();
+  for (const entry of enemyEntries) {
+    const tpl = ENEMY_TEMPLATES[entry.templateId];
+    const terrain = getEnemyMainTerrain(tpl);
     const bucket = monByTerrain.get(terrain) ?? { total: 0, parts: [] };
     bucket.total += entry.count;
     bucket.parts.push(`${entry.count} ${tpl.name}`);
     monByTerrain.set(terrain, bucket);
   }
-  const monTerrainOrder: MonsterTerrain[] = ['grasslands', 'forest', 'swamp', 'cave', 'underground', 'underworld'];
+  const monTerrainOrder: EnemyTerrain[] = ['grasslands', 'forest', 'swamp', 'cave', 'underground', 'underworld'];
   const monLines = monTerrainOrder
     .filter((mt) => monByTerrain.has(mt))
     .map((mt) => {
       const b = monByTerrain.get(mt)!;
-      const bandOffset = (MONSTER_TERRAIN_LEVELS[mt] ?? 1) - scenarioLevel;
+      const bandOffset = (ENEMY_TERRAIN_LEVELS[mt] ?? 1) - scenarioLevel;
       const supplyNote = scenarioLevel === 3
         ? (mt === 'swamp' ? '~2/3 Supply' : '~1/3 Supply')
         : (bandOffset <= 0 ? 'Full Supply' : bandOffset === 1 ? '~2/3 Supply' : '~1/3 Supply');
@@ -194,7 +194,7 @@ export function renderGuideScenarioBoxHtml(scenarioLevel: 1 | 2 | 3): string {
                 <h5 class="adnd-box-title">SCENARIO ${scenarioLevel}: ${cfg.name.toUpperCase()}</h5>
                 <ul class="adnd-bullet-list">
                   <li><b>Adventure Deck (${advTotal} Cards):</b>${advLines}</li>
-                  <li><b>Monster Deck (${monsterInDeck} Cards in Deck &bull; ${monsterInVoid} in Void):</b>${monLines}
+                  <li><b>Enemy Deck (${enemyInDeck} Cards in Deck &bull; ${enemyInVoid} in Void):</b>${monLines}
                     <br/>&bull; <b>Stage Boss${scenarioLevel === 2 ? 'es' : ''}:</b> ${cfg.bossLabel}
                   </li>
                   <li><b>Treasure Deck (${treasure.totalCards} Cards):</b>
@@ -264,7 +264,7 @@ export function renderGuideClassBoxHtml(
   }
   const deckSummary = Array.from(deckCounts.entries())
     .map(([cardId, count]) => {
-      const card = COMBAT_CARD_CATALOG[cardId];
+      const card = ACTION_CARD_CATALOG[cardId];
       if (!card) return `${count}&times; ${cardId}`;
       const isMagic = card.classId === 'wizard' || card.damageScalingStat === 'int';
       const scaleStat = (card.damageScalingStat ?? 'atk').toUpperCase();
@@ -298,7 +298,7 @@ export function renderGuideClassBoxHtml(
                 <ul class="adnd-stat-perks">
                   <li><b>Starting Vitals:</b> ${vitalsParts}.</li>
                   <li><b>Passive &mdash; <code>${cls.passive.name}</code>:</b> ${cls.passive.description}</li>
-                  <li><b>Starter Combat Deck:</b> ${deckSummary}.</li>
+                  <li><b>Starter Action Deck:</b> ${deckSummary}.</li>
                   <li><b>Starter Gear:</b> ${gearSummary}.</li>
                   <li><b>Tactics:</b> ${tacticsText}</li>
                 </ul>

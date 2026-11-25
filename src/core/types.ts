@@ -87,26 +87,26 @@ export interface EquippedGear {
 export interface PlayerResources {
   hp: number;
   maxHp: number;      // 10 + (effectiveVit * 2)
-  statPoints: number; // Earned from Monster Cards; spent to upgrade Base Stats (cost = currentBaseStat * 10)
+  statPoints: number; // Earned from Enemy Cards; spent to upgrade Base Stats (cost = currentBaseStat * 10)
   gold: number;
 }
 
-export type CombatCardType = 'attack' | 'defense' | 'skill' | 'enchantment';
+export type ActionCardType = 'attack' | 'defense' | 'skill' | 'enchantment';
 export type ScalingStat = 'str' | 'dex' | 'agi' | 'int' | 'cha' | 'vit';
-export type CombatScalingStat = ScalingStat | 'atk' | 'def' | 'dex_agi';
-export type CombatTargetMode = 'single_enemy' | 'all_enemies' | 'self';
+export type ActionScalingStat = ScalingStat | 'atk' | 'def' | 'dex_agi';
+export type ActionTargetMode = 'single_enemy' | 'all_enemies' | 'self';
 export type CardDiscardMode = 'none' | 'exact' | 'any';
 
-export interface CombatCardDef {
+export interface ActionCardDef {
   id: string;
   instanceId: string;
   name: string;
   classId: ClassId;
-  cardType: CombatCardType;
+  cardType: ActionCardType;
   level?: number;
   apCost: number;
   baseDamage: number;
-  damageScalingStat?: CombatScalingStat;
+  damageScalingStat?: ActionScalingStat;
   damageScalingDivisor?: number; // 2 for +1 per 2 stat; 1 for +1 per 1 stat
   damageScalingMultiplier?: number;
   damageScalingRound?: 'floor' | 'ceil';
@@ -115,7 +115,7 @@ export interface CombatCardDef {
   /** When true alongside damageAddsAccuracy, apply scaling multiplier/divisor to (stat + ACC) together. */
   damageScalingIncludesAccuracy?: boolean;
   baseBlock: number;
-  blockScalingStat?: CombatScalingStat;
+  blockScalingStat?: ActionScalingStat;
   blockScalingDivisor?: number;
   blockScalingMultiplier?: number;
   blockScalingRound?: 'floor' | 'ceil';
@@ -124,7 +124,7 @@ export interface CombatCardDef {
   accBonus?: number;             // Bonus to attacker ACC when playing this card
   /** Overrides weapon range for this action card (e.g. ranged spells vs melee staff strikes). */
   attackRange?: 'melee' | 'ranged';
-  targetMode?: CombatTargetMode;
+  targetMode?: ActionTargetMode;
   discardMode?: CardDiscardMode;
   discardCount?: number;
   damagePerDiscard?: number;
@@ -141,7 +141,7 @@ export interface CombatCardDef {
   flavorText?: string;
 }
 
-export interface MonsterIntent {
+export interface EnemyIntent {
   label: string;
   damage: number;
   /** Optional second-hand attack damage resolved as a separate hit roll (e.g. Phalanx T2). */
@@ -158,7 +158,7 @@ export interface MonsterIntent {
   /** Marks the attack with the LSteal attribute (heals 50% of actual damage dealt rounded up). */
   lifesteal?: boolean;
   reviveEvery?: number;
-  reviveTemplateId?: MonsterTemplateId;
+  reviveTemplateId?: EnemyTemplateId;
   heal?: number;
   accBonus?: number;
   evaBonus?: number;
@@ -167,16 +167,16 @@ export interface MonsterIntent {
   defDuration?: number;
   evaDuration?: number;
   accDuration?: number;
-  /** Summon one matching monster from the hidden draw pile directly into play (and shuffle the deck). */
-  summonFromMonsterDeck?: MonsterTemplateId;
+  /** Summon one matching enemy from the hidden draw pile directly into play (and shuffle the deck). */
+  summonFromEnemyDeck?: EnemyTemplateId;
   /** If the summon misses, return one matching discard card (FIFO) to the top of the draw pile. */
-  returnDiscardToMonsterDeckOnMiss?: MonsterTemplateId;
-  /** Summon any random undead creature from the monster draw pile directly into play. */
-  summonUndeadFromMonsterDeck?: boolean;
+  returnDiscardToEnemyDeckOnMiss?: EnemyTemplateId;
+  /** Summon any random undead enemy from the enemy draw pile directly into play. */
+  summonUndeadFromEnemyDeck?: boolean;
   /** If undead summon misses, return one matching undead discard card (FIFO) to the top of the draw pile. */
-  returnUndeadDiscardToMonsterDeckOnMiss?: boolean;
-  /** Dynamic damage added for each living matching creature currently in play. */
-  damagePerCreatureInPlay?: { templateId: MonsterTemplateId; amount: number };
+  returnUndeadDiscardToEnemyDeckOnMiss?: boolean;
+  /** Dynamic damage added for each living matching enemy currently in play. */
+  damagePerEnemyInPlay?: { templateId: EnemyTemplateId; amount: number };
   /** Dynamic damage added for each currently active negative effect on the hero. */
   damagePerHeroDebuff?: number;
   /** Resolve this intent as separate attacks, each with its own 3d6 hit check and mitigation. */
@@ -190,7 +190,7 @@ export interface MonsterIntent {
   randomBuff?: { amount: number; stats: Array<'atk' | 'acc'>; duration: number };
 }
 
-export type MonsterTemplateId =
+export type EnemyTemplateId =
   | 'goblin'
   | 'pink_slime'
   | 'fighting_beetle'
@@ -217,12 +217,12 @@ export type MonsterTemplateId =
   | 'troll_brute'
   | 'king_nezenheim';
 
-export type MonsterRarity = 'common' | 'uncommon' | 'rare';
-export type MonsterTerrain = 'grasslands' | 'forest' | 'swamp' | 'cave' | 'underground' | 'underworld';
+export type EnemyRarity = 'common' | 'uncommon' | 'rare';
+export type EnemyTerrain = 'grasslands' | 'forest' | 'swamp' | 'cave' | 'underground' | 'underworld';
 
-export interface MonsterCard {
+export interface EnemyCard {
   id: string;
-  templateId: MonsterTemplateId;
+  templateId: EnemyTemplateId;
   name: string;
   level: number;
   isBoss?: boolean;
@@ -232,8 +232,8 @@ export interface MonsterCard {
   def?: number;            // Physical Defense (default 0)
   acc?: number;            // 3d6 MACG-3D6 Accuracy (default 1)
   eva?: number;            // 3d6 MACG-3D6 Evasion (default 0)
-  statPointReward: number; // Inscribed directly on Monster Card
-  goldReward: number;      // Inscribed directly on Monster Card
+  statPointReward: number; // Inscribed directly on Enemy Card
+  goldReward: number;      // Inscribed directly on Enemy Card
   startingBlock?: number;
   skittishEvaOnHit?: number;
   hardenDefOnHit?: number;
@@ -248,20 +248,20 @@ export interface MonsterCard {
   /** Retaliation after a successful player attack; bypasses DEF and Block but respects Divine Protection. */
   retaliationDamageOnHeroAttack?: number;
   /** Physical supply rarity. Defaults to uncommon when omitted. */
-  rarity?: MonsterRarity;
-  /** Lowest-level terrain in which this creature can appear. */
-  mainTerrain?: MonsterTerrain;
+  rarity?: EnemyRarity;
+  /** Lowest-level terrain in which this enemy can appear. */
+  mainTerrain?: EnemyTerrain;
   abilities: string[];
-  pattern: MonsterIntent[];
+  pattern: EnemyIntent[];
   cardNumber?: string;     // e.g. "GRS · 001/011"
-  spawnTerrains?: MonsterTerrain[]; // e.g. ["grasslands", "forest"]
-  creatureType?: string;   // e.g. "Goblinoid", "Ooze", "Insect", "Beast"
+  spawnTerrains?: EnemyTerrain[]; // e.g. ["grasslands", "forest"]
+  enemyType?: string;   // e.g. "Goblinoid", "Ooze", "Insect", "Beast"
   flavorText?: string;
 }
 
-/** One Monster Card in the battle area, with its own live combat state. */
-export interface CombatMonster {
-  monster: MonsterCard;
+/** One Enemy Card in the battle area, with its own live combat state. */
+export interface CombatEnemy {
+  enemy: EnemyCard;
   hp: number;
   block: number;
   patternIndex: number;
@@ -278,7 +278,7 @@ export interface CombatMonster {
   accBonus?: number;
   evaBonus?: number;
   defBonus?: number;
-  /** True if this creature was summoned into battle (awards no gold/SP and returns immediately to discard). */
+  /** True if this enemy was summoned into battle (awards no gold/SP and returns immediately to discard). */
   isSummon?: boolean;
   /** HP percentage thresholds (e.g. 50, 25) that have already triggered passive summons. */
   triggeredHpThresholds?: number[];
@@ -318,21 +318,21 @@ export interface ActiveCombatState {
   heroStatDebuffs?: HeroStatDebuff[];
   playerPoison?: { damage: number; turnsRemaining: number } | null;
   pendingPathTreasureCheck?: PendingPathTreasureCheck;
-  monsters: CombatMonster[];  // Battle area: monsters are added until total level >= the tile's level
+  enemies: CombatEnemy[];  // Battle area: enemies are added until total level >= the tile's level
   combatTurn: number;
   playerAp: number;
   playerMaxAp: number;        // 3 AP
   playerBlock: number;
-  playerEvasionMod: number;   // Temporary round EVA bonus against monster 3d6 attack rolls
+  playerEvasionMod: number;   // Temporary round EVA bonus against enemy 3d6 attack rolls
   playerEvaDebuffTurns?: number; // Multi-turn debuff counter reducing Hero EVA (e.g. from Ghoul Growl)
   playerAccMod?: number;      // Temporary round ACC modifier (e.g. from Hexer)
   playerVulnerableMod?: number; // Temporary round damage intake increase (e.g. from Hexer)
-  drawPile: CombatCardDef[];
-  hand: CombatCardDef[];      // Five cards are drawn at the start of each turn (recycling discard as needed)
-  discardPile: CombatCardDef[];
+  drawPile: ActionCardDef[];
+  hand: ActionCardDef[];      // Five cards are drawn at the start of each turn (recycling discard as needed)
+  discardPile: ActionCardDef[];
   /** Cards resolving now. A played card reaches discard only after its full effect resolves. */
-  stack?: CombatCardDef[];
-  inPlay?: CombatCardDef[];      // Battle-long enchantments; destroyed cards move to discardPile
+  stack?: ActionCardDef[];
+  inPlay?: ActionCardDef[];      // Battle-long enchantments; destroyed cards move to discardPile
   combatLog: string[];
   lastAttackRoll?: CombatAttackRollSummary;
   lastAttackRolls?: CombatAttackRollSummary[];
@@ -374,7 +374,7 @@ export interface ActiveVillageState {
   coord: GridCoord;
   turn: number;
   subView: 'main' | 'shop' | 'train';
-  trainOptions: CombatCardDef[];
+  trainOptions: ActionCardDef[];
   shopStock: ShopItemDef[];
   shopStockDrawn?: boolean; // Even empty/exhausted stock is generated only once per visit.
   attachedShrineCard?: AdventureCard;
@@ -402,7 +402,7 @@ export interface AdventureCard {
   id: string;
   name?: string;
   terrain: TerrainType;
-  level: number;        // On Encounter cards this is the encounter budget (total monster level to fill)
+  level: number;        // On Encounter cards this is the encounter budget (total enemy level to fill)
   hasHostile: boolean;
   hasVillage: boolean;
   hasShrine: boolean;
@@ -534,7 +534,7 @@ export interface ActivePathChallengeState {
 }
 
 export interface CombatVictoryState {
-  defeatedMonsters: MonsterCard[];
+  defeatedEnemies: EnemyCard[];
   statPointsEarned: number;
   goldEarned: number;
   baseGold: number;
@@ -562,7 +562,7 @@ export type ActiveHook =
   | { type: 'PATH_CHALLENGE'; pathChallenge: ActivePathChallengeState }
   | { type: 'ENCOUNTER_CLEAR'; encounter: EncounterClearState }
   | { type: 'VICTORY'; victory: CombatVictoryState }
-  | { type: 'BOSS_APPROACH'; bossMonsters: MonsterCard[] }
+  | { type: 'BOSS_APPROACH'; bossEnemies: EnemyCard[] }
   | { type: 'ON_STAGE_COMPLETE'; turn: number; bossDefeated: string; stageNumber?: number; canContinue?: boolean }
   | { type: 'ON_GAME_OVER'; turn: number; defeatedBy: string; lastAttackRolls?: CombatAttackRollSummary[] };
 
@@ -588,23 +588,23 @@ export interface RunState {
   playerResources: PlayerResources | null;
   equippedGear: EquippedGear;
   backpack: ShopItemDef[];
-  playerMasterDeck: CombatCardDef[];
+  playerMasterDeck: ActionCardDef[];
   /** Learnable, non-starter skill cards waiting to be offered at Villages. */
-  newSkillsDeck: CombatCardDef[];
+  newSkillsDeck: ActionCardDef[];
   /** Unlearned Village skill offers, recycled into the New Skills Deck when needed. */
-  newSkillsDiscard: CombatCardDef[];
+  newSkillsDiscard: ActionCardDef[];
   newSkillsReshuffleCount: number;
   /** Physical cards banished during training. Static Void templates are derived separately. */
-  voidCards?: CombatCardDef[];
+  voidCards?: ActionCardDef[];
   /** Physical treasure/shop items banished by selling in Village shops. */
   voidItems?: ShopItemDef[];
   playerPosition: GridCoord;
   adventureDeck: AdventureCard[];
   adventureDiscard: AdventureCard[];
-  monsterDeck: MonsterCard[];
-  monsterDiscard: MonsterCard[];
-  /** Physical ordinary creature cards not selected for the current scenario. */
-  monsterVoid: MonsterCard[];
+  enemyDeck: EnemyCard[];
+  enemyDiscard: EnemyCard[];
+  /** Physical ordinary enemy cards not selected for the current scenario. */
+  enemyVoid: EnemyCard[];
   treasureDeck: ShopItemDef[];
   treasureDiscard: ShopItemDef[];
   /** Physical treasure cards outside the current scenario level window (kept in the box). */
@@ -628,10 +628,10 @@ export interface RunState {
 }
 
 export type InspectedCardInfo =
-  | { kind: 'action'; card: CombatCardDef; isReference?: boolean }
+  | { kind: 'action'; card: ActionCardDef; isReference?: boolean }
   | {
-      kind: 'monster';
-      monster: MonsterCard;
+      kind: 'enemy';
+      enemy: EnemyCard;
       currentHp?: number;
       block?: number;
       accBonusTurns?: number;

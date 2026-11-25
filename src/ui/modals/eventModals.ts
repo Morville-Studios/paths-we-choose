@@ -19,14 +19,14 @@ import {
   STATS,
 } from '../../core/types';
 import { renderAdventureCardHtml } from '../adventureCard';
-import { getMonsterIllustration } from '../cardArt';
+import { getEnemyIllustration } from '../cardArt';
 import { renderQteHitCheckBarHtml } from '../components/qteBar';
 import { getResourceIcon, getStatIcon } from '../icons';
 import { getTerrainPresentation } from '../terrainPresentation';
 import { PendingShrineAction, UiState } from '../types';
 import {
-  combatCardHtml,
-  formatCreatureSubtype,
+  actionCardHtml,
+  formatEnemySubtype,
   playerInfoWidgetHtml,
   renderTcgItemCard,
   renderTcgPathCard,
@@ -94,9 +94,9 @@ function shrineSkillUpgradeSection(state: RunState): string {
     return `
       <article class="void-upgrade-option">
         <div class="void-upgrade-cards">
-          <div class="void-upgrade-card-source">${combatCardHtml(option.source, stats, false, 'play-card', true, state, true)}</div>
+          <div class="void-upgrade-card-source">${actionCardHtml(option.source, stats, false, 'play-card', true, state, true)}</div>
           <span class="void-upgrade-arrow" aria-hidden="true">→</span>
-          <div class="void-upgrade-card-target">${combatCardHtml(option.upgrade, stats, false, 'play-card', true, state, true)}</div>
+          <div class="void-upgrade-card-target">${actionCardHtml(option.upgrade, stats, false, 'play-card', true, state, true)}</div>
         </div>
         <div class="void-upgrade-details">
           <b>${option.source.name} → ${option.upgrade.name}</b>
@@ -285,7 +285,7 @@ export function explorationModal(
               <h3>Hostile Ambush!</h3>
             </div>
             <p class="outcome-msg">
-              Fierce wandering creatures prowling the <b>${card.name}</b> have ambushed your party!
+              Fierce wandering enemies prowling the <b>${card.name}</b> have ambushed your party!
             </p>
             <div class="exploration-encounter-hint">
               Encounter Budget: <b>Level ${card.level}</b> &middot; Terrain: <b>${capTerrain}</b>
@@ -441,7 +441,7 @@ export function pathChallengeModal(
         <div class="exploration-item-card">${renderTcgPathCard(pc.pathCard, { isMini: true })}</div>
         <p class="outcome-msg">
           <b>Ambush!</b> Hostiles leap out from <b>${card.name}</b> (Lvl ${card.level})!
-          <br />This triggers a Level ${card.level} Encounter immediately, and <b>the creatures act first</b> before your first turn.
+          <br />This triggers a Level ${card.level} Encounter immediately, and <b>the enemies act first</b> before your first turn.
         </p>
         <div class="exploration-actions">
           <button class="btn danger big exploration-btn" data-action="path-ambush-combat">⚔️ Fight Ambush! (Enemies Strike First) &rarr;</button>
@@ -713,9 +713,9 @@ export function victoryModal(
   _state?: RunState
 ): string {
   const isBoss = victory.isBoss;
-  const foesHtml = victory.defeatedMonsters
+  const foesHtml = victory.defeatedEnemies
     .map((m) => {
-      const img = getMonsterIllustration(m.templateId);
+      const img = getEnemyIllustration(m.templateId);
       return `
       <div class="defeated-foe-card">
         <div class="foe-art-thumb">
@@ -724,7 +724,7 @@ export function victoryModal(
         </div>
         <div class="foe-meta">
           <span class="foe-name">${m.name}</span>
-          <span class="foe-sub">${formatCreatureSubtype(m.creatureType)} &middot; Level ${m.level}</span>
+          <span class="foe-sub">${formatEnemySubtype(m.enemyType)} &middot; Level ${m.level}</span>
           <div class="foe-rewards">
             <span class="reward-pill sp">${getResourceIcon('sp', 'chip-icon')} +${m.statPointReward} SP</span>
             <span class="reward-pill gold">${getResourceIcon('gold', 'chip-icon')} +${m.goldReward} Gold</span>
@@ -747,7 +747,7 @@ export function victoryModal(
         <p class="victory-subtitle">All hostiles vanquished &middot; Spoils of battle claimed</p>
       </div>
 
-      <!-- Defeated Monsters Section -->
+      <!-- Defeated Enemies Section -->
       <div class="victory-section defeated-foes-section">
         <div class="victory-section-label">Defeated Foes</div>
         <div class="defeated-foes-list">
@@ -902,9 +902,9 @@ export function shrineConfirmModal(state: RunState, pending: PendingShrineAction
         <button class="modal-close-btn" data-action="cancel-shrine-action" aria-label="Cancel">&times;</button>
       </header>
       <div class="shrine-confirm-skill-cards">
-        ${combatCardHtml(option.source, stats, false, 'play-card', true, state, true)}
+        ${actionCardHtml(option.source, stats, false, 'play-card', true, state, true)}
         <span aria-hidden="true">&rarr;</span>
-        ${combatCardHtml(option.upgrade, stats, false, 'play-card', true, state, true)}
+        ${actionCardHtml(option.upgrade, stats, false, 'play-card', true, state, true)}
       </div>
       <div class="shrine-confirm-cost">Spend <b>${option.goldCost} Gold + ${option.statPointCost} SP</b></div>
       <footer class="confirm-modal-footer">

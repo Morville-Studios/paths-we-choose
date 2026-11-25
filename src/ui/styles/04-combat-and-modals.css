@@ -1,6 +1,6 @@
 /* ==========================================================================
    Universal Card Frame & Textbox Bottom Docking (ALL Cards)
-   Every card (Creature, Adventure, Item, Action, Hero) docks its info textbox
+   Every card (Enemy, Adventure, Item, Action, Hero) docks its info textbox
    properly at the bottom of the card frame (or directly above the footer when present),
    leaving the center artwork open and unobstructed.
    ========================================================================== */
@@ -60,7 +60,7 @@
 .tcg-card .tcg-textbox,
 .tcg-inspect-card .tcg-textbox,
 .tcg-textbox,
-.tcg-textbox.tcg-creature-textbox,
+.tcg-textbox.tcg-enemy-textbox,
 .tcg-textbox.action-text,
 .tcg-textbox.hero-target-textbox {
   position: relative !important;
@@ -81,8 +81,8 @@
 }
 
 /* When a footer directly follows the textbox, dock the textbox flush to the footer */
-.tcg-card.tcg-creature .tcg-textbox,
-.tcg-inspect-card.tcg-creature .tcg-textbox,
+.tcg-card.tcg-enemy .tcg-textbox,
+.tcg-inspect-card.tcg-enemy .tcg-textbox,
 .tcg-card.tcg-action:not(.is-mini) .tcg-textbox,
 .tcg-inspect-card.tcg-action .tcg-textbox,
 .tcg-card.tcg-item:not(.is-mini) .tcg-textbox,
@@ -141,9 +141,9 @@
   margin: 0 4px 4px !important;
 }
 
-/* Creature Footer Styling */
-.tcg-card.tcg-creature .tcg-footer,
-.tcg-inspect-card.tcg-creature .tcg-footer {
+/* Enemy Footer Styling */
+.tcg-card.tcg-enemy .tcg-footer,
+.tcg-inspect-card.tcg-enemy .tcg-footer {
   border-top: none !important;
   background: rgba(9, 23, 13, 0.56);
   border-left: 1px solid rgba(74, 222, 128, 0.35);
@@ -154,11 +154,11 @@
   -webkit-backdrop-filter: blur(5px);
 }
 
-.tcg-inspect-card.tcg-creature .tcg-footer {
+.tcg-inspect-card.tcg-enemy .tcg-footer {
   padding: 3px 8px;
 }
 
-.tcg-card.tcg-creature.tcg-template-boss .tcg-footer,
+.tcg-card.tcg-enemy.tcg-template-boss .tcg-footer,
 .tcg-inspect-card.tcg-template-boss .tcg-footer {
   background: rgba(31, 14, 5, 0.56);
   border-left: 1px solid rgba(245, 158, 11, 0.4);
@@ -248,7 +248,7 @@
   border: 1px solid rgba(245, 158, 11, 0.5);
 }
 
-/* Floating SP & Gold Reward Badges on Creature Artwork (Upper-Left with Visible Values) */
+/* Floating SP & Gold Reward Badges on Enemy Artwork (Upper-Left with Visible Values) */
 .tcg-art-rewards {
   position: absolute;
   top: 6px;
@@ -274,13 +274,13 @@
   object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
 }
-.tcg-creature-rarity-symbol {
+.tcg-enemy-rarity-symbol {
   position: absolute;
   right: 7px;
   bottom: 6px;
   z-index: 6;
 }
-.tcg-inspect-card .tcg-creature-rarity-symbol {
+.tcg-inspect-card .tcg-enemy-rarity-symbol {
   width: 28px;
   height: 28px;
   right: 9px;
@@ -354,7 +354,7 @@
   color: #fde047;
 }
 
-/* Creature Physical Pattern Table inside Card Textbox */
+/* Enemy Physical Pattern Table inside Card Textbox */
 .tcg-pattern-table {
   display: flex;
   flex-direction: column;
@@ -432,7 +432,7 @@
 }
 
 /* Interactive Combat Status Dock Below Card: NEXT Intent & Live HP Bar */
-.creature-combat-dock {
+.enemy-combat-dock {
   width: 100%;
   max-width: 215px;
   margin-top: 6px;
@@ -450,25 +450,25 @@
 }
 
 /* Prevent blur shader raster thrashing / flickering in 3D carousel */
-.combat-monster-unit .tcg-textbox,
-.combat-monster-unit .tcg-footer,
-.combat-monster-unit .tcg-art-reward-badge {
+.combat-enemy-unit .tcg-textbox,
+.combat-enemy-unit .tcg-footer,
+.combat-enemy-unit .tcg-art-reward-badge {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
-.combat-monster-unit .tcg-card.tcg-template-grassland .tcg-textbox {
+.combat-enemy-unit .tcg-card.tcg-template-grassland .tcg-textbox {
   background: rgba(9, 23, 13, 0.58) !important;
   border: 1px solid rgba(74, 222, 128, 0.45) !important;
 }
 
-.combat-monster-unit .tcg-card.tcg-template-boss .tcg-textbox {
+.combat-enemy-unit .tcg-card.tcg-template-boss .tcg-textbox {
   background: rgba(31, 14, 5, 0.58) !important;
   border: 1px solid rgba(245, 158, 11, 0.5) !important;
 }
 
-.combat-monster-unit .tcg-card:hover,
-.monster-carousel-track .combat-monster-unit .tcg-card:hover {
+.combat-enemy-unit .tcg-card:hover,
+.enemy-carousel-track .combat-enemy-unit .tcg-card:hover {
   transform: none !important;
 }
 .combat-dock-row {
@@ -524,13 +524,13 @@
   height: 18px !important;
   border-radius: 4px !important;
 }
-.creature-combat-dock.is-dead {
+.enemy-combat-dock.is-dead {
   opacity: 0.55;
   filter: grayscale(0.5);
 }
 
-/* Creature Health Bar (HP / MAXHP) */
-.hp-bar.creature-hp-bar {
+/* Enemy Health Bar (HP / MAXHP) */
+.hp-bar.enemy-hp-bar {
   position: relative;
   height: 18px;
   background: rgba(30, 15, 15, 0.85);
@@ -540,12 +540,12 @@
   margin: 2px 0;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
 }
-.hp-bar.creature-hp-bar .hp-fill {
+.hp-bar.enemy-hp-bar .hp-fill {
   height: 100%;
   background: linear-gradient(90deg, #b91c1c 0%, #ef4444 65%, #f87171 100%);
   transition: width 0.3s ease-out;
 }
-.hp-bar.creature-hp-bar span {
+.hp-bar.enemy-hp-bar span {
   position: absolute;
   inset: 0;
   display: flex;
@@ -559,8 +559,8 @@
   z-index: 2;
 }
 
-/* Creature Derived Stats Row: ATK / DEF / EVA */
-.creature-stats-row {
+/* Enemy Derived Stats Row: ATK / DEF / EVA */
+.enemy-stats-row {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -574,17 +574,17 @@
   border-radius: 4px;
   margin: 1px 0 2px;
 }
-.creature-stats-row .c-stat {
+.enemy-stats-row .c-stat {
   display: inline-flex;
   align-items: center;
   gap: 3px;
   white-space: nowrap;
 }
-.creature-stats-row .c-stat b {
+.enemy-stats-row .c-stat b {
   color: #fef08a;
   font-weight: 800;
 }
-.creature-stats-row .stat-sep {
+.enemy-stats-row .stat-sep {
   color: rgba(255, 255, 255, 0.35);
   font-size: 0.65rem;
 }
@@ -1087,7 +1087,7 @@
   margin-bottom: 3px;
 }
 
-.combat-monster-info-btn {
+.combat-enemy-info-btn {
   background: rgba(15, 23, 42, 0.75);
   border: 1px solid rgba(245, 158, 11, 0.5);
   color: #f59e0b;
@@ -1104,7 +1104,7 @@
   transition: all 0.15s ease;
 }
 
-.combat-monster-info-btn:hover {
+.combat-enemy-info-btn:hover {
   background: rgba(245, 158, 11, 0.3);
   transform: scale(1.1);
 }
@@ -1164,8 +1164,8 @@
   padding-right: 2px;
 }
 
-/* Monster Carousel: 3D Traversal, Center Active Target & Flanking Enemies */
-.monster-carousel {
+/* Enemy Carousel: 3D Traversal, Center Active Target & Flanking Enemies */
+.enemy-carousel {
   position: relative;
   width: 100%;
   max-width: 660px;
@@ -1176,7 +1176,7 @@
   justify-content: center;
 }
 
-.monster-carousel-track {
+.enemy-carousel-track {
   position: relative;
   width: 100%;
   height: 415px;
@@ -1187,7 +1187,7 @@
   overflow: visible;
 }
 
-.monster-carousel-track .combat-monster-unit {
+.enemy-carousel-track .combat-enemy-unit {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1207,38 +1207,38 @@
               opacity 0.25s ease;
 }
 
-/* Center Active Monster */
-.monster-carousel-track .combat-monster-unit.is-center {
+/* Center Active Enemy */
+.enemy-carousel-track .combat-enemy-unit.is-center {
   transform: translate(-50%, -50%) scale(1.02);
   opacity: 1;
   z-index: 10;
   cursor: default;
 }
 
-/* Left Flanking Monster */
-.monster-carousel-track .combat-monster-unit.is-prev {
+/* Left Flanking Enemy */
+.enemy-carousel-track .combat-enemy-unit.is-prev {
   transform: translate(calc(-50% - 175px), -50%) scale(0.82);
   opacity: 0.55;
   z-index: 5;
   cursor: pointer;
 }
-.monster-carousel-track .combat-monster-unit.is-prev:hover {
+.enemy-carousel-track .combat-enemy-unit.is-prev:hover {
   opacity: 0.92;
 }
 
-/* Right Flanking Monster */
-.monster-carousel-track .combat-monster-unit.is-next {
+/* Right Flanking Enemy */
+.enemy-carousel-track .combat-enemy-unit.is-next {
   transform: translate(calc(-50% + 175px), -50%) scale(0.82);
   opacity: 0.55;
   z-index: 5;
   cursor: pointer;
 }
-.monster-carousel-track .combat-monster-unit.is-next:hover {
+.enemy-carousel-track .combat-enemy-unit.is-next:hover {
   opacity: 0.92;
 }
 
-/* Hidden Monsters (for 4+ opponents) */
-.monster-carousel-track .combat-monster-unit.is-hidden {
+/* Hidden Enemies (for 4+ opponents) */
+.enemy-carousel-track .combat-enemy-unit.is-hidden {
   transform: translate(-50%, -50%) scale(0.6);
   opacity: 0;
   z-index: 1;
@@ -1246,7 +1246,7 @@
 }
 
 /* Navigation Chevrons */
-.monster-carousel-nav {
+.enemy-carousel-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -1269,20 +1269,20 @@
   padding: 0;
   line-height: 1;
 }
-.monster-carousel-nav.prev {
+.enemy-carousel-nav.prev {
   left: 4px;
 }
-.monster-carousel-nav.next {
+.enemy-carousel-nav.next {
   right: 4px;
 }
-.monster-carousel-nav:hover:not(:disabled) {
+.enemy-carousel-nav:hover:not(:disabled) {
   background: rgba(245, 158, 11, 0.3);
   border-color: #f59e0b;
   color: #fbbf24;
   transform: translateY(-50%) scale(1.1);
   box-shadow: 0 0 16px rgba(245, 158, 11, 0.6);
 }
-.monster-carousel-nav:disabled {
+.enemy-carousel-nav:disabled {
   opacity: 0.25;
   cursor: default;
   border-color: rgba(100, 116, 139, 0.3);
@@ -1290,7 +1290,7 @@
 }
 
 /* Guidance instructions */
-.monster-carousel-instructions {
+.enemy-carousel-instructions {
   margin: 4px auto 6px;
   text-align: center;
   color: #94a3b8;
@@ -1299,7 +1299,7 @@
   letter-spacing: 0.01em;
   user-select: none;
 }
-.monster-carousel-instructions b {
+.enemy-carousel-instructions b {
   color: #f59e0b;
 }
 
@@ -1999,8 +1999,8 @@
   border-radius: 8px;
 }
 
-/* Crisp, proportional sizing for creature/hero/action cards inside the confirmation modal */
-.combat-confirm-modal .tcg-card.tcg-creature {
+/* Crisp, proportional sizing for enemy/hero/action cards inside the confirmation modal */
+.combat-confirm-modal .tcg-card.tcg-enemy {
   width: 210px;
   height: 294px;
 }
@@ -2009,11 +2009,11 @@
   height: 266px;
 }
 
-.combat-confirm-modal .combat-monster-unit {
+.combat-confirm-modal .combat-enemy-unit {
   width: auto;
 }
 
-.combat-confirm-modal .creature-combat-dock {
+.combat-confirm-modal .enemy-combat-dock {
   padding: 4px 6px;
   margin-top: 4px;
 }
@@ -2899,33 +2899,33 @@
   .modal.combat-modal {
     padding: 10px 8px;
   }
-  .monster-row {
+  .enemy-row {
     gap: 8px;
   }
-  .monster-carousel-track {
+  .enemy-carousel-track {
     height: 335px;
   }
-  .monster-carousel-track .combat-monster-unit {
+  .enemy-carousel-track .combat-enemy-unit {
     width: 175px;
   }
-  .monster-carousel-track .combat-monster-unit.is-prev {
+  .enemy-carousel-track .combat-enemy-unit.is-prev {
     transform: translate(calc(-50% - 125px), -50%) scale(0.8);
   }
-  .monster-carousel-track .combat-monster-unit.is-next {
+  .enemy-carousel-track .combat-enemy-unit.is-next {
     transform: translate(calc(-50% + 125px), -50%) scale(0.8);
   }
-  .monster-carousel-nav {
+  .enemy-carousel-nav {
     width: 28px;
     height: 28px;
     font-size: 0.95rem;
   }
-  .tcg-card.tcg-creature {
+  .tcg-card.tcg-enemy {
     width: 175px;
     height: 250px;
     min-width: 150px;
     padding: 2px;
   }
-  .tcg-card.tcg-creature .tcg-art-spacer {
+  .tcg-card.tcg-enemy .tcg-art-spacer {
     min-height: 15px;
   }
   .tcg-art-rewards {
@@ -2938,13 +2938,13 @@
     font-size: 0.55rem;
     padding: 0 4px;
   }
-  .hp-bar.creature-hp-bar {
+  .hp-bar.enemy-hp-bar {
     height: 15px;
   }
-  .hp-bar.creature-hp-bar span {
+  .hp-bar.enemy-hp-bar span {
     font-size: 0.60rem;
   }
-  .creature-stats-row {
+  .enemy-stats-row {
     font-size: 0.58rem;
     gap: 3px;
     padding: 1px 2px;

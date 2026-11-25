@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { drawNewSkillsWithReshuffle } from '../core/deck';
 import { finishVillage, startAdventure, villageDoTrainDraft, villageChooseTrain } from '../core/engine';
 import { reconcileRunNewSkills } from '../core/newSkills';
-import { getVoidCards } from '../data/combatCards';
+import { getVoidCards } from '../data/actionCards';
 import { prepareVillage } from '../core/village';
 import { pileModal, renderPlayArea, UiState } from '../ui/render';
 

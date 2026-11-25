@@ -2,15 +2,15 @@ import { syncAudioState } from '../audio';
 import { appendGameLog, createTimestamp } from '../log';
 import { roll3D6 } from '../rng';
 import { computeCombatGearBonuses, getEffectiveStatsFromState, getPlayerEva } from '../stats';
-import { ActiveCombatState, CombatAttackRollSummary, CombatMonster, RunState } from '../types';
+import { ActiveCombatState, CombatAttackRollSummary, CombatEnemy, RunState } from '../types';
 import { FLEE_AP_COST } from './constants';
 import { getHeroStatDebuffMods } from './debuffs';
 import { computeHitProbability } from './rolls';
 
-export function computeFleeNetAcc(playerEva: number, livingMonsters: CombatMonster[]): number {
-  const totalEnemyAcc = livingMonsters
+export function computeFleeNetAcc(playerEva: number, livingEnemies: CombatEnemy[]): number {
+  const totalEnemyAcc = livingEnemies
     .filter((m) => m.hp > 0)
-    .reduce((sum, m) => sum + (m.monster.acc ?? 0), 0);
+    .reduce((sum, m) => sum + (m.enemy.acc ?? 0), 0);
   return playerEva - totalEnemyAcc;
 }
 
@@ -23,7 +23,7 @@ export function attemptCombatFlee(state: RunState): RunState {
   if (combat.playerAp < FLEE_AP_COST) {
     return state;
   }
-  if (combat.monsters.some((m) => m.monster.isBoss)) {
+  if (combat.enemies.some((m) => m.enemy.isBoss)) {
     return state;
   }
 
@@ -32,8 +32,8 @@ export function attemptCombatFlee(state: RunState): RunState {
   const heroDebuffs = getHeroStatDebuffMods(combat);
   const playerEva = getPlayerEva(effectiveStats, combat.playerEvasionMod + heroDebuffs.eva, combatGear.eva);
 
-  const livingMonsters = combat.monsters.filter((m) => m.hp > 0);
-  const netFlee = computeFleeNetAcc(playerEva, livingMonsters);
+  const livingEnemies = combat.enemies.filter((m) => m.hp > 0);
+  const netFlee = computeFleeNetAcc(playerEva, livingEnemies);
 
   const hitProb = computeHitProbability(netFlee);
   const { die1, die2, die3, total: rollTotal, nextState: nextRng } = roll3D6(state.rngState);
@@ -44,7 +44,7 @@ export function attemptCombatFlee(state: RunState): RunState {
 
   const fleeRollSummary: CombatAttackRollSummary = {
     attackerName: 'Hero',
-    targetName: livingMonsters.map((m) => m.monster.name).join(', ') || 'Enemies',
+    targetName: livingEnemies.map((m) => m.enemy.name).join(', ') || 'Enemies',
     actionName: 'Flee',
     die1,
     die2,
@@ -60,11 +60,11 @@ export function attemptCombatFlee(state: RunState): RunState {
   };
 
   if (isSuccess) {
-    const monstersToDiscard = combat.monsters.map((m) => m.monster);
+    const enemiesToDiscard = combat.enemies.map((m) => m.enemy);
     return syncAudioState({
       ...state,
       rngState: nextRng,
-      monsterDiscard: [...state.monsterDiscard, ...monstersToDiscard],
+      enemyDiscard: [...state.enemyDiscard, ...enemiesToDiscard],
       activeHook: { type: 'NONE', lastAttackRolls: [fleeRollSummary] },
       gameLog: appendGameLog(
         state,

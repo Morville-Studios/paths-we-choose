@@ -1,4 +1,4 @@
-import { ActiveCombatState, HeroStatDebuff, MonsterIntent } from '../types';
+import { ActiveCombatState, HeroStatDebuff, EnemyIntent } from '../types';
 
 export function getHeroStatDebuffMods(combat: Pick<ActiveCombatState, 'heroStatDebuffs'>) {
   const mods = { acc: 0, eva: 0, def: 0, mdef: 0 };
@@ -20,7 +20,7 @@ export function applyIntentHeroStatDebuff(
   activeEffects: HeroStatDebuff[],
   nextEffects: HeroStatDebuff[],
   sourceId: string,
-  intent: MonsterIntent,
+  intent: EnemyIntent,
 ): { nextEffects: HeroStatDebuff[]; effect: HeroStatDebuff } | null {
   if (!intent.heroStatDebuff) return null;
   const effect: HeroStatDebuff = {

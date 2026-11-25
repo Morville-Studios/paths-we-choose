@@ -1,12 +1,12 @@
-import combatCardsData from '../../data/combatCards.json';
-import { ClassId, CombatCardDef } from '../core/types';
+import actionCardsData from '../../data/actionCards.json';
+import { ClassId, ActionCardDef } from '../core/types';
 
-export type CombatCardTemplate = Omit<CombatCardDef, 'instanceId'>;
+export type ActionCardTemplate = Omit<ActionCardDef, 'instanceId'>;
 
-export const COMBAT_CARD_CATALOG: Record<string, CombatCardTemplate> = Object.fromEntries(
-  combatCardsData
-    .filter((entry) => entry.type === 'combat')
-    .map(({ type: _type, ...card }) => [card.id, card as CombatCardTemplate])
+export const ACTION_CARD_CATALOG: Record<string, ActionCardTemplate> = Object.fromEntries(
+  actionCardsData
+    .filter((entry) => entry.type === 'action')
+    .map(({ type: _type, ...card }) => [card.id, card as ActionCardTemplate])
 );
 
 export const CLASS_TRAIN_POOLS: Record<ClassId, string[]> = {
@@ -20,16 +20,16 @@ export const CLASS_TRAIN_POOLS: Record<ClassId, string[]> = {
  * trained or drawn; Shrines instantiate an appropriate one when upgrading an
  * owned base card.
  */
-export function getVoidCards(): CombatCardDef[] {
-  return Object.values(COMBAT_CARD_CATALOG)
+export function getVoidCards(): ActionCardDef[] {
+  return Object.values(ACTION_CARD_CATALOG)
     .filter((card) => card.isSkillUpgrade)
-    .map((card) => createCombatCardInstance(card.id, 'void'));
+    .map((card) => createActionCardInstance(card.id, 'void'));
 }
 
-export function createCombatCardInstance(templateId: string, instanceSuffix: string): CombatCardDef {
-  const tpl = COMBAT_CARD_CATALOG[templateId];
+export function createActionCardInstance(templateId: string, instanceSuffix: string): ActionCardDef {
+  const tpl = ACTION_CARD_CATALOG[templateId];
   if (!tpl) {
-    throw new Error(`Unknown combat card template: ${templateId}`);
+    throw new Error(`Unknown Action Card template: ${templateId}`);
   }
   return {
     ...tpl,
@@ -40,7 +40,7 @@ export function createCombatCardInstance(templateId: string, instanceSuffix: str
 export const FLEE_CARD_ID = 'action_flee';
 export const FLEE_CARD_INSTANCE_ID = 'permanent_flee';
 
-export function createFleeCard(classId: ClassId = 'fighter'): CombatCardDef {
+export function createFleeCard(classId: ClassId = 'fighter'): ActionCardDef {
   return {
     id: FLEE_CARD_ID,
     instanceId: FLEE_CARD_INSTANCE_ID,

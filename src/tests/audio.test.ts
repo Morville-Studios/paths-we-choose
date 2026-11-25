@@ -84,7 +84,7 @@ describe('Audio Scene & Music State Tracking', () => {
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [],
+          enemies: [],
           combatTurn: 1,
           playerAp: 3,
           playerMaxAp: 3,
@@ -167,7 +167,7 @@ describe('Audio Scene & Music State Tracking', () => {
       activeHook: {
         type: 'VICTORY',
         victory: {
-          defeatedMonsters: [],
+          defeatedEnemies: [],
           statPointsEarned: 1,
           goldEarned: 2,
           baseGold: 2,
@@ -317,9 +317,9 @@ describe('Audio Scene & Music State Tracking', () => {
     // If combat ends in victory, battle completes and map music resumes
     if (inCombat.activeHook.type === 'COMBAT') {
       const hook = inCombat.activeHook;
-      // Mock one monster with 1 HP and an attack card in hand with high damage
-      const targetMonster = hook.combat.monsters[0];
-      targetMonster.hp = 1;
+      // Mock one enemy with 1 HP and an attack card in hand with high damage
+      const targetEnemy = hook.combat.enemies[0];
+      targetEnemy.hp = 1;
       const attackCard = hook.combat.hand[0];
       attackCard.cardType = 'attack';
       attackCard.baseDamage = 99;
@@ -363,14 +363,14 @@ describe('Audio Scene & Music State Tracking', () => {
     const inCombat = chooseCard(s, avail.coord);
     expect(inCombat.activeHook.type).toBe('COMBAT');
     if (inCombat.activeHook.type === 'COMBAT' && inCombat.playerResources) {
-      // Set player HP to 1 and ensure monster deals lethal damage
+      // Set player HP to 1 and ensure enemy deals lethal damage
       inCombat.playerResources.hp = 1;
       inCombat.activeHook.combat.playerBlock = 0;
-      inCombat.activeHook.combat.monsters[0].monster.pattern = [
+      inCombat.activeHook.combat.enemies[0].enemy.pattern = [
         { label: 'Smash', damage: 50, block: 0 },
       ];
-      // Give monster guaranteed high ACC
-      inCombat.activeHook.combat.monsters[0].monster.acc = 10;
+      // Give enemy guaranteed high ACC
+      inCombat.activeHook.combat.enemies[0].enemy.acc = 10;
 
       const afterEnemyTurn = endPlayerCombatTurn(inCombat);
       expect(afterEnemyTurn.activeHook.type).toBe('ON_GAME_OVER');
@@ -408,7 +408,7 @@ describe('Audio Scene & Music State Tracking', () => {
       activeHook: {
         type: 'VICTORY',
         victory: {
-          defeatedMonsters: [],
+          defeatedEnemies: [],
           statPointsEarned: 1,
           goldEarned: 2,
           baseGold: 2,

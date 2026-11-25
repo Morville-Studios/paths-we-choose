@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { startAdventure } from '../core/engine';
 import { AdventureCard } from '../core/types';
 import { getEffectiveStatsFromState } from '../core/stats';
-import { createCombatCardInstance } from '../data/combatCards';
+import { createActionCardInstance } from '../data/actionCards';
 import { renderActionCardHtml } from '../ui/actionCard';
 import { getAdventureCardName, renderAdventureCardHtml } from '../ui/adventureCard';
 import { groupByCount } from '../ui/grouping';
@@ -35,7 +35,7 @@ describe('shared UI presentation helpers', () => {
 
   it('renders the same complete action-card template for inspection and gameplay contexts', () => {
     const state = startAdventure('fighter', 'shared-action-card');
-    const slash = createCombatCardInstance('melee_atk', 'shared');
+    const slash = createActionCardInstance('melee_atk', 'shared');
     const html = renderActionCardHtml(slash, getEffectiveStatsFromState(state), {
       state,
       viewOnly: true,

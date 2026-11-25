@@ -2,7 +2,7 @@ export type GlossaryCategory =
   | 'Combat Damage'
   | 'Defense & Recovery'
   | 'Status & Debuffs'
-  | 'Creature Traits';
+  | 'Enemy Traits';
 
 export interface GlossaryEntry {
   id: string;
@@ -43,7 +43,7 @@ export const KEYWORD_GLOSSARY: GlossaryEntry[] = [
     term: 'Regen',
     syntax: 'Regen (X)',
     category: 'Defense & Recovery',
-    ruleText: 'Creature gains X HP on activation (when the creature starts its turn), capped at its Max HP.',
+    ruleText: 'Enemy gains X HP on activation (when the enemy starts its turn), capped at its Max HP.',
     example: 'Zombie T1: Regen (3); Blob T1: ATK (3), Regen (1).',
   },
   {
@@ -51,7 +51,7 @@ export const KEYWORD_GLOSSARY: GlossaryEntry[] = [
     term: 'DEF',
     syntax: 'DEF (X[, D])',
     category: 'Defense & Recovery',
-    ruleText: 'Adds X temporary DEF to the creature for 1 turn (default duration). A second parameter overrides duration: DEF (1, 2) lasts until the creature completes another turn action after it was cast.',
+    ruleText: 'Adds X temporary DEF to the enemy for 1 turn (default duration). A second parameter overrides duration: DEF (1, 2) lasts until the enemy completes another turn action after it was cast.',
     example: 'Goblin T2: ATK (3), DEF (2); Pincer T1: DEF (1, 2).',
   },
   {
@@ -75,7 +75,7 @@ export const KEYWORD_GLOSSARY: GlossaryEntry[] = [
     term: 'LSTEAL (Life Steal)',
     syntax: 'LSTEAL (X)',
     category: 'Defense & Recovery',
-    ruleText: 'Deals X physical damage and heals the creature for half of the damage dealt (rounded up), capped at Max HP.',
+    ruleText: 'Deals X physical damage and heals the enemy for half of the damage dealt (rounded up), capped at Max HP.',
     example: 'Zombie T1: LSTEAL (6).',
   },
   {
@@ -83,7 +83,7 @@ export const KEYWORD_GLOSSARY: GlossaryEntry[] = [
     term: 'Heal',
     syntax: 'Heal (X)',
     category: 'Defense & Recovery',
-    ruleText: 'Allows a creature to self-heal for X HP on its turn, capped at its Max HP.',
+    ruleText: 'Allows an enemy to self-heal for X HP on its turn, capped at its Max HP.',
     example: 'Bullwark T1: Heal (4).',
   },
   {
@@ -114,23 +114,23 @@ export const KEYWORD_GLOSSARY: GlossaryEntry[] = [
     id: 'harden',
     term: 'Harden',
     syntax: 'Harden (X)',
-    category: 'Creature Traits',
-    ruleText: 'Grants +X DEF for 1 turn whenever the creature gets hit by an attack (successful hit only).',
+    category: 'Enemy Traits',
+    ruleText: 'Grants +X DEF for 1 turn whenever the enemy gets hit by an attack (successful hit only).',
     example: 'Basilisk / Rattler / Bullwark Passive: Harden (1).',
   },
   {
     id: 'skittish',
     term: 'Skittish',
     syntax: 'Skittish (X)',
-    category: 'Creature Traits',
-    ruleText: 'Grants +X EVA immediately for this turn whenever this creature is attacked (hit or miss), making it harder to hit with each attempt.',
+    category: 'Enemy Traits',
+    ruleText: 'Grants +X EVA immediately for this turn whenever this enemy is attacked (hit or miss), making it harder to hit with each attempt.',
     example: 'Stalker Passive: Skittish (1) grants +1 EVA after each attack attempt against it this turn.',
   },
   {
     id: 'undying',
     term: 'Undying',
     syntax: 'Undying (X)',
-    category: 'Creature Traits',
+    category: 'Enemy Traits',
     ruleText: 'Starts with X Undying tokens. Whenever defeated, consumes 1 token and rolls 1d6; if the roll is ≤ 1 + remaining tokens, revives with full HP.',
     example: 'Creeper Passive: Undying (3) needs 1–3 on first try, 1–2 on second, and 1 on final token.',
   },
@@ -138,23 +138,23 @@ export const KEYWORD_GLOSSARY: GlossaryEntry[] = [
     id: 'thorn',
     term: 'Thorn',
     syntax: 'Thorn (X)',
-    category: 'Creature Traits',
-    ruleText: 'After a successful Melee Hero attack while this creature survives, deals X damage that ignores DEF and Block.',
+    category: 'Enemy Traits',
+    ruleText: 'After a successful Melee Hero attack while this enemy survives, deals X damage that ignores DEF and Block.',
     example: 'Lurker Passive: Thorn (1), Harden (1).',
   },
   {
     id: 'channel',
     term: 'Channel',
     syntax: 'Channel (X, D)',
-    category: 'Creature Traits',
-    ruleText: 'At the end of the creature’s turn, gains +X MATK (lasting D turns, or permanently for the battle if D is omitted).',
+    category: 'Enemy Traits',
+    ruleText: 'At the end of the enemy’s turn, gains +X MATK (lasting D turns, or permanently for the battle if D is omitted).',
     example: 'Cultist Mage Passive: Channel (1, 3); Orc Shaman Passive: Channel (1).',
   },
   {
     id: 'bloodlust',
     term: 'Bloodlust',
     syntax: 'Bloodlust',
-    category: 'Creature Traits',
+    category: 'Enemy Traits',
     ruleText: 'Grants +1 ATK when HP is below 50% Max HP, and +2 ATK when HP is below 25% Max HP.',
     example: 'Dark Orc Passive: Bloodlust, Regen (2).',
   },
@@ -162,8 +162,8 @@ export const KEYWORD_GLOSSARY: GlossaryEntry[] = [
     id: 'summon',
     term: 'Summon',
     syntax: 'Summon (Name)',
-    category: 'Creature Traits',
-    ruleText: 'Summons the named creature from the Monster Deck into battle (or returns one from discard on miss).',
+    category: 'Enemy Traits',
+    ruleText: 'Summons the named enemy from the Enemy Deck into battle (or returns one from discard on miss).',
     example: 'Grundy Call Goblin: Summon (Goblin).',
   },
 ];
@@ -178,12 +178,12 @@ export const GLOSSARY_TOOLTIP_TEMPLATES = {
       ? `Deals ${amount} magical damage ×${hits} hits (each reduced by Hero MDEF and Block).`
       : `Deals ${amount} magical damage (reduced by Hero MDEF and Block).`,
   regen: (amount: number): string =>
-    `Creature gains ${amount} HP on activation (up to Max HP).`,
+    `Enemy gains ${amount} HP on activation (up to Max HP).`,
   regenerate: (amount: number): string =>
-    `Creature gains ${amount} HP on activation (up to Max HP).`,
+    `Enemy gains ${amount} HP on activation (up to Max HP).`,
   def: (amount: number, duration = 1): string =>
     duration > 1
-      ? `Adds ${amount} temporary DEF for ${duration} turns (until the creature completes another turn action after casting).`
+      ? `Adds ${amount} temporary DEF for ${duration} turns (until the enemy completes another turn action after casting).`
       : `Adds ${amount} temporary DEF for 1 turn.`,
   block: (amount: number): string =>
     `Adds ${amount} temporary DEF for 1 turn.`,
@@ -208,13 +208,13 @@ export const GLOSSARY_TOOLTIP_TEMPLATES = {
   lstealAttr: (): string =>
     'Life Steal: Restores HP equal to 50% of actual damage dealt (rounded up), up to Max HP.',
   heal: (amount: number): string =>
-    `Creature self-heals for ${amount} HP (up to Max HP).`,
+    `Enemy self-heals for ${amount} HP (up to Max HP).`,
   blind: (amount: number, duration = 1): string =>
     `Inflicts a -${amount} ACC token on the Hero lasting ${duration} turn${duration > 1 ? 's' : ''}.`,
   ensnare: (amount: number, duration = 1): string =>
     `Reduces the Hero’s EVA by ${amount} for ${duration} turn${duration > 1 ? 's' : ''}.`,
   harden: (amount: number): string =>
-    `Grants +${amount} DEF for 1 turn whenever this creature gets hit by an attack (successful hit only).`,
+    `Grants +${amount} DEF for 1 turn whenever this enemy gets hit by an attack (successful hit only).`,
   lifesteal: (pct = 100): string =>
     pct === 100
       ? 'Restores HP equal to unblocked damage dealt (up to Max HP).'
@@ -232,9 +232,9 @@ export const GLOSSARY_TOOLTIP_TEMPLATES = {
   bloodlust: (): string =>
     'Grants +1 ATK when HP is below 50% Max HP, and +2 ATK when HP is below 25% Max HP.',
   summon: (name: string): string =>
-    `Summons ${name} from the Monster Deck into battle (or returns one from discard on miss).`,
+    `Summons ${name} from the Enemy Deck into battle (or returns one from discard on miss).`,
   hex: (summary: string): string =>
     `Applies a temporary Hero debuff: ${summary}.`,
   buff: (summary: string): string =>
-    `Creature gains a temporary combat buff: ${summary}.`,
+    `Enemy gains a temporary combat buff: ${summary}.`,
 } as const;

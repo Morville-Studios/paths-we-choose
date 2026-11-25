@@ -1,6 +1,6 @@
 [
   {
-    "type": "combat",
+    "type": "action",
     "id": "melee_atk",
     "name": "Slash",
     "classId": "fighter",
@@ -15,7 +15,7 @@
     "flavorText": "A direct martial strike that deals 3 plus the hero’s ATK as normal physical damage."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "shield_def",
     "name": "Defend",
     "classId": "fighter",
@@ -30,7 +30,7 @@
     "flavorText": "Take a guarded stance and gain 4 Block plus the hero’s DEF for this turn."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "heavy_cleave",
     "name": "High Strike",
     "classId": "fighter",
@@ -47,7 +47,7 @@
     "flavorText": "Drive a precise strike through the enemy guard. Deal damage equal to the hero’s ATK plus ACC."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "iron_parry",
     "name": "Parry",
     "classId": "fighter",
@@ -64,7 +64,7 @@
     "flavorText": "Deflect the incoming strike: gain +1 EVA this round, plus 1 Block and 1 Block per 2 combined hero DEX + AGI."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "battle_focus",
     "name": "Fortify",
     "classId": "fighter",
@@ -80,7 +80,7 @@
     "flavorText": "Set a disciplined guard: gain 3 Block plus the hero’s DEF."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "high_strike_plus",
     "name": "High Strike +",
     "classId": "fighter",
@@ -101,7 +101,7 @@
     "flavorText": "A crushing follow-through: 1.5× (hero ATK + ACC), rounded up."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "parry_plus",
     "name": "Parry +",
     "classId": "fighter",
@@ -120,7 +120,7 @@
     "flavorText": "An expert guard: gain +2 EVA this round, plus 2 Block and 1 Block per 2 combined hero DEX + AGI."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "fortify_plus",
     "name": "Fortify +",
     "classId": "fighter",
@@ -139,7 +139,7 @@
     "flavorText": "Gain 4 Block plus 1.5× the hero DEF (rounded up)."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "whirlwind",
     "name": "Whirlwind",
     "classId": "fighter",
@@ -156,7 +156,7 @@
     "flavorText": "Strike every enemy for 1 plus the hero’s ATK. Each target rolls separately; -1 ACC."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "whirlwind_plus",
     "name": "Whirlwind +",
     "classId": "fighter",
@@ -177,7 +177,7 @@
     "flavorText": "Strike every enemy for 2 plus 1.5× the hero’s ATK (rounded up). Each target rolls separately; -1 ACC."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "battlecry",
     "name": "Battlecry",
     "classId": "fighter",
@@ -194,7 +194,7 @@
     "flavorText": "Discard 1 card, draw 2, then regain 1 AP."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "battlecry_plus",
     "name": "Battlecry +",
     "classId": "fighter",
@@ -213,7 +213,7 @@
     "flavorText": "Discard 1 card, draw 3, then regain 1 AP."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "battle_flag",
     "name": "Battle Flag",
     "classId": "fighter",
@@ -228,7 +228,7 @@
     "flavorText": "Stays in play for this battle. Whenever another card effect grants AP, draw a card."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "adrenalin",
     "name": "Adrenalin",
     "classId": "fighter",
@@ -244,7 +244,7 @@
     "flavorText": "When Adrenalin is put into your hand, draw an extra card. Discard any number of cards; regain 1 AP for each card discarded."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "final_smash",
     "name": "Execute",
     "classId": "fighter",
@@ -262,7 +262,7 @@
     "flavorText": "Discard any number of cards. Deal 6 plus twice hero ATK plus 3 per card discarded."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "fireball_atk",
     "name": "Fireball ATK",
     "classId": "wizard",
@@ -278,7 +278,7 @@
     "flavorText": "A condensed orb of roaring arcane flame that streaks across the grass and explodes on impact."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "force_field_def",
     "name": "Force Field DEF",
     "classId": "wizard",
@@ -295,7 +295,7 @@
     "flavorText": "Weave shimmering glyphs of kinetic wards that repel hostile physical strikes."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "arcane_blast",
     "name": "Arcane Blast",
     "classId": "wizard",
@@ -311,7 +311,7 @@
     "flavorText": "Unleash raw mana in an overwhelming burst of pure destructive brilliance."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "frost_nova",
     "name": "Frost Nova",
     "classId": "wizard",
@@ -331,7 +331,7 @@
     "flavorText": "Flash-freeze the surrounding air into crystalline shards that chill foes and shield the caster."
   },
   {
-    "type": "combat",
+    "type": "action",
     "id": "blink_ward",
     "name": "Blink Ward",
     "classId": "wizard",

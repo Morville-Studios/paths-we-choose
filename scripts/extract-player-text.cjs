@@ -39,7 +39,7 @@ const PLAYER_JSON_KEYS = new Set([
   'description',
   'flavorText',
   'challengeLabel',
-  'creatureType',
+  'enemyType',
   'abilities',
   'label',
   'cardNumber',

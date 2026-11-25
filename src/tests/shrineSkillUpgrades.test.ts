@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { startAdventure } from '../core/engine';
 import { getShrineSkillUpgradeOptions, upgradeShrineSkill } from '../core/shrine';
-import { createCombatCardInstance, getVoidCards } from '../data/combatCards';
+import { createActionCardInstance, getVoidCards } from '../data/actionCards';
 import { pileModal, renderPlayArea, UiState } from '../ui/render';
 
 const ui: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0 };
@@ -19,7 +19,7 @@ function atShrine(level: number, cardId: string) {
   return {
     ...base,
     board,
-    playerMasterDeck: [...base.playerMasterDeck, createCombatCardInstance(cardId, 'owned')],
+    playerMasterDeck: [...base.playerMasterDeck, createActionCardInstance(cardId, 'owned')],
     playerResources: { ...base.playerResources!, gold: 100, statPoints: 100 },
     activeHook: { type: 'SHRINE' as const, shrine: { coord, turn: 1 } },
   };

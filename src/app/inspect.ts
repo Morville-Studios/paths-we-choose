@@ -1,20 +1,20 @@
 import { toGridKey } from '../core/grid';
-import type { InspectedCardInfo, MonsterTemplateId, RunState } from '../core/types';
-import { createCombatCardInstance, createFleeCard, FLEE_CARD_ID } from '../data/combatCards';
-import { MONSTER_TEMPLATES } from '../data/monsters';
+import type { InspectedCardInfo, EnemyTemplateId, RunState } from '../core/types';
+import { createActionCardInstance, createFleeCard, FLEE_CARD_ID } from '../data/actionCards';
+import { ENEMY_TEMPLATES } from '../data/enemies';
 import { PATH_CARD_CATALOG } from '../data/paths';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
 import { ADVENTURE_CARD_CATALOG } from '../data/stages';
 import { getAdventureCardName } from '../ui/render';
 
-/** Resolves full card, monster, adventure tile, or item inspection details from a DOM element's dataset. */
+/** Resolves full card, enemy, adventure tile, or item inspection details from a DOM element's dataset. */
 export function findInspectedCard(state: RunState, cardEl: HTMLElement): InspectedCardInfo | null {
   const {
     inspectKind,
     cardId,
     cardInstance,
-    monsterId,
-    monsterIndex,
+    enemyId,
+    enemyIndex,
     nodeCol,
     nodeRow,
     boardKey,
@@ -30,7 +30,7 @@ export function findInspectedCard(state: RunState, cardEl: HTMLElement): Inspect
       }
       if (cardId) {
         try {
-          return { kind: 'action', card: createCombatCardInstance(cardId, 'inspect'), isReference: true };
+          return { kind: 'action', card: createActionCardInstance(cardId, 'inspect'), isReference: true };
         } catch {
           // Ignore unknown catalog IDs during DOM inspection.
         }
@@ -64,7 +64,7 @@ export function findInspectedCard(state: RunState, cardEl: HTMLElement): Inspect
     }
     if (cardId) {
       try {
-        return { kind: 'action', card: createCombatCardInstance(cardId, 'inspect') };
+        return { kind: 'action', card: createActionCardInstance(cardId, 'inspect') };
       } catch {
         // Ignore unknown catalog IDs during DOM inspection.
       }
@@ -72,18 +72,18 @@ export function findInspectedCard(state: RunState, cardEl: HTMLElement): Inspect
     return null;
   }
 
-  if (inspectKind === 'monster') {
+  if (inspectKind === 'enemy') {
     if (state.activeHook.type === 'COMBAT') {
-      const idx = Number(monsterIndex);
-      const cm = state.activeHook.combat.monsters[idx];
+      const idx = Number(enemyIndex);
+      const cm = state.activeHook.combat.enemies[idx];
       if (cm) {
         const boons: { name: string; description: string; value: string }[] = [];
         const bonus = cm.attackBonus ?? 0;
         if (bonus > 0) {
-          const damagingIntent = cm.monster.pattern.find((intent) => intent.damage > 0);
+          const damagingIntent = cm.enemy.pattern.find((intent) => intent.damage > 0);
           const baseDamage = damagingIntent?.damage ?? 0;
           boons.push({
-            name: cm.monster.templateId === 'bullwark' ? 'Chaotic Impulse' : 'Temporary Attack Boon',
+            name: cm.enemy.templateId === 'bullwark' ? 'Chaotic Impulse' : 'Temporary Attack Boon',
             value: `+${bonus} ATK`,
             description: damagingIntent
               ? `Current attack deals ${baseDamage + bonus} DMG (Base ${baseDamage} + ${bonus} Boon).`
@@ -99,10 +99,10 @@ export function findInspectedCard(state: RunState, cardEl: HTMLElement): Inspect
         }
         if (cm.accBonus && cm.accBonus > 0) {
           boons.push({
-            name: cm.monster.templateId === 'bullwark' ? 'Chaotic Impulse' : 'Lunging Accuracy',
+            name: cm.enemy.templateId === 'bullwark' ? 'Chaotic Impulse' : 'Lunging Accuracy',
             value: `+${cm.accBonus} ACC`,
             description:
-              cm.monster.templateId === 'bullwark'
+              cm.enemy.templateId === 'bullwark'
                 ? `Chaotic Impulse grants +${cm.accBonus} ACC to Bullwark's next action.`
                 : `Leaps forward with predatory precision, gaining +${cm.accBonus} ACC on attack rolls this round.`,
           });
@@ -111,12 +111,12 @@ export function findInspectedCard(state: RunState, cardEl: HTMLElement): Inspect
           boons.push({
             name: 'Active Block',
             value: `+${cm.block} Block`,
-            description: 'Absorbs incoming attack damage before creature HP is reduced.',
+            description: 'Absorbs incoming attack damage before enemy HP is reduced.',
           });
         }
         return {
-          kind: 'monster',
-          monster: cm.monster,
+          kind: 'enemy',
+          enemy: cm.enemy,
           currentHp: cm.hp,
           block: cm.block,
           attackBonus: cm.attackBonus,
@@ -126,9 +126,9 @@ export function findInspectedCard(state: RunState, cardEl: HTMLElement): Inspect
         };
       }
     }
-    if (monsterId && monsterId in MONSTER_TEMPLATES) {
-      const tpl = MONSTER_TEMPLATES[monsterId as MonsterTemplateId];
-      return { kind: 'monster', monster: { ...tpl, id: `monster_${monsterId}_inspect` } };
+    if (enemyId && enemyId in ENEMY_TEMPLATES) {
+      const tpl = ENEMY_TEMPLATES[enemyId as EnemyTemplateId];
+      return { kind: 'enemy', enemy: { ...tpl, id: `enemy_${enemyId}_inspect` } };
     }
     return null;
   }

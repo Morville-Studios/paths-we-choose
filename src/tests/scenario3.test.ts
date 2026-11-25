@@ -3,24 +3,24 @@ import {
   createCombatSession,
   endPlayerCombatTurn,
   evaluateAttackRoll,
-  playCombatCardFromHand,
+  playActionCardFromHand,
 } from '../core/combat';
 import { startAdventure, startNextMission } from '../core/engine';
-import { CombatCardDef, MonsterCard, RunState, ShopItemDef } from '../core/types';
+import { ActionCardDef, EnemyCard, RunState, ShopItemDef } from '../core/types';
 import {
-  MONSTER_TEMPLATES,
+  ENEMY_TEMPLATES,
   createMission3BossCard,
-  getScenarioMonsterDeckComposition,
-} from '../data/monsters';
+  getScenarioEnemyDeckComposition,
+} from '../data/enemies';
 import { STAGE_3_DECK_COMPOSITION, STAGE_3_MISSION_NAME } from '../data/stages';
 
-function card(templateId: 'dark_orc' | 'orc_shaman' | 'king_nezenheim'): MonsterCard {
-  return { ...MONSTER_TEMPLATES[templateId], id: `${templateId}_test` };
+function card(templateId: 'dark_orc' | 'orc_shaman' | 'king_nezenheim'): EnemyCard {
+  return { ...ENEMY_TEMPLATES[templateId], id: `${templateId}_test` };
 }
 
-function setupCombat(monsters: MonsterCard[], seed = 42): RunState {
+function setupCombat(enemies: EnemyCard[], seed = 42): RunState {
   const state = startAdventure('fighter', `seed-${seed}`);
-  const { combat } = createCombatSession(monsters, [], seed);
+  const { combat } = createCombatSession(enemies, [], seed);
   return {
     ...state,
     playerResources: { hp: 100, maxHp: 100, statPoints: 0, gold: 0 },
@@ -37,8 +37,8 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
     expect(STAGE_3_DECK_COMPOSITION['advund-01']).toBe(1);
   });
 
-  it('defines the correct 30-card monster deck composition', () => {
-    const composition = getScenarioMonsterDeckComposition(3);
+  it('defines the correct 30-card enemy deck composition', () => {
+    const composition = getScenarioEnemyDeckComposition(3);
     const countMap = Object.fromEntries(composition.map(c => [c.templateId, c.count]));
     const total = Object.values(countMap).reduce((a, b) => a + b, 0);
     expect(total).toBe(30);
@@ -60,7 +60,7 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
   });
 
   it('Dark Orc has correct stats and patterns', () => {
-    const orc = MONSTER_TEMPLATES.dark_orc;
+    const orc = ENEMY_TEMPLATES.dark_orc;
     expect(orc.level).toBe(5);
     expect(orc.maxHp).toBe(22);
     expect(orc.def).toBe(3);
@@ -77,7 +77,7 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
   });
 
   it('Orc Shaman has correct stats, Regen (2), Channel (1), and dual-damage T1 pattern', () => {
-    const shaman = MONSTER_TEMPLATES.orc_shaman;
+    const shaman = ENEMY_TEMPLATES.orc_shaman;
     expect(shaman.level).toBe(6);
     expect(shaman.maxHp).toBe(30);
     expect(shaman.def).toBe(3);
@@ -93,7 +93,7 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
   });
 
   it('King Nezenheim has boss stats and Unholy Aura passive', () => {
-    const boss = MONSTER_TEMPLATES.king_nezenheim;
+    const boss = ENEMY_TEMPLATES.king_nezenheim;
     expect(boss.isBoss).toBe(true);
     expect(boss.level).toBe(7);
     expect(boss.maxHp).toBe(40);
@@ -104,48 +104,48 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
     expect(boss.goldReward).toBe(70);
     expect(boss.statPointReward).toBe(16);
     expect(boss.pattern[0].label).toBe('Summon Undead');
-    expect(boss.pattern[0].summonUndeadFromMonsterDeck).toBe(true);
+    expect(boss.pattern[0].summonUndeadFromEnemyDeck).toBe(true);
     expect(boss.pattern[1]).toMatchObject({ label: 'Corrupted Blade', damage: 7, magicDamage: 7 });
   });
 
   it('King Nezenheim Unholy Aura heals all undead allies (including himself) by 3 HP at turn start', () => {
     const bossCard = card('king_nezenheim');
-    const minion = { ...MONSTER_TEMPLATES.creeper, id: 'creeper_test' };
+    const minion = { ...ENEMY_TEMPLATES.creeper, id: 'creeper_test' };
     const state = setupCombat([bossCard, minion]);
     if (state.activeHook.type !== 'COMBAT') throw new Error('Expected combat');
 
-    // Damage both creatures, set Creeper to patternIndex 1 (Ambush: 0 heal)
-    state.activeHook.combat.monsters[0].hp = 30; // Boss (max 40)
-    state.activeHook.combat.monsters[1].hp = 5;  // Creeper (max 14)
-    state.activeHook.combat.monsters[1].patternIndex = 1;
+    // Damage both enemies, set Creeper to patternIndex 1 (Ambush: 0 heal)
+    state.activeHook.combat.enemies[0].hp = 30; // Boss (max 40)
+    state.activeHook.combat.enemies[1].hp = 5;  // Creeper (max 14)
+    state.activeHook.combat.enemies[1].patternIndex = 1;
 
     // End player turn -> King Nezenheim Unholy Aura activates
     const afterTurn = endPlayerCombatTurn(state);
     if (afterTurn.activeHook.type !== 'COMBAT') throw new Error('Expected combat');
 
-    const m0 = afterTurn.activeHook.combat.monsters[0];
-    const m1 = afterTurn.activeHook.combat.monsters[1];
+    const m0 = afterTurn.activeHook.combat.enemies[0];
+    const m1 = afterTurn.activeHook.combat.enemies[1];
     expect(m0.hp).toBe(33); // 30 + 3
     expect(m1.hp).toBe(8);  // 5 + 3
     expect((afterTurn.gameLog ?? []).some(l => l.includes('Unholy Aura') && l.includes('restoring 3 HP'))).toBe(true);
   });
 
-  it('Summoned creatures are marked with isSummon and award 0 SP and 0 Gold on defeat', () => {
+  it('Summoned enemies are marked with isSummon and award 0 SP and 0 Gold on defeat', () => {
     const bossCard = card('king_nezenheim');
-    const summonCard: MonsterCard = { ...MONSTER_TEMPLATES.zombie, id: 'summon_zombie', statPointReward: 10, goldReward: 50 };
+    const summonCard: EnemyCard = { ...ENEMY_TEMPLATES.zombie, id: 'summon_zombie', statPointReward: 10, goldReward: 50 };
     const state = setupCombat([bossCard]);
     if (state.activeHook.type !== 'COMBAT') throw new Error('Expected combat');
 
-    // Add summoned monster to combat
-    state.activeHook.combat.monsters.push({
-      monster: summonCard,
+    // Add summoned enemy to combat
+    state.activeHook.combat.enemies.push({
+      enemy: summonCard,
       hp: 5,
       block: 0,
       patternIndex: 0,
       isSummon: true,
     });
 
-    const strikeCard: CombatCardDef = {
+    const strikeCard: ActionCardDef = {
       id: 'finisher',
       instanceId: 'finisher_1',
       name: 'Fatal Blow',
@@ -160,14 +160,14 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
     state.playerResources = { hp: 50, maxHp: 50, statPoints: 10, gold: 20 };
 
     // Defeat the summon (target index 1)
-    const afterKill = playCombatCardFromHand(state, 'finisher_1', 1, (next) => next);
+    const afterKill = playActionCardFromHand(state, 'finisher_1', 1, (next) => next);
 
-    // 1. The summoned creature was returned immediately to monsterDiscard
-    expect(afterKill.monsterDiscard.some(m => m.id === 'summon_zombie')).toBe(true);
+    // 1. The summoned enemy was returned immediately to enemyDiscard
+    expect(afterKill.enemyDiscard.some(m => m.id === 'summon_zombie')).toBe(true);
     // 2. Player SP and Gold did not increase (prevent milking exploit)
     expect(afterKill.playerResources?.statPoints).toBe(10);
     expect(afterKill.playerResources?.gold).toBe(20);
-    // 3. Game log notes that summoned creature was returned to discard with no rewards
+    // 3. Game log notes that summoned enemy was returned to discard with no rewards
     expect((afterKill.gameLog ?? []).some(l => l.includes('Summoned') && l.includes('awards no SP or Gold'))).toBe(true);
   });
 
@@ -193,7 +193,7 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
     };
     state.playerResources = { hp: 50, maxHp: 50, statPoints: 0, gold: 0 };
 
-    // Find an RNG seed where the monster attack hits
+    // Find an RNG seed where the enemy attack hits
     let seedState = 1;
     let hitFound = false;
     for (let s = 1; s < 500; s++) {
@@ -233,7 +233,7 @@ describe('Scenario 3: Tomb of the Fallen King', () => {
     expect(s3.turn).toBe(0);
     expect(s3.maxTurns).toBe(15);
     expect(s3.adventureDeck.length).toBe(23); // 30 - 2 starting (village + shrine) - 5 initial dealt = 23
-    expect(s3.monsterDeck.length).toBe(30);
+    expect(s3.enemyDeck.length).toBe(30);
 
     const boss = createMission3BossCard();
     expect(boss.name).toBe('Fallen King');

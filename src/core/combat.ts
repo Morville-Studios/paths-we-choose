@@ -6,7 +6,7 @@ export * from './combat/constants';
 export * from './combat/debuffs';
 export * from './combat/cards';
 export * from './combat/rolls';
-export * from './combat/monsters';
+export * from './combat/enemies';
 export * from './combat/session';
 export * from './combat/playerTurn';
 export * from './combat/flee';

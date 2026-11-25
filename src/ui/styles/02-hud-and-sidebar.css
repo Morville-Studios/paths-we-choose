@@ -880,7 +880,7 @@
 .banner-inline { color: var(--accent); font-weight: 600; font-size: 0.85rem; }
 
 /* Combat */
-.monster-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
+.enemy-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
 
 /* Official Standard TCG Card (2.5" x 3.5" = 5:7 aspect ratio) */
 .tcg-card {

@@ -3,8 +3,8 @@ import { ClassId, CombatAttackRollSummary, InspectedCardInfo, RunState, StatKey 
 export type PileType =
   | 'adventure_deck'
   | 'adventure_discard'
-  | 'monster_deck'
-  | 'monster_discard'
+  | 'enemy_deck'
+  | 'enemy_discard'
   | 'player_deck'
   | 'player_discard'
   | 'new_skills_deck'

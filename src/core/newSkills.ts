@@ -1,6 +1,6 @@
 import { drawNewSkillsWithReshuffle, reconcileNewSkillsDeck } from './deck';
 import { coordToKey } from './grid';
-import { CombatCardDef, RunState } from './types';
+import { ActionCardDef, RunState } from './types';
 
 /** Returns how many training skill cards a Village offers (2 + Village Level). */
 export function getTrainOfferCount(villageLevel: number): number {
@@ -15,7 +15,7 @@ export function getTrainOfferCount(villageLevel: number): number {
 export function reconcileRunNewSkills(state: RunState): RunState {
   if (!state.playerClass) return state;
 
-  const activeTrainOptions: CombatCardDef[] = state.activeHook.type === 'VILLAGE'
+  const activeTrainOptions: ActionCardDef[] = state.activeHook.type === 'VILLAGE'
     ? state.activeHook.village.trainOptions
     : [];
   const reconciliation = reconcileNewSkillsDeck(

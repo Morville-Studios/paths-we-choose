@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { endTurn, playCard, startAdventure } from '../core/engine';
 import { computeCardEffect } from '../core/combat';
-import { ActiveCombatState, CombatCardDef, MonsterCard, RunState } from '../core/types';
-import { createCombatCardInstance } from '../data/combatCards';
+import { ActiveCombatState, ActionCardDef, EnemyCard, RunState } from '../core/types';
+import { createActionCardInstance } from '../data/actionCards';
 import { getEffectiveStatsFromState } from '../core/stats';
 
-const dummyMonster: MonsterCard = {
+const dummyEnemy: EnemyCard = {
   id: 'dummy', templateId: 'goblin', name: 'Training Dummy', level: 1, maxHp: 100,
   def: 0, acc: 0, eva: 0, statPointReward: 0, goldReward: 0, abilities: [],
   pattern: [{ label: 'Wait', damage: 0, block: 0 }],
 };
 
-function combatState(hand: CombatCardDef[], drawPile: CombatCardDef[] = [], inPlay: CombatCardDef[] = []): RunState {
+function combatState(hand: ActionCardDef[], drawPile: ActionCardDef[] = [], inPlay: ActionCardDef[] = []): RunState {
   const base = startAdventure('fighter', 'fighter-skills');
   const combat: ActiveCombatState = {
-    monsters: [{ monster: dummyMonster, hp: dummyMonster.maxHp, block: 0, patternIndex: 0 }],
+    enemies: [{ enemy: dummyEnemy, hp: dummyEnemy.maxHp, block: 0, patternIndex: 0 }],
     combatTurn: 1, playerAp: 3, playerMaxAp: 3, playerBlock: 0, playerEvasionMod: 0,
     drawPile, hand, discardPile: [], inPlay, combatLog: [],
   };
@@ -25,8 +25,8 @@ function combatState(hand: CombatCardDef[], drawPile: CombatCardDef[] = [], inPl
   };
 }
 
-function card(id: string, suffix: string): CombatCardDef {
-  return createCombatCardInstance(id, suffix);
+function card(id: string, suffix: string): ActionCardDef {
+  return createActionCardInstance(id, suffix);
 }
 
 describe('Fighter skill cards', () => {
@@ -118,7 +118,7 @@ describe('Fighter skill cards', () => {
     const whirlwind = { ...card('whirlwind', 'play'), accBonus: 100 };
     const state = combatState([whirlwind]);
     if (state.activeHook.type !== 'COMBAT') throw new Error('combat expected');
-    state.activeHook.combat.monsters.push({ monster: { ...dummyMonster, id: 'dummy-2', name: 'Second Dummy' }, hp: 100, block: 0, patternIndex: 0 });
+    state.activeHook.combat.enemies.push({ enemy: { ...dummyEnemy, id: 'dummy-2', name: 'Second Dummy' }, hp: 100, block: 0, patternIndex: 0 });
     const result = playCard(state, whirlwind.instanceId);
     if (result.activeHook.type !== 'COMBAT') throw new Error('combat should continue');
     expect(result.activeHook.combat.combatLog.filter((entry) => entry.includes('Played Whirlwind on'))).toHaveLength(2);

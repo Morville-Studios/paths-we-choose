@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { createCombatSession, endPlayerCombatTurn, evaluateAttackRoll } from '../core/combat';
 import { startAdventure, villageDoRest } from '../core/engine';
 import { applySingleShrineBoon } from '../core/shrine';
-import { MonsterCard, RunState } from '../core/types';
+import { EnemyCard, RunState } from '../core/types';
 import { getEffectiveStatsFromState, getPlayerDef } from '../core/stats';
-import { MONSTER_TEMPLATES } from '../data/monsters';
+import { ENEMY_TEMPLATES } from '../data/enemies';
 import { cardInspectModal } from '../ui/render';
 
-const assassin: MonsterCard = { ...MONSTER_TEMPLATES.assassin, id: 'assassin_test' };
+const assassin: EnemyCard = { ...ENEMY_TEMPLATES.assassin, id: 'assassin_test' };
 function seedFor(hit: boolean): number {
   for (let seed = 1; seed < 10000; seed++) {
     const roll = evaluateAttackRoll(seed, 4, 2);
@@ -31,15 +31,15 @@ function battle(state: RunState) {
 
 describe('Assassin poison and piercing attacks', () => {
   it('shows the profile, exact artwork filename, Underground badge, Skittish (2), PEN (3), Poison (4, 2)', () => {
-    expect(assassin).toMatchObject({ statPointReward: 4, goldReward: 15, level: 3, creatureType: 'Human', cardNumber: 'mon3smp-03', maxHp: 13, def: 2, eva: 4, acc: 4, mdef: 1, skittishEvaOnHit: 2, spawnTerrains: ['swamp', 'cave', 'underground'] });
-    const html = cardInspectModal({ kind: 'monster', monster: assassin, currentHp: 13 }, setup());
+    expect(assassin).toMatchObject({ statPointReward: 4, goldReward: 15, level: 3, enemyType: 'Human', cardNumber: 'mon3smp-03', maxHp: 13, def: 2, eva: 4, acc: 4, mdef: 1, skittishEvaOnHit: 2, spawnTerrains: ['swamp', 'cave', 'underground'] });
+    const html = cardInspectModal({ kind: 'enemy', enemy: assassin, currentHp: 13 }, setup());
     const plainHtml = html.replace(/<\/?b>/g, '');
-    for (const text of ['/cards/creatures/assasin.jpg', 'Underground', 'Skittish (2)', 'ATK (5)', 'PEN (3)', 'ACC (2)', 'Poison (4, 2)']) expect(plainHtml).toContain(text);
+    for (const text of ['/cards/enemies/assasin.jpg', 'Underground', 'Skittish (2)', 'ATK (5)', 'PEN (3)', 'ACC (2)', 'Poison (4, 2)']) expect(plainHtml).toContain(text);
   });
 
   it('T2 ACC (2), Poison (4, 2) inflicts Poison on hit and triggers MACG-3D6 vs VIT at Hero start phase', () => {
     const state = setup();
-    battle(state).monsters[0].patternIndex = 1;
+    battle(state).enemies[0].patternIndex = 1;
     // Find a seed where Assassin (ACC 4 + 2 = 6 vs Hero EVA 2 -> net +4) hits AND Poison (4 vs Fighter VIT 3 -> net +1) hits
     state.rngState = Array.from({ length: 10000 }, (_, i) => i + 1).find(seed => {
       const r1 = evaluateAttackRoll(seed, 6, 2);
@@ -56,7 +56,7 @@ describe('Assassin poison and piercing attacks', () => {
 
   it('Hero can shake off Poison damage via MACG-3D6 vs VIT and Poison wears off after duration', () => {
     const state = setup();
-    battle(state).monsters[0].patternIndex = 1;
+    battle(state).enemies[0].patternIndex = 1;
     // Assassin hits, but Poison vs VIT misses (Hero shakes it off)
     state.rngState = Array.from({ length: 10000 }, (_, i) => i + 1).find(seed => {
       const r1 = evaluateAttackRoll(seed, 6, 2);
@@ -72,7 +72,7 @@ describe('Assassin poison and piercing attacks', () => {
 
   it('does not apply poison on a miss', () => {
     const state = setup();
-    battle(state).monsters[0].patternIndex = 1;
+    battle(state).enemies[0].patternIndex = 1;
     state.rngState = Array.from({ length: 10000 }, (_, i) => i + 1).find(seed => !evaluateAttackRoll(seed, 6, 2).isHit)!;
     const next = endPlayerCombatTurn(state);
     expect(next.statusEffects).toEqual([]);
@@ -82,7 +82,7 @@ describe('Assassin poison and piercing attacks', () => {
 
   it('Poison tick bypasses DEF/MDEF/Block and expires after turnsRemaining reaches 0', () => {
     const state = setup();
-    battle(state).monsters = [{ ...battle(state).monsters[0], monster: { ...assassin, pattern: [] } }];
+    battle(state).enemies = [{ ...battle(state).enemies[0], enemy: { ...assassin, pattern: [] } }];
     battle(state).playerPoison = { damage: 4, turnsRemaining: 2 };
     state.statusEffects = ['poison'];
     state.divineProtection = 100;
@@ -101,7 +101,7 @@ describe('Assassin poison and piercing attacks', () => {
 
   it('Poison can kill the hero at start phase', () => {
     const state = setup();
-    battle(state).monsters = [{ ...battle(state).monsters[0], monster: { ...assassin, pattern: [] } }];
+    battle(state).enemies = [{ ...battle(state).enemies[0], enemy: { ...assassin, pattern: [] } }];
     battle(state).playerPoison = { damage: 4, turnsRemaining: 1 };
     state.statusEffects = ['poison'];
     state.playerResources!.hp = 4;

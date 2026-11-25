@@ -4,10 +4,10 @@ const sharp = require('sharp');
 
 const publicCardsDir = path.resolve(__dirname, '../assets/raw/cards');
 const adventureDir = path.join(publicCardsDir, 'adventure');
-const creaturesDir = path.join(publicCardsDir, 'creatures');
+const enemiesDir = path.join(publicCardsDir, 'enemies');
 
 if (!fs.existsSync(adventureDir)) fs.mkdirSync(adventureDir, { recursive: true });
-if (!fs.existsSync(creaturesDir)) fs.mkdirSync(creaturesDir, { recursive: true });
+if (!fs.existsSync(enemiesDir)) fs.mkdirSync(enemiesDir, { recursive: true });
 
 async function svgToJpg(svg, outPath) {
   await sharp(Buffer.from(svg))
@@ -470,7 +470,7 @@ async function main() {
   `;
   await svgToJpg(startTileSvg, path.join(adventureDir, 'start_tile.jpg'));
 
-  // 8. Ramram (Creature: Level 2 mountain ram / goat warrior on grasslands)
+  // 8. Ramram (Enemy: Level 2 mountain ram / goat warrior on grasslands)
   const ramramSvg = `
   <svg width="600" height="840" viewBox="0 0 600 840" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -562,9 +562,9 @@ async function main() {
     <circle cx="480" cy="750" r="6" fill="#facc15"/>
   </svg>
   `;
-  await svgToJpg(ramramSvg, path.join(creaturesDir, 'ramram.jpg'));
+  await svgToJpg(ramramSvg, path.join(enemiesDir, 'ramram.jpg'));
 
-  // 9. Rattler (Creature: Level 2 pit viper / snake in enchanted forest)
+  // 9. Rattler (Enemy: Level 2 pit viper / snake in enchanted forest)
   const rattlerSvg = `
   <svg width="600" height="840" viewBox="0 0 600 840" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -664,7 +664,7 @@ async function main() {
     <circle cx="490" cy="360" r="5" fill="#6ee7b7" opacity="0.75"/>
   </svg>
   `;
-  await svgToJpg(rattlerSvg, path.join(creaturesDir, 'rattler.jpg'));
+  await svgToJpg(rattlerSvg, path.join(enemiesDir, 'rattler.jpg'));
 
   console.log('All raster arts generated successfully!');
 }

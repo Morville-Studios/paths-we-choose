@@ -79,7 +79,7 @@
   .modal {
     max-height: calc(100dvh - 16px);
   }
-  .monster-carousel-track {
+  .enemy-carousel-track {
     height: 350px;
   }
   :is(.combat-modal, .combat-component) .hand.hand-carousel-track {
@@ -157,7 +157,7 @@
     padding: 8px 12px;
     gap: 8px;
   }
-  .monster-carousel-track {
+  .enemy-carousel-track {
     height: 310px;
   }
   :is(.combat-modal, .combat-component) .hand.hand-carousel-track {

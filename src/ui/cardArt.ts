@@ -7,66 +7,66 @@ import { publicAsset } from './publicAsset';
  * on top of reusable card base templates.
  */
 
-function getMonsterRasterArtRelativePath(templateId: string): string {
+function getEnemyRasterArtRelativePath(templateId: string): string {
   switch (templateId) {
     case 'witch':
-      return '/cards/creatures/witch.jpg';
+      return '/cards/enemies/witch.jpg';
     case 'phalanx':
-      return '/cards/creatures/phalanx.jpg';
+      return '/cards/enemies/phalanx.jpg';
     case 'cultist_mage':
-      return '/cards/creatures/cultist_mage.jpg';
+      return '/cards/enemies/cultist_mage.jpg';
     case 'lurker':
-      return '/cards/creatures/lurker.jpg';
+      return '/cards/enemies/lurker.jpg';
     case 'leech':
-      return '/cards/creatures/leech.jpg';
+      return '/cards/enemies/leech.jpg';
     case 'stalker':
-      return '/cards/creatures/stalker.jpg';
+      return '/cards/enemies/stalker.jpg';
     case 'creeper':
-      return '/cards/creatures/creeper.jpg';
+      return '/cards/enemies/creeper.jpg';
     case 'assassin':
-      return '/cards/creatures/assasin.jpg';
+      return '/cards/enemies/assasin.jpg';
     case 'goblin':
-      return '/cards/creatures/goblin.jpg';
+      return '/cards/enemies/goblin.jpg';
     case 'pink_slime':
-      return '/cards/creatures/pink_slime.jpg';
+      return '/cards/enemies/pink_slime.jpg';
     case 'fighting_beetle':
-      return '/cards/creatures/fighting_beetle.jpg';
+      return '/cards/enemies/fighting_beetle.jpg';
     case 'wild_dog':
-      return '/cards/creatures/wild_dog.jpg';
+      return '/cards/enemies/wild_dog.jpg';
     case 'ramram':
-      return '/cards/creatures/ramram.jpg';
+      return '/cards/enemies/ramram.jpg';
     case 'rattler':
-      return '/cards/creatures/rattler.jpg';
+      return '/cards/enemies/rattler.jpg';
     case 'bullwark':
-      return '/cards/creatures/bullwark.jpg';
+      return '/cards/enemies/bullwark.jpg';
     case 'tree_snapper':
-      return '/cards/creatures/tree_snapper.jpg';
+      return '/cards/enemies/tree_snapper.jpg';
     case 'zombie':
-      return '/cards/creatures/zombie.jpg';
+      return '/cards/enemies/zombie.jpg';
     case 'ghoul':
-      return '/cards/creatures/ghoul.jpg';
+      return '/cards/enemies/ghoul.jpg';
     case 'goblin_chieftain':
-      return '/cards/creatures/goblin_chieftain.jpg';
+      return '/cards/enemies/goblin_chieftain.jpg';
     case 'troll_healer':
-      return '/cards/creatures/troll_healer.jpg';
+      return '/cards/enemies/troll_healer.jpg';
     case 'troll_hexer':
-      return '/cards/creatures/troll_hexer.jpg';
+      return '/cards/enemies/troll_hexer.jpg';
     case 'troll_brute':
-      return '/cards/creatures/troll_brute.jpg';
+      return '/cards/enemies/troll_brute.jpg';
     case 'dark_orc':
-      return '/cards/creatures/dark_orc.jpg';
+      return '/cards/enemies/dark_orc.jpg';
     case 'orc_shaman':
-      return '/cards/creatures/orc_shaman.jpg';
+      return '/cards/enemies/orc_shaman.jpg';
     case 'king_nezenheim':
     case 'fallen_king':
-      return '/cards/creatures/fallen_king.jpg';
+      return '/cards/enemies/fallen_king.jpg';
     default:
-      return '/cards/creatures/goblin.jpg';
+      return '/cards/enemies/goblin.jpg';
   }
 }
 
-export function getMonsterRasterArtPath(templateId: string): string {
-  return publicAsset(getMonsterRasterArtRelativePath(templateId));
+export function getEnemyRasterArtPath(templateId: string): string {
+  return publicAsset(getEnemyRasterArtRelativePath(templateId));
 }
 
 function getAdventureRasterArtRelativePath(card: AdventureCard): string {
@@ -180,8 +180,8 @@ export function getActionRasterArtPath(cardId: string, cardType: 'attack' | 'def
   return publicAsset(getActionRasterArtRelativePath(cardId, cardType));
 }
 
-export function getMonsterIllustration(templateId: string, loading: 'eager' | 'lazy' = 'eager'): string {
-  const rasterPath = getMonsterRasterArtPath(templateId);
+export function getEnemyIllustration(templateId: string, loading: 'eager' | 'lazy' = 'eager'): string {
+  const rasterPath = getEnemyRasterArtPath(templateId);
   return `<img src="${rasterPath}" alt="${templateId}" class="tcg-art-raster" loading="${loading}" />`;
 }
 

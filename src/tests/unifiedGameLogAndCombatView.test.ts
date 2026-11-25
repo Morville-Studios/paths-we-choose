@@ -26,7 +26,7 @@ import {
 import { grantShrineBoonOnEnter } from '../core/shrine';
 import { parseGameLogEntry } from '../core/log';
 import { upgradeBaseStat } from '../core/stats';
-import { MONSTER_TEMPLATES } from '../data/monsters';
+import { ENEMY_TEMPLATES } from '../data/enemies';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
 import {
   combatRightSidebarHtml,
@@ -35,13 +35,13 @@ import {
   renderPlayArea,
   UiState,
 } from '../ui/render';
-import { MonsterCard } from '../core/types';
+import { EnemyCard } from '../core/types';
 
 describe('Unified Game Log & In-Place Combat Component', () => {
   it('shows only recent sidebar entries while counting the full log without duplicates', () => {
     const state = startAdventure('fighter', 'long-log');
-    const monster: MonsterCard = { ...MONSTER_TEMPLATES.goblin, id: 'sidebar_goblin' };
-    const combat = createCombatSession([monster], state.playerMasterDeck, 12345).combat;
+    const enemy: EnemyCard = { ...ENEMY_TEMPLATES.goblin, id: 'sidebar_goblin' };
+    const combat = createCombatSession([enemy], state.playerMasterDeck, 12345).combat;
     const oldEntry = '[10:00:00] Old shared entry';
     const gameLog = [oldEntry, ...Array.from({ length: 35 }, (_, i) => `[10:00:00] Recent entry ${i}`)];
     const html = combatRightSidebarHtml(
@@ -153,9 +153,9 @@ describe('Unified Game Log & In-Place Combat Component', () => {
     expect(state.gameLog!.some((entry) => entry.includes('Upgraded Base STR'))).toBe(true);
   });
 
-  it('appends combat actions, turns, and flee to gameLog continuously', () => {
+  it('appends actions, turns, and flee to gameLog continuously', () => {
     let state = startAdventure('fighter', 'seed-combat-stream');
-    const goblin: MonsterCard = { ...MONSTER_TEMPLATES['goblin'], id: 'test_gob', maxHp: 30 };
+    const goblin: EnemyCard = { ...ENEMY_TEMPLATES['goblin'], id: 'test_gob', maxHp: 30 };
     const session = createCombatSession([goblin], state.playerMasterDeck, 12345, 3);
 
     state = {
@@ -185,7 +185,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
 
   it('renders in-place combat component inside .play-main without modal backdrop wrapper', () => {
     let state = startAdventure('fighter', 'seed-combat-inplace');
-    const goblin: MonsterCard = { ...MONSTER_TEMPLATES['goblin'], id: 'gob_01' };
+    const goblin: EnemyCard = { ...ENEMY_TEMPLATES['goblin'], id: 'gob_01' };
     state = {
       ...state,
       welcomePreparing: false,
@@ -193,7 +193,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
         type: 'COMBAT',
         combat: {
           combatTurn: 1,
-          monsters: [{ monster: goblin, hp: 6, block: 0, patternIndex: 0 }],
+          enemies: [{ enemy: goblin, hp: 6, block: 0, patternIndex: 0 }],
           playerAp: 3,
           playerMaxAp: 3,
           playerBlock: 0,
@@ -219,7 +219,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
     expect(html).toContain('class="play-main is-combat-main"');
     expect(html).toContain('class="combat-view combat-component"');
     expect(html).toContain('class="combat-main-col"');
-    expect(html).toContain('monster-carousel');
+    expect(html).toContain('enemy-carousel');
 
     // 2. NO modal backdrop wrapper around the whole battle area!
     expect(html).not.toContain('<div class="modal-backdrop combat">');
@@ -326,19 +326,19 @@ describe('Unified Game Log & In-Place Combat Component', () => {
 
   it('records targetIndex on attack rolls and preserves finalCombatState on victory for smooth death transitions', () => {
     const state = startAdventure('fighter', 'seed-vfx-test');
-    const monster: MonsterCard = { ...MONSTER_TEMPLATES.goblin, maxHp: 1, id: 'gob_vfx' };
-    const combatSession = createCombatSession([monster], state.playerMasterDeck, state.rngState);
+    const enemy: EnemyCard = { ...ENEMY_TEMPLATES.goblin, maxHp: 1, id: 'gob_vfx' };
+    const combatSession = createCombatSession([enemy], state.playerMasterDeck, state.rngState);
     state.activeHook = { type: 'COMBAT', combat: combatSession.combat };
 
     const slashCard = combatSession.combat.hand.find((c) => c.cardType === 'attack');
     expect(slashCard).toBeDefined();
 
     const afterAttack = playCard(state, slashCard!.instanceId, 0);
-    // Monster had 1 HP, slash hits or reduces HP to 0 -> victory
+    // Enemy had 1 HP, slash hits or reduces HP to 0 -> victory
     if (afterAttack.activeHook.type === 'VICTORY') {
       const victory = afterAttack.activeHook.victory;
       expect(victory.finalCombatState).toBeDefined();
-      expect(victory.finalCombatState!.monsters[0].hp).toBe(0);
+      expect(victory.finalCombatState!.enemies[0].hp).toBe(0);
       expect(victory.lastAttackRolls).toBeDefined();
       expect(victory.lastAttackRolls![0].targetIndex).toBe(0);
     } else if (afterAttack.activeHook.type === 'COMBAT') {
@@ -346,7 +346,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
     }
   });
 
-  it('parses full YYYY-MM-DD HH:MM:SS.mmm timestamps and monster ability stack entries accurately', () => {
+  it('parses full YYYY-MM-DD HH:MM:SS.mmm timestamps and enemy ability stack entries accurately', () => {
     const enter = parseCombatLogEntry("[2026-11-14 21:49:36.125] 📑 Basilisk's Harden enters the Stack.");
     expect(enter.timestamp).toBe('2026-11-14 21:49:36.125');
     expect(enter.actorType).toBe('enemy');
@@ -366,8 +366,8 @@ describe('Unified Game Log & In-Place Combat Component', () => {
 
   it('logs combat Stack resolution in strict LIFO chronological order when Slash hits Basilisk (Harden)', () => {
     let state = startAdventure('fighter', 'seed-stack-order');
-    const basilisk: MonsterCard = {
-      ...MONSTER_TEMPLATES.tree_snapper,
+    const basilisk: EnemyCard = {
+      ...ENEMY_TEMPLATES.tree_snapper,
       id: 'bas_stack',
       maxHp: 30,
     };
@@ -381,7 +381,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
         type: 'COMBAT',
         combat: {
           combatTurn: 1,
-          monsters: [{ monster: basilisk, hp: 30, block: 0, patternIndex: 0 }],
+          enemies: [{ enemy: basilisk, hp: 30, block: 0, patternIndex: 0 }],
           playerAp: 3,
           playerMaxAp: 3,
           playerBlock: 0,

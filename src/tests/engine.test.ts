@@ -70,16 +70,16 @@ import {
   computeCardEffect,
   evaluateAttackRoll,
   computeHitProbability,
-  getMonsterIntent,
+  getEnemyIntent,
   BASE_HIT_THRESHOLD,
 } from '../core/combat';
 import { roll3D6 } from '../core/rng';
-import { drawEncounterMonsters, drawMonsterCardWithReshuffle, buildStage2AdventureDeck, getEncounterTargetLevel } from '../core/deck';
-import { MONSTER_TEMPLATES, createBossMonstersForMission } from '../data/monsters';
+import { drawEncounterEnemies, drawEnemyCardWithReshuffle, buildStage2AdventureDeck, getEncounterTargetLevel } from '../core/deck';
+import { ENEMY_TEMPLATES, createBossEnemiesForMission } from '../data/enemies';
 import { ADVENTURE_CARD_CATALOG, STAGE_2_MISSION_NAME } from '../data/stages';
-import { COMBAT_CARD_CATALOG } from '../data/combatCards';
+import { ACTION_CARD_CATALOG } from '../data/actionCards';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
-import { AdventureCard, CombatCardDef, CombatMonster, MonsterCard, RunState } from '../core/types';
+import { AdventureCard, ActionCardDef, CombatEnemy, EnemyCard, RunState } from '../core/types';
 
 function start(classId: 'fighter' | 'wizard' | 'rogue' = 'fighter', seed = 'test-seed'): RunState {
   return startAdventure(classId, seed);
@@ -94,18 +94,18 @@ function stepAuto(state: RunState): RunState {
       const combat = s.activeHook.combat;
       const curCombat = {
         ...combat,
-        monsters: combat.monsters.map((m, idx) => ({ ...m, hp: idx === 0 ? 1 : 0, block: 0 })),
+        enemies: combat.enemies.map((m, idx) => ({ ...m, hp: idx === 0 ? 1 : 0, block: 0 })),
       };
-      const atk = curCombat.hand.find((c: CombatCardDef) => c.cardType === 'attack');
+      const atk = curCombat.hand.find((c: ActionCardDef) => c.cardType === 'attack');
       if (atk && curCombat.playerAp >= atk.apCost) {
-        const reliableCard: CombatCardDef = { ...atk, accBonus: 10, baseDamage: 99 };
+        const reliableCard: ActionCardDef = { ...atk, accBonus: 10, baseDamage: 99 };
         s = {
           ...s,
           activeHook: {
             type: 'COMBAT',
             combat: {
               ...curCombat,
-              hand: curCombat.hand.map((c: CombatCardDef) => (c.instanceId === atk.instanceId ? reliableCard : c)),
+              hand: curCombat.hand.map((c: ActionCardDef) => (c.instanceId === atk.instanceId ? reliableCard : c)),
             },
           },
         };
@@ -177,9 +177,9 @@ describe('stats', () => {
 describe('card scaling', () => {
   it('matches documented starting values', () => {
     const fighter = { str: 4, dex: 2, agi: 3, int: 2, cha: 1, vit: 1 };
-    const melee = { ...COMBAT_CARD_CATALOG.melee_atk, instanceId: 'x' };
+    const melee = { ...ACTION_CARD_CATALOG.melee_atk, instanceId: 'x' };
     expect(computeCardEffect(melee, fighter).damage).toBe(5);
-    const shield = { ...COMBAT_CARD_CATALOG.shield_def, instanceId: 'y' };
+    const shield = { ...ACTION_CARD_CATALOG.shield_def, instanceId: 'y' };
     const eff = computeCardEffect(shield, fighter);
     expect(eff.block).toBe(5); // 4 Base Block + 1 derived DEF
     expect(eff.evasionBonus).toBe(0);
@@ -203,8 +203,8 @@ describe('board setup', () => {
     expect(getAvailableCoords(a).length).toBe(2);
     expect(a.adventureDeck.length).toBe(23); // 30 total - 2 starting (village + shrine) - 5 dealt = 23
     expect(Object.keys(a.board)).toEqual(Object.keys(b.board));
-    expect(a.monsterDeck.length).toBe(45); // Scenario Level 1 terrain-band pull
-    expect(a.monsterVoid.length).toBe(40);
+    expect(a.enemyDeck.length).toBe(45); // Scenario Level 1 terrain-band pull
+    expect(a.enemyVoid.length).toBe(40);
   });
 
   it('Stage 1 deck composition: 30 cards total according to STAGE_1_DECK_COMPOSITION', () => {
@@ -235,13 +235,13 @@ describe('board setup', () => {
     expect(counts['advsmp-04'] ?? 0).toBe(0);
   });
 
-  it('draws monsters until total creature level >= 3 for Level 3 Forest Encounter', () => {
+  it('draws enemies until total enemy level >= 3 for Level 3 Forest Encounter', () => {
     const s = start('fighter', 'lvl3-test-seed');
-    const drawn = drawEncounterMonsters(s.monsterDeck, s.monsterDiscard, s.rngState, 3, 'forest');
-    const totalLevel = drawn.monsters.reduce((acc, m) => acc + m.level, 0);
+    const drawn = drawEncounterEnemies(s.enemyDeck, s.enemyDiscard, s.rngState, 3, 'forest');
+    const totalLevel = drawn.enemies.reduce((acc, m) => acc + m.level, 0);
     expect(totalLevel).toBeGreaterThanOrEqual(3);
-    expect(drawn.monsters.length).toBeGreaterThanOrEqual(1);
-    expect(drawn.monsters.every((m) => (m.spawnTerrains ?? []).includes('forest'))).toBe(true);
+    expect(drawn.enemies.length).toBeGreaterThanOrEqual(1);
+    expect(drawn.enemies.every((m) => (m.spawnTerrains ?? []).includes('forest'))).toBe(true);
   });
 
   it('computes encounter target level as floor(cardLevel * 1.5)', () => {
@@ -253,10 +253,10 @@ describe('board setup', () => {
     expect(getEncounterTargetLevel(6)).toBe(9);
   });
 
-  it('draws monsters until total creature level >= floor(LVL * 1.5) for both terrain encounters and path ambushes', () => {
+  it('draws enemies until total enemy level >= floor(LVL * 1.5) for both terrain encounters and path ambushes', () => {
     let s = finishVillage(start('fighter', 'enc-scale-15x'));
-    const goblins: MonsterCard[] = [1, 2, 3, 4].map((n) => ({
-      ...MONSTER_TEMPLATES.goblin,
+    const goblins: EnemyCard[] = [1, 2, 3, 4].map((n) => ({
+      ...ENEMY_TEMPLATES.goblin,
       id: `test_gob_${n}`,
       rarity: 'common',
       mainTerrain: 'grasslands',
@@ -276,8 +276,8 @@ describe('board setup', () => {
     const targetKey = `${targetCoord.col},${targetCoord.row}`;
     s = {
       ...s,
-      monsterDeck: goblins,
-      monsterDiscard: [],
+      enemyDeck: goblins,
+      enemyDiscard: [],
       board: {
         ...s.board,
         [targetKey]: { ...s.board[targetKey], card: lvl2GrassCard },
@@ -286,25 +286,25 @@ describe('board setup', () => {
     const entered = chooseCard(s, targetCoord);
     expect(entered.activeHook.type).toBe('COMBAT');
     if (entered.activeHook.type === 'COMBAT') {
-      const total = entered.activeHook.combat.monsters.reduce((sum, m) => sum + m.monster.level, 0);
+      const total = entered.activeHook.combat.enemies.reduce((sum, m) => sum + m.enemy.level, 0);
       expect(total).toBeGreaterThanOrEqual(3);
-      expect(entered.activeHook.combat.monsters.length).toBe(3);
+      expect(entered.activeHook.combat.enemies.length).toBe(3);
     }
 
     // Swamp LVL 4 => target 6: LVL 2 + LVL 3 + LVL 3 = 8
-    const swampDraw = drawEncounterMonsters(
+    const swampDraw = drawEncounterEnemies(
       [
-        { ...MONSTER_TEMPLATES.zombie, id: 'sw_z', rarity: 'uncommon', mainTerrain: 'swamp' },
-        { ...MONSTER_TEMPLATES.creeper, id: 'sw_c1', rarity: 'rare', mainTerrain: 'swamp' },
-        { ...MONSTER_TEMPLATES.creeper, id: 'sw_c2', rarity: 'rare', mainTerrain: 'swamp' },
+        { ...ENEMY_TEMPLATES.zombie, id: 'sw_z', rarity: 'uncommon', mainTerrain: 'swamp' },
+        { ...ENEMY_TEMPLATES.creeper, id: 'sw_c1', rarity: 'rare', mainTerrain: 'swamp' },
+        { ...ENEMY_TEMPLATES.creeper, id: 'sw_c2', rarity: 'rare', mainTerrain: 'swamp' },
       ],
       [],
       42,
       getEncounterTargetLevel(4),
       'swamp'
     );
-    expect(swampDraw.monsters.map((m) => m.level)).toEqual([2, 3, 3]);
-    expect(swampDraw.monsters.reduce((sum, m) => sum + m.level, 0)).toBe(8);
+    expect(swampDraw.enemies.map((m) => m.level)).toEqual([2, 3, 3]);
+    expect(swampDraw.enemies.reduce((sum, m) => sum + m.level, 0)).toBe(8);
   });
 });
 
@@ -330,7 +330,7 @@ describe('movement and conservation', () => {
     // Resolve the row-15 tile until the boss shows up
     let guard = 0;
     while (
-      !(s.activeHook.type === 'COMBAT' && s.activeHook.combat.monsters.some((m) => m.monster.isBoss)) &&
+      !(s.activeHook.type === 'COMBAT' && s.activeHook.combat.enemies.some((m) => m.enemy.isBoss)) &&
       guard++ < 20
     ) {
       if (s.activeHook.type === 'COMBAT') {
@@ -342,11 +342,11 @@ describe('movement and conservation', () => {
             type: 'COMBAT',
             combat: {
               ...combat,
-              monsters: combat.monsters.map((m, idx) => ({
+              enemies: combat.enemies.map((m, idx) => ({
                 ...m,
                 hp: idx === 0 ? 1 : 0,
                 block: 0,
-                monster: { ...m.monster, eva: 0 },
+                enemy: { ...m.enemy, eva: 0 },
               })),
             },
           },
@@ -373,7 +373,7 @@ describe('movement and conservation', () => {
     expect(s.turn).toBe(15);
     expect(s.activeHook.type).toBe('COMBAT');
     if (s.activeHook.type !== 'COMBAT') return;
-    expect(s.activeHook.combat.monsters[0].monster.name).toBe('Grundy');
+    expect(s.activeHook.combat.enemies[0].enemy.name).toBe('Grundy');
     const combat = s.activeHook.combat;
     s = {
       ...s,
@@ -381,7 +381,7 @@ describe('movement and conservation', () => {
         type: 'COMBAT',
         combat: {
           ...combat,
-          monsters: combat.monsters.map((m) => ({ ...m, hp: 1, block: 0 })),
+          enemies: combat.enemies.map((m) => ({ ...m, hp: 1, block: 0 })),
         },
       },
     };
@@ -404,7 +404,7 @@ describe('movement and conservation', () => {
 });
 
 describe('combat with hostile level 2', () => {
-  it('fills battle area until total monster level >= 2', () => {
+  it('fills battle area until total enemy level >= 2', () => {
     let s = start('fighter', 'combat-enc');
     let guard = 0;
     while (s.activeHook.type !== 'COMBAT' && guard++ < 14) {
@@ -414,10 +414,10 @@ describe('combat with hostile level 2', () => {
     }
     if (s.activeHook.type !== 'COMBAT') return;
     const combat = s.activeHook.combat;
-    // Level 1 monsters each have level 1 (draws 2), or Level 2 monster draws 1
-    const totalLevel = combat.monsters.reduce((sum, m) => sum + m.monster.level, 0);
+    // Level 1 enemies each have level 1 (draws 2), or Level 2 enemy draws 1
+    const totalLevel = combat.enemies.reduce((sum, m) => sum + m.enemy.level, 0);
     expect(totalLevel).toBeGreaterThanOrEqual(2);
-    expect(combat.monsters.length).toBeGreaterThanOrEqual(1);
+    expect(combat.enemies.length).toBeGreaterThanOrEqual(1);
     expect(combat.hand.length).toBe(5);
     expect(combat.playerAp).toBe(3);
 
@@ -742,7 +742,7 @@ describe('shrine', () => {
     expect(revitalized.playerResources?.hp).toBe(revitalized.playerResources?.maxHp);
   });
 
-  it('divine protection reduces incoming monster combat damage by 1', () => {
+  it('divine protection reduces incoming enemy combat damage by 1', () => {
     let s = start('fighter', 'seed-combat');
     s = {
       ...s,
@@ -751,9 +751,9 @@ describe('shrine', () => {
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [
+          enemies: [
             {
-              monster: {
+              enemy: {
                 id: 'goblin_1',
                 templateId: 'goblin',
                 name: 'Goblin',
@@ -877,10 +877,10 @@ describe('rest cost formula', () => {
   });
 });
 
-describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
+describe('terrain-aware enemy encounters (Ramram & Rattler)', () => {
   it('Ramram is a Level 1 beast found in grasslands only, and Rattler is found in forest only', () => {
     const s = start('fighter');
-    const ramram = s.monsterDeck.find((m) => m.templateId === 'ramram');
+    const ramram = s.enemyDeck.find((m) => m.templateId === 'ramram');
     expect(ramram).toBeDefined();
     expect(ramram?.level).toBe(1);
     expect(ramram?.spawnTerrains).toEqual(['grasslands']);
@@ -888,7 +888,7 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
     expect(ramram?.goldReward).toBe(5);
     expect(ramram?.maxHp).toBe(8);
 
-    const rattler = s.monsterDeck.find((m) => m.templateId === 'rattler');
+    const rattler = s.enemyDeck.find((m) => m.templateId === 'rattler');
     expect(rattler).toBeDefined();
     expect(rattler?.level).toBe(2);
     expect(rattler?.spawnTerrains).toEqual(['forest']);
@@ -898,27 +898,27 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
     expect(rattler?.def).toBe(1);
   });
 
-  it('drawEncounterMonsters filters monsters by encounter terrain', () => {
+  it('drawEncounterEnemies filters enemies by encounter terrain', () => {
     const s = start('fighter', 'seed-enc');
 
     // Drawing in Grasslands will never draw Rattler (forest only)
-    const grasslandDraw = drawEncounterMonsters(s.monsterDeck, s.monsterDiscard, s.rngState, 6, 'grasslands');
-    expect(grasslandDraw.monsters.length).toBeGreaterThan(0);
-    expect(grasslandDraw.monsters.every((m) => m.spawnTerrains?.includes('grasslands'))).toBe(true);
-    expect(grasslandDraw.monsters.some((m) => m.templateId === 'rattler')).toBe(false);
+    const grasslandDraw = drawEncounterEnemies(s.enemyDeck, s.enemyDiscard, s.rngState, 6, 'grasslands');
+    expect(grasslandDraw.enemies.length).toBeGreaterThan(0);
+    expect(grasslandDraw.enemies.every((m) => m.spawnTerrains?.includes('grasslands'))).toBe(true);
+    expect(grasslandDraw.enemies.some((m) => m.templateId === 'rattler')).toBe(false);
 
-    // Drawing in Forest draws forest monsters
-    const forestDraw = drawEncounterMonsters(s.monsterDeck, s.monsterDiscard, s.rngState, 6, 'forest');
-    expect(forestDraw.monsters.length).toBeGreaterThan(0);
-    expect(forestDraw.monsters.every((m) => m.spawnTerrains?.includes('forest'))).toBe(true);
+    // Drawing in Forest draws forest enemies
+    const forestDraw = drawEncounterEnemies(s.enemyDeck, s.enemyDiscard, s.rngState, 6, 'forest');
+    expect(forestDraw.enemies.length).toBeGreaterThan(0);
+    expect(forestDraw.enemies.every((m) => m.spawnTerrains?.includes('forest'))).toBe(true);
   });
 
-  it('incompatible drawn monsters go back to the bottom of the monster deck immediately instead of discard pile', () => {
-    const rattler = { ...MONSTER_TEMPLATES.rattler, id: 'm_rattler' };   // Forest only
-    const goblin = { ...MONSTER_TEMPLATES.goblin, id: 'm_goblin' };       // Grasslands & Forest
-    const ramram = { ...MONSTER_TEMPLATES.ramram, id: 'm_ramram' };       // Grasslands & Forest
-    const caveOnlyMonster: MonsterCard = {
-      ...MONSTER_TEMPLATES.zombie,
+  it('incompatible drawn enemies go back to the bottom of the enemy deck immediately instead of discard pile', () => {
+    const rattler = { ...ENEMY_TEMPLATES.rattler, id: 'm_rattler' };   // Forest only
+    const goblin = { ...ENEMY_TEMPLATES.goblin, id: 'm_goblin' };       // Grasslands & Forest
+    const ramram = { ...ENEMY_TEMPLATES.ramram, id: 'm_ramram' };       // Grasslands & Forest
+    const caveOnlyEnemy: EnemyCard = {
+      ...ENEMY_TEMPLATES.zombie,
       id: 'm_cave',
       spawnTerrains: ['cave'],
     };
@@ -926,28 +926,28 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
     // Test Grassland draw where top card is Rattler (incompatible)
     const deck = [rattler, goblin, ramram];
     const discard: any[] = [];
-    const result = drawMonsterCardWithReshuffle(deck, discard, 42, 'grasslands');
+    const result = drawEnemyCardWithReshuffle(deck, discard, 42, 'grasslands');
 
     // Goblin should be drawn
-    expect(result.monster?.id).toBe('m_goblin');
+    expect(result.enemy?.id).toBe('m_goblin');
     // Rattler must have moved to the bottom of the deck, NOT the discard pile!
     expect(result.discard.length).toBe(0);
     expect(result.deck.map((m) => m.id)).toEqual(['m_ramram', 'm_rattler']);
 
     // Test Forest draw where top card is cave-only (incompatible)
-    const forestDeck = [caveOnlyMonster, rattler, goblin];
-    const forestResult = drawMonsterCardWithReshuffle(forestDeck, discard, 42, 'forest');
+    const forestDeck = [caveOnlyEnemy, rattler, goblin];
+    const forestResult = drawEnemyCardWithReshuffle(forestDeck, discard, 42, 'forest');
 
     // Rattler should be drawn
-    expect(forestResult.monster?.id).toBe('m_rattler');
-    // Cave monster must have moved to the bottom of the deck, NOT the discard pile!
+    expect(forestResult.enemy?.id).toBe('m_rattler');
+    // Cave enemy must have moved to the bottom of the deck, NOT the discard pile!
     expect(forestResult.discard.length).toBe(0);
     expect(forestResult.deck.map((m) => m.id)).toEqual(['m_goblin', 'm_cave']);
   });
 
-  it('contains 3x Bullwark, 3x Basilisk, and 4x Zombie in the Scenario 1 monster deck', () => {
+  it('contains 3x Bullwark, 3x Basilisk, and 4x Zombie in the Scenario 1 enemy deck', () => {
     const s = start('fighter');
-    const bullwarks = s.monsterDeck.filter((m) => m.templateId === 'bullwark');
+    const bullwarks = s.enemyDeck.filter((m) => m.templateId === 'bullwark');
     expect(bullwarks.length).toBe(3);
     expect(bullwarks[0].level).toBe(3);
     expect(bullwarks[0].spawnTerrains).toEqual(['swamp', 'forest']);
@@ -958,7 +958,7 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
     expect(bullwarks[0].goldReward).toBe(15);
     expect(bullwarks[0].statPointReward).toBe(4);
 
-    const treeSnappers = s.monsterDeck.filter((m) => m.templateId === 'tree_snapper');
+    const treeSnappers = s.enemyDeck.filter((m) => m.templateId === 'tree_snapper');
     expect(treeSnappers.length).toBe(3);
     expect(treeSnappers[0].level).toBe(2);
     expect(treeSnappers[0].spawnTerrains).toEqual(['swamp', 'forest']);
@@ -967,9 +967,9 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
     expect(treeSnappers[0].maxHp).toBe(12);
     expect(treeSnappers[0].goldReward).toBe(10);
     expect(treeSnappers[0].statPointReward).toBe(3);
-    expect(treeSnappers[0].creatureType).toBe('Reptile');
+    expect(treeSnappers[0].enemyType).toBe('Reptile');
 
-    const zombies = s.monsterDeck.filter((m) => m.templateId === 'zombie');
+    const zombies = s.enemyDeck.filter((m) => m.templateId === 'zombie');
     expect(zombies.length).toBe(4);
     expect(zombies[0].level).toBe(2);
     expect(zombies[0].spawnTerrains).toEqual(['swamp', 'cave', 'forest']);
@@ -978,31 +978,31 @@ describe('terrain-aware monster encounters (Ramram & Rattler)', () => {
     expect(zombies[0].statPointReward).toBe(3);
 
     // None of these three spawn in Grasslands
-    const grasslandDraw = drawEncounterMonsters(s.monsterDeck, s.monsterDiscard, s.rngState, 6, 'grasslands');
-    expect(grasslandDraw.monsters.some((m) => m.templateId === 'bullwark')).toBe(false);
-    expect(grasslandDraw.monsters.some((m) => m.templateId === 'tree_snapper')).toBe(false);
-    expect(grasslandDraw.monsters.some((m) => m.templateId === 'zombie')).toBe(false);
+    const grasslandDraw = drawEncounterEnemies(s.enemyDeck, s.enemyDiscard, s.rngState, 6, 'grasslands');
+    expect(grasslandDraw.enemies.some((m) => m.templateId === 'bullwark')).toBe(false);
+    expect(grasslandDraw.enemies.some((m) => m.templateId === 'tree_snapper')).toBe(false);
+    expect(grasslandDraw.enemies.some((m) => m.templateId === 'zombie')).toBe(false);
   });
 });
 
-describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => {
+describe('new enemy mechanics: Bullwark impulse and Zombie lifesteal', () => {
   it('Bullwark Heal (4) self-heals on Turn 1 and has Harden (1) + Skittish (1) passives', () => {
-    const bullwarkCard = { ...MONSTER_TEMPLATES.bullwark, id: 'test_bullwark' };
+    const bullwarkCard = { ...ENEMY_TEMPLATES.bullwark, id: 'test_bullwark' };
     expect(bullwarkCard.hardenDefOnHit).toBe(1);
     expect(bullwarkCard.skittishEvaOnHit).toBe(1);
     expect(bullwarkCard.abilities).toEqual(['Harden (1)', 'Skittish (1)']);
 
-    const cm: CombatMonster = {
-      monster: bullwarkCard,
+    const cm: CombatEnemy = {
+      enemy: bullwarkCard,
       hp: 10,
       block: 0,
       patternIndex: 0, // Turn 1: Heal (4)
     };
 
-    expect(getMonsterIntent(cm).damage).toBe(0);
-    expect(getMonsterIntent(cm).heal).toBe(4);
+    expect(getEnemyIntent(cm).damage).toBe(0);
+    expect(getEnemyIntent(cm).heal).toBe(4);
     cm.patternIndex = 1;
-    expect(getMonsterIntent(cm).damage).toBe(7);
+    expect(getEnemyIntent(cm).damage).toBe(7);
     cm.patternIndex = 0;
 
     let s = start('fighter');
@@ -1011,7 +1011,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [cm],
+          enemies: [cm],
           combatTurn: 1,
           playerAp: 0,
           playerMaxAp: 3,
@@ -1028,15 +1028,15 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     s = endTurn(s);
     expect(s.activeHook?.type).toBe('COMBAT');
     if (s.activeHook?.type === 'COMBAT') {
-      const activeMonster = s.activeHook.combat.monsters[0];
-      expect(activeMonster.hp).toBe(14);
-      expect(activeMonster.patternIndex).toBe(1);
-      expect(getMonsterIntent(activeMonster).damage).toBe(7);
+      const activeEnemy = s.activeHook.combat.enemies[0];
+      expect(activeEnemy.hp).toBe(14);
+      expect(activeEnemy.patternIndex).toBe(1);
+      expect(getEnemyIntent(activeEnemy).damage).toBe(7);
     }
   });
 
   it('Zombie has 1 DEF, 1 MDEF, 0 EVA, 2 ACC, 12 HP, Regen (2) on activation, and LSTEAL (6)', () => {
-    const zombieTemplate = MONSTER_TEMPLATES.zombie;
+    const zombieTemplate = ENEMY_TEMPLATES.zombie;
     expect(zombieTemplate.def).toBe(1);
     expect(zombieTemplate.eva).toBe(0);
     expect(zombieTemplate.acc).toBe(2);
@@ -1047,8 +1047,8 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     expect(zombieTemplate.pattern[0]).toEqual({ label: 'Life Steal', damage: 6, block: 0, drainFraction: 0.5, drainRound: 'ceil' });
 
     const zombieCard = { ...zombieTemplate, id: 'test_zombie' };
-    const cm: CombatMonster = {
-      monster: zombieCard,
+    const cm: CombatEnemy = {
+      enemy: zombieCard,
       hp: 4, // Damaged zombie (maxHp 12)
       block: 0,
       patternIndex: 0,
@@ -1061,7 +1061,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [cm],
+          enemies: [cm],
           combatTurn: 1,
           playerAp: 0,
           playerMaxAp: 3,
@@ -1078,7 +1078,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     const next = endTurn(s);
     expect(next.activeHook.type).toBe('COMBAT');
     if (next.activeHook.type === 'COMBAT') {
-      const mon = next.activeHook.combat.monsters[0];
+      const mon = next.activeHook.combat.enemies[0];
       expect(mon.hp).toBeGreaterThanOrEqual(6); // +2 HP from Regen (2) on activation, plus LSTEAL if hit
       const hasRegenLog = next.activeHook.combat.combatLog.some(
         (l) => l.includes('Zombie — Regen: gains +2 HP on activation')
@@ -1088,9 +1088,9 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
   });
 
   it('Zombie heals HP equal to unblocked damage dealt to player (lifesteal)', () => {
-    const zombieCard = { ...MONSTER_TEMPLATES.zombie, id: 'test_zombie' };
-    const cm: CombatMonster = {
-      monster: zombieCard,
+    const zombieCard = { ...ENEMY_TEMPLATES.zombie, id: 'test_zombie' };
+    const cm: CombatEnemy = {
+      enemy: zombieCard,
       hp: 5, // Damaged zombie (maxHp 14)
       block: 0,
       patternIndex: 1, // Rotting Claw (damage 4, block 0)
@@ -1105,7 +1105,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [cm],
+          enemies: [cm],
           combatTurn: 1,
           playerAp: 0,
           playerMaxAp: 3,
@@ -1125,7 +1125,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
       let testState = { ...s, rngState: seed * 7919 };
       const next = endTurn(testState);
       if (next.activeHook?.type === 'COMBAT') {
-        const mon = next.activeHook.combat.monsters[0];
+        const mon = next.activeHook.combat.enemies[0];
         if (mon.hp > 5) {
           // Zombie healed via lifesteal!
           expect(mon.hp).toBeGreaterThan(5);
@@ -1140,53 +1140,53 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     expect(healed).toBe(true);
   });
 
-  it('drawMonsterCardWithReshuffle discards monsters with level > encounterLevel directly into monsterDiscard', () => {
-    const bullwark = { ...MONSTER_TEMPLATES.bullwark, id: 'm_bull' }; // Lvl 3
-    const rattler = { ...MONSTER_TEMPLATES.rattler, id: 'm_rat' };   // Lvl 2
-    const goblin = { ...MONSTER_TEMPLATES.goblin, id: 'm_gob' };     // Lvl 1
+  it('drawEnemyCardWithReshuffle discards enemies with level > encounterLevel directly into enemyDiscard', () => {
+    const bullwark = { ...ENEMY_TEMPLATES.bullwark, id: 'm_bull' }; // Lvl 3
+    const rattler = { ...ENEMY_TEMPLATES.rattler, id: 'm_rat' };   // Lvl 2
+    const goblin = { ...ENEMY_TEMPLATES.goblin, id: 'm_gob' };     // Lvl 1
 
     // Draw for a Level 1 encounter
     const deck = [bullwark, rattler, goblin];
-    const discard: MonsterCard[] = [];
-    const drawn = drawMonsterCardWithReshuffle(deck, discard, 1234, 'forest', 1);
+    const discard: EnemyCard[] = [];
+    const drawn = drawEnemyCardWithReshuffle(deck, discard, 1234, 'forest', 1);
 
     // Goblin (Lvl 1) is selected
-    expect(drawn.monster?.id).toBe('m_gob');
+    expect(drawn.enemy?.id).toBe('m_gob');
     // Bullwark (Lvl 3) and Rattler (Lvl 2) went straight to discard!
     expect(drawn.discard.map((m) => m.id)).toEqual(['m_bull', 'm_rat']);
     expect(drawn.deck).toEqual([]);
   });
 
-  it('drawEncounterMonsters respects encounterLevel discard rule for Level 1 encounter', () => {
-    const bullwark = { ...MONSTER_TEMPLATES.bullwark, id: 'm_bull' }; // Lvl 3
-    const treeSnapper = { ...MONSTER_TEMPLATES.tree_snapper, id: 'm_snap' }; // Lvl 2
-    const slime = { ...MONSTER_TEMPLATES.pink_slime, id: 'm_slime' }; // Lvl 1
+  it('drawEncounterEnemies respects encounterLevel discard rule for Level 1 encounter', () => {
+    const bullwark = { ...ENEMY_TEMPLATES.bullwark, id: 'm_bull' }; // Lvl 3
+    const treeSnapper = { ...ENEMY_TEMPLATES.tree_snapper, id: 'm_snap' }; // Lvl 2
+    const slime = { ...ENEMY_TEMPLATES.pink_slime, id: 'm_slime' }; // Lvl 1
 
     const deck = [bullwark, treeSnapper, slime];
-    const discard: MonsterCard[] = [];
-    const res = drawEncounterMonsters(deck, discard, 42, 1, 'forest');
+    const discard: EnemyCard[] = [];
+    const res = drawEncounterEnemies(deck, discard, 42, 1, 'forest');
 
-    expect(res.monsters.length).toBe(1);
-    expect(res.monsters[0].id).toBe('m_slime');
+    expect(res.enemies.length).toBe(1);
+    expect(res.enemies[0].id).toBe('m_slime');
     expect(res.discard.map((m) => m.id)).toEqual(['m_bull', 'm_snap']);
   });
 
   it('Basilisk has Harden (1) passive and only ATK (6) in its pattern', () => {
-    const treeSnapper = { ...MONSTER_TEMPLATES.tree_snapper, id: 'm_snapper' };
+    const treeSnapper = { ...ENEMY_TEMPLATES.tree_snapper, id: 'm_snapper' };
     expect(treeSnapper.maxHp).toBe(12);
     expect(treeSnapper.goldReward).toBe(10);
     expect(treeSnapper.statPointReward).toBe(3);
     expect(treeSnapper.acc).toBe(2);
     expect(treeSnapper.eva).toBe(2);
     expect(treeSnapper.def).toBe(2);
-    expect(treeSnapper.creatureType).toBe('Reptile');
+    expect(treeSnapper.enemyType).toBe('Reptile');
     expect(treeSnapper.hardenDefOnHit).toBe(1);
     expect(treeSnapper.abilities).toEqual(['Harden (1)']);
     expect(treeSnapper.pattern).toEqual([{ label: 'Snapping Jaws', damage: 6, block: 0 }]);
   });
 
   it('Blob Ooze Bump deals 3 DMG and restores 1 HP', () => {
-    const slime = { ...MONSTER_TEMPLATES.pink_slime, id: 'm_slime' };
+    const slime = { ...ENEMY_TEMPLATES.pink_slime, id: 'm_slime' };
     expect(slime.maxHp).toBe(8);
     expect(slime.goldReward).toBe(5);
     expect(slime.statPointReward).toBe(2);
@@ -1195,8 +1195,8 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
     expect(slime.pattern[0]).toEqual({ label: 'Ooze Bump', damage: 3, block: 0, heal: 1 });
     expect(slime.pattern[1]).toEqual({ label: 'Acid Glob', damage: 4, block: 0 });
 
-    const cm: CombatMonster = {
-      monster: slime,
+    const cm: CombatEnemy = {
+      enemy: slime,
       hp: 2, // Damaged: 2/4 HP
       block: 0,
       patternIndex: 0, // Ooze Bump
@@ -1208,7 +1208,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [cm],
+          enemies: [cm],
           combatTurn: 1,
           playerAp: 0,
           playerMaxAp: 3,
@@ -1224,21 +1224,21 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
 
     const next = endTurn(s);
     if (next.activeHook.type === 'COMBAT') {
-      const mon = next.activeHook.combat.monsters[0];
+      const mon = next.activeHook.combat.enemies[0];
       expect(mon.hp).toBe(3); // Healed +1 HP from 2
       expect(next.activeHook.combat.combatLog.some((l) => l.includes('Blob restores +1 HP'))).toBe(true);
     }
   });
 
   it('Scavenger Lunging Bite grants +1 ACC for 1 turn', () => {
-    const dog = { ...MONSTER_TEMPLATES.wild_dog, id: 'm_dog' };
+    const dog = { ...ENEMY_TEMPLATES.wild_dog, id: 'm_dog' };
     expect(dog.maxHp).toBe(6);
     expect(dog.goldReward).toBe(5);
     expect(dog.statPointReward).toBe(2);
     expect(dog.pattern[1]).toEqual({ label: 'Lunging Bite', damage: 4, block: 0, accBonus: 2 });
 
-    const cm: CombatMonster = {
-      monster: dog,
+    const cm: CombatEnemy = {
+      enemy: dog,
       hp: 6,
       block: 0,
       patternIndex: 1, // Lunging Bite
@@ -1250,7 +1250,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [cm],
+          enemies: [cm],
           combatTurn: 1,
           playerAp: 0,
           playerMaxAp: 3,
@@ -1266,7 +1266,7 @@ describe('new creature mechanics: Bullwark impulse and Zombie lifesteal', () => 
 
     const next = endTurn(s);
     if (next.activeHook.type === 'COMBAT') {
-      const mon = next.activeHook.combat.monsters[0];
+      const mon = next.activeHook.combat.enemies[0];
       expect(mon.accBonus).toBe(2);
       expect(next.activeHook.combat.combatLog.some((l) => l.includes('Scavenger gains +2 ACC'))).toBe(true);
     }
@@ -1413,17 +1413,17 @@ describe('3d6 combat rolls, DEX, ACC and EVA mechanics', () => {
     expect(getPlayerAcc(getEffectiveStatsFromState(s))).toBe(5); // 1 ACC per 1 DEX = 5
   });
 
-  it('player attack performs 3d6 hit check against target monster EVA and updates lastAttackRoll', () => {
+  it('player attack performs 3d6 hit check against target enemy EVA and updates lastAttackRoll', () => {
     let s = start('fighter');
-    const goblinCard = { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
-    const meleeCard = { ...COMBAT_CARD_CATALOG.melee_atk, instanceId: 'test_melee' };
+    const goblinCard = { ...ENEMY_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
+    const meleeCard = { ...ACTION_CARD_CATALOG.melee_atk, instanceId: 'test_melee' };
 
     s = {
       ...s,
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [{ monster: goblinCard, hp: 8, block: 0, patternIndex: 0 }],
+          enemies: [{ enemy: goblinCard, hp: 8, block: 0, patternIndex: 0 }],
           combatTurn: 1,
           playerAp: 3,
           playerMaxAp: 3,
@@ -1458,25 +1458,25 @@ describe('3d6 combat rolls, DEX, ACC and EVA mechanics', () => {
       expect(combat.lastAttackRoll?.maxHitRoll).toBe(14);
 
       if (combat.lastAttackRoll?.isHit) {
-        expect(combat.monsters[0].hp).toBeLessThan(8);
+        expect(combat.enemies[0].hp).toBeLessThan(8);
       } else {
-        expect(combat.monsters[0].hp).toBe(8);
+        expect(combat.enemies[0].hp).toBe(8);
       }
     }
   });
 
   it('playing defense cards does not perform hit check and clears attack rolls without stale carryover', () => {
     let s = start('fighter');
-    const goblinCard = { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
-    const slashCard = { ...COMBAT_CARD_CATALOG.melee_atk, instanceId: 'test_slash' };
-    const defendCard = { ...COMBAT_CARD_CATALOG.shield_def, instanceId: 'test_defend' };
+    const goblinCard = { ...ENEMY_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
+    const slashCard = { ...ACTION_CARD_CATALOG.melee_atk, instanceId: 'test_slash' };
+    const defendCard = { ...ACTION_CARD_CATALOG.shield_def, instanceId: 'test_defend' };
 
     s = {
       ...s,
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [{ monster: goblinCard, hp: 20, block: 0, patternIndex: 0 }],
+          enemies: [{ enemy: goblinCard, hp: 20, block: 0, patternIndex: 0 }],
           combatTurn: 1,
           playerAp: 3,
           playerMaxAp: 3,
@@ -1508,7 +1508,7 @@ describe('3d6 combat rolls, DEX, ACC and EVA mechanics', () => {
   });
 
   it('Slash has no inherent ACC bonus and computeHitProbability calculates accurate 3d6 chances', () => {
-    const melee = COMBAT_CARD_CATALOG.melee_atk;
+    const melee = ACTION_CARD_CATALOG.melee_atk;
     expect(melee.accBonus).toBeUndefined();
 
     const s = start('fighter');
@@ -1846,15 +1846,15 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     expect(gearBonus.def).toBe(1);
     expect(getPlayerDef(eff6Str, gearBonus.def)).toBe(3); // 2 from stats + 1 from Chainmail = 3 DEF
 
-    // Set up a combat round where a monster attacks with 4 DMG
+    // Set up a combat round where an enemy attacks with 4 DMG
     s = {
       ...s,
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [
+          enemies: [
             {
-              monster: {
+              enemy: {
                 id: 'm1',
                 templateId: 'goblin',
                 name: 'Goblin',
@@ -1921,9 +1921,9 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [
+          enemies: [
             {
-              monster: {
+              enemy: {
                 id: 'm1',
                 templateId: 'goblin',
                 name: 'Goblin',
@@ -1978,16 +1978,16 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
     expect(victory.bannerMessage).toContain('Goldstar');
   });
 
-  it('monster with empty pattern skips its turn like a rock and logs did nothing', () => {
+  it('enemy with empty pattern skips its turn like a rock and logs did nothing', () => {
     let s = start('fighter');
     s = {
       ...s,
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [
+          enemies: [
             {
-              monster: {
+              enemy: {
                 id: 'rock_1',
                 templateId: 'goblin',
                 name: 'Pet Rock',
@@ -2076,7 +2076,7 @@ describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () 
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [],
+          enemies: [],
           combatTurn: 1,
           playerAp: 3,
           playerMaxAp: 3,
@@ -2146,9 +2146,9 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [
+          enemies: [
             {
-              monster: {
+              enemy: {
                 id: 'm1',
                 templateId: 'pink_slime',
                 name: 'Blob',
@@ -2195,9 +2195,9 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [
+          enemies: [
             {
-              monster: {
+              enemy: {
                 id: 'm1',
                 templateId: 'goblin',
                 name: 'Goblin',
@@ -2294,9 +2294,9 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     expect(getPlayerAcc(getEffectiveStatsFromState(start('fighter')), combatGear.acc)).toBe(4); // 3 DEX + 1 gear.acc = 4
   });
 
-  it('Dagger PEN bypasses natural monster DEF for physical attacks before Block', () => {
+  it('Dagger PEN bypasses natural enemy DEF for physical attacks before Block', () => {
     const daggerPlus = { ...SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl2_dagger_plus')!, instanceId: 'dagger-plus-test' };
-    const melee = { ...COMBAT_CARD_CATALOG.melee_atk, instanceId: 'penetrating-melee' };
+    const melee = { ...ACTION_CARD_CATALOG.melee_atk, instanceId: 'penetrating-melee' };
     const seed = Array.from({ length: 1000 }, (_, i) => i + 1).find((candidate) => {
       const roll = evaluateAttackRoll(candidate, 1, 0);
       return roll.isHit;
@@ -2309,7 +2309,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [{ monster: { ...MONSTER_TEMPLATES.goblin, id: 'armored-goblin', def: 2, eva: 0, maxHp: 10 }, hp: 10, block: 1, patternIndex: 0 }],
+          enemies: [{ enemy: { ...ENEMY_TEMPLATES.goblin, id: 'armored-goblin', def: 2, eva: 0, maxHp: 10 }, hp: 10, block: 1, patternIndex: 0 }],
           combatTurn: 1,
           playerAp: 3,
           playerMaxAp: 3,
@@ -2327,11 +2327,11 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     if (next.activeHook.type !== 'COMBAT') throw new Error('Expected battle to continue');
     const roll = next.activeHook.combat.lastAttackRoll!;
     expect(roll).toMatchObject({ damagePenetrated: 2, damageDefReduced: 0, damageBlocked: 1, damageDealt: 6 });
-    expect(next.activeHook.combat.monsters[0].hp).toBe(4);
+    expect(next.activeHook.combat.enemies[0].hp).toBe(4);
     expect(next.activeHook.combat.combatLog.join(' ')).toContain('2 Goblin DEF bypassed by PEN');
   });
 
-  it('monster attack with Hero DEF states "absorbed by Hero DEF" in combat log', () => {
+  it('enemy attack with Hero DEF states "absorbed by Hero DEF" in combat log', () => {
     // Fighter has 3 STR -> floor(3/2) = 1 DEF; plus 1 DEF from Rogue secondary or chainmail -> let's test hero with DEF
     let s = startAdventure('fighter', 'seed-def-log');
     s = { ...s, rngState: 123 };
@@ -2345,9 +2345,9 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         type: 'COMBAT',
         combat: {
           combatTurn: 1,
-          monsters: [
+          enemies: [
             {
-              monster: { ...MONSTER_TEMPLATES['bullwark'], id: 'bull_def_test' },
+              enemy: { ...ENEMY_TEMPLATES['bullwark'], id: 'bull_def_test' },
               hp: 20,
               block: 0,
               patternIndex: 1, // Heavy Charge 6 DMG
@@ -2383,9 +2383,9 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         type: 'COMBAT',
         combat: {
           combatTurn: 1,
-          monsters: [
+          enemies: [
             {
-              monster: { ...MONSTER_TEMPLATES['wild_dog'], id: 'dog_potion_test' },
+              enemy: { ...ENEMY_TEMPLATES['wild_dog'], id: 'dog_potion_test' },
               hp: 7,
               block: 0,
               patternIndex: 0,
@@ -2432,7 +2432,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         type: 'COMBAT',
         combat: {
           combatTurn: 1,
-          monsters: [{ monster: { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin' }, hp: 6, block: 0, patternIndex: 0 }],
+          enemies: [{ enemy: { ...ENEMY_TEMPLATES.goblin, id: 'test_goblin' }, hp: 6, block: 0, patternIndex: 0 }],
           playerAp: 2,
           playerMaxAp: 3,
           playerBlock: 0,
@@ -2507,8 +2507,8 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       expect(nextState.bannerMessage).toContain('Cult of Trolls');
     });
 
-    it('createBossMonstersForMission(2) returns the 3 Boss Trolls', () => {
-      const bosses = createBossMonstersForMission(2);
+    it('createBossEnemiesForMission(2) returns the 3 Boss Trolls', () => {
+      const bosses = createBossEnemiesForMission(2);
       expect(bosses.length).toBe(3);
       expect(bosses[0].templateId).toBe('troll_healer');
       expect(bosses[0].name).toBe('Troll Healer');
@@ -2528,17 +2528,17 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
 
     it('Troll Healer casts Troll Mending healing damaged troll for 10 HP', () => {
       let s = start('fighter', 'troll-healer-seed');
-      const bosses = createBossMonstersForMission(2);
+      const bosses = createBossEnemiesForMission(2);
       s = {
         ...s,
         activeHook: {
           type: 'COMBAT',
           combat: {
             combatTurn: 1,
-            monsters: [
-              { monster: bosses[0], hp: 25, block: 0, patternIndex: 0 },
-              { monster: bosses[1], hp: 25, block: 0, patternIndex: 0 },
-              { monster: bosses[2], hp: 10, block: 0, patternIndex: 0 }, // Troll Warrior damaged: 10/25 HP
+            enemies: [
+              { enemy: bosses[0], hp: 25, block: 0, patternIndex: 0 },
+              { enemy: bosses[1], hp: 25, block: 0, patternIndex: 0 },
+              { enemy: bosses[2], hp: 10, block: 0, patternIndex: 0 }, // Troll Warrior damaged: 10/25 HP
             ],
             playerAp: 0,
             playerMaxAp: 3,
@@ -2552,27 +2552,27 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         },
       };
 
-      const afterMonsterTurn = endTurn(s);
-      if (afterMonsterTurn.activeHook.type === 'COMBAT') {
-        const warrior = afterMonsterTurn.activeHook.combat.monsters[2];
+      const afterEnemyTurn = endTurn(s);
+      if (afterEnemyTurn.activeHook.type === 'COMBAT') {
+        const warrior = afterEnemyTurn.activeHook.combat.enemies[2];
         // Warrior should be healed by 10 HP: from 10 to 20
         expect(warrior.hp).toBe(20);
-        const log = afterMonsterTurn.activeHook.combat.combatLog;
+        const log = afterEnemyTurn.activeHook.combat.combatLog;
         expect(log.some((l) => l.includes('Troll Healer casts Troll Mending: restored +10 HP to Troll Warrior'))).toBe(true);
       }
     });
 
     it('Troll Hexer applies debuffs to next combat turn', () => {
       let s = start('fighter', 'troll-hexer-seed');
-      const bosses = createBossMonstersForMission(2);
+      const bosses = createBossEnemiesForMission(2);
       s = {
         ...s,
         activeHook: {
           type: 'COMBAT',
           combat: {
             combatTurn: 1,
-            monsters: [
-              { monster: bosses[1], hp: 25, block: 0, patternIndex: 0 }, // Hexer alone
+            enemies: [
+              { enemy: bosses[1], hp: 25, block: 0, patternIndex: 0 }, // Hexer alone
             ],
             playerAp: 0,
             playerMaxAp: 3,
@@ -2586,19 +2586,19 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         },
       };
 
-      const afterMonsterTurn = endTurn(s);
-      if (afterMonsterTurn.activeHook.type === 'COMBAT') {
-        const c = afterMonsterTurn.activeHook.combat;
+      const afterEnemyTurn = endTurn(s);
+      if (afterEnemyTurn.activeHook.type === 'COMBAT') {
+        const c = afterEnemyTurn.activeHook.combat;
         expect(c.heroStatDebuffs).toHaveLength(1);
         expect(c.heroStatDebuffs?.[0].turnsRemaining).toBe(5);
       }
     });
 
     it('Cursed Recoil adds 2 MATK for every active negative debuff', () => {
-      const hexer = createBossMonstersForMission(2)[1];
-      const combatMonster: CombatMonster = { monster: hexer, hp: 25, block: 0, patternIndex: 1 };
-      expect(getMonsterIntent(combatMonster, [combatMonster], 0)).toMatchObject({ label: 'Cursed Recoil', damage: 2, damageType: 'magical' });
-      expect(getMonsterIntent(combatMonster, [combatMonster], 3).damage).toBe(8);
+      const hexer = createBossEnemiesForMission(2)[1];
+      const combatEnemy: CombatEnemy = { enemy: hexer, hp: 25, block: 0, patternIndex: 1 };
+      expect(getEnemyIntent(combatEnemy, [combatEnemy], 0)).toMatchObject({ label: 'Cursed Recoil', damage: 2, damageType: 'magical' });
+      expect(getEnemyIntent(combatEnemy, [combatEnemy], 3).damage).toBe(8);
     });
   });
 
@@ -2961,7 +2961,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       expect(done.activeHook.type).toBe('NONE');
     });
 
-    it('Ambush path card starts an encounter where creatures act first before player Combat Turn 1', () => {
+    it('Ambush path card starts an encounter where enemies act first before player Combat Turn 1', () => {
       let s = finishVillage(start('wizard', 'test-paths-ambush'));
       const ambushIdx = (s.pathsDeck ?? []).findIndex((c) => c.templateId === 'ambush');
       expect(ambushIdx).toBeGreaterThanOrEqual(0);
@@ -3001,9 +3001,9 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       const combatState = confirmPathAmbushCombat(entered);
       expect(combatState.activeHook.type).toBe('COMBAT');
       if (combatState.activeHook.type !== 'COMBAT') return;
-      // Creatures executed Turn 1 first, so combatTurn is now 1 and patternIndex advanced to 1
+      // Enemies executed Turn 1 first, so combatTurn is now 1 and patternIndex advanced to 1
       expect(combatState.activeHook.combat.combatTurn).toBe(1);
-      expect(combatState.activeHook.combat.monsters.every((m) => m.patternIndex === 1)).toBe(true);
+      expect(combatState.activeHook.combat.enemies.every((m) => m.patternIndex === 1)).toBe(true);
       // Wizard must NOT get bonus Conserve AP from the skipped enemy opening turn
       expect(combatState.activeHook.combat.playerAp).toBe(combatState.activeHook.combat.playerMaxAp);
       expect(combatState.pathsDiscard?.some((c) => c.id === ambushCard.id)).toBe(true);
@@ -3192,7 +3192,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
   describe('Combat Victory Modal and Loots Flow', () => {
     it('defeating regular enemies transitions activeHook into VICTORY modal, and confirmCombatVictory returns to map', () => {
       let s = start('fighter');
-      const goblinTemplate = MONSTER_TEMPLATES.goblin;
+      const goblinTemplate = ENEMY_TEMPLATES.goblin;
       const goblinCard = {
         ...goblinTemplate,
         id: 'test_goblin',
@@ -3204,7 +3204,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         activeHook: {
           type: 'COMBAT',
           combat: {
-            monsters: [{ monster: goblinCard, hp: 1, block: 0, patternIndex: 0 }],
+            enemies: [{ enemy: goblinCard, hp: 1, block: 0, patternIndex: 0 }],
             combatTurn: 1,
             playerAp: 3,
             playerMaxAp: 3,
@@ -3237,8 +3237,8 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
       if (afterWin.activeHook.type !== 'VICTORY') return;
 
       const victory = afterWin.activeHook.victory;
-      expect(victory.defeatedMonsters).toHaveLength(1);
-      expect(victory.defeatedMonsters[0].name).toBe('Goblin');
+      expect(victory.defeatedEnemies).toHaveLength(1);
+      expect(victory.defeatedEnemies[0].name).toBe('Goblin');
       expect(victory.statPointsEarned).toBe(goblinTemplate.statPointReward);
       expect(victory.goldEarned).toBeGreaterThanOrEqual(goblinTemplate.goldReward);
       expect(victory.isBoss).toBe(false);
@@ -3250,8 +3250,8 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
 
     it('defeating stage boss transitions to VICTORY, and confirmCombatVictory transitions to ON_STAGE_COMPLETE', () => {
       let s = start('fighter');
-      const bossMonsters = createBossMonstersForMission(1);
-      const boss = bossMonsters[0];
+      const bossEnemies = createBossEnemiesForMission(1);
+      const boss = bossEnemies[0];
 
       s = {
         ...s,
@@ -3259,7 +3259,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         activeHook: {
           type: 'COMBAT',
           combat: {
-            monsters: [{ monster: boss, hp: 1, block: 0, patternIndex: 0 }],
+            enemies: [{ enemy: boss, hp: 1, block: 0, patternIndex: 0 }],
             combatTurn: 1,
             playerAp: 3,
             playerMaxAp: 3,
@@ -3300,17 +3300,17 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     });
   });
 
-  describe('Monster DEF absorbs hero attack damage', () => {
-    it('subtracts monster DEF from hero damage before block and HP', () => {
+  describe('Enemy DEF absorbs hero attack damage', () => {
+    it('subtracts enemy DEF from hero damage before block and HP', () => {
       let s = start('fighter');
-      const beetle = { ...MONSTER_TEMPLATES.fighting_beetle, id: 'beetle_def_test' };
+      const beetle = { ...ENEMY_TEMPLATES.fighting_beetle, id: 'beetle_def_test' };
       expect(beetle.def).toBe(1);
       s = {
         ...s,
         activeHook: {
           type: 'COMBAT',
           combat: {
-            monsters: [{ monster: beetle, hp: 5, block: 0, patternIndex: 0 }],
+            enemies: [{ enemy: beetle, hp: 5, block: 0, patternIndex: 0 }],
             combatTurn: 1,
             playerAp: 3,
             playerMaxAp: 3,
@@ -3344,7 +3344,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         if (!roll.isHit) continue;
         expect(roll.damageDefReduced).toBe(1);
         expect(roll.damageDealt).toBe(3);
-        expect(after.activeHook.combat.monsters[0].hp).toBe(2);
+        expect(after.activeHook.combat.enemies[0].hp).toBe(2);
         return;
       }
       throw new Error('No non-crit hit seed found');
@@ -3353,13 +3353,13 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
 
   describe('Permanent FLEE action', () => {
     const buildCombat = (s: RunState, isBoss = false, ap = 3): RunState => {
-      const gob = { ...MONSTER_TEMPLATES.goblin, id: 'flee_gob', isBoss };
+      const gob = { ...ENEMY_TEMPLATES.goblin, id: 'flee_gob', isBoss };
       return {
         ...s,
         activeHook: {
           type: 'COMBAT',
           combat: {
-            monsters: [{ monster: gob, hp: 6, block: 0, patternIndex: 0 }],
+            enemies: [{ enemy: gob, hp: 6, block: 0, patternIndex: 0 }],
             combatTurn: 1,
             playerAp: ap,
             playerMaxAp: 3,
@@ -3393,7 +3393,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
           sawSuccess = true;
           expect(after.playerResources!.gold).toBe(goldBefore);
           expect(after.playerResources!.statPoints).toBe(spBefore);
-          expect(after.monsterDiscard.some((m) => m.id === 'flee_gob')).toBe(true);
+          expect(after.enemyDiscard.some((m) => m.id === 'flee_gob')).toBe(true);
         } else if (after.activeHook.type === 'COMBAT') {
           sawFail = true;
           expect(after.activeHook.combat.playerAp).toBe(2);
@@ -3414,9 +3414,9 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     });
   });
 
-  describe('Ghoul Creature and Blind Debuff', () => {
+  describe('Ghoul Enemy and Blind Debuff', () => {
     it('defines Ghoul with 12 HP, 2 MDEF, 3 EVA, 2 ACC, Forest/Swamp terrains, and Blind (1, 2) + Mad Dash pattern', () => {
-      const ghoul = MONSTER_TEMPLATES.ghoul;
+      const ghoul = ENEMY_TEMPLATES.ghoul;
       expect(ghoul).toBeDefined();
       expect(ghoul.name).toBe('Ghoul');
       expect(ghoul.maxHp).toBe(12);
@@ -3435,14 +3435,14 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
 
     it('Blind reduces Hero ACC by 1 for 2 turns in combat', () => {
       let s = start('fighter');
-      const ghoul = { ...MONSTER_TEMPLATES.ghoul, id: 'test_ghoul' };
+      const ghoul = { ...ENEMY_TEMPLATES.ghoul, id: 'test_ghoul' };
 
       s = {
         ...s,
         activeHook: {
           type: 'COMBAT',
           combat: {
-            monsters: [{ monster: ghoul, hp: 10, block: 0, patternIndex: 0 }],
+            enemies: [{ enemy: ghoul, hp: 10, block: 0, patternIndex: 0 }],
             combatTurn: 1,
             playerAp: 3,
             playerMaxAp: 3,
@@ -3486,20 +3486,20 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
   });
 });
 
-describe("The Goblin King monster deck", () => {
+describe("The Goblin King enemy deck", () => {
   it("uses the Scenario Level 1 terrain-band quantities", () => {
-    const deck = start("fighter").monsterDeck;
+    const deck = start("fighter").enemyDeck;
     const counts: Record<string, number> = {};
     for (const m of deck) counts[m.cardNumber!] = (counts[m.cardNumber!] ?? 0) + 1;
     expect(counts).toEqual({'mon1grs-01': 6,'mon1grs-02': 4,'mon1grs-03': 4,'mon1grs-04': 4,'mon1grs-05': 3,'mon2frs-01': 2,'mon2frs-02': 3,'mon2frs-03': 4,'mon2frs-04': 3,'mon2frs-05': 3, 'mon3smp-01': 1, 'mon3smp-02': 1, 'mon3smp-03': 2, 'mon1grs-06': 4, 'mon3smp-04': 1});
     expect(new Set(deck.map(m => m.id)).size).toBe(45);
   });
   it("allows Goblins in swamps and skips Ramram in forests", () => {
-    const goblin = { ...MONSTER_TEMPLATES.goblin, id: "goblin" };
-    const ramram = { ...MONSTER_TEMPLATES.ramram, id: "ramram" };
-    expect(drawMonsterCardWithReshuffle([goblin], [], 123, "swamp").monster?.id).toBe("goblin");
-    const result = drawMonsterCardWithReshuffle([ramram, goblin], [], 123, "forest");
-    expect(result.monster?.id).toBe("goblin");
+    const goblin = { ...ENEMY_TEMPLATES.goblin, id: "goblin" };
+    const ramram = { ...ENEMY_TEMPLATES.ramram, id: "ramram" };
+    expect(drawEnemyCardWithReshuffle([goblin], [], 123, "swamp").enemy?.id).toBe("goblin");
+    const result = drawEnemyCardWithReshuffle([ramram, goblin], [], 123, "forest");
+    expect(result.enemy?.id).toBe("goblin");
     expect(result.deck.map(m => m.id)).toEqual(["ramram"]);
   });
 
@@ -3520,11 +3520,11 @@ describe("The Goblin King monster deck", () => {
               type: 'COMBAT',
               combat: {
                 ...combat,
-                monsters: combat.monsters.map((m, idx) => ({
+                enemies: combat.enemies.map((m, idx) => ({
                   ...m,
                   hp: idx === 0 ? 1 : 0,
                   block: 0,
-                  monster: { ...m.monster, eva: 0 },
+                  enemy: { ...m.enemy, eva: 0 },
                 })),
               },
             },
@@ -3549,7 +3549,7 @@ describe("The Goblin King monster deck", () => {
       expect(s.turn).toBe(15);
       expect(s.activeHook.type).toBe('BOSS_APPROACH');
       if (s.activeHook.type !== 'BOSS_APPROACH') return;
-      expect(s.activeHook.bossMonsters[0].name).toBe('Grundy');
+      expect(s.activeHook.bossEnemies[0].name).toBe('Grundy');
 
       // Test player can equip/unequip gear and use consumables while in BOSS_APPROACH
       const potion = {
@@ -3577,7 +3577,7 @@ describe("The Goblin King monster deck", () => {
       s = startBossCombat(s);
       expect(s.activeHook.type).toBe('COMBAT');
       if (s.activeHook.type !== 'COMBAT') return;
-      expect(s.activeHook.combat.monsters[0].monster.name).toBe('Grundy');
+      expect(s.activeHook.combat.enemies[0].enemy.name).toBe('Grundy');
     });
   });
 

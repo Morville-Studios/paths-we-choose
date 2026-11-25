@@ -36,7 +36,7 @@
     "cardNumber": "PTH · #004",
     "copies": 2,
     "challengeLabel": "Ambush: Encounter (Enemies Act First)",
-    "description": "Triggers a terrain-level Encounter immediately, but the monsters act first before your first turn.",
+    "description": "Triggers a terrain-level Encounter immediately, but the enemies act first before your first turn.",
     "flavorText": "Shadows burst from the undergrowth before you can draw your weapon. Fight an Encounter for this terrain, with hostiles taking the opening turn."
   },
   {

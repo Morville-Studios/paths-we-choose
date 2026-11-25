@@ -3,8 +3,8 @@ import {
   computeCombatGearBonuses,
   getFighterBerzerkBonus,
 } from '../core/stats';
-import { CharacterStats, CombatCardDef, CombatScalingStat, RunState } from '../core/types';
-import { CLASS_TRAIN_POOLS } from '../data/combatCards';
+import { CharacterStats, ActionCardDef, ActionScalingStat, RunState } from '../core/types';
+import { CLASS_TRAIN_POOLS } from '../data/actionCards';
 import { getActionCardIllustration } from './cardArt';
 import { getDerivedStatIcon } from './icons';
 
@@ -20,7 +20,7 @@ export interface ActionCardRenderOptions {
 }
 
 function formatReferenceScalingTerm(
-  stat: CombatScalingStat,
+  stat: ActionScalingStat,
   divisor = 2,
   multiplier = 1,
   round: 'floor' | 'ceil' = 'floor',
@@ -40,7 +40,7 @@ function formatReferenceScalingTerm(
 
 /** Compute one action card's live effect from the current run, if supplied. */
 export function getActionCardEffect(
-  card: CombatCardDef,
+  card: ActionCardDef,
   stats: CharacterStats,
   state?: RunState,
 ) {
@@ -62,7 +62,7 @@ export function getActionCardEffect(
 
 /** Canonical face text shared by hand, deck, training, confirmation and inspect cards. */
 export function getActionCardText(
-  card: CombatCardDef,
+  card: ActionCardDef,
   stats: CharacterStats,
   state?: RunState,
   referenceMode = false,
@@ -121,7 +121,7 @@ export function getActionCardText(
  * while the physical card structure remains identical everywhere.
  */
 export function renderActionCardHtml(
-  card: CombatCardDef,
+  card: ActionCardDef,
   stats: CharacterStats,
   options: ActionCardRenderOptions = {},
 ): string {

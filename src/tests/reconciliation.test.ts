@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createCombatSession, endPlayerCombatTurn, evaluateAttackRoll } from '../core/combat';
 import { buyItem, playCard, startAdventure } from '../core/engine';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
-import { CombatCardDef, MonsterCard, RunState } from '../core/types';
-import { MONSTER_TEMPLATES } from '../data/monsters';
+import { ActionCardDef, EnemyCard, RunState } from '../core/types';
+import { ENEMY_TEMPLATES } from '../data/enemies';
 import { Store } from '../state/store';
 import { getEffectiveStatsFromState, getPlayerDef, getPlayerEva } from '../core/stats';
 import { cardInspectModal, combatConfirmModal, renderPlayArea } from '../ui/render';
@@ -28,8 +28,8 @@ function combat(state: RunState) {
 }
 function setup(damage: number): RunState {
   const state = startAdventure('wizard', 'reconciliation');
-  const target: MonsterCard = { ...MONSTER_TEMPLATES.goblin, id: 'target', maxHp: 100, def: 0, eva: 0, pattern: [{ label: 'Strike', damage, block: 0 }] };
-  const card: CombatCardDef = { id: 'strike', instanceId: 'strike', name: 'Strike', classId: 'wizard', cardType: 'attack', apCost: 1, baseDamage: damage, baseBlock: 0 };
+  const target: EnemyCard = { ...ENEMY_TEMPLATES.goblin, id: 'target', maxHp: 100, def: 0, eva: 0, pattern: [{ label: 'Strike', damage, block: 0 }] };
+  const card: ActionCardDef = { id: 'strike', instanceId: 'strike', name: 'Strike', classId: 'wizard', cardType: 'attack', apCost: 1, baseDamage: damage, baseBlock: 0 };
   return { ...state, logTimestamp: '12:34:56', playerResources: { ...state.playerResources!, hp: 100, maxHp: 100 }, activeHook: { type: 'COMBAT', combat: { ...createCombatSession([target], [], 1).combat, hand: [card] } } };
 }
 
@@ -40,14 +40,14 @@ describe('reconciled MACG-3D6 attack and replay rules', () => {
     expect(combat(playCard(state, 'strike', 0)).lastAttackRoll?.damageDealt).toBe(damage);
   });
 
-  it.each([1, 3, 5])('deals standard unmultiplied monster damage for base %i', damage => {
+  it.each([1, 3, 5])('deals standard unmultiplied enemy damage for base %i', damage => {
     const state = setup(damage);
     const heroEva = getPlayerEva(getEffectiveStatsFromState(state), state.activeHook.type === 'COMBAT' ? state.activeHook.combat.playerEvasionMod : 0);
-    const monsterAcc = heroEva + 1;
+    const enemyAcc = heroEva + 1;
     if (state.activeHook.type === 'COMBAT') {
-      state.activeHook.combat.monsters[0].monster.acc = monsterAcc;
+      state.activeHook.combat.enemies[0].enemy.acc = enemyAcc;
     }
-    state.rngState = hitSeed(monsterAcc, heroEva);
+    state.rngState = hitSeed(enemyAcc, heroEva);
     const heroDef = getPlayerDef(getEffectiveStatsFromState(state));
     expect(combat(endPlayerCombatTurn(state)).lastAttackRoll?.damageDealt).toBe(Math.max(0, damage - heroDef));
   });
@@ -78,7 +78,7 @@ describe('reconciled MACG-3D6 attack and replay rules', () => {
     expect(endPlayerCombatTurn(state)).toEqual(first);
     expect(combat(first).combatLog.at(-1)).toContain('[12:34:56]');
     expect(JSON.stringify(state)).toBe(before);
-    const session = createCombatSession([MONSTER_TEMPLATES.goblin as MonsterCard], [], 1, 3, '10:20:30');
+    const session = createCombatSession([ENEMY_TEMPLATES.goblin as EnemyCard], [], 1, 3, '10:20:30');
     expect(session.combat.combatLog[0]).toContain('[10:20:30]');
   });
 
@@ -102,8 +102,8 @@ describe('reconciled MACG-3D6 attack and replay rules', () => {
     state.playerBaseStats.dex = 2; // Effective DEX 3 contributes 1 damage.
     state.playerResources!.hp = 3; // Berzerk +2 (<= 25% of 16 Max HP).
     state.equippedGear.weapon = { id: 'sword', instanceId: 'sword', name: 'Sword', category: 'weapon', description: '', buyPrice: 0, sellPrice: 0, gearBonus: { atk: 2 } };
-    const card: CombatCardDef = { id: 'strike', instanceId: 'strike', name: 'Strike', classId: 'fighter', cardType: 'attack', apCost: 1, baseDamage: 2, damageScalingStat: 'str', damageScalingDivisor: 2, baseBlock: 0 };
-    state.activeHook = { type: 'COMBAT', combat: { ...createCombatSession([{ ...MONSTER_TEMPLATES.goblin, id: 'goblin' }], [], 1).combat, hand: [card] } };
+    const card: ActionCardDef = { id: 'strike', instanceId: 'strike', name: 'Strike', classId: 'fighter', cardType: 'attack', apCost: 1, baseDamage: 2, damageScalingStat: 'str', damageScalingDivisor: 2, baseBlock: 0 };
+    state.activeHook = { type: 'COMBAT', combat: { ...createCombatSession([{ ...ENEMY_TEMPLATES.goblin, id: 'goblin' }], [], 1).combat, hand: [card] } };
     // 2 base + 2 STR + 1 DEX + 2 weapon + 2 Berzerk = 9.
     const hand = renderPlayArea(state, { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0 });
     expect(hand).toContain('Deal <b>9</b> DMG');

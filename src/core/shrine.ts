@@ -2,10 +2,10 @@ import { appendGameLog, createTimestamp } from './log';
 import { shuffleArray } from './rng';
 import { syncVitals } from './stats';
 import { coordToKey } from './grid';
-import { createCombatCardInstance, getVoidCards } from '../data/combatCards';
+import { createActionCardInstance, getVoidCards } from '../data/actionCards';
 import {
   ActiveShrineState,
-  CombatCardDef,
+  ActionCardDef,
   GridCoord,
   RunState,
   ShrinePrayerOption,
@@ -19,8 +19,8 @@ export const SKILL_UPGRADE_2_AP_GOLD_COST = 30;
 export const SKILL_UPGRADE_2_AP_SP_COST = 6;
 
 export interface ShrineSkillUpgradeOption {
-  source: CombatCardDef;
-  upgrade: CombatCardDef;
+  source: ActionCardDef;
+  upgrade: ActionCardDef;
   goldCost: number;
   statPointCost: number;
 }
@@ -139,7 +139,7 @@ export function upgradeShrineSkill(state: RunState, sourceInstanceId: string): R
   const resources = state.playerResources;
   if (resources.gold < option.goldCost || resources.statPoints < option.statPointCost) return state;
 
-  const upgradedCard = createCombatCardInstance(
+  const upgradedCard = createActionCardInstance(
     option.upgrade.id,
     `void_upgrade_${option.source.instanceId}`
   );

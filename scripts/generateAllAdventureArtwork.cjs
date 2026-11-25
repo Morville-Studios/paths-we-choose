@@ -671,7 +671,7 @@ function renderGrasslandEncounterSvg() {
     `;
   }
 
-  // Glowing monster eyes lurking in dark grass
+  // Glowing enemy eyes lurking in dark grass
   const eyePairs = [
     [120, 690, '#facc15', 3.5],
     [190, 750, '#ef4444', 3],
@@ -679,9 +679,9 @@ function renderGrasslandEncounterSvg() {
     [480, 720, '#ef4444', 3.5],
     [290, 780, '#facc15', 3.2],
   ];
-  let monsterEyes = '';
+  let enemyEyes = '';
   eyePairs.forEach(([ex, ey, col, sz]) => {
-    monsterEyes += `
+    enemyEyes += `
       <!-- Left eye -->
       <ellipse cx="${ex}" cy="${ey}" rx="${sz}" ry="${sz * 0.6}" fill="${col}" filter="url(#eGlow)"/>
       <ellipse cx="${ex}" cy="${ey}" rx="${sz * 0.4}" ry="${sz * 0.6}" fill="#000000"/>
@@ -748,7 +748,7 @@ function renderGrasslandEncounterSvg() {
     <!-- Midground Windswept Hills with Menacing Outcrops -->
     <path d="M-20,560 Q180,510 380,550 T620,530 L620,840 L-20,840 Z" fill="url(#eRidgeMid)"/>
 
-    <!-- Menacing Monster Silhouette crouching on ridge -->
+    <!-- Menacing Enemy Silhouette crouching on ridge -->
     <path d="M470,530 Q485,505 500,515 Q515,495 530,520 Q545,510 550,535 Z" fill="#090503"/>
     <circle cx="505" cy="510" r="2" fill="#ef4444" filter="url(#eGlow)"/>
     <circle cx="518" cy="510" r="2" fill="#ef4444" filter="url(#eGlow)"/>
@@ -759,8 +759,8 @@ function renderGrasslandEncounterSvg() {
     <!-- Thick Swath of Wind-whipped Golden Prairie Grass -->
     ${tallGrass}
 
-    <!-- Creepy Monster Eyes Lurking in the Dense Tall Grass -->
-    ${monsterEyes}
+    <!-- Creepy Enemy Eyes Lurking in the Dense Tall Grass -->
+    ${enemyEyes}
 
     <!-- Twilight Floating Embers / Firefly Sparks -->
     <circle cx="160" cy="560" r="2.5" fill="#fde047" opacity="0.8" filter="url(#eGlow)"/>

@@ -17,7 +17,7 @@ import {
   RunState,
   StatKey,
 } from '../../core/types';
-import { getMonsterMainTerrain, getMonsterSupplyCount, MONSTER_TERRAIN_LEVELS } from '../../data/monsters';
+import { getEnemyMainTerrain, getEnemySupplyCount, ENEMY_TERRAIN_LEVELS } from '../../data/enemies';
 import { PATH_CARD_CATALOG } from '../../data/paths';
 import { getActionCardEffect, renderActionCardHtml } from '../actionCard';
 import { getAdventureRasterArtPath } from '../cardArt';
@@ -25,7 +25,7 @@ import { getResourceIcon, getSlotIcon, getStatIcon } from '../icons';
 import { getTerrainPresentation } from '../terrainPresentation';
 import { UiState } from '../types';
 import {
-  fullCreatureCardHtml,
+  fullEnemyCardHtml,
   getAdventureCardName,
   heroHexIntentHtml,
   renderCombatLogEntries,
@@ -194,7 +194,7 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
         ? '<li><b>Block:</b> Absorbs incoming damage before HP and expires at the end of the turn.</li>'
         : '',
       card.evasionScalingStat
-        ? '<li><b>Evasion:</b> Its temporary EVA applies against incoming monster attack rolls for this turn.</li>'
+        ? '<li><b>Evasion:</b> Its temporary EVA applies against incoming enemy attack rolls for this turn.</li>'
         : '',
       card.accBonus
         ? `<li><b>Accuracy:</b> Applies ${card.accBonus > 0 ? '+' : ''}${card.accBonus} ACC to this card's attack rolls.</li>`
@@ -222,9 +222,9 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
         <ul class="inspect-bullet-list">${cardRuleItems}</ul>
       </div>` : ''}
     </div>`;
-  } else if (inspected.kind === 'monster') {
-    const m = inspected.monster;
-    title = `${m.name} (Monster Card Reference)`;
+  } else if (inspected.kind === 'enemy') {
+    const m = inspected.enemy;
+    title = `${m.name} (Enemy Card Reference)`;
     const attackBonus = inspected.attackBonus ?? 0;
 
     // Pattern steps
@@ -282,8 +282,8 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
       </div>`;
     }).join('');
 
-    cardHtml = fullCreatureCardHtml({
-      monster: m,
+    cardHtml = fullEnemyCardHtml({
+      enemy: m,
       attackBonus,
       className: 'tcg-inspect-card',
       artWindowClassName: 'full-inspect-art',
@@ -296,8 +296,8 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
         <p><b>Level:</b> ${m.level} &middot; <b>Max HP:</b> ${m.maxHp} &middot; <b>ACC:</b> ${m.acc ?? 1} &middot; <b>EVA:</b> ${m.eva ?? 0}</p>
         ${m.isBoss
           ? '<p><b>Card Pool:</b> Separate scenario Boss card</p>'
-          : `<p><b>Physical copies:</b> ${getMonsterSupplyCount(m)}</p>`}
-        <p><b>Main Terrain:</b> ${getMonsterMainTerrain(m)} (Terrain Level ${MONSTER_TERRAIN_LEVELS[getMonsterMainTerrain(m)]})</p>
+          : `<p><b>Physical copies:</b> ${getEnemySupplyCount(m)}</p>`}
+        <p><b>Main Terrain:</b> ${getEnemyMainTerrain(m)} (Terrain Level ${ENEMY_TERRAIN_LEVELS[getEnemyMainTerrain(m)]})</p>
         <p><b>Spawn Terrains:</b> ${(m.spawnTerrains ?? []).map(terrain => terrain === 'grasslands' ? 'Grasslands 🌿' : terrain === 'forest' ? 'Forests 🌲' : terrain === 'swamp' ? 'Swamps 🪷' : terrain === 'cave' ? 'Caves 🪨' : terrain === 'underground' ? 'Underground ⛏️' : terrain === 'underworld' ? 'Underworld 🔥' : terrain).join(', ')}</p>
         <p><b>Rewards upon Defeat:</b> <span class="reward-chip sp">${getResourceIcon('sp', 'chip-icon')} +${m.statPointReward} Stat Points</span> <span class="reward-chip gold">${getResourceIcon('gold', 'chip-icon')} +${m.goldReward} Gold</span></p>
       </div>
@@ -319,13 +319,13 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
               </div>`
                 )
                 .join('')
-            : '<p class="muted">No temporary combat boons currently active on this creature.</p>'
+            : '<p class="muted">No temporary combat boons currently active on this enemy.</p>'
         }
       </div>
 
       <div class="inspect-section">
         <h3>🔄 Cycling AI Attack Pattern</h3>
-        <p class="muted">The monster cycles through these moves in order every combat round:</p>
+        <p class="muted">The enemy cycles through these moves in order every combat round:</p>
         <div class="inspect-patterns">
           ${patternHtml}
         </div>
@@ -334,7 +334,7 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
       <div class="inspect-section">
         <h3>📜 Lore &amp; Flavor Text</h3>
         <blockquote class="inspect-quote">
-          &ldquo;${m.flavorText ?? 'A creature dwelling in the tall plains.'}&rdquo;
+          &ldquo;${m.flavorText ?? 'An enemy dwelling in the tall plains.'}&rdquo;
         </blockquote>
       </div>
 
@@ -344,7 +344,7 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
           <li><b>Attack Roll:</b> Rolls <code>3x 1d6</code> (3d6) evaluated on the <b>MACG-3D6™ Success Check Bar</b> (range 3–18). Center Sure Hit Rolls: rolls <b>10 &amp; 11</b> provide a guaranteed minimum <b>25.0%</b> base hit chance.</li>
           <li><b>Net Accuracy &amp; Dodge:</b> <code>Net ACC = Attacker ACC (${m.acc ?? 1}) - Target EVA</code>. Each +1 net ACC expands the hit range outward from the median by 1 on each side (e.g. +1 net ACC expands hit range from 10–11 to 9–12, 48.1% hit chance).</li>
           <li><b>Diabolic Rolls (3 &amp; 18):</b> Rolls of 3 and 18 are Diabolic rolls that always guarantee a chance to miss regardless of ACC. No critical hit multipliers exist.</li>
-          <li><b>Inscribed Stat Points:</b> Defeating this monster awards <b>+${m.statPointReward} SP</b>. SP is converted into permanent Base Stats exclusively at Sacred Shrines.</li>
+          <li><b>Inscribed Stat Points:</b> Defeating this enemy awards <b>+${m.statPointReward} SP</b>. SP is converted into permanent Base Stats exclusively at Sacred Shrines.</li>
         </ul>
       </div>
     </div>`;
@@ -382,7 +382,7 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
           <p class="adv-inspect-summary">
             ${
               card.hasHostile
-                ? `<b>Encounter Zone (Level ${card.level}):</b> Draws monsters from the Monster Deck matching ${terrain.pluralLabel} ${terrain.icon} until total monster level &ge; ${encounterTargetLevel}.`
+                ? `<b>Encounter Zone (Level ${card.level}):</b> Draws enemies from the Enemy Deck matching ${terrain.pluralLabel} ${terrain.icon} until total enemy level &ge; ${encounterTargetLevel}.`
                 : card.hasVillage
                 ? `<b>Village Haven:</b> Sanctuary offering Rest (Inn), Shop (Weapons, Armor, Accessories), and Card Training (Drafting / Removal).`
                 : card.hasShrine
@@ -406,7 +406,7 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
         <p><b>Terrain Region:</b> ${terrain.label} ${terrain.icon}</p>
         <p><b>Encounter &amp; Amenity Rules:</b> ${
           card.hasHostile
-            ? `Stepping onto this card initiates an encounter. Monsters are drawn from the Monster Deck matching <code>spawnTerrains.includes('${card.terrain}')</code> until total creature level &ge; ${encounterTargetLevel}.`
+            ? `Stepping onto this card initiates an encounter. Enemies are drawn from the Enemy Deck matching <code>spawnTerrains.includes('${card.terrain}')</code> until total enemy level &ge; ${encounterTargetLevel}.`
             : card.hasVillage
             ? `Safe resting haven. Resting restores 2 HP per 1 Gold (up to full HP). Shop stocks ${5 + card.level} items from the Treasure Deck (Levels ${Math.max(1, card.level - 1)}–${card.level}) with live stat delta previews. Training offers 3 skills from the New Skills Deck or destroys a card to the Void.`
             : card.hasShrine
@@ -457,7 +457,7 @@ export function cardInspectModal(inspected: InspectedCardInfo, state: RunState):
             : card.templateId === 'sanctuary'
             ? `<p><b>Free Rest Area:</b> Fully restores the hero&apos;s HP to Max HP at no Gold cost.</p>`
             : card.templateId === 'ambush'
-            ? `<p><b>Sudden Ambush:</b> Immediately starts a combat Encounter matching this terrain and level, with <b>the creatures taking their turn first</b> before the player.</p>`
+            ? `<p><b>Sudden Ambush:</b> Immediately starts a combat Encounter matching this terrain and level, with <b>the enemies taking their turn first</b> before the player.</p>`
             : card.templateId === 'magical_chest'
             ? `<p><b>Checks:</b> Force Open (<code>STR &minus; (3 + 2&times;Lvl)</code>), Lockpick (<code>DEX &minus; (3 + 2&times;Lvl)</code>), Remove Seal (<code>INT &minus; (1 + 2&times;Lvl)</code>), or Abandon safely.</p>
                <p><b>Outcome:</b> Success grants the top Treasure card. Failure detonates the chest, destroying the item inside and dealing <b>3 damage</b>.</p>`
@@ -609,7 +609,7 @@ const STAT_DESCRIPTIONS: Record<
     derivedRules: (_eff, derived) => [
       `<b>Combat Evasion (EVA):</b> 1 point in AGI increases EVA by 1 (<code>AGI + Gear EVA</code>). Current: <b>${derived.eva} EVA</b>.`,
       `<b>Physical Defense (DEF):</b> Grants <code>&lfloor;(STR + AGI + VIT) / 5&rfloor; + Armor DEF</code>. AGI footwork and body tilting deflect incoming blows alongside STR and VIT. Current Physical DEF: <b>${derived.def} DEF</b>.`,
-      `<b>MACG-3D6™ Monster Attack Dodge:</b> Each point of EVA directly reduces incoming monster Net ACC, shrinking their hit range toward Tier 1 (&le; -3 Net ACC, <code>10–11</code>, 25.0% Sure Hit Rolls).`,
+      `<b>MACG-3D6™ Enemy Attack Dodge:</b> Each point of EVA directly reduces incoming enemy Net ACC, shrinking their hit range toward Tier 1 (&le; -3 Net ACC, <code>10–11</code>, 25.0% Sure Hit Rolls).`,
     ],
   },
   int: {

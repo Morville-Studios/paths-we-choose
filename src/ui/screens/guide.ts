@@ -1,8 +1,8 @@
-import { AdventureCard, CharacterStats, ClassId, MonsterCard, MonsterTemplateId, MonsterTerrain, TerrainType } from '../../core/types';
+import { AdventureCard, CharacterStats, ClassId, EnemyCard, EnemyTemplateId, EnemyTerrain, TerrainType } from '../../core/types';
 import { CLASS_CATALOG, STARTING_BASE_STATS } from '../../data/classes';
-import { COMBAT_CARD_CATALOG, CombatCardTemplate, createCombatCardInstance, createFleeCard } from '../../data/combatCards';
+import { ACTION_CARD_CATALOG, ActionCardTemplate, createActionCardInstance, createFleeCard } from '../../data/actionCards';
 import { GlossaryCategory, KEYWORD_GLOSSARY } from '../../data/glossary';
-import { getMonsterSupplyCount, MONSTER_TEMPLATES, MONSTER_TERRAIN_LEVELS } from '../../data/monsters';
+import { getEnemySupplyCount, ENEMY_TEMPLATES, ENEMY_TERRAIN_LEVELS } from '../../data/enemies';
 import { PATH_CARD_CATALOG } from '../../data/paths';
 import { getTreasureSupplyCount, SHOP_ITEM_CATALOG, ShopItemTemplate } from '../../data/shopItems';
 import {
@@ -24,61 +24,61 @@ import {
   renderGuideScenarioBoxHtml,
 } from '../components/guideHelpers';
 import { renderQteHitCheckBarHtml } from '../components/qteBar';
-import { fullCreatureCardHtml, monsterRaritySymbolHtml, renderTcgItemCard, renderTcgPathCard } from '../render';
+import { fullEnemyCardHtml, enemyRaritySymbolHtml, renderTcgItemCard, renderTcgPathCard } from '../render';
 
 export const GUIDE_PAGE_COUNT = 11;
-export function getMonsterLowestTerrain(monster: Pick<MonsterCard, 'spawnTerrains' | 'mainTerrain'>): MonsterTerrain {
-  const terrains: MonsterTerrain[] = monster.spawnTerrains && monster.spawnTerrains.length > 0
-    ? monster.spawnTerrains
-    : (monster.mainTerrain ? [monster.mainTerrain] : ['grasslands']);
-  return [...terrains].sort((a, b) => (MONSTER_TERRAIN_LEVELS[a] ?? 99) - (MONSTER_TERRAIN_LEVELS[b] ?? 99))[0];
+export function getEnemyLowestTerrain(enemy: Pick<EnemyCard, 'spawnTerrains' | 'mainTerrain'>): EnemyTerrain {
+  const terrains: EnemyTerrain[] = enemy.spawnTerrains && enemy.spawnTerrains.length > 0
+    ? enemy.spawnTerrains
+    : (enemy.mainTerrain ? [enemy.mainTerrain] : ['grasslands']);
+  return [...terrains].sort((a, b) => (ENEMY_TERRAIN_LEVELS[a] ?? 99) - (ENEMY_TERRAIN_LEVELS[b] ?? 99))[0];
 }
 
-export function getMonsterLowestTerrainTier(monster: Pick<MonsterCard, 'spawnTerrains' | 'mainTerrain'>): number {
-  return MONSTER_TERRAIN_LEVELS[getMonsterLowestTerrain(monster)] ?? 1;
+export function getEnemyLowestTerrainTier(enemy: Pick<EnemyCard, 'spawnTerrains' | 'mainTerrain'>): number {
+  return ENEMY_TERRAIN_LEVELS[getEnemyLowestTerrain(enemy)] ?? 1;
 }
 
-export function getBestiaryMonstersForTerrain(terrain: MonsterTerrain): MonsterTemplateId[] {
-  const all = Object.values(MONSTER_TEMPLATES).filter(
-    (m) => !m.isBoss && (m.mainTerrain ? m.mainTerrain === terrain : getMonsterLowestTerrain(m) === terrain)
+export function getBestiaryEnemiesForTerrain(terrain: EnemyTerrain): EnemyTemplateId[] {
+  const all = Object.values(ENEMY_TEMPLATES).filter(
+    (m) => !m.isBoss && (m.mainTerrain ? m.mainTerrain === terrain : getEnemyLowestTerrain(m) === terrain)
   );
   return [...all]
     .sort((a, b) => {
       if (a.level !== b.level) return a.level - b.level;
       return a.name.localeCompare(b.name);
     })
-    .map((m) => m.templateId as MonsterTemplateId);
+    .map((m) => m.templateId as EnemyTemplateId);
 }
 
-export function getBestiaryBosses(): MonsterTemplateId[] {
-  const bosses = Object.values(MONSTER_TEMPLATES).filter((m) => m.isBoss);
+export function getBestiaryBosses(): EnemyTemplateId[] {
+  const bosses = Object.values(ENEMY_TEMPLATES).filter((m) => m.isBoss);
   return [...bosses]
     .sort((a, b) => {
-      const tierA = getMonsterLowestTerrainTier(a);
-      const tierB = getMonsterLowestTerrainTier(b);
+      const tierA = getEnemyLowestTerrainTier(a);
+      const tierB = getEnemyLowestTerrainTier(b);
       if (tierA !== tierB) return tierA - tierB;
       if (a.level !== b.level) return a.level - b.level;
       return a.name.localeCompare(b.name);
     })
-    .map((m) => m.templateId as MonsterTemplateId);
+    .map((m) => m.templateId as EnemyTemplateId);
 }
 
-function renderGuideBestiaryCardItem(templateId: MonsterTemplateId): string {
-  const m = MONSTER_TEMPLATES[templateId];
+function renderGuideBestiaryCardItem(templateId: EnemyTemplateId): string {
+  const m = ENEMY_TEMPLATES[templateId];
   if (!m) return '';
-  const monsterCard: MonsterCard = { ...m, id: `guide_${m.templateId}` };
-  const cardHtml = fullCreatureCardHtml({
-    monster: monsterCard,
-    className: 'guide-creature-card-preview',
+  const enemyCard: EnemyCard = { ...m, id: `guide_${m.templateId}` };
+  const cardHtml = fullEnemyCardHtml({
+    enemy: enemyCard,
+    className: 'guide-enemy-card-preview',
     attributes: 'tabindex="-1"',
     loading: 'lazy',
   });
 
-  const supplyCount = m.isBoss ? 1 : getMonsterSupplyCount(m);
+  const supplyCount = m.isBoss ? 1 : getEnemySupplyCount(m);
   const supplyLabel = `${supplyCount} ${supplyCount === 1 ? 'copy' : 'copies'} in game`;
 
   return `
-    <div class="guide-bestiary-card-item" data-action="inspect-monster" data-inspect-kind="monster" data-monster-id="${m.templateId}" role="button" tabindex="0">
+    <div class="guide-bestiary-card-item" data-action="inspect-enemy" data-inspect-kind="enemy" data-enemy-id="${m.templateId}" role="button" tabindex="0">
       <div class="guide-bestiary-card-wrapper">
         ${cardHtml}
       </div>
@@ -177,15 +177,15 @@ function getClassPreviewStats(classId: ClassId): CharacterStats {
   };
 }
 
-function getSkillSupplyLabel(tpl: CombatCardTemplate): string {
+function getSkillSupplyLabel(tpl: ActionCardTemplate): string {
   if (tpl.isSkillUpgrade) return 'Void upgrade (Shrine)';
   const starterCount = CLASS_CATALOG[tpl.classId].starterCardIds.filter((id) => id === tpl.id).length;
   if (starterCount > 0) return `${starterCount} starter copies`;
   return '2 copies in New Skills';
 }
 
-function renderGuideSkillCardItem(tpl: CombatCardTemplate, previewClass?: ClassId): string {
-  const card = createCombatCardInstance(tpl.id, 'guide');
+function renderGuideSkillCardItem(tpl: ActionCardTemplate, previewClass?: ClassId): string {
+  const card = createActionCardInstance(tpl.id, 'guide');
   const stats = getClassPreviewStats(previewClass ?? tpl.classId);
   const cardHtml = renderActionCardHtml(card, stats, {
     viewOnly: true,
@@ -276,8 +276,8 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             <button class="guide-ribbon-tab ${p === 5 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="5" title="Page 5: Shrines, Villages &amp; The Void">
               <span class="ribbon-text">&#127963;&#65039; V. Shrines &amp; Void</span>
             </button>
-            <button class="guide-ribbon-tab ${p === 6 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="6" title="Page 6: Monstrous Compendium &amp; Bestiary">
-              <span class="ribbon-text">&#128121; VI. Bestiary</span>
+            <button class="guide-ribbon-tab ${p === 6 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="6" title="Page 6: Enemy Cards Compendium">
+              <span class="ribbon-text">&#128121; VI. Enemy Cards</span>
             </button>
             <button class="guide-ribbon-tab ${p === 7 ? 'is-active' : ''}" data-action="guide-jump-page" data-page="7" title="Page 7: Equipment Compendium &amp; Armory">
               <span class="ribbon-text">&#128481;&#65039; VII. Armory</span>
@@ -323,8 +323,8 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 <h5 class="adnd-box-title">THE THREE PILLARS OF EXPLORATION</h5>
                 <ol class="adnd-numbered-list">
                   <li><b>Pick a Path:</b> Tap any forward Land card in front of your token. Every stride moves you forward and unmasks deeper dungeon rows.</li>
-                  <li><b>Handle the Land:</b> <b>Encounters</b> trigger fierce creature battles; <b>Villages</b> provide rest, goods, and training; <b>Shrines</b> bless and upgrade your stats; and <b>Undiscovered Lands</b> hold fortune or peril.</li>
-                  <li><b>Win the Battle:</b> Vanquish all foes using combat cards and Action Points (AP). Claim their inscribed Gold and Stat Points (SP) to grow ever stronger.</li>
+                  <li><b>Handle the Land:</b> <b>Encounters</b> trigger fierce enemy battles; <b>Villages</b> provide rest, goods, and training; <b>Shrines</b> bless and upgrade your stats; and <b>Undiscovered Lands</b> hold fortune or peril.</li>
+                  <li><b>Win the Battle:</b> Vanquish all foes using action cards and Action Points (AP). Claim their inscribed Gold and Stat Points (SP) to grow ever stronger.</li>
                 </ol>
               </div>
 
@@ -343,7 +343,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 The realm spans five biomes: <b>Grasslands</b>, <b>Forest</b>, <b>Swamp</b>, subterranean <b>Caves</b>, and <b>Underground</b> depths:
               </p>
               <ul class="adnd-bullet-list">
-                <li><b>Hostile Lands:</b> Initiates battle against local creatures drawn to meet the card's danger level.</li>
+                <li><b>Hostile Lands:</b> Initiates battle against local enemies drawn to meet the card's danger level.</li>
                 <li><b>Settlements &amp; Villages:</b> Provide Inn Rest, market shops, and training / Void removal.</li>
                 <li><b>Sacred Shrines:</b> Grant an automatic divine boon and allow permanent Base Stat upgrades with SP.</li>
                 <li><b>Undiscovered Lands:</b> Draws a card from the <b>Paths Deck</b> (MIDS&trade;), revealing sidequests, ambushes, chests, traps, merchants, or sanctuaries.</li>
@@ -353,7 +353,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             <div class="guide-folio-col">
               <h4 class="guide-section-heading">&#9884; Scenario Deck Setups &amp; Physical Supply</h4>
               <p class="guide-body-text">
-                Each scenario features a deterministic deck setup across its Adventure, Monster, and Treasure card pools:
+                Each scenario features a deterministic deck setup across its Adventure, Enemy, and Treasure card pools:
               </p>
               ${renderGuideScenarioBoxHtml(1)}
               ${renderGuideScenarioBoxHtml(2)}
@@ -463,12 +463,12 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             <div class="guide-folio-col">
               <h4 class="guide-section-heading">&#9884; Turn Flow &amp; Action Points (AP)</h4>
               <p class="guide-body-text">
-                <span class="guide-drop-cap">C</span>ombat in <i>Paths to Odamyrus</i> fuses tactical deckbuilding with classic tabletop dice checks. At the inception of battle&mdash;and at the beginning of each hero turn&mdash;you draw <b>5 cards</b> from your <b>Player Combat Deck</b>.
+                <span class="guide-drop-cap">C</span>ombat in <i>Paths to Odamyrus</i> fuses tactical deckbuilding with classic tabletop dice checks. At the inception of battle&mdash;and at the beginning of each hero turn&mdash;you draw <b>5 cards</b> from your <b>Action Deck</b>.
               </p>
               <ul class="adnd-bullet-list">
                 <li><b>Action Cards:</b> Represent attacks, defensive shields, elemental incantations, and combat maneuvers.</li>
                 <li><b>Action Points (AP):</b> Playing a card costs AP. Adventurers normally begin with <b>3 AP</b> per turn (which scales with INT via <code>3 + &lfloor;INT / 5&rfloor;</code>, and can be modified by relics or passives like Wizard's <code>[Conserve]</code>).</li>
-                <li><b>Targeting:</b> Attack actions can be directed at enemy creatures in the 3D monster carousel, while shields and buffs target your own Hero.</li>
+                <li><b>Targeting:</b> Attack actions can be directed at enemies in the 3D carousel, while shields and buffs target your own Hero.</li>
                 <li><b>End of Turn:</b> Play cards until your AP is depleted. When you press <b>End Turn</b>, all unplayed cards in your hand are swept into your <b>Player Combat Discard Pile</b>, and enemies execute their intents.</li>
               </ul>
 
@@ -478,10 +478,10 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                   In faithful tabletop fashion, every draw resolves <b>one single card at a time</b>:
                 </p>
                 <p class="adnd-box-text">
-                  <b>The 1-Card Scenario:</b> If there is only <b>1 card remaining</b> in your Player Combat Deck and an effect commands you to <i>draw 2 cards</i>:
+                  <b>The 1-Card Scenario:</b> If there is only <b>1 card remaining</b> in your Action Deck and an effect commands you to <i>draw 2 cards</i>:
                 </p>
                 <ol class="adnd-numbered-list">
-                  <li>You draw that 1st card first. If that card possesses an immediate draw or trigger effect (e.g. placing a card on top of your Player Combat Deck), that effect resolves immediately!</li>
+                  <li>You draw that 1st card first. If that card possesses an immediate draw or trigger effect (e.g. placing a card on top of your Action Deck), that effect resolves immediately!</li>
                   <li>You then proceed to resolve drawing your 2nd card.</li>
                 </ol>
                 <p class="adnd-box-text">
@@ -502,7 +502,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 <ol class="adnd-numbered-list">
                   <li><b>Card Enters the Stack:</b> A played card leaves your hand and enters the Stack while its costs, draws, and hits execute.</li>
                   <li><b>1-by-1 Draws on the Stack:</b> Drawing multiple cards (e.g. <i>Draw 3 cards</i>) acts as <b>3&times; separate &ldquo;Draw a card&rdquo; entries</b> on the Stack, resolved one by one so any <b>On-Draw</b> effect (such as <b>Adrenalin</b>) enters on top of the Stack and resolves before the next card is drawn.</li>
-                  <li><b>Triggers Stack on Top:</b> Any reactive ability triggered mid-resolution (such as a creature&rsquo;s <b>Harden</b> or <b>Skittish</b> on hit) enters <i>on top</i> of the Stack, applies its effect, and resolves first.</li>
+                  <li><b>Triggers Stack on Top:</b> Any reactive ability triggered mid-resolution (such as an enemy&rsquo;s <b>Harden</b> or <b>Skittish</b> on hit) enters <i>on top</i> of the Stack, applies its effect, and resolves first.</li>
                   <li><b>Bottom Card Resolves &amp; Discards:</b> Only after all triggers above it have left the Stack does the played card finish resolving and move to your <b>Player Combat Discard Pile</b> (or into play if it is a lasting card).</li>
                 </ol>
                 <p class="adnd-box-text">
@@ -512,11 +512,11 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
 
               <h4 class="guide-section-heading">&#9884; Combat Attacks &amp; MACG-3D6™</h4>
               <p class="guide-body-text">
-                All physical attacks and monster strikes roll <b>three six-sided dice (3d6)</b> on the <b>MACG-3D6™ Success Check Bar</b> using <code>Net ACC = Attacker ACC &minus; Defender EVA</code> (see <b>Ch. I</b> for the full Tier 1&ndash;7 Success Roll Range Table).
+                All physical attacks and enemy strikes roll <b>three six-sided dice (3d6)</b> on the <b>MACG-3D6™ Success Check Bar</b> using <code>Net ACC = Attacker ACC &minus; Defender EVA</code> (see <b>Ch. I</b> for the full Tier 1&ndash;7 Success Roll Range Table).
               </p>
               <ul class="adnd-bullet-list">
                 <li><b>No Critical Hits:</b> Pure tactical clarity&mdash;no arbitrary critical multiplier spikes; character ACC directly expands your visible Success Roll Range on the <b>MACG-3D6™ Success Check Bar</b>.</li>
-                <li><b>Monster Keywords:</b> See <b>Ch. X: Glossary</b> for full definitions of <code>ATK (X)</code>, <code>MATK (X)</code>, <code>Regenerate (X)</code>, <code>Block (X)</code>, <code>Summon</code>, and creature traits.</li>
+                <li><b>Enemy Keywords:</b> See <b>Ch. X: Glossary</b> for full definitions of <code>ATK (X)</code>, <code>MATK (X)</code>, <code>Regenerate (X)</code>, <code>Block (X)</code>, <code>Summon</code>, and enemy traits.</li>
               </ul>
 
               <div class="adnd-page-jump-row">
@@ -571,7 +571,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 <ul class="adnd-stat-perks">
                   <li><b>Combat Accuracy (ACC):</b> Grants <b>+1 ACC for every 1 DEX</b> (<code>DEX</code>), expanding your MACG-3D6™ hit range against enemy Evasion.</li>
                   <li><b>Physical Attack (ATK):</b> Adds <code>+&lfloor;DEX / 3&rfloor;</code> attack bonus through pinpoint targeting of vital weaknesses.</li>
-                  <li><b>Hit Consistency:</b> Working with STR, ensures physical strikes reliably land even against high-evasion monsters.</li>
+                  <li><b>Hit Consistency:</b> Working with STR, ensures physical strikes reliably land even against high-evasion enemies.</li>
                 </ul>
               </div>
             </div>
@@ -639,7 +639,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
             <h3 class="guide-chapter-title">&mdash; CHAPTER III: THE ADVENTURER CLASSES &mdash;</h3>
-            <p class="guide-chapter-sub">Player Class Guide: Primary &amp; Secondary Archetypes, Innate Passives, and Starter Combat Decks</p>
+            <p class="guide-chapter-sub">Player Class Guide: Primary &amp; Secondary Archetypes, Innate Passives, and Starter Action Decks</p>
           </header>
 
           <div class="guide-folio-grid">
@@ -695,7 +695,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
             <div class="guide-folio-col">
               <h4 class="guide-section-heading">&#9884; Upgrading at Sacred Shrines</h4>
               <p class="guide-body-text">
-                <span class="guide-drop-cap">D</span>efeating monsters awards <b>Gold</b> and <b>Stat Points (SP)</b>. At a <b>Shrine</b> (or during Turn 0 preparation), spend SP to raise a base stat. The cost formula is:
+                <span class="guide-drop-cap">D</span>efeating enemies awards <b>Gold</b> and <b>Stat Points (SP)</b>. At a <b>Shrine</b> (or during Turn 0 preparation), spend SP to raise a base stat. The cost formula is:
               </p>
               <div class="adnd-parchment-box">
                 <h5 class="adnd-box-title">BASE STAT UPGRADE COST FORMULA</h5>
@@ -717,7 +717,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 <li><b>Training &amp; Banishing:</b> ${getTrainOfferRangeText()}, or pay Gold to <b>Banish</b> an unwanted card out of the game into <b>The Void</b>.</li>
                 <li>Card destruction costs 10, 15, 23, 34, 51 Gold and keeps growing by 50% from the original price, rounded up.</li>
                 <li><b>Undiscovered Exploration:</b> Stepping onto an Undiscovered Terrain draws a Path Card from the <b>${getPathsDeckSummary().totalCards}-card Paths Deck</b> (<b>MIDS™</b>), triggering sidequests, ambushes, chests, traps, merchants, or sanctuaries.</li>
-                <li><b>The Void (Game Box):</b> <b>The Void</b> is not a deck—it is the game box where you can inspect cards not currently in use (unselected monster/terrain copies, Shrine upgrade templates, and <b>Banished</b> cards). Full creature cards use the New Paths set symbol for rarity: <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.goblin, 'guide-set-symbol')} bronze = Common</span>, <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.stalker, 'guide-set-symbol')} silver = Uncommon</span>, and <span class="guide-rarity-key">${monsterRaritySymbolHtml(MONSTER_TEMPLATES.rattler, 'guide-set-symbol')} gold = Rare</span>.</li>
+                <li><b>The Void (Game Box):</b> <b>The Void</b> is not a deck—it is the game box where you can inspect cards not currently in use (unselected enemy/terrain copies, Shrine upgrade templates, and <b>Banished</b> cards). Full enemy cards use the New Paths set symbol for rarity: <span class="guide-rarity-key">${enemyRaritySymbolHtml(ENEMY_TEMPLATES.goblin, 'guide-set-symbol')} bronze = Common</span>, <span class="guide-rarity-key">${enemyRaritySymbolHtml(ENEMY_TEMPLATES.stalker, 'guide-set-symbol')} silver = Uncommon</span>, and <span class="guide-rarity-key">${enemyRaritySymbolHtml(ENEMY_TEMPLATES.rattler, 'guide-set-symbol')} gold = Rare</span>.</li>
               </ul>
 
               <div class="adnd-parchment-box callout-quest">
@@ -729,7 +729,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
 
               <div class="adnd-page-jump-row">
                 <span class="adnd-jump-label">Next Chapter:</span>
-                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="6">Turn to Ch. VI: Bestiary &rarr;</button>
+                <button class="btn mini guide-jump-btn" data-action="guide-jump-page" data-page="6">Turn to Ch. VI: Enemy Cards &rarr;</button>
                 <button class="btn primary guide-jump-btn" data-action="close-guide">${inGame ? 'Back to Game' : 'Ready to Begin'}</button>
               </div>
             </div>
@@ -737,17 +737,17 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
         </article>` : ''}
 
         <!-- ============================================================ -->
-        <!-- PAGE 6: Chapter VI — The Monstrous Compendium (Bestiary)     -->
+        <!-- PAGE 6: Chapter VI — Enemy Cards Compendium                -->
         <!-- ============================================================ -->
         ${p === 6 ? `
         <article class="guide-book-page ${p === 6 ? 'is-active' : ''}" data-page="6">
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
-            <h3 class="guide-chapter-title">&mdash; CHAPTER VI: THE MONSTROUS COMPENDIUM &mdash;</h3>
-            <p class="guide-chapter-sub">Field Guide to Creatures of the Realm &bull; Click any monster card to inspect full stats, intents, rewards &amp; lore</p>
+            <h3 class="guide-chapter-title">&mdash; CHAPTER VI: ENEMY CARDS COMPENDIUM &mdash;</h3>
+            <p class="guide-chapter-sub">Enemy Cards of the Realm &bull; Click any card to inspect full stats, intents, rewards &amp; lore</p>
           </header>
 
-          <nav class="guide-bestiary-quicknav" aria-label="Bestiary Biome Navigation">
+          <nav class="guide-bestiary-quicknav" aria-label="Enemy Cards Biome Navigation">
             <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="bestiary-grasslands">🌿 Grasslands (6)</button>
             <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="bestiary-forest">🌲 Forest (5)</button>
             <button type="button" class="guide-quicknav-btn" data-action="guide-scroll-section" data-target="bestiary-swamp">🪷 Swamp (4)</button>
@@ -764,7 +764,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                   <p class="guide-bestiary-cat-sub">Encountered across open plains and grassy borders</p>
                 </div>
                 <div class="guide-bestiary-grid">
-                  ${getBestiaryMonstersForTerrain('grasslands').map(id => renderGuideBestiaryCardItem(id)).join('')}
+                  ${getBestiaryEnemiesForTerrain('grasslands').map(id => renderGuideBestiaryCardItem(id)).join('')}
                 </div>
               </section>
 
@@ -774,7 +774,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                   <p class="guide-bestiary-cat-sub">Lurking beneath deep canopies and ancient thickets</p>
                 </div>
                 <div class="guide-bestiary-grid">
-                  ${getBestiaryMonstersForTerrain('forest').map(id => renderGuideBestiaryCardItem(id)).join('')}
+                  ${getBestiaryEnemiesForTerrain('forest').map(id => renderGuideBestiaryCardItem(id)).join('')}
                 </div>
               </section>
 
@@ -784,7 +784,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                   <p class="guide-bestiary-cat-sub">Festering in murky bogs, toxic fens and rotting marshes</p>
                 </div>
                 <div class="guide-bestiary-grid">
-                  ${getBestiaryMonstersForTerrain('swamp').map(id => renderGuideBestiaryCardItem(id)).join('')}
+                  ${getBestiaryEnemiesForTerrain('swamp').map(id => renderGuideBestiaryCardItem(id)).join('')}
                 </div>
               </section>
             </div>
@@ -796,7 +796,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                   <p class="guide-bestiary-cat-sub">Stalking subterranean caverns, shadows and crystal depths</p>
                 </div>
                 <div class="guide-bestiary-grid">
-                  ${getBestiaryMonstersForTerrain('cave').map(id => renderGuideBestiaryCardItem(id)).join('')}
+                  ${getBestiaryEnemiesForTerrain('cave').map(id => renderGuideBestiaryCardItem(id)).join('')}
                 </div>
               </section>
 
@@ -806,7 +806,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                   <p class="guide-bestiary-cat-sub">Stalking subterranean abysses, deep ruins and ancient sepulchers</p>
                 </div>
                 <div class="guide-bestiary-grid">
-                  ${getBestiaryMonstersForTerrain('underground').map(id => renderGuideBestiaryCardItem(id)).join('')}
+                  ${getBestiaryEnemiesForTerrain('underground').map(id => renderGuideBestiaryCardItem(id)).join('')}
                 </div>
               </section>
 
@@ -1000,7 +1000,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                   <p class="guide-bestiary-cat-sub">Common Weapons Master (Slash, Defend, High Strike, Parry, Fortify &amp; Execute) are shared with Rogue; Whirlwind, Battlecry, Battle Flag &amp; Adrenalin are Fighter-exclusive</p>
                 </div>
                 <div class="guide-bestiary-grid">
-                  ${Object.values(COMBAT_CARD_CATALOG)
+                  ${Object.values(ACTION_CARD_CATALOG)
                     .filter((tpl) => tpl.classId === 'fighter' && !tpl.isSkillUpgrade)
                     .map((tpl) => renderGuideSkillCardItem(tpl, 'fighter'))
                     .join('')}
@@ -1015,7 +1015,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                   <p class="guide-bestiary-cat-sub">Starter spells (Fireball &times;8, Force Field &times;2) plus trainable New Skills deck spells</p>
                 </div>
                 <div class="guide-bestiary-grid">
-                  ${Object.values(COMBAT_CARD_CATALOG)
+                  ${Object.values(ACTION_CARD_CATALOG)
                     .filter((tpl) => tpl.classId === 'wizard' && !tpl.isSkillUpgrade)
                     .map((tpl) => renderGuideSkillCardItem(tpl, 'wizard'))
                     .join('')}
@@ -1028,7 +1028,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                   <p class="guide-bestiary-cat-sub">Forged at Sacred Shrines by upgrading an eligible owned base skill card</p>
                 </div>
                 <div class="guide-bestiary-grid">
-                  ${Object.values(COMBAT_CARD_CATALOG)
+                  ${Object.values(ACTION_CARD_CATALOG)
                     .filter((tpl) => tpl.isSkillUpgrade)
                     .map((tpl) => renderGuideSkillCardItem(tpl))
                     .join('')}
@@ -1037,7 +1037,7 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
 
               <section id="skills-universal" class="guide-bestiary-category">
                 <div class="guide-bestiary-cat-header">
-                  <h4 class="guide-bestiary-cat-title"><span>🏃</span> Universal Combat Action <small>(Always Available)</small></h4>
+                  <h4 class="guide-bestiary-cat-title"><span>🏃</span> Universal Action <small>(Always Available)</small></h4>
                   <p class="guide-bestiary-cat-sub">Permanent escape option available every battle without occupying deck slots</p>
                 </div>
                 <div class="guide-bestiary-grid">
@@ -1062,11 +1062,11 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
           <header class="guide-page-header">
             <span class="guide-running-head">ADVANCED ADVENTURERS &amp; DUNGEONS &bull; RULEBOOK</span>
             <h3 class="guide-chapter-title">&mdash; CHAPTER X: KEYWORD GLOSSARY &mdash;</h3>
-            <p class="guide-chapter-sub">Standardized Physical Card Vocabulary &bull; Hover any underlined keyword on a Monster Card in-game for its live tooltip</p>
+            <p class="guide-chapter-sub">Standardized Physical Card Vocabulary &bull; Hover any underlined keyword on an Enemy Card in-game for its live tooltip</p>
           </header>
 
           <div class="guide-folio-grid">
-            ${(['Combat Damage', 'Defense & Recovery', 'Status & Debuffs', 'Creature Traits'] as GlossaryCategory[]).map((cat) => {
+            ${(['Combat Damage', 'Defense & Recovery', 'Status & Debuffs', 'Enemy Traits'] as GlossaryCategory[]).map((cat) => {
               const entries = KEYWORD_GLOSSARY.filter((e) => e.category === cat);
               return `
                 <section class="guide-bestiary-category">
@@ -1096,14 +1096,14 @@ export function renderGuideModal(inGame: boolean, currentPage = 1): string {
                 <p class="guide-bestiary-cat-sub">Shared tabletop deck, defense, and combat terminology</p>
               </div>
               <ul class="adnd-bullet-list">
-                <li><b>Morville Infinite Deck System™ (MIDS™):</b> Applies to the <b>Adventure, Paths, Monster, Combat, Treasure, and Skills Decks</b>. Each MIDS™ deck always has a <b>Deck + Discard Pile</b> pair. Cards go to their discard pile when used, destroyed, or discarded—except when <b>Banished</b>. Whenever any rule, process, or effect draws from an empty MIDS™ deck, its discard pile is automatically shuffled into a fresh deck and drawing continues seamlessly.</li>
+                <li><b>Morville Infinite Deck System™ (MIDS™):</b> Applies to the <b>Adventure, Paths, Enemy, Action, Treasure, and Skills Decks</b>. Each MIDS™ deck always has a <b>Deck + Discard Pile</b> pair. Cards go to their discard pile when used, destroyed, or discarded—except when <b>Banished</b>. Whenever any rule, process, or effect draws from an empty MIDS™ deck, its discard pile is automatically shuffled into a fresh deck and drawing continues seamlessly.</li>
                 <li><b>Banished:</b> An effect that sends a card out of the game and into <b>The Void</b> instead of its discard pile.</li>
                 <li><b>The Void:</b> Not a deck—it is the player&rsquo;s game box where cards not currently being used (unselected scenario cards, Shrine upgrade templates, and <b>Banished</b> cards) can be inspected.</li>
-                <li><b>Summon:</b> Finding a specific card in a particular deck (e.g. Monster Deck), putting it directly into play, then shuffling the deck it came from. If none is found in the deck, look at the discard pile for that card (First In, First Out) and put it on top of the deck.</li>
+                <li><b>Summon:</b> Finding a specific card in a particular deck (e.g. Enemy Deck), putting it directly into play, then shuffling the deck it came from. If none is found in the deck, look at the discard pile for that card (First In, First Out) and put it on top of the deck.</li>
                 <li><b>Temporary Block:</b> Shields absorb incoming attack damage during the current round before dissipating.</li>
                 <li><b>Physical Defense (DEF):</b> Permanent armor and bodily resistance that directly absorbs or deflects incoming physical blows on every hit.</li>
                 <li><b>Magical Defense (MDEF):</b> Innate arcane warding reducing damage from hostile spell attacks.</li>
-                <li><b>Creature ATK:</b> Increases any non-magical turn damage dealt by the creature.</li>
+                <li><b>Enemy ATK:</b> Increases any non-magical turn damage dealt by the enemy.</li>
               </ul>
             </section>
 

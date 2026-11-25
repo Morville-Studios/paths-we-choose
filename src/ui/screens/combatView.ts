@@ -1,13 +1,13 @@
 import {
   computeCardEffect,
   computeHitProbability,
-  firstLivingMonsterIndex,
+  firstLivingEnemyIndex,
   FLEE_AP_COST,
   getHeroStatDebuffMods,
-  getMonsterChannelMatkBonus,
-  getMonsterEffectiveAtk,
-  getMonsterEffectiveDef,
-  getMonsterIntent,
+  getEnemyChannelMatkBonus,
+  getEnemyEffectiveAtk,
+  getEnemyEffectiveDef,
+  getEnemyIntent,
 } from '../../core/combat';
 import { parseGameLogEntry } from '../../core/log';
 import {
@@ -20,27 +20,27 @@ import {
 import {
   ActiveCombatState,
   CharacterStats,
-  CombatMonster,
-  MonsterCard,
-  MonsterIntent,
+  CombatEnemy,
+  EnemyCard,
+  EnemyIntent,
   RunState,
 } from '../../core/types';
-import { createFleeCard } from '../../data/combatCards';
+import { createFleeCard } from '../../data/actionCards';
 import { GLOSSARY_TOOLTIP_TEMPLATES } from '../../data/glossary';
-import { MONSTER_TEMPLATES } from '../../data/monsters';
-import { getActionRasterArtPath, getAdventurerRasterArtPath, getMonsterIllustration } from '../cardArt';
-import { escapeTooltipAttr, formatMonsterAbilitiesHtml, kwTokenHtml } from '../components/glossary';
+import { ENEMY_TEMPLATES } from '../../data/enemies';
+import { getActionRasterArtPath, getAdventurerRasterArtPath, getEnemyIllustration } from '../cardArt';
+import { escapeTooltipAttr, formatEnemyAbilitiesHtml, kwTokenHtml } from '../components/glossary';
 import { renderQteHitCheckBarHtml } from '../components/qteBar';
 import { getDerivedStatIcon, getResourceIcon, getStatIcon } from '../icons';
 import { getPlayerClassName } from './classSelect';
 import { PendingCardPlay, PendingDiceRoll, UiState } from '../types';
 import {
-  combatCardHtml,
-  formatCreatureSubtype,
-  monsterRaritySymbolHtml,
+  actionCardHtml,
+  formatEnemySubtype,
+  enemyRaritySymbolHtml,
   renderSpawnBadges,
 } from '../render';
-export function getMonsterCarouselClass(i: number, target: number, total: number): string {
+export function getEnemyCarouselClass(i: number, target: number, total: number): string {
   if (total <= 1) {
     return 'is-center';
   }
@@ -62,32 +62,32 @@ export function getMonsterCarouselClass(i: number, target: number, total: number
   return 'is-hidden';
 }
 
-export function updateMonsterCarouselDom(
+export function updateEnemyCarouselDom(
   container: HTMLElement,
   combat: ActiveCombatState,
   targetIndex: number,
   playerAcc: number,
 ): boolean {
-  const track = container.querySelector<HTMLElement>('.monster-carousel-track');
+  const track = container.querySelector<HTMLElement>('.enemy-carousel-track');
   if (!track) return false;
 
-  const total = combat.monsters.length;
+  const total = combat.enemies.length;
   const target =
     targetIndex >= 0 && targetIndex < total
       ? targetIndex
-      : (firstLivingMonsterIndex(combat) >= 0 ? firstLivingMonsterIndex(combat) : 0);
+      : (firstLivingEnemyIndex(combat) >= 0 ? firstLivingEnemyIndex(combat) : 0);
 
-  combat.monsters.forEach((cm, i) => {
-    const unit = track.querySelector<HTMLElement>(`.combat-monster-unit[data-id="${i}"]`);
+  combat.enemies.forEach((cm, i) => {
+    const unit = track.querySelector<HTMLElement>(`.combat-enemy-unit[data-id="${i}"]`);
     if (!unit) return;
 
     unit.classList.remove('is-center', 'is-prev', 'is-next', 'is-hidden', 'is-selected-unit', 'selected');
-    const card = unit.querySelector<HTMLElement>('.tcg-creature');
+    const card = unit.querySelector<HTMLElement>('.tcg-enemy');
     if (card) {
       card.classList.remove('is-targeted');
     }
 
-    const posClass = getMonsterCarouselClass(i, target, total);
+    const posClass = getEnemyCarouselClass(i, target, total);
     posClass.split(' ').forEach((c) => {
       if (c) unit.classList.add(c);
     });
@@ -100,7 +100,7 @@ export function updateMonsterCarouselDom(
 
     const header = unit.querySelector<HTMLElement>('.combat-target-header');
     if (header) {
-      const netAcc = playerAcc !== undefined ? playerAcc - ((cm.monster.eva ?? 0) + (cm.evaBonus ?? 0)) : null;
+      const netAcc = playerAcc !== undefined ? playerAcc - ((cm.enemy.eva ?? 0) + (cm.evaBonus ?? 0)) : null;
       const prob = netAcc !== null ? computeHitProbability(netAcc) : null;
       const targetText = prob !== null
         ? `🎯 TARGET (Hit: ${prob.minHitRoll}–${prob.maxHitRoll} · ${prob.hitPercent}%)`
@@ -108,7 +108,7 @@ export function updateMonsterCarouselDom(
       const badgeHtml = isSelected
         ? `<div class="combat-target-badge-top">${targetText}</div>`
         : '<div class="combat-target-spacer"></div>';
-      const infoBtn = header.querySelector<HTMLElement>('.combat-monster-info-btn');
+      const infoBtn = header.querySelector<HTMLElement>('.combat-enemy-info-btn');
       header.innerHTML = `${badgeHtml}${infoBtn ? infoBtn.outerHTML : ''}`;
     }
   });
@@ -116,28 +116,28 @@ export function updateMonsterCarouselDom(
   return true;
 }
 
-export function creatureHeaderHtml(monster: MonsterCard): string {
-  return `<header class="tcg-header creature-header">
-    <div class="creature-header-top">
-      <span class="tcg-level-ribbon">Lvl ${monster.level}</span>
-      ${monster.isBoss ? '<span class="tcg-type-main">BOSS</span>' : ''}
-      <span class="tcg-type-sub">${formatCreatureSubtype(monster.creatureType)}</span>
-      <div class="tcg-spawn-group" aria-label="Spawn terrains: ${(monster.spawnTerrains ?? []).join(', ')}">${renderSpawnBadges(monster.spawnTerrains)}</div>
+export function enemyHeaderHtml(enemy: EnemyCard): string {
+  return `<header class="tcg-header enemy-header">
+    <div class="enemy-header-top">
+      <span class="tcg-level-ribbon">Lvl ${enemy.level}</span>
+      ${enemy.isBoss ? '<span class="tcg-type-main">BOSS</span>' : ''}
+      <span class="tcg-type-sub">${formatEnemySubtype(enemy.enemyType)}</span>
+      <div class="tcg-spawn-group" aria-label="Spawn terrains: ${(enemy.spawnTerrains ?? []).join(', ')}">${renderSpawnBadges(enemy.spawnTerrains)}</div>
     </div>
-    <div class="creature-header-title"><span class="tcg-name">${monster.name}</span><span class="tcg-card-num">${monster.cardNumber ?? ''}</span></div>
+    <div class="enemy-header-title"><span class="tcg-name">${enemy.name}</span><span class="tcg-card-num">${enemy.cardNumber ?? ''}</span></div>
   </header>`;
 }
 
-export function creatureFooterHtml(monster: MonsterCard, attackBonus = 0, accBonus = 0, evaBonus = 0, defBonus = 0): string {
+export function enemyFooterHtml(enemy: EnemyCard, attackBonus = 0, accBonus = 0, evaBonus = 0, defBonus = 0): string {
   const entries = [
-    { stat: 'atk' as const, value: Math.max(0, (monster.atk ?? 0) + attackBonus), boosted: attackBonus !== 0 },
-    { stat: 'def' as const, value: Math.max(0, (monster.def ?? 0) + defBonus), boosted: defBonus !== 0 },
-    { stat: 'mdef' as const, value: monster.mdef ?? 0, boosted: false },
-    { stat: 'acc' as const, value: (monster.acc ?? 1) + accBonus, boosted: accBonus > 0 },
-    { stat: 'eva' as const, value: (monster.eva ?? 0) + evaBonus, boosted: evaBonus > 0 },
+    { stat: 'atk' as const, value: Math.max(0, (enemy.atk ?? 0) + attackBonus), boosted: attackBonus !== 0 },
+    { stat: 'def' as const, value: Math.max(0, (enemy.def ?? 0) + defBonus), boosted: defBonus !== 0 },
+    { stat: 'mdef' as const, value: enemy.mdef ?? 0, boosted: false },
+    { stat: 'acc' as const, value: (enemy.acc ?? 1) + accBonus, boosted: accBonus > 0 },
+    { stat: 'eva' as const, value: (enemy.eva ?? 0) + evaBonus, boosted: evaBonus > 0 },
   ];
-const CREATURE_STAT_TOOLTIPS: Record<'hp' | 'atk' | 'def' | 'mdef' | 'acc' | 'eva', string> = {
-  hp: 'Health Points (HP): Creature maximum health. Defeated when HP reaches 0.',
+const ENEMY_STAT_TOOLTIPS: Record<'hp' | 'atk' | 'def' | 'mdef' | 'acc' | 'eva', string> = {
+  hp: 'Health Points (HP): Enemy maximum health. Defeated when HP reaches 0.',
   atk: 'Attack (ATK): Base physical attack damage.',
   def: 'Physical Defense (DEF): Reduces incoming physical attack damage by this amount.',
   mdef: 'Magical Defense (MDEF): Reduces incoming magical attack damage by this amount.',
@@ -145,14 +145,14 @@ const CREATURE_STAT_TOOLTIPS: Record<'hp' | 'atk' | 'def' | 'mdef' | 'acc' | 'ev
   eva: 'Evasion (EVA): Rolled against Hero ACC on the MACG-3D6™ bar to dodge incoming attacks.',
 };
 
-  return `<footer class="tcg-footer creature-stat-footer">
-    <span class="creature-footer-hp" tabindex="0" data-kw-tooltip="${escapeTooltipAttr(CREATURE_STAT_TOOLTIPS.hp)}" aria-label="HP: ${monster.maxHp}">${getStatIcon('vit', 'chip-icon', 'HP')} <b>${monster.maxHp}</b></span>
-    <div class="creature-footer-stats">${entries.filter(entry => entry.value > 0).map(entry => `<span class="creature-footer-stat ${entry.boosted ? 'is-buffed-flashing' : ''}" data-creature-stat="${entry.stat}" tabindex="0" data-kw-tooltip="${escapeTooltipAttr(CREATURE_STAT_TOOLTIPS[entry.stat])}" aria-label="${entry.stat.toUpperCase()}: ${entry.value}">${getDerivedStatIcon(entry.stat, 'chip-icon')} <b>${entry.value}</b></span>`).join('')}</div>
+  return `<footer class="tcg-footer enemy-stat-footer">
+    <span class="enemy-footer-hp" tabindex="0" data-kw-tooltip="${escapeTooltipAttr(ENEMY_STAT_TOOLTIPS.hp)}" aria-label="HP: ${enemy.maxHp}">${getStatIcon('vit', 'chip-icon', 'HP')} <b>${enemy.maxHp}</b></span>
+    <div class="enemy-footer-stats">${entries.filter(entry => entry.value > 0).map(entry => `<span class="enemy-footer-stat ${entry.boosted ? 'is-buffed-flashing' : ''}" data-enemy-stat="${entry.stat}" tabindex="0" data-kw-tooltip="${escapeTooltipAttr(ENEMY_STAT_TOOLTIPS[entry.stat])}" aria-label="${entry.stat.toUpperCase()}: ${entry.value}">${getDerivedStatIcon(entry.stat, 'chip-icon')} <b>${entry.value}</b></span>`).join('')}</div>
   </footer>`;
 }
 
-interface FullCreatureCardOptions {
-  monster: MonsterCard;
+interface FullEnemyCardOptions {
+  enemy: EnemyCard;
   attackBonus?: number;
   matkBonus?: number;
   accBonus?: number;
@@ -166,11 +166,11 @@ interface FullCreatureCardOptions {
 }
 
 /**
- * The canonical full-size creature card face. Battle and card inspection use
+ * The canonical full-size enemy card face. Battle and card inspection use
  * this same markup; callers supply only live combat presentation differences.
  */
-export function fullCreatureCardHtml({
-  monster,
+export function fullEnemyCardHtml({
+  enemy,
   attackBonus = 0,
   matkBonus = 0,
   accBonus = 0,
@@ -181,32 +181,32 @@ export function fullCreatureCardHtml({
   artOverlayHtml = '',
   attributes = '',
   loading = 'eager',
-}: FullCreatureCardOptions): string {
-  const templateClass = monster.isBoss ? 'is-boss tcg-template-boss' : 'tcg-template-grassland';
-  const illustration = getMonsterIllustration(monster.templateId, loading);
-  const pattern = monster.pattern?.length ? monster.pattern : [{ label: 'Idle', damage: 0, block: 0 }];
+}: FullEnemyCardOptions): string {
+  const templateClass = enemy.isBoss ? 'is-boss tcg-template-boss' : 'tcg-template-grassland';
+  const illustration = getEnemyIllustration(enemy.templateId, loading);
+  const pattern = enemy.pattern?.length ? enemy.pattern : [{ label: 'Idle', damage: 0, block: 0 }];
 
   return `
-    <div class="tcg-card tcg-creature ${templateClass} ${className}" ${attributes}>
+    <div class="tcg-card tcg-enemy ${templateClass} ${className}" ${attributes}>
       <div class="tcg-inner-frame">
         <div class="tcg-art-window ${artWindowClassName}">
           ${illustration}
           ${artOverlayHtml}
         </div>
-        ${creatureHeaderHtml(monster)}
+        ${enemyHeaderHtml(enemy)}
         <div class="tcg-art-spacer">
           <div class="tcg-art-rewards">
-            <div class="tcg-art-reward-badge gold" title="Reward: +${monster.goldReward} Gold">
-              ${getResourceIcon('gold', 'chip-icon')} <span>+${monster.goldReward}</span>
+            <div class="tcg-art-reward-badge gold" title="Reward: +${enemy.goldReward} Gold">
+              ${getResourceIcon('gold', 'chip-icon')} <span>+${enemy.goldReward}</span>
             </div>
-            <div class="tcg-art-reward-badge sp" title="Reward: +${monster.statPointReward} SP">
-              ${getResourceIcon('sp', 'chip-icon')} <span>+${monster.statPointReward}</span>
+            <div class="tcg-art-reward-badge sp" title="Reward: +${enemy.statPointReward} SP">
+              ${getResourceIcon('sp', 'chip-icon')} <span>+${enemy.statPointReward}</span>
             </div>
           </div>
-          ${monsterRaritySymbolHtml(monster, 'tcg-creature-rarity-symbol')}
+          ${enemyRaritySymbolHtml(enemy, 'tcg-enemy-rarity-symbol')}
         </div>
-        <div class="tcg-textbox tcg-creature-textbox">
-          ${monster.abilities?.length ? `<div class="tcg-pattern-row tcg-passive-row"><span class="p-turn">Passive:</span><span class="p-val">${formatMonsterAbilitiesHtml(monster.abilities)}</span></div>` : ''}
+        <div class="tcg-textbox tcg-enemy-textbox">
+          ${enemy.abilities?.length ? `<div class="tcg-pattern-row tcg-passive-row"><span class="p-turn">Passive:</span><span class="p-val">${formatEnemyAbilitiesHtml(enemy.abilities)}</span></div>` : ''}
           ${
             attackBonus > 0
               ? `<div class="tcg-active-boon-badge is-buffed-flashing" title="Temporary attack boon active">🔥 Boon: +${attackBonus} ATK</div>`
@@ -297,16 +297,16 @@ export function fullCreatureCardHtml({
                 const statList = p.randomBuff.stats.map(stat => stat.toUpperCase()).join(' / ');
                 parts.push(kwTokenHtml(`Random +<b>${p.randomBuff.amount}</b> ${statList} (${p.randomBuff.duration}t)`, GLOSSARY_TOOLTIP_TEMPLATES.buff(`Random +${p.randomBuff.amount} ${statList} for ${p.randomBuff.duration}t`)));
               }
-              if (p.summonFromMonsterDeck) {
-                const summonedName = MONSTER_TEMPLATES[p.summonFromMonsterDeck].name;
+              if (p.summonFromEnemyDeck) {
+                const summonedName = ENEMY_TEMPLATES[p.summonFromEnemyDeck].name;
                 parts.push(kwTokenHtml(`Summon (${summonedName})`, GLOSSARY_TOOLTIP_TEMPLATES.summon(summonedName)));
               }
-              if (p.summonUndeadFromMonsterDeck) {
-                parts.push(kwTokenHtml('Summon (Undead)', GLOSSARY_TOOLTIP_TEMPLATES.summon('an Undead creature')));
+              if (p.summonUndeadFromEnemyDeck) {
+                parts.push(kwTokenHtml('Summon (Undead)', GLOSSARY_TOOLTIP_TEMPLATES.summon('an Undead enemy')));
               }
-              if (p.damagePerCreatureInPlay) {
-                const allyName = MONSTER_TEMPLATES[p.damagePerCreatureInPlay.templateId].name;
-                parts.push(`+${p.damagePerCreatureInPlay.amount} per ${allyName} in play`);
+              if (p.damagePerEnemyInPlay) {
+                const allyName = ENEMY_TEMPLATES[p.damagePerEnemyInPlay.templateId].name;
+                parts.push(`+${p.damagePerEnemyInPlay.amount} per ${allyName} in play`);
               }
               if (p.damagePerHeroDebuff) {
                 parts.push(`+${p.damagePerHeroDebuff} MATK per Hero debuff`);
@@ -343,26 +343,26 @@ export function fullCreatureCardHtml({
             }).join('')}
           </div>
         </div>
-        ${creatureFooterHtml(monster, attackBonus, accBonus, evaBonus, defBonus)}
+        ${enemyFooterHtml(enemy, attackBonus, accBonus, evaBonus, defBonus)}
       </div>
     </div>`;
 }
 
-function monsterCardHtml(
-  cm: CombatMonster,
+function enemyCardHtml(
+  cm: CombatEnemy,
   index: number,
   selected: boolean,
   canTarget: boolean,
   playerAcc?: number,
   carouselClass: string = '',
-  allMonsters: CombatMonster[] = [],
+  allEnemies: CombatEnemy[] = [],
   heroDebuffCount = 0
 ): string {
-  const m = cm.monster;
+  const m = cm.enemy;
   const dead = cm.hp <= 0;
   const currentHp = dead ? 0 : cm.hp;
   const hpPct = Math.max(0, Math.min(100, Math.round((currentHp / m.maxHp) * 100)));
-  const intent = getMonsterIntent(cm, allMonsters, heroDebuffCount);
+  const intent = getEnemyIntent(cm, allEnemies, heroDebuffCount);
   const actionAttr = canTarget && !dead ? `data-action="target"` : '';
 
   const netAcc = playerAcc !== undefined ? playerAcc - ((m.eva ?? 0) + (cm.evaBonus ?? 0)) : null;
@@ -372,26 +372,26 @@ function monsterCardHtml(
     : '🎯 TARGET';
 
   return `
-  <div class="combat-monster-unit ${carouselClass} ${selected && !dead ? 'is-selected-unit selected' : ''} ${dead ? 'is-dead-unit' : ''}" data-id="${index}" ${actionAttr}>
+  <div class="combat-enemy-unit ${carouselClass} ${selected && !dead ? 'is-selected-unit selected' : ''} ${dead ? 'is-dead-unit' : ''}" data-id="${index}" ${actionAttr}>
     <div class="combat-target-header">
-      ${cm.isSummon && !dead ? '<span class="combat-summon-badge" title="Summoned Creature: Returns to discard upon defeat; awards no Gold or SP"><span class="summon-token-icon">✦</span> SUMMON</span>' : ''}
+      ${cm.isSummon && !dead ? '<span class="combat-summon-badge" title="Summoned Enemy: Returns to discard upon defeat; awards no Gold or SP"><span class="summon-token-icon">✦</span> SUMMON</span>' : ''}
       ${selected && !dead ? `<div class="combat-target-badge-top">${targetText}</div>` : '<div class="combat-target-spacer"></div>'}
-      <button type="button" class="combat-monster-info-btn" data-action="inspect-monster" data-inspect-kind="monster" data-monster-id="${m.templateId}" data-monster-index="${index}" title="Inspect ${m.name} boons & stats">&#9432;</button>
+      <button type="button" class="combat-enemy-info-btn" data-action="inspect-enemy" data-inspect-kind="enemy" data-enemy-id="${m.templateId}" data-enemy-index="${index}" title="Inspect ${m.name} boons & stats">&#9432;</button>
     </div>
-    ${fullCreatureCardHtml({
-      monster: m,
-      attackBonus: getMonsterEffectiveAtk(cm, allMonsters) - (m.atk ?? 0),
-      matkBonus: getMonsterChannelMatkBonus(cm),
+    ${fullEnemyCardHtml({
+      enemy: m,
+      attackBonus: getEnemyEffectiveAtk(cm, allEnemies) - (m.atk ?? 0),
+      matkBonus: getEnemyChannelMatkBonus(cm),
       accBonus: cm.accBonus ?? 0,
       evaBonus: cm.evaBonus ?? 0,
-      defBonus: getMonsterEffectiveDef(cm, allMonsters) - (m.def ?? 0),
+      defBonus: getEnemyEffectiveDef(cm, allEnemies) - (m.def ?? 0),
       className: `${dead ? 'is-dead' : ''} ${selected && !dead ? 'is-targeted' : ''}`,
       artOverlayHtml: `${cm.block > 0 && !dead ? `<div class="tcg-shield-overlay">&#128737; ${cm.block} Block</div>` : ''}${cm.isSummon && !dead ? '<div class="tcg-summon-token-overlay">✦ SUMMON</div>' : ''}${dead ? '<div class="tcg-dead-banner">DEFEATED</div>' : ''}`,
-      attributes: `aria-label="${m.name} Card" data-inspect-kind="monster" data-monster-id="${m.templateId}" data-monster-index="${index}"`,
+      attributes: `aria-label="${m.name} Card" data-inspect-kind="enemy" data-enemy-id="${m.templateId}" data-enemy-index="${index}"`,
     })}
 
     <!-- Interactive Combat Status Dock Below Card: NEXT Intent & Live HP Bar -->
-    <div class="creature-combat-dock ${dead ? 'is-dead' : ''}">
+    <div class="enemy-combat-dock ${dead ? 'is-dead' : ''}">
       <div class="combat-dock-row dock-intent-row">
         <span class="dock-label">NEXT:</span>
         <div class="dock-intent-val">
@@ -430,22 +430,22 @@ function monsterCardHtml(
                       ? (intent.damage > 0 || intent.block > 0 ? ' &middot; ' : '') + `Random +<b>${intent.randomBuff.amount}</b> ${intent.randomBuff.stats.map(stat => stat.toUpperCase()).join(' / ')}`
                       : ''
                   }${
-                   intent.summonFromMonsterDeck
-                     ? (intent.damage > 0 || intent.block > 0 || (intent.defBonus ?? 0) > 0 ? ' &middot; ' : '') + `Summon ${MONSTER_TEMPLATES[intent.summonFromMonsterDeck].name}`
+                   intent.summonFromEnemyDeck
+                     ? (intent.damage > 0 || intent.block > 0 || (intent.defBonus ?? 0) > 0 ? ' &middot; ' : '') + `Summon ${ENEMY_TEMPLATES[intent.summonFromEnemyDeck].name}`
                      : ''
                  }${
                    intent.heroStatDebuff ? heroHexIntentHtml(intent) : intent.heroEvaDebuff && intent.heroEvaDebuff > 0
                      ? (intent.damage > 0 || (intent.heal && intent.heal > 0) || intent.block > 0 || (intent.evaBonus && intent.evaBonus > 0) || (intent.accBonus && intent.accBonus > 0) ? ' &middot; ' : '') + `-<b>${intent.heroEvaDebuff}</b> Hero EVA (${intent.heroEvaDebuffDuration ?? 2}t)`
                      : ''
                  }${
-                    !intent.heroStatDebuff && !intent.poisonOnHit && !intent.summonFromMonsterDeck && !intent.defBonus && !intent.randomBuff && intent.damage === 0 && intent.block === 0 && (!intent.heal || intent.heal === 0) && (!intent.evaBonus || intent.evaBonus === 0) && (!intent.accBonus || intent.accBonus === 0) && (!intent.heroEvaDebuff || intent.heroEvaDebuff === 0) ? 'Idle' : ''
+                    !intent.heroStatDebuff && !intent.poisonOnHit && !intent.summonFromEnemyDeck && !intent.defBonus && !intent.randomBuff && intent.damage === 0 && intent.block === 0 && (!intent.heal || intent.heal === 0) && (!intent.evaBonus || intent.evaBonus === 0) && (!intent.accBonus || intent.accBonus === 0) && (!intent.heroEvaDebuff || intent.heroEvaDebuff === 0) ? 'Idle' : ''
                  }</span>`
           }
         </div>
       </div>
       <div class="combat-dock-row dock-hp-row">
         <span class="dock-label">HP:</span>
-        <div class="hp-bar creature-hp-bar dock-hp-bar" title="Health: ${currentHp} / ${m.maxHp} HP${cm.block > 0 && !dead ? ` (+${cm.block} Block)` : ''}">
+        <div class="hp-bar enemy-hp-bar dock-hp-bar" title="Health: ${currentHp} / ${m.maxHp} HP${cm.block > 0 && !dead ? ` (+${cm.block} Block)` : ''}">
           <div class="hp-fill" style="width: ${hpPct}%"></div>
           <span class="hp-text">${currentHp} / ${m.maxHp} HP${cm.block > 0 && !dead ? ` (+${cm.block} &#128737;)` : ''}</span>
         </div>
@@ -467,7 +467,7 @@ export function parseCombatLogEntry(entry: string): ParsedCombatLogEntry {
 
 export function renderCombatLogEntries(combatLog: string[]): string {
   if (!combatLog || combatLog.length === 0) {
-    return `<li class="combat-sidebar-empty">No combat actions yet.</li>`;
+    return `<li class="combat-sidebar-empty">No actions yet.</li>`;
   }
   return combatLog
     .slice()
@@ -486,7 +486,7 @@ export function renderCombatLogEntries(combatLog: string[]): string {
     .join('');
 }
 
-export function heroHexIntentHtml(intent: MonsterIntent): string {
+export function heroHexIntentHtml(intent: EnemyIntent): string {
   if (!intent.heroStatDebuff) return '';
   const stats = Object.entries(intent.heroStatDebuff.stats).map(([stat, value]) => `-${value} ${stat.toUpperCase()}`).join(' / ');
   return `Hero ${stats} (${intent.heroStatDebuff.duration}t)`;
@@ -502,7 +502,7 @@ export function updateHandCarouselDom(container: HTMLElement, index: number): bo
   const units = track.querySelectorAll<HTMLElement>('.hand-carousel-unit');
   const selected = getHandCarouselIndex(index, units.length);
   units.forEach((unit, i) => {
-    const position = getMonsterCarouselClass(i, selected, units.length);
+    const position = getEnemyCarouselClass(i, selected, units.length);
     unit.classList.remove('is-center', 'is-prev', 'is-next', 'is-hidden');
     unit.classList.add(position);
     unit.inert = position === 'is-hidden';
@@ -528,9 +528,9 @@ function combatHandCarousel(state: RunState, combat: ActiveCombatState, ui: UiSt
     <div class="hand-carousel" role="region" aria-roledescription="carousel" aria-label="Action cards">
       <div class="hand hand-carousel-track">
         ${count ? combat.hand.map((card, i) => {
-          const position = getMonsterCarouselClass(i, selected, count);
+          const position = getEnemyCarouselClass(i, selected, count);
           return `<div class="hand-carousel-unit ${position}" data-hand-index="${i}" role="group" aria-roledescription="slide" aria-label="${card.name}, ${i + 1} of ${count}" aria-hidden="${position === 'is-hidden'}" ${position === 'is-hidden' ? 'inert' : ''}>
-            ${combatCardHtml(card, stats, combat.playerAp >= card.apCost, 'play-card', false, state).replace('<button ', `<button tabindex="${i === selected ? 0 : -1}" `)}
+            ${actionCardHtml(card, stats, combat.playerAp >= card.apCost, 'play-card', false, state).replace('<button ', `<button tabindex="${i === selected ? 0 : -1}" `)}
             <button type="button" class="hand-preview-select" data-action="select-hand-card" data-id="${i}" aria-label="Select ${card.name}, card ${i + 1}" ${i === selected ? 'tabindex="-1"' : ''}></button>
           </div>`;
         }).join('') : '<p class="empty-hand">No cards left. End your turn to draw a new hand.</p>'}
@@ -554,12 +554,12 @@ export function combatViewHtml(
   const playerAcc = getPlayerAcc(stats, combatGear.acc) + (combat.playerAccMod ?? 0) + heroDebuffs.acc;
   const playerEva = getPlayerEva(stats, combat.playerEvasionMod + heroDebuffs.eva, combatGear.eva);
   const res = state.playerResources!;
-  const living = combat.monsters.filter((m) => m.hp > 0).length;
-  const totalMonsters = combat.monsters.length;
+  const living = combat.enemies.filter((m) => m.hp > 0).length;
+  const totalEnemies = combat.enemies.length;
   const target =
-    ui.targetIndex >= 0 && ui.targetIndex < totalMonsters
+    ui.targetIndex >= 0 && ui.targetIndex < totalEnemies
       ? ui.targetIndex
-      : (firstLivingMonsterIndex(combat) >= 0 ? firstLivingMonsterIndex(combat) : 0);
+      : (firstLivingEnemyIndex(combat) >= 0 ? firstLivingEnemyIndex(combat) : 0);
   ui.targetIndex = target;
   const heroDebuffCount = (combat.heroStatDebuffs ?? []).filter((effect) => effect.turnsRemaining > 0).length
     + (state.statusEffects?.length ?? 0)
@@ -568,32 +568,32 @@ export function combatViewHtml(
   return `
   <section class="combat-view combat-component" aria-label="Battle Area">
     <div class="combat-main-col">
-      <div class="monster-carousel">
-        <div class="monster-carousel-track">
-          ${combat.monsters
+      <div class="enemy-carousel">
+        <div class="enemy-carousel-track">
+          ${combat.enemies
             .map((cm, i) => {
-              const posClass = getMonsterCarouselClass(i, target, totalMonsters);
-              return monsterCardHtml(cm, i, i === target, living > 1, playerAcc, posClass, combat.monsters, heroDebuffCount);
+              const posClass = getEnemyCarouselClass(i, target, totalEnemies);
+              return enemyCardHtml(cm, i, i === target, living > 1, playerAcc, posClass, combat.enemies, heroDebuffCount);
             })
             .join('')}
         </div>
         ${
-          totalMonsters > 1
+          totalEnemies > 1
             ? `
-        <button type="button" class="monster-carousel-nav prev" data-action="prev-target" title="Previous Target (Press A or Left Arrow)" aria-label="Previous Target" ${
+        <button type="button" class="enemy-carousel-nav prev" data-action="prev-target" title="Previous Target (Press A or Left Arrow)" aria-label="Previous Target" ${
                 living <= 1 ? 'disabled' : ''
               }>&#10094;</button>
-        <button type="button" class="monster-carousel-nav next" data-action="next-target" title="Next Target (Press D or Right Arrow)" aria-label="Next Target" ${
+        <button type="button" class="enemy-carousel-nav next" data-action="next-target" title="Next Target (Press D or Right Arrow)" aria-label="Next Target" ${
                 living <= 1 ? 'disabled' : ''
               }>&#10095;</button>`
             : ''
         }
       </div>
-      <p class="monster-carousel-instructions">
+      <p class="enemy-carousel-instructions">
         ${
           living > 1
-            ? 'Traverse targets with <b>A</b> or <b>D</b>. You can also use the <b>LEFT</b> and <b>RIGHT</b> keys. Tap a monster to target it with attacks.'
-            : 'Tap a monster to target it with attacks.'
+            ? 'Traverse targets with <b>A</b> or <b>D</b>. You can also use the <b>LEFT</b> and <b>RIGHT</b> keys. Tap an enemy to target it with attacks.'
+            : 'Tap an enemy to target it with attacks.'
         }
       </p>
       <div class="player-line">
@@ -614,9 +614,9 @@ export function combatViewHtml(
       </section>` : ''}
       <div class="combat-actions">
         <button class="btn secondary flee-btn" data-action="flee-card" ${
-          combat.playerAp < FLEE_AP_COST || combat.monsters.some((m) => m.monster.isBoss) ? 'disabled' : ''
+          combat.playerAp < FLEE_AP_COST || combat.enemies.some((m) => m.enemy.isBoss) ? 'disabled' : ''
         } title="${
-          combat.monsters.some((m) => m.monster.isBoss)
+          combat.enemies.some((m) => m.enemy.isBoss)
             ? 'Cannot flee a Boss encounter'
             : combat.playerAp < FLEE_AP_COST
             ? `Need ${FLEE_AP_COST} AP to attempt fleeing`
@@ -638,13 +638,13 @@ export function fleeConfirmModal(state: RunState, combat: ActiveCombatState, sta
   const heroDebuffs = getHeroStatDebuffMods(combat);
   const playerEva = getPlayerEva(stats, combat.playerEvasionMod + heroDebuffs.eva, combatGear.eva);
 
-  const livingMonsters = combat.monsters.filter((m) => m.hp > 0);
-  const totalEnemyAcc = livingMonsters.reduce((sum, m) => sum + (m.monster.acc ?? 0), 0);
+  const livingEnemies = combat.enemies.filter((m) => m.hp > 0);
+  const totalEnemyAcc = livingEnemies.reduce((sum, m) => sum + (m.enemy.acc ?? 0), 0);
   const netFlee = playerEva - totalEnemyAcc;
 
   const prob = computeHitProbability(netFlee);
   const tierNum = Math.max(1, Math.min(7, 4 + netFlee));
-  const enemyAccBreakdown = livingMonsters.map((m) => `${m.monster.name} (${m.monster.acc ?? 0} ACC)`).join(' + ');
+  const enemyAccBreakdown = livingEnemies.map((m) => `${m.enemy.name} (${m.enemy.acc ?? 0} ACC)`).join(' + ');
 
   return `
   <div class="modal-backdrop combat-confirm-backdrop" data-action="cancel-flee-backdrop">
@@ -658,7 +658,7 @@ export function fleeConfirmModal(state: RunState, combat: ActiveCombatState, sta
           <div class="confirm-card-comparison">
             <div class="confirm-card-col source">
               <div class="col-header-badge source-badge">Permanent Action (${FLEE_AP_COST} AP)</div>
-              <div class="confirm-card-frame">${combatCardHtml(fleeCard, stats, true, 'noop', false, state)}</div>
+              <div class="confirm-card-frame">${actionCardHtml(fleeCard, stats, true, 'noop', false, state)}</div>
             </div>
           </div>
         </div>
@@ -674,7 +674,7 @@ export function fleeConfirmModal(state: RunState, combat: ActiveCombatState, sta
               <div class="confirm-chip">
                 <span class="chip-label">Foes Total ACC</span>
                 <span class="chip-value">🎯 <b>${totalEnemyAcc}</b></span>
-                <span class="chip-sub" title="${enemyAccBreakdown}">${livingMonsters.length} living ${livingMonsters.length === 1 ? 'foe' : 'foes'}</span>
+                <span class="chip-sub" title="${enemyAccBreakdown}">${livingEnemies.length} living ${livingEnemies.length === 1 ? 'foe' : 'foes'}</span>
               </div>
               <span class="chip-operator">=</span>
               <div class="confirm-chip net-acc">
@@ -727,7 +727,7 @@ function heroTargetCardHtml(state: RunState, combat: ActiveCombatState, stats: C
   const illustration = getAdventurerRasterArtPath(state.playerClass);
 
   return `
-  <div class="tcg-card tcg-creature tcg-template-hero" aria-label="Hero Card">
+  <div class="tcg-card tcg-enemy tcg-template-hero" aria-label="Hero Card">
     <div class="tcg-inner-frame">
       <div class="tcg-art-window">
         <img src="${illustration}" alt="${className} Hero" class="tcg-art-raster" />
@@ -892,20 +892,20 @@ export function combatConfirmModal(
   const requiredDiscards = card.discardMode === 'exact' ? (card.discardCount ?? 0) : null;
   const canConfirmDiscard = requiredDiscards === null || selectedDiscardIds.length === requiredDiscards;
 
-  const livingMonsters = combat.monsters
+  const livingEnemies = combat.enemies
     .map((m, idx) => ({ m, idx }))
     .filter(({ m }) => m.hp > 0);
 
   const targetIdx =
-    combat.monsters[pending.targetIndex] && combat.monsters[pending.targetIndex].hp > 0
+    combat.enemies[pending.targetIndex] && combat.enemies[pending.targetIndex].hp > 0
       ? pending.targetIndex
-      : (livingMonsters[0]?.idx ?? 0);
+      : (livingEnemies[0]?.idx ?? 0);
 
-  const targetMonster = combat.monsters[targetIdx];
+  const targetEnemy = combat.enemies[targetIdx];
   const targetName = card.targetMode === 'all_enemies'
     ? 'All Living Enemies'
     : isAttack
-    ? (targetMonster ? targetMonster.monster.name : 'Target')
+    ? (targetEnemy ? targetEnemy.enemy.name : 'Target')
     : `${getPlayerClassName(state.playerClass)} (Hero)`;
 
   const cardAccBonus = card.accBonus ?? 0;
@@ -913,12 +913,12 @@ export function combatConfirmModal(
   const playerAccMod = (combat.playerAccMod ?? 0) + heroDebuffs.acc;
   const baseAcc = getPlayerAcc(stats, combatGear.acc);
   const totalAcc = baseAcc + cardAccBonus + playerAccMod;
-  const targetEva = (targetMonster?.monster.eva ?? 0) + (targetMonster?.evaBonus ?? 0);
+  const targetEva = (targetEnemy?.enemy.eva ?? 0) + (targetEnemy?.evaBonus ?? 0);
   const netAcc = totalAcc - targetEva;
   const prob = computeHitProbability(netAcc);
 
-  const allTargetOdds = livingMonsters.map(({ m, idx }) => {
-    const eva = (m.monster.eva ?? 0) + (m.evaBonus ?? 0);
+  const allTargetOdds = livingEnemies.map(({ m, idx }) => {
+    const eva = (m.enemy.eva ?? 0) + (m.evaBonus ?? 0);
     const targetNetAcc = totalAcc - eva;
     const targetProb = computeHitProbability(targetNetAcc);
     return { m, idx, eva, netAcc: targetNetAcc, minHitRoll: targetProb.minHitRoll, probability: targetProb };
@@ -928,20 +928,20 @@ export function combatConfirmModal(
     ? `<div class="confirm-all-targets-grid">${allTargetOdds.map(({ m, idx, minHitRoll: roll, probability }) => `
         <article class="confirm-all-target-card">
           <div class="confirm-all-target-card-frame">
-            ${fullCreatureCardHtml({
-              monster: m.monster,
+            ${fullEnemyCardHtml({
+              enemy: m.enemy,
               attackBonus: m.attackBonus ?? 0,
               accBonus: m.accBonus ?? 0,
               evaBonus: m.evaBonus ?? 0,
               defBonus: m.defBonus ?? 0,
               className: 'is-targeted',
-              attributes: `data-inspect-kind="monster" data-monster-id="${m.monster.templateId}" data-monster-index="${idx}"`,
+              attributes: `data-inspect-kind="enemy" data-enemy-id="${m.enemy.templateId}" data-enemy-index="${idx}"`,
             })}
           </div>
-          <div class="confirm-all-target-odds"><b>${m.monster.name}</b><span>Hit ${roll}–${probability.maxHitRoll} · ${probability.hitPercent}%</span></div>
+          <div class="confirm-all-target-odds"><b>${m.enemy.name}</b><span>Hit ${roll}–${probability.maxHitRoll} · ${probability.hitPercent}%</span></div>
         </article>`).join('')}</div>`
-    : isAttack && targetMonster
-    ? monsterCardHtml(targetMonster, targetIdx, true, false, totalAcc, '', combat.monsters)
+    : isAttack && targetEnemy
+    ? enemyCardHtml(targetEnemy, targetIdx, true, false, totalAcc, '', combat.enemies)
     : heroTargetCardHtml(state, combat, stats);
 
   return `
@@ -958,7 +958,7 @@ export function combatConfirmModal(
         <div class="confirm-card-col source">
           <div class="col-header-badge source-badge">Source Action (${card.apCost} AP)</div>
           <div class="confirm-card-frame">
-            ${combatCardHtml(card, stats, true, 'noop', false, state)}
+            ${actionCardHtml(card, stats, true, 'noop', false, state)}
           </div>
         </div>
 
@@ -968,7 +968,7 @@ export function combatConfirmModal(
         </div>
 
         <div class="confirm-card-col target ${card.targetMode === 'all_enemies' ? 'is-all-targets' : ''}">
-          <div class="col-header-badge target-badge">${card.targetMode === 'all_enemies' ? 'All Target Creatures · Separate Hit Checks' : isAttack ? 'Target Creature' : 'Target (Self)'}</div>
+          <div class="col-header-badge target-badge">${card.targetMode === 'all_enemies' ? 'All Target Enemies · Separate Hit Checks' : isAttack ? 'Target Enemy' : 'Target (Self)'}</div>
           <div class="confirm-card-frame">
             ${targetCardHtml}
           </div>
@@ -1014,7 +1014,7 @@ export function combatConfirmModal(
           <div class="confirm-chip eva">
             <span class="chip-label">Target EVA</span>
             <span class="chip-value">${getDerivedStatIcon('eva', 'chip-icon')} <b>${targetEva}</b></span>
-            <span class="chip-sub">${targetMonster?.monster.name ?? 'Creature'}</span>
+            <span class="chip-sub">${targetEnemy?.enemy.name ?? 'Enemy'}</span>
           </div>
           <span class="chip-operator">&equals;</span>
           <div class="confirm-chip net">
@@ -1055,7 +1055,7 @@ export function combatConfirmModal(
         <div class="multitarget-odds-list">
           ${allTargetOdds.map(({ m, eva, netAcc: targetNet, probability }) => `
             <div class="multitarget-odds-row">
-              <b>${m.monster.name}</b>
+              <b>${m.enemy.name}</b>
               <span>ACC ${totalAcc} − EVA ${eva} = ${targetNet >= 0 ? '+' : ''}${targetNet}</span>
               <span>Hit <b>${probability.minHitRoll}–${probability.maxHitRoll}</b></span>
               <strong>${probability.hitPercent}%</strong>
@@ -1085,7 +1085,7 @@ export function combatConfirmModal(
           <div class="confirm-chip eva">
             <span class="chip-label">Combat EVA</span>
             <span class="chip-value">${getDerivedStatIcon('eva', 'chip-icon')} +<b>${effect.evasionBonus}</b></span>
-            <span class="chip-sub">raises monster needed roll</span>
+            <span class="chip-sub">raises enemy needed roll</span>
           </div>`
               : ''
           }

@@ -12,14 +12,14 @@ import {
 import {
   ActiveCombatState,
   CombatAttackRollSummary,
-  CombatMonster,
+  CombatEnemy,
   RunState,
 } from '../types';
 import { PLAYER_HAND_SIZE } from './constants';
 import { applyIntentHeroStatDebuff, getHeroDamageTakenDebuff, getHeroStatDebuffMods } from './debuffs';
-import { getMonsterIntent, summonMonsterFromDeckOrDiscard } from './monsters';
+import { getEnemyIntent, summonEnemyFromDeckOrDiscard } from './enemies';
 import { evaluateAttackRoll } from './rolls';
-import { drawCombatCards, formatDrawEventsToLog } from './session';
+import { drawActionCards, formatDrawEventsToLog } from './session';
 
 export function endPlayerCombatTurn(state: RunState): RunState {
   if (state.activeHook.type !== 'COMBAT' || !state.playerResources) {
@@ -35,8 +35,8 @@ export function endPlayerCombatTurn(state: RunState): RunState {
   let nextPlayerPoison = combat.playerPoison ?? null;
   let playerBlock = combat.playerBlock;
   let killedBy: string | null = null;
-  let lastMonsterAttackRoll: CombatAttackRollSummary | undefined = undefined;
-  const monsterAttackRolls: CombatAttackRollSummary[] = [];
+  let lastEnemyAttackRoll: CombatAttackRollSummary | undefined = undefined;
+  const enemyAttackRolls: CombatAttackRollSummary[] = [];
 
   const nextRoundAccMod = 0;
   const nextRoundVulnerableMod = 0;
@@ -57,23 +57,23 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     }
   }
 
-  const monsters: CombatMonster[] = combat.monsters.map((m) => ({ ...m }));
+  const enemies: CombatEnemy[] = combat.enemies.map((m) => ({ ...m }));
 
   const activeHexes = (combat.heroStatDebuffs ?? []).map(effect => ({ ...effect }));
   let nextHexes = activeHexes.map(effect => ({ ...effect, turnsRemaining: effect.turnsRemaining - 1 }))
     .filter(effect => effect.turnsRemaining > 0);
 
-  const monsterDeck = [...state.monsterDeck];
-  const monsterDiscard = [...state.monsterDiscard];
+  const enemyDeck = [...state.enemyDeck];
+  const enemyDiscard = [...state.enemyDiscard];
 
-  for (const cm of [...monsters]) {
+  for (const cm of [...enemies]) {
     if (cm.hp <= 0) continue;
 
-    if (cm.monster.templateId === 'king_nezenheim') {
+    if (cm.enemy.templateId === 'king_nezenheim') {
       let healedCount = 0;
-      for (const target of monsters) {
-        if (target.hp > 0 && target.monster.creatureType?.toLowerCase().includes('undead')) {
-          const heal = Math.min(target.monster.maxHp - target.hp, 3);
+      for (const target of enemies) {
+        if (target.hp > 0 && target.enemy.enemyType?.toLowerCase().includes('undead')) {
+          const heal = Math.min(target.enemy.maxHp - target.hp, 3);
           if (heal > 0) {
             target.hp += heal;
             healedCount++;
@@ -82,7 +82,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       }
       if (healedCount > 0) {
         logEntries.push(
-          `[${createTimestamp(state.logTimestamp)}] 👑 ${cm.monster.name}'s Unholy Aura pulses with dark life, restoring 3 HP to all undead allies!`
+          `[${createTimestamp(state.logTimestamp)}] 👑 ${cm.enemy.name}'s Unholy Aura pulses with dark life, restoring 3 HP to all undead allies!`
         );
       }
     }
@@ -97,16 +97,16 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     cm.defBonusTurns = Math.max(0, (cm.defBonusTurns ?? 0) - 1);
     if (cm.attackBonusTurns === 0) cm.attackBonus = 0;
     if (cm.defBonusTurns === 0) cm.defBonus = 0;
-    if (cm.monster.regenOnStart && cm.hp > 0 && cm.hp < cm.monster.maxHp) {
-      const regenAmt = Math.min(cm.monster.maxHp - cm.hp, cm.monster.regenOnStart);
+    if (cm.enemy.regenOnStart && cm.hp > 0 && cm.hp < cm.enemy.maxHp) {
+      const regenAmt = Math.min(cm.enemy.maxHp - cm.hp, cm.enemy.regenOnStart);
       cm.hp += regenAmt;
-      logEntries.push(`[${createTimestamp(state.logTimestamp)}] 💚 ${cm.monster.name} — Regen: gains +${regenAmt} HP on activation (${cm.hp}/${cm.monster.maxHp} HP).`);
+      logEntries.push(`[${createTimestamp(state.logTimestamp)}] 💚 ${cm.enemy.name} — Regen: gains +${regenAmt} HP on activation (${cm.hp}/${cm.enemy.maxHp} HP).`);
     }
     const activeNegativeEffectCount = activeHexes.filter((effect) => effect.turnsRemaining > 0).length
       + (state.statusEffects?.length ?? 0)
       + (currentEvaDebuffTurns > 0 ? 1 : 0);
-    const intent = getMonsterIntent(cm, monsters, activeNegativeEffectCount);
-    const name = cm.monster.name;
+    const intent = getEnemyIntent(cm, enemies, activeNegativeEffectCount);
+    const name = cm.enemy.name;
 
     cm.block = intent.block;
     if (intent.defBonus && intent.defBonus !== 0) {
@@ -119,8 +119,8 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       );
     }
     let healedAmount = 0;
-    if (intent.heal && intent.heal > 0 && cm.hp < cm.monster.maxHp) {
-      healedAmount = Math.min(cm.monster.maxHp - cm.hp, intent.heal);
+    if (intent.heal && intent.heal > 0 && cm.hp < cm.enemy.maxHp) {
+      healedAmount = Math.min(cm.enemy.maxHp - cm.hp, intent.heal);
       cm.hp += healedAmount;
     }
 
@@ -128,9 +128,9 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       const blockPart = intent.block > 0 ? ` and gains +${intent.block} Block` : '';
       const healPart =
         healedAmount > 0
-          ? `restores +${healedAmount} HP (${cm.hp}/${cm.monster.maxHp} HP)`
-          : `is already at full health (${cm.hp}/${cm.monster.maxHp} HP)`;
-      const healIcon = cm.monster.templateId === 'zombie' ? '🧟' : '💚';
+          ? `restores +${healedAmount} HP (${cm.hp}/${cm.enemy.maxHp} HP)`
+          : `is already at full health (${cm.hp}/${cm.enemy.maxHp} HP)`;
+      const healIcon = cm.enemy.templateId === 'zombie' ? '🧟' : '💚';
       logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${healIcon} ${name} ${healPart}${blockPart}.`);
     } else if (intent.block > 0) {
       logEntries.push(`[${createTimestamp(state.logTimestamp)}] 🛡️ ${name} gains +${intent.block} Block.`);
@@ -139,68 +139,68 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     if (intent.reviveEvery && intent.reviveTemplateId) {
       cm.channelCount = (cm.channelCount ?? 0) + 1;
       if (cm.channelCount % intent.reviveEvery === 0) {
-        const index = monsterDiscard.findIndex(m => m.templateId === intent.reviveTemplateId);
+        const index = enemyDiscard.findIndex(m => m.templateId === intent.reviveTemplateId);
         if (index >= 0) {
-          const [revived] = monsterDiscard.splice(index, 1);
-          monsters.push({ monster: revived, hp: revived.maxHp, block: revived.startingBlock ?? 0, patternIndex: 0 });
-          logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} returns ${revived.name} from the monster discard pile at full HP. It acts next round.`);
+          const [revived] = enemyDiscard.splice(index, 1);
+          enemies.push({ enemy: revived, hp: revived.maxHp, block: revived.startingBlock ?? 0, patternIndex: 0 });
+          logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} returns ${revived.name} from the enemy discard pile at full HP. It acts next round.`);
         } else {
-          logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name}: no Zombie in the monster discard pile to revive.`);
+          logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name}: no Zombie in the enemy discard pile to revive.`);
         }
       }
     }
 
-    if (intent.summonFromMonsterDeck) {
-      rngState = summonMonsterFromDeckOrDiscard({
-        templateId: intent.summonFromMonsterDeck,
-        fallbackTemplateId: intent.returnDiscardToMonsterDeckOnMiss,
+    if (intent.summonFromEnemyDeck) {
+      rngState = summonEnemyFromDeckOrDiscard({
+        templateId: intent.summonFromEnemyDeck,
+        fallbackTemplateId: intent.returnDiscardToEnemyDeckOnMiss,
         summonerName: name,
-        monsterDeck,
-        monsterDiscard,
-        monsters,
+        enemyDeck,
+        enemyDiscard,
+        enemies,
         rngState,
         logTimestamp: state.logTimestamp,
         logEntries,
       });
     }
 
-    if (intent.summonUndeadFromMonsterDeck) {
-      const undeadIndices = monsterDeck
-        .map((m, idx) => (m.creatureType?.toLowerCase().includes('undead') ? idx : -1))
+    if (intent.summonUndeadFromEnemyDeck) {
+      const undeadIndices = enemyDeck
+        .map((m, idx) => (m.enemyType?.toLowerCase().includes('undead') ? idx : -1))
         .filter(idx => idx >= 0);
       if (undeadIndices.length > 0) {
         const pickRes = rollInt(rngState, 0, undeadIndices.length - 1);
         rngState = pickRes.nextState;
         const targetIndex = undeadIndices[pickRes.roll];
-        const [summoned] = monsterDeck.splice(targetIndex, 1);
-        monsters.push({
-          monster: summoned,
+        const [summoned] = enemyDeck.splice(targetIndex, 1);
+        enemies.push({
+          enemy: summoned,
           hp: summoned.maxHp,
           block: summoned.startingBlock ?? 0,
           patternIndex: 0,
           undyingTokensRemaining: summoned.undyingTokens,
           isSummon: true,
         });
-        const shuffleRes = shuffleArray(monsterDeck, rngState);
-        monsterDeck.length = 0;
-        monsterDeck.push(...shuffleRes.shuffled);
+        const shuffleRes = shuffleArray(enemyDeck, rngState);
+        enemyDeck.length = 0;
+        enemyDeck.push(...shuffleRes.shuffled);
         rngState = shuffleRes.nextState;
         logEntries.push(
-          `[${createTimestamp(state.logTimestamp)}] 👑 ${name} summoned ${summoned.name} (Undead) from the Monster Deck into play! It acts next round.`
+          `[${createTimestamp(state.logTimestamp)}] 👑 ${name} summoned ${summoned.name} (Undead) from the Enemy Deck into play! It acts next round.`
         );
       } else {
-        const fallbackIndex = intent.returnUndeadDiscardToMonsterDeckOnMiss
-          ? monsterDiscard.findIndex(m => m.creatureType?.toLowerCase().includes('undead'))
+        const fallbackIndex = intent.returnUndeadDiscardToEnemyDeckOnMiss
+          ? enemyDiscard.findIndex(m => m.enemyType?.toLowerCase().includes('undead'))
           : -1;
         if (fallbackIndex >= 0) {
-          const [returned] = monsterDiscard.splice(fallbackIndex, 1);
-          monsterDeck.unshift(returned);
+          const [returned] = enemyDiscard.splice(fallbackIndex, 1);
+          enemyDeck.unshift(returned);
           logEntries.push(
-            `[${createTimestamp(state.logTimestamp)}] 👑 ${name}'s summon finds no Undead in the Monster Deck. Retrieved ${returned.name} from the Monster Discard (FIFO) and placed it on top of the Monster Deck.`
+            `[${createTimestamp(state.logTimestamp)}] 👑 ${name}'s summon finds no Undead in the Enemy Deck. Retrieved ${returned.name} from the Enemy Discard (FIFO) and placed it on top of the Enemy Deck.`
           );
         } else {
           logEntries.push(
-            `[${createTimestamp(state.logTimestamp)}] 👑 ${name}'s summon finds no Undead in the Monster Deck or Discard.`
+            `[${createTimestamp(state.logTimestamp)}] 👑 ${name}'s summon finds no Undead in the Enemy Deck or Discard.`
           );
         }
       }
@@ -245,39 +245,39 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       );
     }
 
-    if (cm.monster.templateId === 'troll_healer' && cm.hp > 0) {
-      const livingTrolls = monsters.filter(
+    if (cm.enemy.templateId === 'troll_healer' && cm.hp > 0) {
+      const livingTrolls = enemies.filter(
         (m) =>
           m.hp > 0 &&
-          (m.monster.creatureType?.toLowerCase().includes('troll') ||
-            m.monster.name.toLowerCase().includes('troll') ||
-            m.monster.templateId?.startsWith('troll'))
+          (m.enemy.enemyType?.toLowerCase().includes('troll') ||
+            m.enemy.name.toLowerCase().includes('troll') ||
+            m.enemy.templateId?.startsWith('troll'))
       );
-      const damagedTrolls = livingTrolls.filter((m) => m.hp < m.monster.maxHp);
+      const damagedTrolls = livingTrolls.filter((m) => m.hp < m.enemy.maxHp);
       if (damagedTrolls.length > 0) {
         const rollRes = rollInt(rngState, 0, damagedTrolls.length - 1);
         rngState = rollRes.nextState;
         const targetTroll = damagedTrolls[rollRes.roll];
-        const healAmt = Math.min(10, targetTroll.monster.maxHp - targetTroll.hp);
+        const healAmt = Math.min(10, targetTroll.enemy.maxHp - targetTroll.hp);
         targetTroll.hp += healAmt;
         logEntries.push(
-          `[${createTimestamp(state.logTimestamp)}] 🌿 ${name} casts Troll Mending: restored +${healAmt} HP to ${targetTroll.monster.name} (${targetTroll.hp}/${targetTroll.monster.maxHp} HP).`
+          `[${createTimestamp(state.logTimestamp)}] 🌿 ${name} casts Troll Mending: restored +${healAmt} HP to ${targetTroll.enemy.name} (${targetTroll.hp}/${targetTroll.enemy.maxHp} HP).`
         );
       } else if (livingTrolls.length > 0) {
         const rollRes = rollInt(rngState, 0, livingTrolls.length - 1);
         rngState = rollRes.nextState;
         const targetTroll = livingTrolls[rollRes.roll];
         logEntries.push(
-          `[${createTimestamp(state.logTimestamp)}] 🌿 ${name} casts Troll Mending on ${targetTroll.monster.name}, but wounds are already fully healed (${targetTroll.hp}/${targetTroll.monster.maxHp} HP).`
+          `[${createTimestamp(state.logTimestamp)}] 🌿 ${name} casts Troll Mending on ${targetTroll.enemy.name}, but wounds are already fully healed (${targetTroll.hp}/${targetTroll.enemy.maxHp} HP).`
         );
       }
     }
 
-    if (cm.monster.templateId === 'troll_hexer' && intent.label === 'Troll Hex' && cm.hp > 0 && killedBy === null) {
+    if (cm.enemy.templateId === 'troll_hexer' && intent.label === 'Troll Hex' && cm.hp > 0 && killedBy === null) {
       const hexRoll = rollInt(rngState, 1, 3);
       rngState = hexRoll.nextState;
       const effectBase = {
-        sourceId: `${cm.monster.id}:troll-hex:${combat.combatTurn}:${activeHexes.length}`,
+        sourceId: `${cm.enemy.id}:troll-hex:${combat.combatTurn}:${activeHexes.length}`,
         turnsRemaining: 5,
       };
       let effect;
@@ -313,7 +313,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     }
 
     if (intent.heroStatDebuff && !intent.heroStatDebuffOnHit && killedBy === null) {
-      const applied = applyIntentHeroStatDebuff(activeHexes, nextHexes, cm.monster.id, intent);
+      const applied = applyIntentHeroStatDebuff(activeHexes, nextHexes, cm.enemy.id, intent);
       if (applied) {
         nextHexes = applied.nextEffects;
         const changes = Object.entries(applied.effect.stats).map(([stat, amount]) => `-${amount} ${stat.toUpperCase()}`).join(', ');
@@ -333,10 +333,10 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       (!intent.defBonus || intent.defBonus === 0) &&
       (!intent.heroEvaDebuff || intent.heroEvaDebuff === 0) &&
       !intent.randomBuff &&
-      !intent.summonFromMonsterDeck &&
-      !intent.summonUndeadFromMonsterDeck &&
-      cm.monster.templateId !== 'troll_healer' &&
-      cm.monster.templateId !== 'troll_hexer'
+      !intent.summonFromEnemyDeck &&
+      !intent.summonUndeadFromEnemyDeck &&
+      cm.enemy.templateId !== 'troll_healer' &&
+      cm.enemy.templateId !== 'troll_hexer'
     ) {
       logEntries.push(`[${createTimestamp(state.logTimestamp)}] ⏳ ${name} did nothing.`);
     }
@@ -352,7 +352,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       }
       for (let hitIndex = 0; hitIndex < hitDamages.length && killedBy === null; hitIndex++) {
         const hitDmg = hitDamages[hitIndex];
-        const monsterAcc = (cm.monster.acc ?? 1) + (cm.accBonus ?? 0);
+        const enemyAcc = (cm.enemy.acc ?? 1) + (cm.accBonus ?? 0);
         const effectiveStats = getEffectiveStatsFromState(state);
         const gearCombat = computeCombatGearBonuses(state.equippedGear);
         const defenseType = intent.damageType === 'magical' ? 'MDEF' : 'DEF';
@@ -361,7 +361,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
         const heroMagicalDef = Math.max(0, getPlayerMdef(effectiveStats, gearCombat.mdef, state.divineProtection ?? 0) + hexMods.mdef);
         const heroDef = intent.damageType === 'magical' ? heroMagicalDef : heroPhysicalDef;
         const playerEva = getPlayerEva(effectiveStats, combat.playerEvasionMod + hexMods.eva, gearCombat.eva);
-        const attackRoll = evaluateAttackRoll(rngState, monsterAcc, playerEva);
+        const attackRoll = evaluateAttackRoll(rngState, enemyAcc, playerEva);
         rngState = attackRoll.nextState;
 
         let damageDealt = 0;
@@ -387,7 +387,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
             logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} inflicts Poison on Hero (1 HP damage after each End Turn; does not stack).`);
           }
           if (intent.heroStatDebuffOnHit && intent.heroStatDebuff && !onHitDebuffApplied) {
-            const applied = applyIntentHeroStatDebuff(activeHexes, nextHexes, cm.monster.id, intent);
+            const applied = applyIntentHeroStatDebuff(activeHexes, nextHexes, cm.enemy.id, intent);
             if (applied) {
               nextHexes = applied.nextEffects;
               onHitDebuffApplied = true;
@@ -440,19 +440,19 @@ export function endPlayerCombatTurn(state: RunState): RunState {
           if (playerHp <= 0) killedBy = name;
 
           const isLifesteal =
-            cm.monster.abilities.some((a) => a.toLowerCase().includes('lifesteal'));
-          if ((isLifesteal || intent.drainFraction) && damageDealt > 0 && cm.hp < cm.monster.maxHp) {
+            cm.enemy.abilities.some((a) => a.toLowerCase().includes('lifesteal'));
+          if ((isLifesteal || intent.drainFraction) && damageDealt > 0 && cm.hp < cm.enemy.maxHp) {
             const rawHeal = (intent.drainFraction ? actualHpDamage : damageDealt) * (intent.drainFraction ?? 1);
             const scaledHeal = intent.drainRound === 'ceil' ? Math.ceil(rawHeal) : Math.floor(rawHeal);
-            const healAmount = Math.min(cm.monster.maxHp - cm.hp, scaledHeal);
+            const healAmount = Math.min(cm.enemy.maxHp - cm.hp, scaledHeal);
             cm.hp += healAmount;
             logEntries.push(
-              `[${createTimestamp(state.logTimestamp)}] 🩸 ${name} drains life and restores +${healAmount} HP! (${cm.hp}/${cm.monster.maxHp} HP)`
+              `[${createTimestamp(state.logTimestamp)}] 🩸 ${name} drains life and restores +${healAmount} HP! (${cm.hp}/${cm.enemy.maxHp} HP)`
             );
           }
         }
 
-        lastMonsterAttackRoll = {
+        lastEnemyAttackRoll = {
           attackerName: name,
           targetName: 'Hero',
           actionName: 'Attack',
@@ -472,13 +472,13 @@ export function endPlayerCombatTurn(state: RunState): RunState {
           damageDefReduced: defReduction,
           damageProtReduced: 0,
         };
-        monsterAttackRolls.push(lastMonsterAttackRoll);
+        enemyAttackRolls.push(lastEnemyAttackRoll);
       }
     }
-    if (cm.monster.endTurnRegen && cm.hp > 0) {
-      const restored = Math.min(cm.monster.endTurnRegen, cm.monster.maxHp - cm.hp);
+    if (cm.enemy.endTurnRegen && cm.hp > 0) {
+      const restored = Math.min(cm.enemy.endTurnRegen, cm.enemy.maxHp - cm.hp);
       cm.hp += restored;
-      logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} regenerates ${restored} HP at end of turn (${cm.hp}/${cm.monster.maxHp} HP).`);
+      logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${name} regenerates ${restored} HP at end of turn (${cm.hp}/${cm.enemy.maxHp} HP).`);
     }
     if (cm.hp > 0) {
       if (cm.channelStacks && cm.channelStacks.length > 0) {
@@ -486,13 +486,13 @@ export function endPlayerCombatTurn(state: RunState): RunState {
           .map(s => (s.turnsRemaining !== undefined ? { ...s, turnsRemaining: s.turnsRemaining - 1 } : s))
           .filter(s => s.turnsRemaining === undefined || s.turnsRemaining > 0);
       }
-      if (cm.monster.channel) {
+      if (cm.enemy.channel) {
         cm.channelStacks = [
           ...(cm.channelStacks ?? []),
-          { amount: cm.monster.channel.amount, turnsRemaining: cm.monster.channel.duration },
+          { amount: cm.enemy.channel.amount, turnsRemaining: cm.enemy.channel.duration },
         ];
         logEntries.push(
-          `[${createTimestamp(state.logTimestamp)}] ✨ ${name} — Channel: gains +${cm.monster.channel.amount} MATK${cm.monster.channel.duration ? ` for ${cm.monster.channel.duration} turns` : ''}.`
+          `[${createTimestamp(state.logTimestamp)}] ✨ ${name} — Channel: gains +${cm.enemy.channel.amount} MATK${cm.enemy.channel.duration ? ` for ${cm.enemy.channel.duration} turns` : ''}.`
         );
       }
     }
@@ -534,16 +534,16 @@ export function endPlayerCombatTurn(state: RunState): RunState {
     return syncAudioState({
       ...state,
       rngState,
-      monsterDeck,
-      monsterDiscard,
+      enemyDeck,
+      enemyDiscard,
       statusEffects,
       playerResources: { ...state.playerResources, hp: 0 },
-      activeHook: { type: 'ON_GAME_OVER', turn: state.turn, defeatedBy: killedBy, lastAttackRolls: monsterAttackRolls },
+      activeHook: { type: 'ON_GAME_OVER', turn: state.turn, defeatedBy: killedBy, lastAttackRolls: enemyAttackRolls },
       bannerMessage: `You were defeated by ${killedBy} on Turn ${state.turn}.`,
     });
   }
 
-  const nextDraw = drawCombatCards(
+  const nextDraw = drawActionCards(
     combat.drawPile,
     [...combat.discardPile, ...combat.hand],
     PLAYER_HAND_SIZE,
@@ -560,7 +560,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
 
   const nextCombat: ActiveCombatState = {
     ...combat,
-    monsters,
+    enemies,
     combatTurn: combat.combatTurn + 1,
     playerAp: maxAp + carryoverAp,
     playerMaxAp: maxAp,
@@ -579,16 +579,16 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       ...logEntries,
       ...formatDrawEventsToLog(nextDraw.events, `Combat Turn ${combat.combatTurn + 1}`, state.logTimestamp),
     ],
-    lastAttackRoll: lastMonsterAttackRoll,
-    lastAttackRolls: monsterAttackRolls,
+    lastAttackRoll: lastEnemyAttackRoll,
+    lastAttackRolls: enemyAttackRolls,
     lastFleeRoll: undefined,
   };
 
   return syncAudioState({
     ...state,
     rngState: nextDraw.nextState,
-    monsterDeck,
-    monsterDiscard,
+    enemyDeck,
+    enemyDiscard,
     statusEffects,
     playerResources: { ...state.playerResources, hp: playerHp },
     activeHook: { type: 'COMBAT', combat: nextCombat },

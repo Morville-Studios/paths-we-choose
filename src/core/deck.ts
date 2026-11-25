@@ -1,13 +1,13 @@
 import { CLASS_CATALOG } from '../data/classes';
-import { CLASS_TRAIN_POOLS, COMBAT_CARD_CATALOG, createCombatCardInstance } from '../data/combatCards';
+import { CLASS_TRAIN_POOLS, ACTION_CARD_CATALOG, createActionCardInstance } from '../data/actionCards';
 import {
-  getMonsterMainTerrain,
-  getMonsterRarity,
-  getMonsterSupplyCount,
-  getScenarioMonsterDeckComposition,
-  MONSTER_TEMPLATES,
-  ORDINARY_MONSTER_TEMPLATE_IDS,
-} from '../data/monsters';
+  getEnemyMainTerrain,
+  getEnemyRarity,
+  getEnemySupplyCount,
+  getScenarioEnemyDeckComposition,
+  ENEMY_TEMPLATES,
+  ORDINARY_ENEMY_TEMPLATE_IDS,
+} from '../data/enemies';
 import { getTreasureSupplyCount, SHOP_ITEM_CATALOG } from '../data/shopItems';
 import { buildPathsDeck } from '../data/paths';
 import {
@@ -17,7 +17,7 @@ import {
   STAGE_3_DECK_COMPOSITION,
 } from '../data/stages';
 import { shuffleArray } from './rng';
-import { AdventureCard, ClassId, CombatCardDef, MonsterCard, PathCard, ShopItemDef } from './types';
+import { AdventureCard, ClassId, ActionCardDef, EnemyCard, PathCard, ShopItemDef } from './types';
 
 export function buildAdventureDeckFromComposition(
   composition: Record<string, number>,
@@ -116,65 +116,65 @@ export function drawAdventureCardWithReshuffle(
   };
 }
 
-export function buildPhysicalMonsterSupply(): MonsterCard[] {
-  return ORDINARY_MONSTER_TEMPLATE_IDS.flatMap((templateId) => {
-    const template = MONSTER_TEMPLATES[templateId];
-    return Array.from({ length: getMonsterSupplyCount(template) }, (_, index) => ({
+export function buildPhysicalEnemySupply(): EnemyCard[] {
+  return ORDINARY_ENEMY_TEMPLATE_IDS.flatMap((templateId) => {
+    const template = ENEMY_TEMPLATES[templateId];
+    return Array.from({ length: getEnemySupplyCount(template) }, (_, index) => ({
       ...template,
-      rarity: getMonsterRarity(template),
-      mainTerrain: getMonsterMainTerrain(template),
-      id: `monster_${templateId}_${String(index + 1).padStart(2, '0')}`,
+      rarity: getEnemyRarity(template),
+      mainTerrain: getEnemyMainTerrain(template),
+      id: `enemy_${templateId}_${String(index + 1).padStart(2, '0')}`,
     }));
   });
 }
 
-export function buildScenarioMonsterDeck(scenarioLevel: number, rngState: number): {
-  deck: MonsterCard[];
-  void: MonsterCard[];
+export function buildScenarioEnemyDeck(scenarioLevel: number, rngState: number): {
+  deck: EnemyCard[];
+  void: EnemyCard[];
   nextState: number;
 } {
   const composition = new Map(
-    getScenarioMonsterDeckComposition(scenarioLevel).map((entry) => [entry.templateId, entry.count]),
+    getScenarioEnemyDeckComposition(scenarioLevel).map((entry) => [entry.templateId, entry.count]),
   );
   const selectedByTemplate = new Map<string, number>();
-  const unshuffled: MonsterCard[] = [];
-  const monsterVoid: MonsterCard[] = [];
-  for (const monster of buildPhysicalMonsterSupply()) {
-    const selected = selectedByTemplate.get(monster.templateId) ?? 0;
-    const target = composition.get(monster.templateId) ?? 0;
+  const unshuffled: EnemyCard[] = [];
+  const enemyVoid: EnemyCard[] = [];
+  for (const enemy of buildPhysicalEnemySupply()) {
+    const selected = selectedByTemplate.get(enemy.templateId) ?? 0;
+    const target = composition.get(enemy.templateId) ?? 0;
     if (selected < target) {
-      unshuffled.push(monster);
-      selectedByTemplate.set(monster.templateId, selected + 1);
+      unshuffled.push(enemy);
+      selectedByTemplate.set(enemy.templateId, selected + 1);
     } else {
-      monsterVoid.push(monster);
+      enemyVoid.push(enemy);
     }
   }
 
   const { shuffled, nextState } = shuffleArray(unshuffled, rngState);
-  return { deck: shuffled, void: monsterVoid, nextState };
+  return { deck: shuffled, void: enemyVoid, nextState };
 }
 
-export function buildStage1MonsterDeck(rngState: number): {
-  deck: MonsterCard[];
-  void: MonsterCard[];
+export function buildStage1EnemyDeck(rngState: number): {
+  deck: EnemyCard[];
+  void: EnemyCard[];
   nextState: number;
 } {
-  return buildScenarioMonsterDeck(1, rngState);
+  return buildScenarioEnemyDeck(1, rngState);
 }
 
-interface MonsterDrawResult {
-  monster: MonsterCard | null;
-  deck: MonsterCard[];
-  discard: MonsterCard[];
+interface EnemyDrawResult {
+  enemy: EnemyCard | null;
+  deck: EnemyCard[];
+  discard: EnemyCard[];
   nextState: number;
   cardsExamined: number;
 }
 
 /** One bounded pass: cards returned to the bottom are not examined twice. */
-function searchMonsterDeck(
-  deck: MonsterCard[], discard: MonsterCard[], rngState: number,
+function searchEnemyDeck(
+  deck: EnemyCard[], discard: EnemyCard[], rngState: number,
   terrain: string | undefined, maxLevel: number | undefined, limit: number
-): MonsterDrawResult {
+): EnemyDrawResult {
   const currentDeck = [...deck];
   const currentDiscard = [...discard];
   let cardsExamined = 0;
@@ -184,19 +184,19 @@ function searchMonsterDeck(
     if (maxLevel !== undefined && candidate.level > maxLevel) {
       currentDiscard.push(candidate);
     } else if (!terrain || !candidate.spawnTerrains?.length || candidate.spawnTerrains.some(spawn => spawn === terrain)) {
-      return { monster: candidate, deck: currentDeck, discard: currentDiscard, nextState: rngState, cardsExamined };
+      return { enemy: candidate, deck: currentDeck, discard: currentDiscard, nextState: rngState, cardsExamined };
     } else {
       currentDeck.push(candidate);
     }
   }
-  return { monster: null, deck: currentDeck, discard: currentDiscard, nextState: rngState, cardsExamined };
+  return { enemy: null, deck: currentDeck, discard: currentDiscard, nextState: rngState, cardsExamined };
 }
 
 /** Reshuffle only if the draw starts empty; exhaustion during this search fizzles. */
-export function drawMonsterCardWithReshuffle(
-  deck: MonsterCard[], discard: MonsterCard[], rngState: number,
+export function drawEnemyCardWithReshuffle(
+  deck: EnemyCard[], discard: EnemyCard[], rngState: number,
   terrain?: string, maxLevel?: number
-): MonsterDrawResult {
+): EnemyDrawResult {
   let currentDeck = deck;
   let currentDiscard = discard;
   let rng = rngState;
@@ -206,10 +206,10 @@ export function drawMonsterCardWithReshuffle(
     currentDiscard = [];
     rng = reshuffled.nextState;
   }
-  return searchMonsterDeck(currentDeck, currentDiscard, rng, terrain, maxLevel, currentDeck.length);
+  return searchEnemyDeck(currentDeck, currentDiscard, rng, terrain, maxLevel, currentDeck.length);
 }
 
-/** Computes the encounter monster-level budget X = floor(cardLevel * 1.5). */
+/** Computes the encounter enemy-level budget X = floor(cardLevel * 1.5). */
 export function getEncounterTargetLevel(cardLevel: number): number {
   return Math.floor(cardLevel * 1.5);
 }
@@ -219,26 +219,26 @@ export function getEncounterTargetLevel(cardLevel: number): number {
  * Recycle an empty deck while eligible supply remains. Terrain rejects remain
  * on the bottom; a full pass without a match stops rather than cycling forever.
  */
-export function drawEncounterMonsters(
-  deck: MonsterCard[], discard: MonsterCard[], rngState: number,
+export function drawEncounterEnemies(
+  deck: EnemyCard[], discard: EnemyCard[], rngState: number,
   targetLevel: number, terrain?: string
 ): {
-  monsters: MonsterCard[];
-  deck: MonsterCard[];
-  discard: MonsterCard[];
+  enemies: EnemyCard[];
+  deck: EnemyCard[];
+  discard: EnemyCard[];
   nextState: number;
   supplyExhausted: boolean;
 } {
   let currentDeck = [...deck];
   let currentDiscard = [...discard];
   let rng = rngState;
-  const monsters: MonsterCard[] = [];
+  const enemies: EnemyCard[] = [];
   let total = 0;
   let remaining = currentDeck.length;
   while (total < targetLevel) {
     if (currentDeck.length === 0) {
-      const hasEligibleSupply = currentDiscard.some(monster => monster.level <= targetLevel &&
-        (!terrain || !monster.spawnTerrains?.length || monster.spawnTerrains.some(spawn => spawn === terrain)));
+      const hasEligibleSupply = currentDiscard.some(enemy => enemy.level <= targetLevel &&
+        (!terrain || !enemy.spawnTerrains?.length || enemy.spawnTerrains.some(spawn => spawn === terrain)));
       if (!hasEligibleSupply) break;
       const reshuffled = shuffleArray(currentDiscard, rng);
       currentDeck = reshuffled.shuffled;
@@ -247,24 +247,24 @@ export function drawEncounterMonsters(
       remaining = currentDeck.length;
     }
     if (remaining === 0) break;
-    const drawn = searchMonsterDeck(currentDeck, currentDiscard, rng, terrain, targetLevel, remaining);
+    const drawn = searchEnemyDeck(currentDeck, currentDiscard, rng, terrain, targetLevel, remaining);
     remaining -= drawn.cardsExamined;
     currentDeck = drawn.deck;
     currentDiscard = drawn.discard;
-    if (!drawn.monster) {
+    if (!drawn.enemy) {
       if (currentDeck.length === 0) continue;
       break;
     }
-    monsters.push(drawn.monster);
-    total += drawn.monster.level;
+    enemies.push(drawn.enemy);
+    total += drawn.enemy.level;
   }
-  return { monsters, deck: currentDeck, discard: currentDiscard, nextState: rng, supplyExhausted: total < targetLevel };
+  return { enemies, deck: currentDeck, discard: currentDiscard, nextState: rng, supplyExhausted: total < targetLevel };
 }
 
-export function buildStarterCombatDeck(classId: ClassId): CombatCardDef[] {
+export function buildStarterCombatDeck(classId: ClassId): ActionCardDef[] {
   const classDef = CLASS_CATALOG[classId];
   return classDef.starterCardIds.map((tplId, idx) =>
-    createCombatCardInstance(tplId, `starter_${idx + 1}`)
+    createActionCardInstance(tplId, `starter_${idx + 1}`)
   );
 }
 
@@ -274,15 +274,15 @@ export function buildStarterCombatDeck(classId: ClassId): CombatCardDef[] {
  * Every other class-eligible skill has exactly two physical copies.
  */
 export function buildNewSkillsDeck(classId: ClassId, rngState: number): {
-  deck: CombatCardDef[];
+  deck: ActionCardDef[];
   nextState: number;
 } {
   const starters = new Set(CLASS_CATALOG[classId].starterCardIds);
   const unshuffled = CLASS_TRAIN_POOLS[classId]
     .filter((templateId) => !starters.has(templateId))
     .flatMap((templateId) => [
-      createCombatCardInstance(templateId, `new_skill_${classId}_1`),
-      createCombatCardInstance(templateId, `new_skill_${classId}_2`),
+      createActionCardInstance(templateId, `new_skill_${classId}_1`),
+      createActionCardInstance(templateId, `new_skill_${classId}_2`),
     ]);
   const { shuffled, nextState } = shuffleArray(unshuffled, rngState);
   return { deck: shuffled, nextState };
@@ -296,17 +296,17 @@ export function buildNewSkillsDeck(classId: ClassId, rngState: number): {
  */
 export function reconcileNewSkillsDeck(
   classId: ClassId,
-  deck: CombatCardDef[],
-  discard: CombatCardDef[],
-  playerMasterDeck: CombatCardDef[],
-  activeTrainOptions: CombatCardDef[],
-  destroyedVoidCards: CombatCardDef[],
+  deck: ActionCardDef[],
+  discard: ActionCardDef[],
+  playerMasterDeck: ActionCardDef[],
+  activeTrainOptions: ActionCardDef[],
+  destroyedVoidCards: ActionCardDef[],
   rngState: number
 ) {
   const starterIds = new Set(CLASS_CATALOG[classId].starterCardIds);
   const learnableIds = CLASS_TRAIN_POOLS[classId].filter((templateId) => !starterIds.has(templateId));
   const voidUpgradeIds = new Set(
-    Object.values(COMBAT_CARD_CATALOG)
+    Object.values(ACTION_CARD_CATALOG)
       .filter((card) => card.isSkillUpgrade)
       .map((card) => card.id)
   );
@@ -323,7 +323,7 @@ export function reconcileNewSkillsDeck(
     ...destroyedVoidCards,
   ];
   const usedInstanceIds = new Set(allExisting.map((card) => card.instanceId));
-  const additions: CombatCardDef[] = [];
+  const additions: ActionCardDef[] = [];
 
   for (const templateId of learnableIds) {
     let copies = allExisting.filter((card) => card.id === templateId).length;
@@ -334,7 +334,7 @@ export function reconcileNewSkillsDeck(
         suffix += 1;
         instanceId = `${templateId}_new_skill_${classId}_content_${suffix}`;
       }
-      additions.push(createCombatCardInstance(templateId, `new_skill_${classId}_content_${suffix}`));
+      additions.push(createActionCardInstance(templateId, `new_skill_${classId}_content_${suffix}`));
       usedInstanceIds.add(instanceId);
       copies += 1;
     }
@@ -364,16 +364,16 @@ export function reconcileNewSkillsDeck(
 
 /** Draw learnable skills, recycling only unlearned offers once the deck is empty. */
 export function drawNewSkillsWithReshuffle(
-  deck: CombatCardDef[],
-  discard: CombatCardDef[],
+  deck: ActionCardDef[],
+  discard: ActionCardDef[],
   count: number,
   rngState: number,
   reshuffleCount: number,
   maxLevel?: number
 ): {
-  drawn: CombatCardDef[];
-  deck: CombatCardDef[];
-  discard: CombatCardDef[];
+  drawn: ActionCardDef[];
+  deck: ActionCardDef[];
+  discard: ActionCardDef[];
   nextState: number;
   reshuffleCount: number;
 } {
@@ -381,7 +381,7 @@ export function drawNewSkillsWithReshuffle(
   let currentDiscard = [...discard];
   let rng = rngState;
   let reshuffles = reshuffleCount;
-  const drawn: CombatCardDef[] = [];
+  const drawn: ActionCardDef[] = [];
   let checkedSinceLastDraw = 0;
 
   while (drawn.length < count) {

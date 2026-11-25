@@ -1,6 +1,6 @@
 import { appendGameLog, createTimestamp } from './log';
 import { CLASS_CATALOG, STARTING_BASE_STATS } from '../data/classes';
-import { createBossMonstersForMission } from '../data/monsters';
+import { createBossEnemiesForMission } from '../data/enemies';
 import { buildPathsDeck } from '../data/paths';
 import {
   createStartCard,
@@ -20,14 +20,14 @@ import {
   buildStage2AdventureDeck,
   buildStage3AdventureDeck,
   buildPhysicalTreasureSupply,
-  buildScenarioMonsterDeck,
+  buildScenarioEnemyDeck,
   buildScenarioTreasureDeck,
-  buildStage1MonsterDeck,
+  buildStage1EnemyDeck,
   buildStage1TreasureDeck,
   buildStarterCombatDeck,
   buildNewSkillsDeck,
   drawAdventureCardWithReshuffle,
-  drawEncounterMonsters,
+  drawEncounterEnemies,
   drawPathCardWithReshuffle,
   drawTreasureCardsWithReshuffle,
   drawTreasureUntilLevel,
@@ -36,10 +36,10 @@ import {
   pullStartingTreasureCard,
 } from './deck';
 import {
-  attemptCombatFlee, computeFleeNetAcc, computeHitProbability, firstLivingMonsterIndex,
+  attemptCombatFlee, computeFleeNetAcc, computeHitProbability, firstLivingEnemyIndex,
   createCombatSession,
   endPlayerCombatTurn,
-  playCombatCardFromHand,
+  playActionCardFromHand,
 } from './combat';
 import { coordToKey, getForwardChoiceCoords, getLookaheadCoords, isSameCoord, toGridKey } from './grid';
 import { hashSeed, roll1D6, roll3D6 } from './rng';
@@ -82,7 +82,7 @@ import {
   CombatAttackRollSummary,
   CombatVictoryState,
   GridCoord,
-  MonsterCard,
+  EnemyCard,
   PlacedCardNode,
   RunState,
   ShopItemDef,
@@ -119,9 +119,9 @@ export function createInitialState(seed = 'default'): RunState {
     playerPosition: { col: 0, row: 0 },
     adventureDeck: [],
     adventureDiscard: [],
-    monsterDeck: [],
-    monsterDiscard: [],
-    monsterVoid: [],
+    enemyDeck: [],
+    enemyDiscard: [],
+    enemyVoid: [],
     treasureDeck: [],
     treasureDiscard: [],
     treasureVoid: [],
@@ -193,7 +193,7 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
 
   const adv = buildStage1AdventureDeck(rng);
   rng = adv.nextState;
-  const mon = buildStage1MonsterDeck(rng);
+  const mon = buildStage1EnemyDeck(rng);
   rng = mon.nextState;
   const tr = buildStage1TreasureDeck(rng);
   rng = tr.nextState;
@@ -275,8 +275,8 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     adventureDeck: deck,
     adventureDiscard: discard,
     reshuffleCount: reshuffles,
-    monsterDeck: mon.deck,
-    monsterVoid: mon.void,
+    enemyDeck: mon.deck,
+    enemyVoid: mon.void,
     treasureDeck,
     treasureDiscard: [],
     treasureVoid,
@@ -413,7 +413,7 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
 
   // 4. Resolve the tile
   if (card.hasHostile) {
-    next = startMonsterCombat(next, card.level, card.terrain, card);
+    next = startEnemyCombat(next, card.level, card.terrain, card);
   } else if (card.hasVillage) {
     next = prepareVillage({
       ...next,
@@ -616,7 +616,7 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
 export function confirmExplorationCombat(state: RunState): RunState {
   if (state.activeHook.type !== 'EXPLORATION') return state;
   const { card } = state.activeHook.exploration;
-  return startMonsterCombat(state, card.level, card.terrain, card);
+  return startEnemyCombat(state, card.level, card.terrain, card);
 }
 
 export function confirmExplorationSafe(state: RunState): RunState {
@@ -709,7 +709,7 @@ export function confirmPathSneakCombat(state: RunState): RunState {
     ? { ...state.board, [coordKey]: { ...node, card: updatedTerrainCard } }
     : state.board;
 
-  return startMonsterCombat(
+  return startEnemyCombat(
     { ...state, board: nextBoard },
     updatedTerrainCard.level,
     updatedTerrainCard.terrain,
@@ -908,7 +908,7 @@ export function confirmPathAmbushCombat(state: RunState): RunState {
     pathsDiscard: [...(state.pathsDiscard ?? []), pc.pathCard],
     activeHook: { type: 'NONE' },
   };
-  return startMonsterCombat(nextState, pc.terrainCard.level, pc.terrainCard.terrain, updatedTerrainCard, undefined, true);
+  return startEnemyCombat(nextState, pc.terrainCard.level, pc.terrainCard.terrain, updatedTerrainCard, undefined, true);
 }
 
 export function resolvePathChestAttempt(
@@ -1159,8 +1159,8 @@ export function confirmPathChallengeDone(state: RunState): RunState {
   });
 }
 
-/** Fills the battle area with monsters until their total level >= floor(tileLevel * 1.5). */
-function startMonsterCombat(
+/** Fills the battle area with enemies until their total level >= floor(tileLevel * 1.5). */
+function startEnemyCombat(
   state: RunState,
   tileLevel: number,
   terrain?: string,
@@ -1169,9 +1169,9 @@ function startMonsterCombat(
   enemyFirstTurn = false
 ): RunState {
   const targetLevel = getEncounterTargetLevel(tileLevel);
-  const drawn = drawEncounterMonsters(state.monsterDeck, state.monsterDiscard, state.rngState, targetLevel, terrain);
-  const next = { ...state, monsterDeck: drawn.deck, monsterDiscard: drawn.discard, rngState: drawn.nextState };
-  if (drawn.monsters.length === 0) {
+  const drawn = drawEncounterEnemies(state.enemyDeck, state.enemyDiscard, state.rngState, targetLevel, terrain);
+  const next = { ...state, enemyDeck: drawn.deck, enemyDiscard: drawn.discard, rngState: drawn.nextState };
+  if (drawn.enemies.length === 0) {
     if (encounterCard) {
       return syncAudioState({
         ...next,
@@ -1179,17 +1179,17 @@ function startMonsterCombat(
           type: 'ENCOUNTER_CLEAR',
           encounter: {
             card: encounterCard,
-            reason: 'No eligible monsters remained in the Monster Deck or discard pile for this terrain and level.',
+            reason: 'No eligible enemies remained in the Enemy Deck or discard pile for this terrain and level.',
           },
         },
-        bannerMessage: `${encounterCard.name} resolved: no eligible monsters answered the encounter.`,
+        bannerMessage: `${encounterCard.name} resolved: no eligible enemies answered the encounter.`,
       });
     }
     return afterTileResolved(next);
   }
-  const battle = beginCombat(next, drawn.monsters, pendingPathTreasureCheck);
+  const battle = beginCombat(next, drawn.enemies, pendingPathTreasureCheck);
   const withSupplyBanner = drawn.supplyExhausted
-    ? { ...battle, bannerMessage: `${battle.bannerMessage} No further eligible monsters available; the current foes remain.` }
+    ? { ...battle, bannerMessage: `${battle.bannerMessage} No further eligible enemies available; the current foes remain.` }
     : battle;
   if (enemyFirstTurn && withSupplyBanner.activeHook.type === 'COMBAT') {
     const ambushSeed: RunState = {
@@ -1215,33 +1215,33 @@ export function confirmEncounterClear(state: RunState): RunState {
 
 function beginCombat(
   state: RunState,
-  monsters: MonsterCard[],
+  enemies: EnemyCard[],
   pendingPathTreasureCheck?: import('./types').PendingPathTreasureCheck
 ): RunState {
   const eff = getEffectiveStatsFromState(state);
   const maxAp = getPlayerAct(eff);
-  const { combat: baseCombat, nextState } = createCombatSession(monsters, state.playerMasterDeck, state.rngState, maxAp, state.logTimestamp);
+  const { combat: baseCombat, nextState } = createCombatSession(enemies, state.playerMasterDeck, state.rngState, maxAp, state.logTimestamp);
   const combat = pendingPathTreasureCheck ? { ...baseCombat, pendingPathTreasureCheck } : baseCombat;
-  const names = monsters.map((m) => m.name).join(' + ');
+  const names = enemies.map((m) => m.name).join(' + ');
   return syncAudioState({
     ...state,
     rngState: nextState,
     activeHook: { type: 'COMBAT', combat },
     gameLog: appendGameLog(state, combat.combatLog),
-    bannerMessage: monsters.some((m) => m.isBoss) ? `The boss ${names} blocks your path!` : `${names} attack!`,
+    bannerMessage: enemies.some((m) => m.isBoss) ? `The boss ${names} blocks your path!` : `${names} attack!`,
   });
 }
 
 /** Called once a tile's event (if any) is fully resolved. Triggers the Turn 15 boss approach. */
 function afterTileResolved(state: RunState): RunState {
   if (state.turn >= state.maxTurns) {
-    const bossMonsters = createBossMonstersForMission(state.currentMission ?? 1);
-    const bossNames = bossMonsters.map((m) => m.name).join(' & ');
+    const bossEnemies = createBossEnemiesForMission(state.currentMission ?? 1);
+    const bossNames = bossEnemies.map((m) => m.name).join(' & ');
     return syncAudioState({
       ...state,
       activeHook: {
         type: 'BOSS_APPROACH',
-        bossMonsters,
+        bossEnemies,
       },
       bannerMessage: `⚔️ Turn 15 Complete! The Stage Boss ${bossNames} awaits! Prepare your equipment and potions, then click the Boss card to fight!`,
     });
@@ -1253,18 +1253,18 @@ function afterTileResolved(state: RunState): RunState {
 export function startBossCombat(state: RunState): RunState {
   if (state.activeHook.type !== 'BOSS_APPROACH') {
     if (state.turn >= state.maxTurns) {
-      const bossMonsters = createBossMonstersForMission(state.currentMission ?? 1);
-      return beginCombat({ ...state, activeHook: { type: 'NONE' } }, bossMonsters);
+      const bossEnemies = createBossEnemiesForMission(state.currentMission ?? 1);
+      return beginCombat({ ...state, activeHook: { type: 'NONE' } }, bossEnemies);
     }
     return state;
   }
-  const bossMonsters = state.activeHook.bossMonsters;
-  return beginCombat({ ...state, activeHook: { type: 'NONE' } }, bossMonsters);
+  const bossEnemies = state.activeHook.bossEnemies;
+  return beginCombat({ ...state, activeHook: { type: 'NONE' } }, bossEnemies);
 }
 
 function handleCombatVictory(
   state: RunState,
-  defeated: MonsterCard[],
+  defeated: EnemyCard[],
   victoryDetails: {
     statPointsEarned: number;
     goldEarned: number;
@@ -1282,7 +1282,7 @@ function handleCombatVictory(
     : undefined;
 
   const victory: CombatVictoryState = {
-    defeatedMonsters: defeated,
+    defeatedEnemies: defeated,
     statPointsEarned: victoryDetails.statPointsEarned,
     goldEarned: victoryDetails.goldEarned,
     baseGold: victoryDetails.baseGold,
@@ -1391,8 +1391,8 @@ export function startNextMission(state: RunState): RunState {
       ? buildStage2AdventureDeck(rng)
       : buildStage1AdventureDeck(rng);
   rng = adv.nextState;
-  const monsters = buildScenarioMonsterDeck(scenarioLevel, rng);
-  rng = monsters.nextState;
+  const enemies = buildScenarioEnemyDeck(scenarioLevel, rng);
+  rng = enemies.nextState;
 
   const ownedOrBanishedIds = new Set(
     [
@@ -1453,9 +1453,9 @@ export function startNextMission(state: RunState): RunState {
     adventureDeck: deck,
     adventureDiscard: discard,
     reshuffleCount: reshuffles,
-    monsterDeck: monsters.deck,
-    monsterDiscard: [],
-    monsterVoid: monsters.void,
+    enemyDeck: enemies.deck,
+    enemyDiscard: [],
+    enemyVoid: enemies.void,
     treasureDeck: tr.deck,
     treasureDiscard: [],
     treasureVoid: tr.void,
@@ -1479,9 +1479,9 @@ export function startNextMission(state: RunState): RunState {
 // Combat wrappers
 // ---------------------------------------------------------------------------
 
-/** targetIndex picks which monster in the battle area an attack hits (falls back to the first living one). */
+/** targetIndex picks which enemy in the battle area an attack hits (falls back to the first living one). */
 export function playCard(state: RunState, instanceId: string, targetIndex = 0, discardedCardInstanceIds: string[] = []): RunState {
-  return playCombatCardFromHand(state, instanceId, targetIndex, handleCombatVictory, discardedCardInstanceIds);
+  return playActionCardFromHand(state, instanceId, targetIndex, handleCombatVictory, discardedCardInstanceIds);
 }
 
 export function endTurn(state: RunState): RunState {
@@ -1492,7 +1492,7 @@ export function attemptFlee(state: RunState): RunState {
   return attemptCombatFlee(state);
 }
 
-export { getFleeThreshold, computeFleeNetAcc, firstLivingMonsterIndex };
+export { getFleeThreshold, computeFleeNetAcc, firstLivingEnemyIndex };
 
 // ---------------------------------------------------------------------------
 // Shrine wrappers (Base Stat upgrades are only possible while standing at a Shrine)

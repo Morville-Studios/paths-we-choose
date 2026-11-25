@@ -18,7 +18,7 @@ The original 29 findings were resolved against the rules then recorded. D030–D
 
 The original audit recorded historical fixed Stage 1 decks of 25 and later 38 cards. Those fixed-count rules are superseded. As updated in D034, the aligned implementation creates an 85-card ordinary physical supply across 22 types: Common types have 6 copies, Uncommon types 4, and Rare types 3. Scenario setup partitions that supply from the public Void by main-terrain bands using 100%, rounded 2/3, and rounded 1/3 rates. Scenario 1 builds 45 cards (40 in Void), Scenario 2 builds 37 (48 in Void), and Scenario 3 builds 30 (55 in Void). The generated catalog is the exact current quantity reference. Boss cards remain separate.
 
-The appended creature mechanics and reward/type updates match their implementations. Earlier ambiguous details (for example poison timing, Skittish accumulation, and revival timing) remain implementation interpretations documented in their sections and can be revisited independently if desired.
+The appended enemy mechanics and reward/type updates match their implementations. Earlier ambiguous details (for example poison timing, Skittish accumulation, and revival timing) remain implementation interpretations documented in their sections and can be revisited independently if desired.
 
 Cloudflare release monitoring and conservative revalidation are implemented and documented. The more efficient content-versioned media strategy discussed after reviewing Bocarena/Morville has **not** been implemented. Treat it as a proposed follow-up, not the current caching behavior. Actual Cloudflare response headers and cross-deployment behavior still require deployment verification.
 
@@ -31,8 +31,8 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 | [D003](#d003) | Where upgrades are allowed | Documentation conflict | Resolved |
 | [D004](#d004) | Adventure deck size and composition | Documentation conflict | Resolved |
 | [D005](#d005) | Initial pile counts | Documentation conflict | Resolved |
-| [D006](#d006) | Monster deck summaries disagree | Documentation conflict | Resolved |
-| [D007](#d007) | Monster mechanics table is incomplete | Documentation omission | Resolved |
+| [D006](#d006) | Enemy deck summaries disagree | Documentation conflict | Resolved |
+| [D007](#d007) | Enemy mechanics table is incomplete | Documentation omission | Resolved |
 | [D008](#d008) | Outdated Ramram and Rattler profiles | Documentation conflict | Resolved |
 | [D009](#d009) | Treasure deck size | Documentation conflict | Resolved |
 | [D010](#d010) | Old shop names in roadmap | Documentation conflict | Resolved |
@@ -43,7 +43,7 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 | [D015](#d015) | Critical damage rounding | Gameplay decision | Resolved |
 | [D016](#d016) | Number of decks | Documentation conflict | Resolved |
 | [D017](#d017) | Adventure conservation invariant | Incorrect documented invariant | Resolved |
-| [D018](#d018) | Monster conservation invariant | Incomplete documented invariant | Resolved |
+| [D018](#d018) | Enemy conservation invariant | Incomplete documented invariant | Resolved |
 | [D019](#d019) | Purity and replay determinism | Architecture decision | Resolved |
 | [D020](#d020) | Persistence and mobile packaging status | Documentation status conflict | Resolved |
 | [D021](#d021) | State machine omits implemented states and continuation | Documentation omission | Resolved |
@@ -133,26 +133,26 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Resolution / validation:** Initial adventure draw/discard is documented as 25/0 after five cards are dealt. See batch validation below.
 
 <a id="d006"></a>
-### D006 — Monster deck summaries disagree
+### D006 — Enemy deck summaries disagree
 
 - **Status:** Resolved (2026-11-01)
 - **Classification:** Documentation conflict
-- **Documentation locations:** AGENTS.md §Stage 1 Monster Deck (19 Hostiles); docs/ARCHITECTURE.md monsters.ts map says 13; README.md and docs/ROADMAP.md lists are incomplete.
+- **Documentation locations:** AGENTS.md §Stage 1 Enemy Deck (19 Hostiles); docs/ARCHITECTURE.md enemies.ts map says 13; README.md and docs/ROADMAP.md lists are incomplete.
 - **Audit observation (before resolution):** Top-level lists correctly say 25, but older sections still say 19 or 13, or list only part of the 25-card deck.
-- **Implementation evidence:** `src/data/monsters.ts:STAGE_1_MONSTER_DECK_COMPOSITION`.
-- **Behavior at audit:** 25 cards across 14 ordinary creature types, plus the separately spawned boss.
+- **Implementation evidence:** `src/data/enemies.ts:STAGE_1_ENEMY_DECK_COMPOSITION`.
+- **Behavior at audit:** 25 cards across 14 ordinary enemy types, plus the separately spawned boss.
 - **Audit reconciliation target:** Keep the approved 25-card composition and remove or reconcile obsolete duplicate summaries.
 - **Accepted decision:** Keep the approved 25 ordinary Stage 1 cards, with separately spawned bosses.
 - **Resolution / validation:** Removed obsolete 19/13-card summaries and partial duplicate lists; all documents link to generated complete catalogs. See batch validation below.
 
 <a id="d007"></a>
-### D007 — Monster mechanics table is incomplete
+### D007 — Enemy mechanics table is incomplete
 
 - **Status:** Resolved (2026-11-01)
 - **Classification:** Documentation omission
-- **Documentation locations:** docs/MECHANICS_AND_DATA.md §4.1 Monster Deck.
-- **Audit observation (before resolution):** The 25-card heading covers a table with only 10 types (21 copies); Leech, Creeper, Assasin and Stalker are in later prose only. A blank line also separates the Ghoul row from the table. MDEF and creature types are not table columns.
-- **Implementation evidence:** `src/data/monsters.ts:MONSTER_TEMPLATES and deck composition`.
+- **Documentation locations:** docs/MECHANICS_AND_DATA.md §4.1 Enemy Deck.
+- **Audit observation (before resolution):** The 25-card heading covers a table with only 10 types (21 copies); Leech, Creeper, Assasin and Stalker are in later prose only. A blank line also separates the Ghoul row from the table. MDEF and enemy types are not table columns.
+- **Implementation evidence:** `src/data/enemies.ts:ENEMY_TEMPLATES and deck composition`.
 - **Behavior at audit:** Four additional single-copy types supply the other 4 cards. Latest types, MDEF values and rewards exist in catalog data.
 - **Audit reconciliation target:** Decide a single complete catalog format; include all 14 rows and current fields and repair the split table.
 - **Accepted decision:** Use a generated complete catalog instead of another handwritten table.
@@ -163,11 +163,11 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 
 - **Status:** Resolved (2026-11-01)
 - **Classification:** Documentation conflict
-- **Documentation locations:** README.md monster list; docs/ROADMAP.md Ramram description.
+- **Documentation locations:** README.md enemy list; docs/ROADMAP.md Ramram description.
 - **Audit observation (before resolution):** README gives Ramram Level 2, 16 HP, 3 SP/8 Gold and Rattler 14 HP, 3 SP/9 Gold; roadmap still calls Ramram Level 2.
-- **Implementation evidence:** `src/data/monsters.ts:ramram, rattler`.
+- **Implementation evidence:** `src/data/enemies.ts:ramram, rattler`.
 - **Behavior at audit:** Ramram: Level 1, 6 HP, 1 SP/2 Gold, Grasslands only. Rattler: Level 2, 6 HP, 2 SP/4 Gold, Forest only, Reptile. Neither uses a standalone ATK stat.
-- **Audit reconciliation target:** Confirm catalog values, update older profiles and stop representing pattern damage as monster ATK.
+- **Audit reconciliation target:** Confirm catalog values, update older profiles and stop representing pattern damage as enemy ATK.
 - **Accepted decision:** Keep the current Ramram/Rattler values already reflected in the newer authoritative catalog and recent user changes.
 - **Resolution / validation:** Old README/roadmap profiles were removed in favor of generated data: Ramram Level 1/6 HP/1 SP/2 Gold; Rattler Level 2/6 HP/2 SP/4 Gold, Reptile. See batch validation below.
 
@@ -258,11 +258,11 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Classification:** Gameplay decision
 - **Documentation locations:** AGENTS.md Critical Hits; docs/MECHANICS_AND_DATA.md §3.2.
 - **Audit observation (before resolution):** Specs explicitly use floor(damage × 1.5).
-- **Implementation evidence:** `src/core/combat.ts:playCombatCardFromHand, endPlayerCombatTurn`.
+- **Implementation evidence:** `src/core/combat.ts:playActionCardFromHand, endPlayerCombatTurn`.
 - **Behavior at audit:** Both attack paths use max(damage + 1, round(damage × 1.5)). Base 3 becomes 5, whereas the documented floor rule gives 4.
 - **Audit reconciliation target:** Choose floor versus nearest rounding and whether critical hits guarantee at least +1 damage; update engine, UI examples and tests together.
 - **Accepted decision:** Apply floor(damage × 1.5) exactly as the latest AGENTS.md requires, without an additional minimum +1 rule.
-- **Resolution / validation:** Changed hero and monster critical damage paths. Added tests for base damage 1, 3 and 5 on each path. See batch validation below.
+- **Resolution / validation:** Changed hero and enemy critical damage paths. Added tests for base damage 1, 3 and 5 on each path. See batch validation below.
 - **Superseded behavior (2026-11-13):** MACG-3D6 has no critical-hit outcome. Natural totals 3 and 18 are Diabolic automatic misses. D030 records the current system; D031 tracks unused compatibility fields left from this retired rule.
 
 <a id="d016"></a>
@@ -271,7 +271,7 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Status:** Resolved (2026-11-01)
 - **Classification:** Documentation conflict
 - **Documentation locations:** docs/GAME_DESIGN.md Three Interlocking Decks; docs/ARCHITECTURE.md Three-Deck Conservation Laws.
-- **Audit observation (before resolution):** Descriptions enumerate Adventure, Monster and Player Combat decks, omitting Treasure.
+- **Audit observation (before resolution):** Descriptions enumerate Adventure, Enemy and Player Combat decks, omitting Treasure.
 - **Implementation evidence:** `src/core/types.ts:RunState; src/core/deck.ts`.
 - **Behavior at audit:** Treasure is a fourth independently managed deck/discard system with stock, backpack and equipped-card locations.
 - **Audit reconciliation target:** Adopt four-deck terminology and document treasure conservation across all card locations.
@@ -292,16 +292,16 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Resolution / validation:** Replaced the incorrect 15-card equation and documented Turn 0 and stage-reset boundaries. See batch validation below.
 
 <a id="d018"></a>
-### D018 — Monster conservation invariant
+### D018 — Enemy conservation invariant
 
 - **Status:** Resolved (2026-11-01)
 - **Classification:** Incomplete documented invariant
 - **Documentation locations:** docs/ARCHITECTURE.md Key State Invariants 6.
-- **Audit observation (before resolution):** Uses livingMonstersCount and says outside normal combat, without distinguishing bosses or victory overlays.
-- **Implementation evidence:** `src/core/combat.ts:playCombatCardFromHand, endPlayerCombatTurn; src/core/engine.ts:handleCombatVictory`.
-- **Behavior at audit:** Defeated creatures remain battle participants until encounter resolution; bosses are created separately; Leech transfers a card from monsterDiscard to combat. Victory presentation can reference already-discarded cards.
+- **Audit observation (before resolution):** Uses livingEnemiesCount and says outside normal combat, without distinguishing bosses or victory overlays.
+- **Implementation evidence:** `src/core/combat.ts:playActionCardFromHand, endPlayerCombatTurn; src/core/engine.ts:handleCombatVictory`.
+- **Behavior at audit:** Defeated enemies remain battle participants until encounter resolution; bosses are created separately; Leech transfers a card from enemyDiscard to combat. Victory presentation can reference already-discarded cards.
 - **Audit reconciliation target:** Define ownership versus display references; count all owned encounter cards, exclude separately spawned bosses, and state exact transition boundaries.
-- **Accepted decision:** Count all ordinary active encounter participants, not only living monsters; distinguish ownership from showcase references.
+- **Accepted decision:** Count all ordinary active encounter participants, not only living enemies; distinguish ownership from showcase references.
 - **Resolution / validation:** Documented boss exclusion, Leech/Creeper transfers, victory references and terminal GameOver snapshots. Terminal GameOver does not retain the active encounter and is outside the live ownership equation. See batch validation below.
 
 <a id="d019"></a>
@@ -349,12 +349,12 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Status:** Resolved (2026-11-01)
 - **Classification:** Documentation status conflict
 - **Documentation locations:** docs/ROADMAP.md Phase 2 and Phase 3.
-- **Audit observation (before resolution):** Stage 2 biomes, advanced monster abilities and statuses appear under future work despite implemented portions. Audio section does not distinguish soundtrack from future SFX.
-- **Implementation evidence:** `src/data/stages.ts; src/data/monsters.ts; src/core/combat.ts; src/audio/audioManager.ts`.
+- **Audit observation (before resolution):** Stage 2 biomes, advanced enemy abilities and statuses appear under future work despite implemented portions. Audio section does not distinguish soundtrack from future SFX.
+- **Implementation evidence:** `src/data/stages.ts; src/data/enemies.ts; src/core/combat.ts; src/audio/audioManager.ts`.
 - **Behavior at audit:** Two missions, Swamp cards, poison, advanced abilities and looping soundtracks exist; Ruins, native packaging, save support and assorted SFX remain separate future work.
 - **Audit reconciliation target:** Split completed, partially completed and planned work; preserve historical milestones only if clearly labeled.
 - **Accepted decision:** Separate implemented, incomplete and planned work.
-- **Resolution / validation:** Rewrote roadmap: Stage 2, Swamp, poison, creature abilities and soundtracks are implemented; saves, native pipelines, SFX and further biomes remain pending. See batch validation below.
+- **Resolution / validation:** Rewrote roadmap: Stage 2, Swamp, poison, enemy abilities and soundtracks are implemented; saves, native pipelines, SFX and further biomes remain pending. See batch validation below.
 
 <a id="d023"></a>
 ### D023 — Stale test count
@@ -375,10 +375,10 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Status:** Resolved (2026-11-01)
 - **Classification:** Documentation omission
 - **Documentation locations:** docs/MECHANICS_AND_DATA.md TypeScript schema block.
-- **Audit observation (before resolution):** Embedded contracts do not include all recent creature intent/runtime fields and MDEF, while newer prose describes those mechanics; PlayerResources retains an old SP-price comment.
+- **Audit observation (before resolution):** Embedded contracts do not include all recent enemy intent/runtime fields and MDEF, while newer prose describes those mechanics; PlayerResources retains an old SP-price comment.
 - **Implementation evidence:** `src/core/types.ts`.
-- **Behavior at audit:** Current contracts include magical intents, drain fractions, revival metadata, poison, DEF piercing, Resilient, Sprint durations and Skittish state. TerrainType remains start/grasslands/forest/swamp; creature spawn tags also include Cave/Underground.
-- **Audit reconciliation target:** Choose generated schemas or clearly labeled illustrative excerpts; document adventure terrain versus monster spawn tags separately.
+- **Behavior at audit:** Current contracts include magical intents, drain fractions, revival metadata, poison, DEF piercing, Resilient, Sprint durations and Skittish state. TerrainType remains start/grasslands/forest/swamp; enemy spawn tags also include Cave/Underground.
+- **Audit reconciliation target:** Choose generated schemas or clearly labeled illustrative excerpts; document adventure terrain versus enemy spawn tags separately.
 - **Accepted decision:** Maintain TypeScript contracts only in src/core/types.ts, linking rather than copying schemas into specs.
 - **Resolution / validation:** Removed the obsolete embedded schema and documented recent fields, spawn-tag versus map-terrain distinctions, legacy prayer compatibility and explicit timestamp input. See batch validation below.
 
@@ -388,22 +388,22 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Status:** Resolved (2026-11-01)
 - **Classification:** Gameplay decision
 - **Documentation locations:** AGENTS.md Hostile Level & Terrain-Filtered Encounter Spawning; docs/GAME_DESIGN.md encounter rules; docs/MECHANICS_AND_DATA.md encounter draw rules.
-- **Audit observation (before resolution):** Rules describe matching terrain and rejecting over-level creatures as strict requirements.
-- **Implementation evidence:** `src/core/deck.ts:drawMonsterCardWithReshuffle`.
-- **Behavior at audit:** Fallbacks can select an incompatible-terrain creature when no match exists, or an over-level creature when the pool exceeds the budget, to prevent endless draw loops.
+- **Audit observation (before resolution):** Rules describe matching terrain and rejecting over-level enemies as strict requirements.
+- **Implementation evidence:** `src/core/deck.ts:drawEnemyCardWithReshuffle`.
+- **Behavior at audit:** Fallbacks can select an incompatible-terrain enemy when no match exists, or an over-level enemy when the pool exceeds the budget, to prevent endless draw loops.
 - **Audit reconciliation target:** Choose explicit fallback behavior (empty encounter, error, alternate pool, or current fallback) and document/test exhausted or incompatible pools.
 - **Accepted decision:** User clarified that draw-until searches fizzle at current-deck exhaustion; a subsequent draw from an empty deck reshuffles its graveyard. Graveyards are public, explicit graveyard searches fizzle immediately when no target exists, and deck order is hidden while card counting/type-count inspection is allowed.
-- **Resolution / validation:** Removed incompatible/over-level fallbacks and mid-search reshuffles; bounded terrain rotations and encounter accumulation to one pass. A search beginning empty may reshuffle once. Retained successful partial encounter draws; zero-monster encounters return to tile resolution without victory rewards, preserving boss triggers. Treasure searches return no item on fizzle. Leech already performs a bounded public graveyard lookup. Added exhaustion, reshuffle-boundary, partial-success, no-reward, boss-trigger and hidden-order viewer tests. Updated AGENTS and gameplay/architecture specs.
+- **Resolution / validation:** Removed incompatible/over-level fallbacks and mid-search reshuffles; bounded terrain rotations and encounter accumulation to one pass. A search beginning empty may reshuffle once. Retained successful partial encounter draws; zero-enemy encounters return to tile resolution without victory rewards, preserving boss triggers. Treasure searches return no item on fizzle. Leech already performs a bounded public graveyard lookup. Added exhaustion, reshuffle-boundary, partial-success, no-reward, boss-trigger and hidden-order viewer tests. Updated AGENTS and gameplay/architecture specs.
 
 <a id="d026"></a>
 ### D026 — Duplicated sources of truth
 
 - **Status:** Resolved (2026-11-01)
 - **Classification:** Documentation maintenance issue
-- **Documentation locations:** AGENTS.md, README.md and all four docs repeat monster quantities; current creature details are appended separately from older catalog tables.
+- **Documentation locations:** AGENTS.md, README.md and all four docs repeat enemy quantities; current enemy details are appended separately from older catalog tables.
 - **Audit observation (before resolution):** Updating one summary can leave older lists, tables and code-like examples contradictory.
-- **Implementation evidence:** `src/data/monsters.ts; src/data/stages.ts; current document structure`.
-- **Behavior at audit:** Recent approved creature values are present in code and appended prose, while older summaries were not fully reconciled.
+- **Implementation evidence:** `src/data/enemies.ts; src/data/stages.ts; current document structure`.
+- **Behavior at audit:** Recent approved enemy values are present in code and appended prose, while older summaries were not fully reconciled.
 - **Audit reconciliation target:** Choose an authoritative catalog/spec location; link to it from summaries or generate tables, then reconcile all duplicates after each decision.
 - **Accepted decision:** Generate numerical content catalogs from src/data and use links in overview documents.
 - **Resolution / validation:** Added scripts/sync-doc-catalogs.cjs, docs:sync and docs:check. Production build checks freshness. Replaced duplicate tables and old partial summaries with canonical references; specs retain gameplay interpretation and timing rather than competing catalog snapshots. See batch validation below.
@@ -423,18 +423,18 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 ### D028 — Stale Shrine, encounter terrain and protection prose
 
 - **Status:** Resolved (2026-11-01 follow-up review)
-- **Evidence:** GAME_DESIGN.md still listed Stage 1 Shrines as Grassland ×2, Forest ×2, Swamp ×1 instead of ×3/×2/×0; described every Stage 1 encounter as Level 2; and included Ramram in Forest while omitting newer terrain-eligible creatures. AGENTS.md and GAME_DESIGN.md described Divine Protection as reducing all damage despite poison bypassing it.
-- **Resolution:** Corrected Shrine quantities and encounter-level range, replaced the incomplete terrain lists with the generated catalog reference, and specified monster attack damage with an explicit poison exception. No gameplay code changed.
-- **Validation:** Compared src/data/stages.ts and src/data/monsters.ts with the prose and src/core/combat.ts with the protection/poison descriptions. Catalog check and all 231 tests passed during this review.
+- **Evidence:** GAME_DESIGN.md still listed Stage 1 Shrines as Grassland ×2, Forest ×2, Swamp ×1 instead of ×3/×2/×0; described every Stage 1 encounter as Level 2; and included Ramram in Forest while omitting newer terrain-eligible enemies. AGENTS.md and GAME_DESIGN.md described Divine Protection as reducing all damage despite poison bypassing it.
+- **Resolution:** Corrected Shrine quantities and encounter-level range, replaced the incomplete terrain lists with the generated catalog reference, and specified enemy attack damage with an explicit poison exception. No gameplay code changed.
+- **Validation:** Compared src/data/stages.ts and src/data/enemies.ts with the prose and src/core/combat.ts with the protection/poison descriptions. Catalog check and all 231 tests passed during this review.
 
 <a id="d029"></a>
 ### D029 — Encounter exhaustion after the ability-only fizzle clarification
 
 - **Status:** Resolved (2026-11-01)
 - **Prior behavior:** Encounter generation used one bounded pass without recycling mid-encounter, and engine messages called unfinished draws fizzles. Specs described that implementation even after the user limited fizzle to spells/abilities.
-- **Accepted decision:** Apply the user's game-mechanic recycling rule to encounters. Draw until total creature level reaches the encounter budget; recycle when a further draw needs an empty deck and eligible graveyard supply remains. Preserve strict terrain/level filtering, terrain-reject bottom placement and physical card identity.
-- **Safe termination:** A pass leaving only incompatible terrain cards stops without accessing the graveyard of a nonempty deck. An empty deck with no eligible graveyard supply also stops. Partial encounters fight their existing creatures; zero-monster encounters resolve without rewards and retain boss checks. These are unavailable-supply outcomes, not ability fizzles.
-- **Resolution:** Updated drawEncounterMonsters and engine messages; renamed its result flag to supplyExhausted. Synchronized README, AGENTS and gameplay/architecture specs. The bounded single-card ability-search helper retains its original behavior.
+- **Accepted decision:** Apply the user's game-mechanic recycling rule to encounters. Draw until total enemy level reaches the encounter budget; recycle when a further draw needs an empty deck and eligible graveyard supply remains. Preserve strict terrain/level filtering, terrain-reject bottom placement and physical card identity.
+- **Safe termination:** A pass leaving only incompatible terrain cards stops without accessing the graveyard of a nonempty deck. An empty deck with no eligible graveyard supply also stops. Partial encounters fight their existing enemies; zero-enemy encounters resolve without rewards and retain boss checks. These are unavailable-supply outcomes, not ability fizzles.
+- **Resolution:** Updated drawEncounterEnemies and engine messages; renamed its result flag to supplyExhausted. Synchronized README, AGENTS and gameplay/architecture specs. The bounded single-card ability-search helper retains its original behavior.
 - **Validation:** All 235 tests pass, including mid-encounter recycling, a fully rejected initial deck, terrain-only dead ends, unavailable supply, card conservation, deterministic replay, input immutability and engine/boss integration. Production build passed, including generated catalog freshness and strict TypeScript checks.
 
 <a id="d030"></a>
@@ -481,15 +481,15 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 
 - **Status:** Resolved (2026-11-13)
 - **Classification:** Cross-repository game design & documentation synchronization
-- **Observation:** Several design specifications, formulas, and creature reward listings drifted as new progression systems were added:
+- **Observation:** Several design specifications, formulas, and enemy reward listings drifted as new progression systems were added:
   1. Base stat upgrades formerly used quadratic `(currentBase + 1)²` SP; this has been simplified to `currentBase * 10` SP (Base 1→2 costs 10 SP, 2→3 costs 20 SP, etc.).
   2. Starting Stat Points in Turn 0 preparation increased from 4 SP to 10 SP, requiring full allocation before embarking.
-  3. Monster defeat rewards shifted from static manual values to unified linear formulas: for Level $L$ ordinary monsters, $\text{Gold} = L \times 5$ and $\text{SP} = L + 1$; Bosses grant double rewards: $\text{Gold} = L \times 10$ and $\text{SP} = (L + 1) \times 2$.
-  4. Physical monster supply expanded from 76 to 85 physical cards held in the Void (6 Common, 4 Uncommon, 3 Rare per type across 22 ordinary creature types).
-  5. Scenario 3 ("Tomb of the Fallen King") was implemented with 30-card Adventure Deck (17 Swamp, 11 Cave, 2 Underground), 30-card Monster Deck, 42-card Treasure Deck, and Turn 15 Boss "Fallen King" (renamed from King Nezenheim to fit card headers).
-  6. Summoned creatures receive `isSummon: true`, visual summon tokens, award 0 Gold and 0 SP on defeat, and return immediately to discard.
-- **Implementation evidence:** `src/core/stats.ts:getBaseStatUpgradeCost`; `src/data/monsters.ts:getDefaultMonsterRewards, MONSTER_TEMPLATES`; `src/data/stages.ts:STAGE_3_DECK_COMPOSITION, STAGE_3_MONSTER_DECK_COMPOSITION`; `src/core/engine.ts:startAdventure, defeatEncounterMonster`.
-- **Resolution:** Synchronized all documentation (`README.md`, `AGENTS.md`, `docs/GAME_DESIGN.md`, `docs/MECHANICS_AND_DATA.md`, `docs/ROADMAP.md`, `docs/CATALOGS.md`), data catalogs, unit tests, and the in-game Player's Handbook. Added dedicated tests in `scenario3.test.ts` and `monsterRewards.test.ts`.
+  3. Enemy defeat rewards shifted from static manual values to unified linear formulas: for Level $L$ ordinary enemies, $\text{Gold} = L \times 5$ and $\text{SP} = L + 1$; Bosses grant double rewards: $\text{Gold} = L \times 10$ and $\text{SP} = (L + 1) \times 2$.
+  4. Physical enemy supply expanded from 76 to 85 physical cards held in the Void (6 Common, 4 Uncommon, 3 Rare per type across 22 ordinary enemy types).
+  5. Scenario 3 ("Tomb of the Fallen King") was implemented with 30-card Adventure Deck (17 Swamp, 11 Cave, 2 Underground), 30-card Enemy Deck, 42-card Treasure Deck, and Turn 15 Boss "Fallen King" (renamed from King Nezenheim to fit card headers).
+  6. Summoned enemies receive `isSummon: true`, visual summon tokens, award 0 Gold and 0 SP on defeat, and return immediately to discard.
+- **Implementation evidence:** `src/core/stats.ts:getBaseStatUpgradeCost`; `src/data/enemies.ts:getDefaultEnemyRewards, ENEMY_TEMPLATES`; `src/data/stages.ts:STAGE_3_DECK_COMPOSITION, STAGE_3_ENEMY_DECK_COMPOSITION`; `src/core/engine.ts:startAdventure, defeatEncounterEnemy`.
+- **Resolution:** Synchronized all documentation (`README.md`, `AGENTS.md`, `docs/GAME_DESIGN.md`, `docs/MECHANICS_AND_DATA.md`, `docs/ROADMAP.md`, `docs/CATALOGS.md`), data catalogs, unit tests, and the in-game Player's Handbook. Added dedicated tests in `scenario3.test.ts` and `enemyRewards.test.ts`.
 
 <a id="d035"></a>
 ### D035 — Village rest healing and price
@@ -530,4 +530,4 @@ D025 follow-up validation (2026-11-01): 219 tests across 11 files passed; npm ru
 
 The user clarified that the fizzle rule applies to spells/abilities, not guaranteed treasure mechanics. Shop stock now requires exact village-level equality; terrain discoveries accept at or below terrain level. Both discard rejects and reshuffle during the mechanic until complete while eligible physical supply exists. Earlier D025 references to treasure fizzling and bounded encounters describe superseded implementations; encounter recycling is resolved in D029. Tests now cover exact-level stock, capped rewards, mid-mechanic reshuffle, physical-copy conservation, exhausted supply and one stock draw per village visit. No Level 3 items currently exist; Level 3 shops require a content addition.
 
-Stage 1 content update (2026-11-01): added 1 Witch (`mon3smp-04`), then raised the ordinary deck to 38 cards across 15 creature types. Earlier 25-card and 26-card audit observations remain historical.
+Stage 1 content update (2026-11-01): added 1 Witch (`mon3smp-04`), then raised the ordinary deck to 38 cards across 15 enemy types. Earlier 25-card and 26-card audit observations remain historical.

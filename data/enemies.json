@@ -1,6 +1,6 @@
 [
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "goblin",
     "name": "Goblin",
     "level": 1,
@@ -19,7 +19,7 @@
       "forest",
       "swamp"
     ],
-    "creatureType": "Goblinoid",
+    "enemyType": "Goblinoid",
     "flavorText": "Nimble scavengers with a knack for ambushes and shiny loot.",
     "pattern": [
       {
@@ -35,7 +35,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "pink_slime",
     "name": "Blob",
     "level": 1,
@@ -53,7 +53,7 @@
       "grasslands",
       "forest"
     ],
-    "creatureType": "Ooze",
+    "enemyType": "Ooze",
     "flavorText": "A cheerful puddle of jelly that packs a surprisingly sticky punch.",
     "pattern": [
       {
@@ -70,7 +70,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "fighting_beetle",
     "name": "Pincer",
     "level": 1,
@@ -87,7 +87,7 @@
       "grasslands",
       "forest"
     ],
-    "creatureType": "Insect",
+    "enemyType": "Insect",
     "flavorText": "A heavy-shelled brawler with hardened pincers and a fearless charge.",
     "pattern": [
       {
@@ -105,7 +105,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "wild_dog",
     "name": "Scavenger",
     "level": 1,
@@ -122,7 +122,7 @@
       "grasslands",
       "forest"
     ],
-    "creatureType": "Beast",
+    "enemyType": "Beast",
     "flavorText": "Swift hunter of the plains grass with keen instincts and sharp teeth.",
     "pattern": [
       {
@@ -139,7 +139,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "ramram",
     "name": "Ramram",
     "level": 1,
@@ -156,7 +156,7 @@
     "spawnTerrains": [
       "grasslands"
     ],
-    "creatureType": "Beast",
+    "enemyType": "Beast",
     "flavorText": "A stout, sure-footed mountain goat warrior whose spiraled horns can crack boulder stone.",
     "pattern": [
       {
@@ -173,7 +173,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "rattler",
     "name": "Rattler",
     "level": 2,
@@ -194,7 +194,7 @@
     "spawnTerrains": [
       "forest"
     ],
-    "creatureType": "Reptile",
+    "enemyType": "Reptile",
     "flavorText": "A camouflaged pit viper that strikes from the canopy with blinding speed and potent venom.",
     "pattern": [
       {
@@ -210,7 +210,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "bullwark",
     "name": "Bullwark",
     "level": 3,
@@ -233,7 +233,7 @@
       "swamp",
       "forest"
     ],
-    "creatureType": "Beast",
+    "enemyType": "Beast",
     "flavorText": "An imposing horned beast plated in heavy chitin. Its momentum accelerates with each devastating charge.",
     "pattern": [
       {
@@ -250,7 +250,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "tree_snapper",
     "name": "Basilisk",
     "level": 2,
@@ -270,7 +270,7 @@
       "swamp",
       "forest"
     ],
-    "creatureType": "Reptile",
+    "enemyType": "Reptile",
     "flavorText": "An ancient carnivorous reptile lurking in the wetlands with snapping bark-like jaws.",
     "pattern": [
       {
@@ -281,7 +281,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "zombie",
     "name": "Zombie",
     "level": 2,
@@ -304,7 +304,7 @@
       "cave",
       "forest"
     ],
-    "creatureType": "Undead",
+    "enemyType": "Undead",
     "flavorText": "A reanimated corpse wandering the damp wilds. It slowly mends its decaying flesh between ferocious rotting strikes.",
     "pattern": [
       {
@@ -317,7 +317,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "ghoul",
     "name": "Ghoul",
     "level": 2,
@@ -335,7 +335,7 @@
       "forest",
       "swamp"
     ],
-    "creatureType": "Undead",
+    "enemyType": "Undead",
     "flavorText": "A ravenous nocturnal stalker feasting on carrion in the dark woods and bogs. Its chilling growl saps an adventurer's agility before a savage mad dash.",
     "pattern": [
       {
@@ -357,9 +357,9 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "leech",
-    "creatureType": "Undead",
+    "enemyType": "Undead",
     "name": "Leech",
     "level": 4,
     "maxHp": 18,
@@ -384,8 +384,8 @@
         "label": "T1",
         "damage": 0,
         "block": 0,
-        "summonFromMonsterDeck": "zombie",
-        "returnDiscardToMonsterDeckOnMiss": "zombie"
+        "summonFromEnemyDeck": "zombie",
+        "returnDiscardToEnemyDeckOnMiss": "zombie"
       },
       {
         "label": "T2",
@@ -399,9 +399,9 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "creeper",
-    "creatureType": "Undead",
+    "enemyType": "Undead",
     "name": "Creeper",
     "level": 3,
     "cardNumber": "mon3smp-02",
@@ -437,9 +437,9 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "assassin",
-    "creatureType": "Human",
+    "enemyType": "Human",
     "name": "Assasin",
     "level": 3,
     "cardNumber": "mon3smp-03",
@@ -482,7 +482,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "stalker",
     "name": "Stalker",
     "level": 2,
@@ -521,7 +521,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "witch",
     "name": "Witch",
     "cardNumber": "mon3smp-04",
@@ -564,7 +564,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "phalanx",
     "name": "Phalanx",
     "level": 4,
@@ -581,7 +581,7 @@
     "spawnTerrains": [
       "cave"
     ],
-    "creatureType": "Arachnid",
+    "enemyType": "Arachnid",
     "skittishEvaOnHit": 2,
     "abilities": [
       "Skittish (2)"
@@ -609,7 +609,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "cultist_mage",
     "name": "Cultist Mage",
     "level": 4,
@@ -628,7 +628,7 @@
       "underground",
       "underworld"
     ],
-    "creatureType": "Human",
+    "enemyType": "Human",
     "channel": {
       "amount": 1,
       "duration": 3
@@ -647,7 +647,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "lurker",
     "name": "Lurker",
     "level": 5,
@@ -664,7 +664,7 @@
       "cave",
       "underground"
     ],
-    "creatureType": "Wurm",
+    "enemyType": "Wurm",
     "retaliationDamageOnHeroAttack": 1,
     "hardenDefOnHit": 1,
     "abilities": [
@@ -689,7 +689,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "dark_orc",
     "name": "Dark Orc",
     "level": 5,
@@ -708,7 +708,7 @@
       "underground",
       "underworld"
     ],
-    "creatureType": "Orc",
+    "enemyType": "Orc",
     "bloodlust": true,
     "regenOnStart": 2,
     "abilities": [
@@ -731,7 +731,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "orc_shaman",
     "name": "Orc Shaman",
     "level": 6,
@@ -749,7 +749,7 @@
       "cave",
       "underground"
     ],
-    "creatureType": "Orc",
+    "enemyType": "Orc",
     "regenOnStart": 2,
     "channel": {
       "amount": 1
@@ -769,7 +769,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "goblin_chieftain",
     "name": "Grundy",
     "level": 5,
@@ -782,8 +782,8 @@
     "statPointReward": 12,
     "goldReward": 50,
     "abilities": [
-      "Grundy's ATK and DEF increases for each other goblin creatures in play",
-      "Summons a Goblin from the Monster Deck at 50% HP and 25% HP"
+      "Grundy's ATK and DEF increases for each other goblin enemies in play",
+      "Summons a Goblin from the Enemy Deck at 50% HP and 25% HP"
     ],
     "cardNumber": "GRS · #BOSS-01",
     "mainTerrain": "grasslands",
@@ -791,7 +791,7 @@
       "grasslands",
       "forest"
     ],
-    "creatureType": "Goblinoid Warlord",
+    "enemyType": "Goblinoid Warlord",
     "flavorText": "Grundy leads the plains warband with a bellow loud enough to summon every Goblin within earshot.",
     "pattern": [
       {
@@ -802,7 +802,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "troll_healer",
     "name": "Troll Healer",
     "level": 4,
@@ -823,7 +823,7 @@
       "swamp",
       "forest"
     ],
-    "creatureType": "Troll Shaman",
+    "enemyType": "Troll Shaman",
     "flavorText": "An elder troll shaman invoking ancient bog spirits to mend the wounds of its brethren.",
     "pattern": [
       {
@@ -834,7 +834,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "troll_hexer",
     "name": "Troll Hexer",
     "level": 4,
@@ -855,7 +855,7 @@
       "swamp",
       "forest"
     ],
-    "creatureType": "Troll Witch Doctor",
+    "enemyType": "Troll Witch Doctor",
     "flavorText": "A sinister practitioner of dark occult hexes, muttering curses that enfeeble adventurers.",
     "pattern": [
       {
@@ -873,7 +873,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "troll_brute",
     "name": "Troll Warrior",
     "level": 4,
@@ -894,7 +894,7 @@
       "swamp",
       "forest"
     ],
-    "creatureType": "Troll Brute",
+    "enemyType": "Troll Brute",
     "flavorText": "A towering brute of muscle and stone-like hide, wielding a colossal club with savage fury.",
     "pattern": [
       {
@@ -905,7 +905,7 @@
     ]
   },
   {
-    "type": "monster",
+    "type": "enemy",
     "templateId": "king_nezenheim",
     "name": "Fallen King",
     "level": 7,
@@ -922,7 +922,7 @@
     "spawnTerrains": [
       "underground"
     ],
-    "creatureType": "Undead",
+    "enemyType": "Undead",
     "abilities": [
       "Unholy Aura (Heals all undead allies and himself for 3 HP at turn start)"
     ],
@@ -932,8 +932,8 @@
         "label": "Summon Undead",
         "damage": 0,
         "block": 2,
-        "summonUndeadFromMonsterDeck": true,
-        "returnUndeadDiscardToMonsterDeckOnMiss": true
+        "summonUndeadFromEnemyDeck": true,
+        "returnUndeadDiscardToEnemyDeckOnMiss": true
       },
       {
         "label": "Corrupted Blade",

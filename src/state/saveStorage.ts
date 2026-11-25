@@ -67,6 +67,24 @@ function isValidRunState(candidate: unknown): candidate is RunState {
   );
 }
 
+/** Convert saved card-zone and effect keys from the former monster/creature names. */
+function migrateLegacyCardKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(migrateLegacyCardKeys);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [
+    key
+      .replaceAll('Monsters', 'Enemies')
+      .replaceAll('monsters', 'enemies')
+      .replaceAll('Creatures', 'Enemies')
+      .replaceAll('creatures', 'enemies')
+      .replaceAll('Monster', 'Enemy')
+      .replaceAll('monster', 'enemy')
+      .replaceAll('Creature', 'Enemy')
+      .replaceAll('creature', 'enemy'),
+    migrateLegacyCardKeys(entry),
+  ]));
+}
+
 function migrateSaveRecord(raw: unknown): SaveSlotRecord | null {
   if (!raw || typeof raw !== 'object') return null;
   const rec = raw as Partial<SaveSlotRecord>;
@@ -76,10 +94,11 @@ function migrateSaveRecord(raw: unknown): SaveSlotRecord | null {
   if (rec.version !== SAVE_SCHEMA_VERSION) {
     return null;
   }
-  if (!isValidRunState(rec.state)) {
+  const migratedState = migrateLegacyCardKeys(rec.state);
+  if (!isValidRunState(migratedState)) {
     return null;
   }
-  const clonedState = structuredClone(rec.state);
+  const clonedState = structuredClone(migratedState);
   return {
     slotId: rec.slotId as SaveSlotId,
     version: SAVE_SCHEMA_VERSION,

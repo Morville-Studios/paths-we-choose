@@ -627,7 +627,7 @@
   letter-spacing: normal;
 }
 
-/* Chapter VI: Bestiary (Monstrous Compendium) */
+/* Chapter VI: Enemy Cards Compendium */
 .guide-bestiary-quicknav {
   display: flex;
   flex-wrap: wrap;
@@ -737,7 +737,7 @@
   box-shadow: 0 8px 24px rgba(35, 18, 5, 0.3), 0 0 14px rgba(212, 175, 55, 0.45);
 }
 
-.guide-bestiary-card-item .tcg-card.tcg-creature,
+.guide-bestiary-card-item .tcg-card.tcg-enemy,
 .guide-bestiary-card-item .tcg-card.tcg-item,
 .guide-bestiary-card-item .tcg-card.tcg-adventure,
 .guide-bestiary-card-item .tcg-card.tcg-action {

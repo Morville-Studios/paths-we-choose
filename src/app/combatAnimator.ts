@@ -1,13 +1,13 @@
 import { audioManager } from '../audio/audioManager';
 import { syncAudioState } from '../core/audio';
-import { firstLivingMonsterIndex } from '../core/combat';
+import { firstLivingEnemyIndex } from '../core/combat';
 import { playCard } from '../core/engine';
 import { computeCombatGearBonuses, getEffectiveStatsFromState, getPlayerAcc } from '../core/stats';
-import type { ActiveCombatState, CombatAttackRollSummary, CombatMonster, RunState } from '../core/types';
+import type { ActiveCombatState, CombatAttackRollSummary, CombatEnemy, RunState } from '../core/types';
 import { autosaveRun } from '../state/saveStorage';
 import type { Store } from '../state/store';
 import { publicAsset } from '../ui/publicAsset';
-import { updateMonsterCarouselDom, type UiState } from '../ui/render';
+import { updateEnemyCarouselDom, type UiState } from '../ui/render';
 
 export interface CombatAnimatorDeps {
   root: HTMLElement;
@@ -98,16 +98,16 @@ export function createCombatAnimator({
     }, 650);
   }
 
-  function applyMonsterDefeatToDom(targetIdx: number, maxHp: number): void {
-    const monsterUnit = root.querySelector<HTMLElement>(
-      `.combat-monster-unit[data-id="${targetIdx}"]`
+  function applyEnemyDefeatToDom(targetIdx: number, maxHp: number): void {
+    const enemyUnit = root.querySelector<HTMLElement>(
+      `.combat-enemy-unit[data-id="${targetIdx}"]`
     );
-    if (!monsterUnit) return;
+    if (!enemyUnit) return;
 
-    monsterUnit.classList.remove('is-selected-unit', 'selected');
-    monsterUnit.classList.add('is-dead-unit', 'is-defeat-animating');
+    enemyUnit.classList.remove('is-selected-unit', 'selected');
+    enemyUnit.classList.add('is-dead-unit', 'is-defeat-animating');
 
-    const card = monsterUnit.querySelector<HTMLElement>('.tcg-creature');
+    const card = enemyUnit.querySelector<HTMLElement>('.tcg-enemy');
     if (card) {
       card.classList.remove('is-targeted');
       card.classList.add('is-dead');
@@ -120,55 +120,55 @@ export function createCombatAnimator({
       card.querySelector('.tcg-shield-overlay')?.remove();
     }
 
-    const badgeTop = monsterUnit.querySelector<HTMLElement>('.combat-target-badge-top');
+    const badgeTop = enemyUnit.querySelector<HTMLElement>('.combat-target-badge-top');
     if (badgeTop) {
       badgeTop.className = 'combat-target-spacer';
       badgeTop.textContent = '';
     }
 
-    const dock = monsterUnit.querySelector<HTMLElement>('.creature-combat-dock');
+    const dock = enemyUnit.querySelector<HTMLElement>('.enemy-combat-dock');
     if (dock) {
       dock.classList.add('is-dead');
       const intentVal = dock.querySelector<HTMLElement>('.dock-intent-val');
       if (intentVal) {
         intentVal.innerHTML = '<span class="intent-dead">Defeated</span>';
       }
-      const hpFill = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-fill');
+      const hpFill = dock.querySelector<HTMLElement>('.enemy-hp-bar .hp-fill');
       if (hpFill) {
         hpFill.style.width = '0%';
       }
-      const hpText = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-text');
+      const hpText = dock.querySelector<HTMLElement>('.enemy-hp-bar .hp-text');
       if (hpText) {
         hpText.textContent = `0 / ${maxHp} HP`;
       }
     }
   }
 
-  function applyMonsterSurvivingHpToDom(
+  function applyEnemySurvivingHpToDom(
     targetIdx: number,
     currentHp: number,
     maxHp: number,
     block = 0
   ): void {
-    const monsterUnit = root.querySelector<HTMLElement>(
-      `.combat-monster-unit[data-id="${targetIdx}"]`
+    const enemyUnit = root.querySelector<HTMLElement>(
+      `.combat-enemy-unit[data-id="${targetIdx}"]`
     );
-    if (!monsterUnit) return;
+    if (!enemyUnit) return;
 
     const pct = Math.max(0, Math.min(100, Math.round((currentHp / maxHp) * 100)));
-    const dock = monsterUnit.querySelector<HTMLElement>('.creature-combat-dock');
+    const dock = enemyUnit.querySelector<HTMLElement>('.enemy-combat-dock');
     if (dock) {
-      const hpFill = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-fill');
+      const hpFill = dock.querySelector<HTMLElement>('.enemy-hp-bar .hp-fill');
       if (hpFill) {
         hpFill.style.width = `${pct}%`;
       }
-      const hpText = dock.querySelector<HTMLElement>('.creature-hp-bar .hp-text');
+      const hpText = dock.querySelector<HTMLElement>('.enemy-hp-bar .hp-text');
       if (hpText) {
         hpText.innerHTML = `${currentHp} / ${maxHp} HP${block > 0 ? ` (+${block} &#128737;)` : ''}`;
       }
     }
 
-    const card = monsterUnit.querySelector<HTMLElement>('.tcg-creature');
+    const card = enemyUnit.querySelector<HTMLElement>('.tcg-enemy');
     if (card) {
       const shieldOverlay = card.querySelector<HTMLElement>('.tcg-shield-overlay');
       if (block > 0) {
@@ -186,25 +186,25 @@ export function createCombatAnimator({
     }
   }
 
-  function triggerMonsterDamageEffects(targetIdx: number, damage: number, blocked: number): void {
-    const monsterUnit = root.querySelector<HTMLElement>(
-      `.combat-monster-unit[data-id="${targetIdx}"]`
+  function triggerEnemyDamageEffects(targetIdx: number, damage: number, blocked: number): void {
+    const enemyUnit = root.querySelector<HTMLElement>(
+      `.combat-enemy-unit[data-id="${targetIdx}"]`
     );
-    if (!monsterUnit) return;
+    if (!enemyUnit) return;
 
-    monsterUnit.querySelectorAll('.combat-floating-damage').forEach((el) => el.remove());
-    monsterUnit.classList.remove('is-damage-shaking');
-    void monsterUnit.offsetWidth;
-    monsterUnit.classList.add('is-damage-shaking');
+    enemyUnit.querySelectorAll('.combat-floating-damage').forEach((el) => el.remove());
+    enemyUnit.classList.remove('is-damage-shaking');
+    void enemyUnit.offsetWidth;
+    enemyUnit.classList.add('is-damage-shaking');
 
     const floatEl = document.createElement('div');
     floatEl.className =
       'combat-floating-damage' + (damage === 0 && blocked > 0 ? ' is-blocked' : '');
     floatEl.textContent = damage > 0 ? `-${damage}` : '🛡️ BLOCKED';
-    monsterUnit.appendChild(floatEl);
+    enemyUnit.appendChild(floatEl);
 
     setTimeout(() => {
-      monsterUnit.classList.remove('is-damage-shaking');
+      enemyUnit.classList.remove('is-damage-shaking');
       floatEl.remove();
     }, 1100);
   }
@@ -277,7 +277,7 @@ export function createCombatAnimator({
     });
   }
 
-  function triggerMonsterAbilityEffect(
+  function triggerEnemyAbilityEffect(
     targetIdx: number,
     variant: 'harden' | 'skittish' | 'heal' | 'undying',
     iconPath: string | null,
@@ -285,12 +285,12 @@ export function createCombatAnimator({
     delayMs = 0
   ): void {
     const spawn = () => {
-      const monsterUnit = root.querySelector<HTMLElement>(
-        `.combat-monster-unit[data-id="${targetIdx}"]`
+      const enemyUnit = root.querySelector<HTMLElement>(
+        `.combat-enemy-unit[data-id="${targetIdx}"]`
       );
-      if (!monsterUnit) return;
+      if (!enemyUnit) return;
 
-      monsterUnit
+      enemyUnit
         .querySelectorAll(`.combat-floating-damage.is-ability-${variant}`)
         .forEach((el) => el.remove());
 
@@ -300,7 +300,7 @@ export function createCombatAnimator({
         ? `<img src="${publicAsset(iconPath)}" alt="" class="floating-ability-icon" />`
         : `<span class="floating-ability-emoji" aria-hidden="true">🎲</span>`;
       floatEl.innerHTML = `${iconHtml}<span>${label}</span>`;
-      monsterUnit.appendChild(floatEl);
+      enemyUnit.appendChild(floatEl);
 
       setTimeout(() => {
         floatEl.remove();
@@ -334,7 +334,7 @@ export function createCombatAnimator({
   function triggerAbilityTriggersFromDiff(
     prevState: RunState,
     nextState: RunState,
-    monsterDelayMs = 0
+    enemyDelayMs = 0
   ): number {
     if (prevState.activeHook?.type !== 'COMBAT') {
       return 0;
@@ -357,22 +357,22 @@ export function createCombatAnimator({
       }
     }
 
-    const prevMonsters = prevState.activeHook.combat.monsters;
-    const nextMonsters = nextCombat.monsters;
+    const prevEnemies = prevState.activeHook.combat.enemies;
+    const nextEnemies = nextCombat.enemies;
     const newLogs = nextCombat.combatLog.slice(prevState.activeHook.combat.combatLog.length);
     let extraReviveDelayMs = 0;
 
-    nextMonsters.forEach((mAfter, idx) => {
-      const mBefore = prevMonsters[idx];
+    nextEnemies.forEach((mAfter, idx) => {
+      const mBefore = prevEnemies[idx];
       if (!mBefore) return;
 
       const tokensConsumed =
         (mBefore.undyingTokensRemaining ?? 0) - (mAfter.undyingTokensRemaining ?? 0);
       const undyingLogs = newLogs.filter((entry) =>
-        entry.includes(`${mAfter.monster.name} — Undying:`)
+        entry.includes(`${mAfter.enemy.name} — Undying:`)
       );
       const resilientLogs = newLogs.filter((entry) =>
-        entry.includes(`${mAfter.monster.name} — Resilient:`)
+        entry.includes(`${mAfter.enemy.name} — Resilient:`)
       );
 
       if (tokensConsumed > 0 || undyingLogs.length > 0) {
@@ -384,23 +384,23 @@ export function createCombatAnimator({
             const label = revived
               ? `Undying 1d6=${rollVal}: Revived!`
               : `Undying 1d6=${rollVal}: Failed`;
-            triggerMonsterAbilityEffect(
+            triggerEnemyAbilityEffect(
               idx,
               'undying',
               null,
               label,
-              monsterDelayMs + attemptIdx * 600
+              enemyDelayMs + attemptIdx * 600
             );
           });
           extraReviveDelayMs = Math.max(extraReviveDelayMs, undyingLogs.length * 600 + 350);
         } else {
           const revived = mAfter.hp > 0;
-          triggerMonsterAbilityEffect(
+          triggerEnemyAbilityEffect(
             idx,
             'undying',
             null,
             revived ? 'Undying: Revived!' : 'Undying: Failed',
-            monsterDelayMs
+            enemyDelayMs
           );
           extraReviveDelayMs = Math.max(extraReviveDelayMs, 650);
         }
@@ -409,12 +409,12 @@ export function createCombatAnimator({
         const rollMatch = entry.match(/rolled 1d6 = (\d+)/);
         const rollVal = rollMatch ? rollMatch[1] : '?';
         const revived = entry.includes('Returns to life');
-        triggerMonsterAbilityEffect(
+        triggerEnemyAbilityEffect(
           idx,
           'undying',
           null,
           revived ? `Resilient 1d6=${rollVal}: Revived!` : `Resilient 1d6=${rollVal}: Failed`,
-          monsterDelayMs
+          enemyDelayMs
         );
         extraReviveDelayMs = Math.max(extraReviveDelayMs, 650);
       }
@@ -423,25 +423,25 @@ export function createCombatAnimator({
 
       const hardenGain = (mAfter.hardenDefBonus ?? 0) - (mBefore.hardenDefBonus ?? 0);
       if (hardenGain > 0) {
-        triggerMonsterAbilityEffect(idx, 'harden', '/icons/def.png', `Hardened +${hardenGain}`, monsterDelayMs);
+        triggerEnemyAbilityEffect(idx, 'harden', '/icons/def.png', `Hardened +${hardenGain}`, enemyDelayMs);
       }
 
       const skittishGain = (mAfter.skittishEvaBonus ?? 0) - (mBefore.skittishEvaBonus ?? 0);
       if (skittishGain > 0) {
-        triggerMonsterAbilityEffect(idx, 'skittish', '/icons/eva.png', `Skittish +${skittishGain}`, monsterDelayMs);
+        triggerEnemyAbilityEffect(idx, 'skittish', '/icons/eva.png', `Skittish +${skittishGain}`, enemyDelayMs);
       }
 
       const healGain = mAfter.hp - mBefore.hp;
       if (healGain > 0 && mBefore.hp > 0 && tokensConsumed === 0 && resilientLogs.length === 0) {
         const isRegen =
-          Boolean(mAfter.monster.regenOnStart || mAfter.monster.endTurnRegen) &&
-          (healGain === mAfter.monster.regenOnStart || healGain === mAfter.monster.endTurnRegen);
-        triggerMonsterAbilityEffect(
+          Boolean(mAfter.enemy.regenOnStart || mAfter.enemy.endTurnRegen) &&
+          (healGain === mAfter.enemy.regenOnStart || healGain === mAfter.enemy.endTurnRegen);
+        triggerEnemyAbilityEffect(
           idx,
           'heal',
           '/icons/vit.png',
           `${isRegen ? 'Regen' : 'Heal'} +${healGain}`,
-          monsterDelayMs
+          enemyDelayMs
         );
       }
     });
@@ -626,8 +626,8 @@ export function createCombatAnimator({
 
     const initialCombat: ActiveCombatState = {
       ...finalCombatState,
-      monsters: finalCombatState.monsters.map((m: CombatMonster, idx: number) => {
-        const before = combatBefore.monsters[idx];
+      enemies: finalCombatState.enemies.map((m: CombatEnemy, idx: number) => {
+        const before = combatBefore.enemies[idx];
         if (affectedIndices.has(idx) && before) {
           return {
             ...m,
@@ -649,8 +649,8 @@ export function createCombatAnimator({
 
     store.set(step1State);
 
-    if (finalCombatState.monsters[ui.targetIndex]?.hp <= 0) {
-      const livingNext = firstLivingMonsterIndex(finalCombatState);
+    if (finalCombatState.enemies[ui.targetIndex]?.hp <= 0) {
+      const livingNext = firstLivingEnemyIndex(finalCombatState);
       if (livingNext >= 0) {
         ui.targetIndex = livingNext;
       }
@@ -660,7 +660,7 @@ export function createCombatAnimator({
 
     audioManager.playSlashSound();
     for (const target of affectedTargets) {
-      triggerMonsterDamageEffects(target.targetIndex, target.damage, target.blocked);
+      triggerEnemyDamageEffects(target.targetIndex, target.damage, target.blocked);
     }
     const extraReviveDelayMs = triggerAbilityTriggersFromDiff(s, nextStateToSet, 220);
 
@@ -669,17 +669,17 @@ export function createCombatAnimator({
 
       for (const target of affectedTargets) {
         const idx = target.targetIndex;
-        const mAfter = finalCombatState.monsters[idx];
-        const mBefore = combatBefore.monsters[idx];
+        const mAfter = finalCombatState.enemies[idx];
+        const mBefore = combatBefore.enemies[idx];
         if (!mAfter) continue;
-        const maxHp = mAfter.monster.maxHp ?? mBefore?.monster.maxHp ?? 10;
+        const maxHp = mAfter.enemy.maxHp ?? mBefore?.enemy.maxHp ?? 10;
         const isDead = mAfter.hp <= 0;
 
         if (!isDead) {
-          applyMonsterSurvivingHpToDom(idx, mAfter.hp, maxHp, mAfter.block ?? 0);
+          applyEnemySurvivingHpToDom(idx, mAfter.hp, maxHp, mAfter.block ?? 0);
         } else {
           anyDied = true;
-          applyMonsterDefeatToDom(idx, maxHp);
+          applyEnemyDefeatToDom(idx, maxHp);
         }
       }
 
@@ -694,8 +694,8 @@ export function createCombatAnimator({
 
       const dyingCombat: ActiveCombatState = {
         ...finalCombatState,
-        monsters: finalCombatState.monsters.map((m: CombatMonster, idx: number) =>
-          affectedIndices.has(idx) && finalCombatState.monsters[idx].hp <= 0
+        enemies: finalCombatState.enemies.map((m: CombatEnemy, idx: number) =>
+          affectedIndices.has(idx) && finalCombatState.enemies[idx].hp <= 0
             ? { ...m, hp: 0, block: 0 }
             : m
         ),
@@ -717,7 +717,7 @@ export function createCombatAnimator({
           render();
           victoryTransitioning = false;
         } else {
-          const livingNext = firstLivingMonsterIndex(finalCombatState);
+          const livingNext = firstLivingEnemyIndex(finalCombatState);
           if (livingNext >= 0) {
             ui.targetIndex = livingNext;
           }
@@ -725,7 +725,7 @@ export function createCombatAnimator({
           const stats = getEffectiveStatsFromState(nextStateToSet);
           const combatGear = computeCombatGearBonuses(nextStateToSet.equippedGear);
           const playerAcc = getPlayerAcc(stats, combatGear.acc);
-          const updated = updateMonsterCarouselDom(
+          const updated = updateEnemyCarouselDom(
             root,
             finalCombatState,
             ui.targetIndex,

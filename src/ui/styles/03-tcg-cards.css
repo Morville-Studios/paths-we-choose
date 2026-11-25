@@ -2,14 +2,14 @@
    REUSABLE TCG CARD BORDER TEMPLATES
    ========================================================================== */
 
-/* 1. Grassland Border Template (Creatures & Lands) */
+/* 1. Grassland Border Template (Enemies & Lands) */
 .tcg-card.tcg-template-grassland {
   background: linear-gradient(150deg, #1a4523 0%, #0c2613 100%);
   border: 3px solid #2d7a3e;
   outline: 1px solid #102615;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), inset 0 0 0 1px #4ade80, 0 0 8px rgba(74, 222, 128, 0.25);
 }
-.tcg-card.tcg-creature.tcg-template-grassland {
+.tcg-card.tcg-enemy.tcg-template-grassland {
   border-width: 4px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), inset 0 0 0 1px #4ade80, 0 0 10px rgba(74, 222, 128, 0.25);
 }
@@ -37,8 +37,8 @@
   background: rgba(6, 21, 10, 0.85);
 }
 
-/* 2. Boss Creature Border Template */
-.tcg-card.tcg-creature.tcg-template-boss {
+/* 2. Boss Enemy Border Template */
+.tcg-card.tcg-enemy.tcg-template-boss {
   background: linear-gradient(150deg, #4d380e 0%, #201704 100%);
   border: 4px solid #f59e0b;
   outline: 1px solid #78350f;
@@ -427,8 +427,8 @@
   margin: 0 0 4px;
 }
 
-/* Standard Creature Sizing (5:7 ratio) */
-.tcg-card.tcg-creature {
+/* Standard Enemy Sizing (5:7 ratio) */
+.tcg-card.tcg-enemy {
   width: 230px;
   height: 322px;
   padding: 0 !important;
@@ -436,16 +436,16 @@
 }
 
 /* Targeted & Dead states */
-.tcg-card.tcg-creature {
+.tcg-card.tcg-enemy {
   transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1), filter 0.85s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.85s ease;
 }
-.tcg-card.tcg-creature.is-targeted {
+.tcg-card.tcg-enemy.is-targeted {
   border-color: #fbbf24;
   box-shadow: 0 0 0 3px #fbbf24, 0 0 20px rgba(251, 191, 36, 0.8), 0 8px 24px rgba(0, 0, 0, 0.7);
   transform: translateY(-4px) scale(1.02);
   z-index: 6;
 }
-.tcg-card.tcg-creature.is-dead {
+.tcg-card.tcg-enemy.is-dead {
   opacity: 0.36;
   filter: grayscale(1) brightness(0.65);
   cursor: not-allowed;
@@ -654,7 +654,7 @@
   min-height: 45px;
   pointer-events: none;
 }
-.tcg-card.tcg-creature .tcg-art-spacer {
+.tcg-card.tcg-enemy .tcg-art-spacer {
   min-height: 25px;
 }
 .tcg-card.tcg-action .tcg-art-spacer {
@@ -712,8 +712,8 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-/* Combat Monster Unit & Floating Target Badge (Above Card) */
-.combat-monster-unit {
+/* Combat Enemy Unit & Floating Target Badge (Above Card) */
+.combat-enemy-unit {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -727,7 +727,7 @@
   color: inherit;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.combat-monster-unit.is-dead-unit {
+.combat-enemy-unit.is-dead-unit {
   cursor: default;
   opacity: 0.65;
 }
@@ -782,8 +782,8 @@
   100% { opacity: 1; transform: rotate(-6deg) scale(0.95); }
 }
 
-/* Violent Monster Card Shake on Damage */
-@keyframes violentMonsterShake {
+/* Violent Enemy Card Shake on Damage */
+@keyframes violentEnemyShake {
   0% { transform: translate(0, 0) rotate(0deg); }
   10% { transform: translate(-12px, -6px) rotate(-4deg); }
   20% { transform: translate(12px, 6px) rotate(4deg); }
@@ -796,17 +796,17 @@
   100% { transform: translate(0, 0) rotate(0deg); }
 }
 
-.combat-monster-unit.is-damage-shaking {
+.combat-enemy-unit.is-damage-shaking {
   opacity: 1 !important;
   z-index: 50 !important;
 }
 
-.combat-monster-unit.is-damage-shaking .tcg-card.tcg-creature {
-  animation: violentMonsterShake 0.52s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+.combat-enemy-unit.is-damage-shaking .tcg-card.tcg-enemy {
+  animation: violentEnemyShake 0.52s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 
-/* Monster Defeat Greyout Animation */
-@keyframes monsterGreyout {
+/* Enemy Defeat Greyout Animation */
+@keyframes enemyGreyout {
   0% {
     filter: grayscale(0) brightness(1);
     opacity: 1;
@@ -824,8 +824,8 @@
   }
 }
 
-.combat-monster-unit.is-defeat-animating .tcg-card.tcg-creature {
-  animation: monsterGreyout 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.combat-enemy-unit.is-defeat-animating .tcg-card.tcg-enemy {
+  animation: enemyGreyout 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Floating RPG Combat Damage Numbers */
@@ -926,7 +926,7 @@
 
 .hero-sidebar-vitals-card.is-damage-shaking,
 .player-line.is-damage-shaking {
-  animation: violentMonsterShake 0.52s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  animation: violentEnemyShake 0.52s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
   box-shadow: 0 0 24px rgba(239, 68, 68, 0.75), inset 0 0 14px rgba(239, 68, 68, 0.35);
 }
 

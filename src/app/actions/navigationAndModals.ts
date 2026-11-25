@@ -1,6 +1,6 @@
 import { audioManager } from '../../audio/audioManager';
 import { GUIDE_PAGE_COUNT } from '../../ui/screens/guide';
-import { firstLivingMonsterIndex } from '../../core/combat';
+import { firstLivingEnemyIndex } from '../../core/combat';
 import {
   advancePathToTreasurePrompt,
   buyPathMerchantItem,
@@ -58,7 +58,7 @@ function restoreSavedRun(ctx: ActionContext, restored: RunState): void {
   ctx.ui.showSaves = false;
   ctx.ui.pendingSaveAction = null;
   if (restored.activeHook.type === 'COMBAT') {
-    const living = firstLivingMonsterIndex(restored.activeHook.combat);
+    const living = firstLivingEnemyIndex(restored.activeHook.combat);
     ctx.ui.targetIndex = living >= 0 ? living : 0;
   }
   ctx.store.set(restored);
@@ -102,8 +102,8 @@ export const navigationAndModalActions: Record<string, ActionHandler> = {
     }
   },
 
-  'inspect-monster': ({ store, ui, render }, _payload, target) => {
-    const cardEl = target.closest<HTMLElement>('[data-inspect-kind="monster"]') ?? target;
+  'inspect-enemy': ({ store, ui, render }, _payload, target) => {
+    const cardEl = target.closest<HTMLElement>('[data-inspect-kind="enemy"]') ?? target;
     const info = findInspectedCard(store.get(), cardEl);
     if (info) {
       ui.inspectedCard = info;

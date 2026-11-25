@@ -6,15 +6,15 @@ const root = path.resolve(__dirname, '..');
 const rawRoot = path.join(root, 'assets', 'raw');
 const publicRoot = path.join(root, 'public');
 const sourceFolders = ['background', 'brand', 'cards', 'icons', 'ui'];
-const rawOnly = new Set(['cards/templates/grassland_creature.jpg', 'icons/icons.png', 'icons/icons_thumb.png']);
+const rawOnly = new Set(['cards/templates/grassland_enemy.jpg', 'icons/icons.png', 'icons/icons_thumb.png']);
 const webpOutputs = new Map([
   ['background/start-screen.png', 'background/start-screen.webp'],
   ['brand/paths-to-odamyrus-logo.png', 'brand/paths-to-odamyrus-logo.webp'],
 ]);
 const jpegOutputs = new Map([
-  ['cards/creatures/cultist_mage.png', 'cards/creatures/cultist_mage.jpg'],
-  ['cards/creatures/lurker.png', 'cards/creatures/lurker.jpg'],
-  ['cards/creatures/phalanx.png', 'cards/creatures/phalanx.jpg'],
+  ['cards/enemies/cultist_mage.png', 'cards/enemies/cultist_mage.jpg'],
+  ['cards/enemies/lurker.png', 'cards/enemies/lurker.jpg'],
+  ['cards/enemies/phalanx.png', 'cards/enemies/phalanx.jpg'],
 ]);
 
 async function walk(folder) {

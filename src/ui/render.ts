@@ -1,15 +1,15 @@
 import { CLASS_CATALOG } from '../data/classes';
 import {
-  getMonsterRarity,
-  MONSTER_TEMPLATES,
-} from '../data/monsters';
+  getEnemyRarity,
+  ENEMY_TEMPLATES,
+} from '../data/enemies';
 import { ShopItemTemplate } from '../data/shopItems';
 import { ADVENTURE_CARD_ORDER } from '../data/stages';
 import { getHeroStatDebuffMods } from '../core/combat';
-import { getVoidCards } from '../data/combatCards';
+import { getVoidCards } from '../data/actionCards';
 import { coordToKey } from '../core/grid';
 import {
-  getMonsterIllustration,
+  getEnemyIllustration,
   getItemRasterArtPath,
   getAdventurerRasterArtPath,
   getPathRasterArtPath,
@@ -37,12 +37,12 @@ import {
   AdventureCard,
   CharacterStats,
   ClassId,
-  CombatCardDef,
+  ActionCardDef,
   HeroStatDebuff,
   PlacedCardNode,
   RunState,
   ShopItemDef,
-  MonsterCard,
+  EnemyCard,
   STATS,
 } from '../core/types';
 
@@ -97,20 +97,20 @@ const ADVENTURE_CARD_ORDER_INDEX = new Map(
 
 import { renderWelcome } from './screens/welcome';
 import {
-  getMonsterLowestTerrain,
-  getMonsterLowestTerrainTier,
-  getBestiaryMonstersForTerrain,
+  getEnemyLowestTerrain,
+  getEnemyLowestTerrainTier,
+  getBestiaryEnemiesForTerrain,
   getBestiaryBosses,
   getArmoryItemsForCategory,
   renderGuideModal,
 } from './screens/guide';
 import { cardInspectModal, statInspectModal, gameLogModal } from './modals/inspectModals';
 import {
-  getMonsterCarouselClass,
-  updateMonsterCarouselDom,
-  creatureHeaderHtml,
-  creatureFooterHtml,
-  fullCreatureCardHtml,
+  getEnemyCarouselClass,
+  updateEnemyCarouselDom,
+  enemyHeaderHtml,
+  enemyFooterHtml,
+  fullEnemyCardHtml,
   parseCombatLogEntry,
   renderCombatLogEntries,
   heroHexIntentHtml,
@@ -139,11 +139,11 @@ import {
   trainingConfirmModal,
 } from './screens/villageView';
 export {
-  getMonsterCarouselClass,
-  updateMonsterCarouselDom,
-  creatureHeaderHtml,
-  creatureFooterHtml,
-  fullCreatureCardHtml,
+  getEnemyCarouselClass,
+  updateEnemyCarouselDom,
+  enemyHeaderHtml,
+  enemyFooterHtml,
+  fullEnemyCardHtml,
   parseCombatLogEntry,
   renderCombatLogEntries,
   heroHexIntentHtml,
@@ -161,9 +161,9 @@ export {
   victoryModal,
   villageViewHtml,
   renderWelcome,
-  getMonsterLowestTerrain,
-  getMonsterLowestTerrainTier,
-  getBestiaryMonstersForTerrain,
+  getEnemyLowestTerrain,
+  getEnemyLowestTerrainTier,
+  getBestiaryEnemiesForTerrain,
   getBestiaryBosses,
   getArmoryItemsForCategory,
   renderGuideModal,
@@ -171,10 +171,10 @@ export {
   statInspectModal,
   gameLogModal,
 };
-function voidBossCards(): MonsterCard[] {
-  return Object.values(MONSTER_TEMPLATES)
-    .filter((monster) => monster.isBoss)
-    .map((monster) => ({ ...monster, id: `void_${monster.templateId}` }));
+function voidBossCards(): EnemyCard[] {
+  return Object.values(ENEMY_TEMPLATES)
+    .filter((enemy) => enemy.isBoss)
+    .map((enemy) => ({ ...enemy, id: `void_${enemy.templateId}` }));
 }
 
 function voidHeroClassIds(playerClass: ClassId | null): ClassId[] {
@@ -188,19 +188,19 @@ export function voidCardCount(state: RunState): number {
     + (state.voidCards?.length ?? 0)
     + (state.voidItems?.length ?? 0)
     + (state.treasureVoid?.length ?? 0)
-    + (state.monsterVoid?.length ?? 0);
+    + (state.enemyVoid?.length ?? 0);
 }
 
-export function monsterRarityLabel(monster: Pick<MonsterCard, 'isBoss' | 'rarity'>): string {
-  if (monster.isBoss) return 'Boss';
-  const rarity = getMonsterRarity(monster);
+export function enemyRarityLabel(enemy: Pick<EnemyCard, 'isBoss' | 'rarity'>): string {
+  if (enemy.isBoss) return 'Boss';
+  const rarity = getEnemyRarity(enemy);
   return rarity[0].toUpperCase() + rarity.slice(1);
 }
 
-export function monsterRaritySymbolHtml(monster: Pick<MonsterCard, 'isBoss' | 'rarity'>, className = ''): string {
-  if (monster.isBoss) return '';
-  const rarity = getMonsterRarity(monster);
-  const label = monsterRarityLabel(monster);
+export function enemyRaritySymbolHtml(enemy: Pick<EnemyCard, 'isBoss' | 'rarity'>, className = ''): string {
+  if (enemy.isBoss) return '';
+  const rarity = getEnemyRarity(enemy);
+  const label = enemyRarityLabel(enemy);
   return `<span class="tcg-set-symbol is-${rarity} ${className}" title="New Paths · ${label}" aria-label="New Paths set symbol: ${label} rarity">
     <img src="${publicAsset(`icons/new-paths-${rarity}.svg`)}" alt="" aria-hidden="true" />
   </span>`;
@@ -472,7 +472,7 @@ function gearHtml(state: RunState): string {
   </div>`;
 }
 
-type DeckPileGroupId = 'adventure' | 'paths' | 'monster' | 'player' | 'treasure' | 'newSkills' | 'void';
+type DeckPileGroupId = 'adventure' | 'paths' | 'enemy' | 'player' | 'treasure' | 'newSkills' | 'void';
 
 interface DeckPanelConfig {
   visibleGroups: readonly DeckPileGroupId[];
@@ -502,10 +502,10 @@ function deckPileGroupDetails(state: RunState, group: DeckPileGroupId): DeckPile
       return { icon: '🌿', title: 'Adventure Cards', deckLabel: 'Deck', deckCount: state.adventureDeck.length, discardCount: state.adventureDiscard.length, deckPile: 'adventure_deck', discardPile: 'adventure_discard', cssPrefix: 'adventure' };
     case 'paths':
       return { icon: '🧭', title: 'Paths Cards', deckLabel: 'Deck', deckCount: (state.pathsDeck ?? []).length, discardCount: (state.pathsDiscard ?? []).length, deckPile: 'paths_deck', discardPile: 'paths_discard', cssPrefix: 'paths' };
-    case 'monster':
-      return { icon: '👹', title: 'Monster Cards', deckLabel: 'Deck', deckCount: state.monsterDeck.length, discardCount: state.monsterDiscard.length, deckPile: 'monster_deck', discardPile: 'monster_discard', cssPrefix: 'monster' };
+    case 'enemy':
+      return { icon: '👹', title: 'Enemy Cards', deckLabel: 'Deck', deckCount: state.enemyDeck.length, discardCount: state.enemyDiscard.length, deckPile: 'enemy_deck', discardPile: 'enemy_discard', cssPrefix: 'enemy' };
     case 'player':
-      return { icon: '⚔️', title: 'Player Combat Deck', deckLabel: combat ? 'Draw' : 'Deck', deckCount: combat ? combat.drawPile.length : state.playerMasterDeck.length, discardCount: combat ? combat.discardPile.length : 0, deckPile: 'player_deck', discardPile: 'player_discard', cssPrefix: 'player' };
+      return { icon: '⚔️', title: 'Action Deck', deckLabel: combat ? 'Draw' : 'Deck', deckCount: combat ? combat.drawPile.length : state.playerMasterDeck.length, discardCount: combat ? combat.discardPile.length : 0, deckPile: 'player_deck', discardPile: 'player_discard', cssPrefix: 'player' };
     case 'treasure':
       return { icon: '💎', title: 'Treasure Cards', deckLabel: 'Deck', deckCount: state.treasureDeck.length, discardCount: state.treasureDiscard.length, deckPile: 'treasure_deck', discardPile: 'treasure_discard', cssPrefix: 'treasure' };
     case 'newSkills':
@@ -605,7 +605,7 @@ export function rightSidebarHtml(state: RunState): string {
   return `
   <div class="map-sidebar-right-wrap">
     ${deckPilesPanelHtml(state, {
-      visibleGroups: ['adventure', 'paths', 'monster', 'player', 'treasure', 'newSkills', 'void'],
+      visibleGroups: ['adventure', 'paths', 'enemy', 'player', 'treasure', 'newSkills', 'void'],
       heading: 'Decks &amp; Discards',
     })}
   </div>`;
@@ -651,27 +651,27 @@ export function renderSpawnBadges(spawnTerrains?: string[]): string {
   return badges.join('');
 }
 
-function monsterPileCardItem(m: MonsterCard, count: number, totalCards: number): string {
-  const illustration = getMonsterIllustration(m.templateId);
+function enemyPileCardItem(m: EnemyCard, count: number, totalCards: number): string {
+  const illustration = getEnemyIllustration(m.templateId);
   const terrains = m.spawnTerrains ?? ['grasslands', 'forest'];
   const spawnIcons = renderSpawnBadges(m.spawnTerrains);
   const templateClass = m.isBoss ? 'is-boss tcg-template-boss' : 'tcg-template-grassland';
-  const subtype = formatCreatureSubtype(m.creatureType);
+  const subtype = formatEnemySubtype(m.enemyType);
 
   return `
-  <div class="deck-pile-card-item pile-card-wrapper" data-inspect-kind="monster" data-monster-id="${m.templateId}" title="${m.name} (×${count} in pile)">
+  <div class="deck-pile-card-item pile-card-wrapper" data-inspect-kind="enemy" data-enemy-id="${m.templateId}" title="${m.name} (×${count} in pile)">
     <div class="deck-pile-card-frame">
-      <div class="tcg-card tcg-creature ${templateClass} is-mini">
+      <div class="tcg-card tcg-enemy ${templateClass} is-mini">
         <div class="tcg-inner-frame">
           <div class="tcg-art-window">
             ${illustration}
           </div>
-          <header class="tcg-header tcg-mini-creature-header">
+          <header class="tcg-header tcg-mini-enemy-header">
             <span class="tcg-name">${m.name}</span>
             <span class="tcg-level-ribbon">Lvl ${m.level}</span>
           </header>
           <div class="tcg-art-spacer"></div>
-          <footer class="tcg-footer tcg-mini-creature-footer">
+          <footer class="tcg-footer tcg-mini-enemy-footer">
             <span class="tcg-mini-subtype">${subtype}</span>
             <div class="tcg-spawn-group" title="Spawn Terrains: ${terrains.join(', ')}">
               ${spawnIcons}
@@ -685,10 +685,10 @@ function monsterPileCardItem(m: MonsterCard, count: number, totalCards: number):
   </div>`;
 }
 
-function combatPileCardItem(card: CombatCardDef, count: number, totalCards: number, stats: CharacterStats, state: RunState): string {
+function actionPileCardItem(card: ActionCardDef, count: number, totalCards: number, stats: CharacterStats, state: RunState): string {
   // Pile cards are for reference only: they must look like real cards without
   // becoming actionable combat controls.
-  const cardHtml = combatCardHtml(card, stats, false, 'play-card', true, state, true);
+  const cardHtml = actionCardHtml(card, stats, false, 'play-card', true, state, true);
   return `
   <div class="deck-pile-card-item pile-card-wrapper" data-inspect-kind="action" data-card-id="${card.id}" title="${card.name} (×${count} in pile)">
     <div class="deck-pile-card-frame">
@@ -733,13 +733,13 @@ export function getItemDisplayName(name: string): string {
   return name.replace(/^LVL\s*\d+\s*/i, '').trim();
 }
 
-export function formatCreatureSubtype(type?: string): string {
+export function formatEnemySubtype(type?: string): string {
   if (!type) return 'Beast';
   const clean = type
     .replace(/^Boss\s+/i, '')
-    .replace(/^Creature\s*[\u2014\-–:]\s*/i, '')
-    .replace(/^Creature\s+/i, '')
-    .replace(/^Creature$/i, '')
+    .replace(/^Enemy\s*[\u2014\-–:]\s*/i, '')
+    .replace(/^Enemy\s+/i, '')
+    .replace(/^Enemy$/i, '')
     .trim();
   return clean || 'Beast';
 }
@@ -895,29 +895,29 @@ export function pileModal(pileType: PileType, state: RunState): string {
     const heroes = voidHeroClassIds(state.playerClass);
     const destroyed = state.voidCards ?? [];
     const voidItems = [...(state.voidItems ?? []), ...(state.treasureVoid ?? [])];
-    const voidMonsters = state.monsterVoid ?? [];
-    const voidMonsterGroups = groupByCount(voidMonsters, (monster) => monster.templateId);
+    const voidEnemies = state.enemyVoid ?? [];
+    const voidEnemyGroups = groupByCount(voidEnemies, (enemy) => enemy.templateId);
     const destroyedGroups = groupByCount(destroyed, (card) => card.id);
     const voidItemGroups = groupByCount(voidItems, (item) => item.id);
     icon = '🌀';
     title = 'The Void';
-    desc = 'Public not-in-play cards. Ordinary creature copies not selected by the current scenario remain here. Static skill upgrades, Bosses, and unselected heroes remain inexhaustible; cards banished during Village Training and items sold in Village shops are physical Void cards.';
-    totalCards = upgradeCards.length + bosses.length + heroes.length + destroyed.length + voidItems.length + voidMonsters.length;
-    uniqueCount = upgradeCards.length + bosses.length + heroes.length + destroyedGroups.length + voidItemGroups.length + voidMonsterGroups.length;
+    desc = 'Public not-in-play cards. Ordinary enemy copies not selected by the current scenario remain here. Static skill upgrades, Bosses, and unselected heroes remain inexhaustible; cards banished during Village Training and items sold in Village shops are physical Void cards.';
+    totalCards = upgradeCards.length + bosses.length + heroes.length + destroyed.length + voidItems.length + voidEnemies.length;
+    uniqueCount = upgradeCards.length + bosses.length + heroes.length + destroyedGroups.length + voidItemGroups.length + voidEnemyGroups.length;
     cardsHtml = [
       ...upgradeCards
         .sort((a, b) => (a.cardNumber ?? a.name).localeCompare(b.cardNumber ?? b.name))
-        .map((card) => combatPileCardItem(card, 1, totalCards, stats, state)),
+        .map((card) => actionPileCardItem(card, 1, totalCards, stats, state)),
       ...bosses
         .sort((a, b) => (a.cardNumber ?? a.name).localeCompare(b.cardNumber ?? b.name))
-        .map((monster) => monsterPileCardItem(monster, 1, totalCards)),
-      ...voidMonsterGroups
+        .map((enemy) => enemyPileCardItem(enemy, 1, totalCards)),
+      ...voidEnemyGroups
         .sort((a, b) => (a.item.cardNumber ?? a.item.name).localeCompare(b.item.cardNumber ?? b.item.name))
-        .map(({ item, count }) => monsterPileCardItem(item, count, totalCards)),
+        .map(({ item, count }) => enemyPileCardItem(item, count, totalCards)),
       ...heroes.map((classId) => voidHeroPileCardItem(classId, totalCards)),
       ...destroyedGroups
         .sort((a, b) => (a.item.cardNumber ?? a.item.name).localeCompare(b.item.cardNumber ?? b.item.name))
-        .map(({ item, count }) => combatPileCardItem(item, count, totalCards, stats, state)),
+        .map(({ item, count }) => actionPileCardItem(item, count, totalCards, stats, state)),
       ...voidItemGroups
         .sort((a, b) => (a.item.cardNumber ?? a.item.name).localeCompare(b.item.cardNumber ?? b.item.name))
         .map(({ item, count }) => treasurePileCardItem(item, count, totalCards)),
@@ -947,17 +947,17 @@ export function pileModal(pileType: PileType, state: RunState): string {
       })
       .map(({ item, count }) => adventurePileCardItem(item, count, totalCards))
       .join('');
-  } else if (pileType === 'monster_deck' || pileType === 'monster_discard') {
-    const isDeck = pileType === 'monster_deck';
-    const cards = isDeck ? state.monsterDeck : state.monsterDiscard;
+  } else if (pileType === 'enemy_deck' || pileType === 'enemy_discard') {
+    const isDeck = pileType === 'enemy_deck';
+    const cards = isDeck ? state.enemyDeck : state.enemyDiscard;
     icon = isDeck ? '👹' : '💀';
-    title = isDeck ? 'Monster Deck' : 'Monster Discard Pile';
+    title = isDeck ? 'Enemy Deck' : 'Enemy Discard Pile';
     desc = isDeck
-      ? `Scenario Level ${state.scenarioLevel ?? state.currentMission ?? 1} hostiles pulled from the physical creature supply. Encounters draw eligible cards from this hidden pile; unused creature copies remain publicly inspectable in the Void.`
-      : 'Monsters defeated in battle during this stage.';
+      ? `Scenario Level ${state.scenarioLevel ?? state.currentMission ?? 1} hostiles pulled from the physical enemy supply. Encounters draw eligible cards from this hidden pile; unused enemy copies remain publicly inspectable in the Void.`
+      : 'Enemies defeated in battle during this stage.';
     totalCards = cards.length;
 
-    const groups = groupByCount(cards, (monster) => monster.templateId || monster.name);
+    const groups = groupByCount(cards, (enemy) => enemy.templateId || enemy.name);
     uniqueCount = groups.length;
     cardsHtml = groups
       .sort((a, b) => {
@@ -965,7 +965,7 @@ export function pileModal(pileType: PileType, state: RunState): string {
         const codeB = b.item.cardNumber ?? b.item.name;
         return codeA.localeCompare(codeB);
       })
-      .map(({ item, count }) => monsterPileCardItem(item, count, totalCards))
+      .map(({ item, count }) => enemyPileCardItem(item, count, totalCards))
       .join('');
   } else if (pileType === 'paths_deck' || pileType === 'paths_discard') {
     const isDeck = pileType === 'paths_deck';
@@ -1033,7 +1033,7 @@ export function pileModal(pileType: PileType, state: RunState): string {
           ? 'Action cards remaining in your draw pile for this combat. Reshuffled from discard when empty.'
           : 'Action cards played or discarded during this battle.')
       : (isDeck
-          ? 'Your full combat action deck with current effective stat scaling.'
+          ? 'Your full action deck with current effective stat scaling.'
           : 'Combat discard pile is empty outside of battle.');
     totalCards = cards.length;
 
@@ -1045,7 +1045,7 @@ export function pileModal(pileType: PileType, state: RunState): string {
         const codeB = b.item.cardNumber ?? b.item.name;
         return codeA.localeCompare(codeB);
       })
-      .map(({ item, count }) => combatPileCardItem(item, count, totalCards, stats, state))
+      .map(({ item, count }) => actionPileCardItem(item, count, totalCards, stats, state))
       .join('');
   }
 
@@ -1161,7 +1161,7 @@ export function turnTrackerHtml(state: RunState): string {
   </div>`;
 }
 
-export function bossApproachViewHtml(state: RunState, bossMonsters: MonsterCard[]): string {
+export function bossApproachViewHtml(state: RunState, bossEnemies: EnemyCard[]): string {
   const mission = state.currentMission ?? 1;
   const stageTitle =
     mission === 1
@@ -1169,23 +1169,23 @@ export function bossApproachViewHtml(state: RunState, bossMonsters: MonsterCard[
       : mission === 2
         ? 'Stage 2 · Cult of Trolls'
         : 'Stage 3 · Tomb of the Fallen King';
-  const bossNames = bossMonsters.map((m) => m.name).join(' & ');
+  const bossNames = bossEnemies.map((m) => m.name).join(' & ');
 
-  const bossCardsHtml = bossMonsters
-    .map((monster) => {
-      const card = fullCreatureCardHtml({
-        monster,
+  const bossCardsHtml = bossEnemies
+    .map((enemy) => {
+      const card = fullEnemyCardHtml({
+        enemy,
         attackBonus: 0,
         accBonus: 0,
         evaBonus: 0,
         defBonus: 0,
         className: 'is-boss-card is-boss-preview',
         artOverlayHtml: `<div class="tcg-boss-ribbon">👑 STAGE BOSS</div>`,
-        attributes: `aria-label="${monster.name} Card" data-inspect-kind="monster" data-monster-id="${monster.templateId}"`,
+        attributes: `aria-label="${enemy.name} Card" data-inspect-kind="enemy" data-enemy-id="${enemy.templateId}"`,
       });
 
       return `
-      <div class="boss-card-wrapper" data-action="start-boss-battle" role="button" tabindex="0" title="Click to engage ${monster.name} in battle">
+      <div class="boss-card-wrapper" data-action="start-boss-battle" role="button" tabindex="0" title="Click to engage ${enemy.name} in battle">
         <div class="boss-card-target-pill">🎯 CLICK TO FIGHT</div>
         ${card}
       </div>`;
@@ -1210,7 +1210,7 @@ export function bossApproachViewHtml(state: RunState, bossMonsters: MonsterCard[
 
     <div class="boss-approach-actions">
       <button class="btn primary big boss-start-btn" data-action="start-boss-battle" title="Begin the Boss encounter">
-        ⚔️ Fight ${bossMonsters.length > 1 ? 'Bosses' : bossNames} — Enter Battle &rarr;
+        ⚔️ Fight ${bossEnemies.length > 1 ? 'Bosses' : bossNames} — Enter Battle &rarr;
       </button>
       <span class="boss-approach-hint muted">You can also click the boss card directly or press <b>Enter</b> / <b>Space</b></span>
     </div>
@@ -1252,7 +1252,7 @@ export function renderPlayArea(state: RunState, ui: UiState): string {
     : state.activeHook.type === 'VILLAGE'
     ? villageViewHtml(state, state.activeHook.village, ui)
     : state.activeHook.type === 'BOSS_APPROACH'
-    ? bossApproachViewHtml(state, state.activeHook.bossMonsters)
+    ? bossApproachViewHtml(state, state.activeHook.bossEnemies)
     : `
         <section class="board" aria-label="Adventure board">
           <div class="board-world">${nodes.map((n) => adventureCardHtml(n, state)).join('')}</div>
@@ -1322,8 +1322,8 @@ export function renderPlayArea(state: RunState, ui: UiState): string {
   </main>`;
 }
 
-export function combatCardHtml(
-  card: CombatCardDef,
+export function actionCardHtml(
+  card: ActionCardDef,
   stats: CharacterStats,
   playable: boolean,
   action = 'play-card',
@@ -1340,13 +1340,13 @@ export function combatCardHtml(
   });
 }
 
-export function deckModal(deck: CombatCardDef[], state: RunState): string {
+export function deckModal(deck: ActionCardDef[], state: RunState): string {
   const stats = getEffectiveStatsFromState(state);
   return `
   <div class="modal-backdrop">
     <div class="modal">
-      <h2>Your combat deck (${deck.length})</h2>
-      <div class="hand wrap">${deck.map((c) => combatCardHtml(c, stats, false, 'play-card', false, state, true)).join('')}</div>
+      <h2>Your action deck (${deck.length})</h2>
+      <div class="hand wrap">${deck.map((c) => actionCardHtml(c, stats, false, 'play-card', false, state, true)).join('')}</div>
       <button class="btn" data-action="toggle-deck">Close</button>
     </div>
   </div>`;

@@ -6,7 +6,7 @@ import { createCombatAnimator } from './app/combatAnimator';
 import { findInspectedCard } from './app/inspect';
 import { patchPlayArea, snapshotPlayArea, type PlayRegionMarkup } from './app/patchPlayArea';
 import type { ActionContext } from './app/types';
-import { firstLivingMonsterIndex } from './core/combat';
+import { firstLivingEnemyIndex } from './core/combat';
 import { confirmCombatVictory, createInitialState, startAdventure, startBossCombat } from './core/engine';
 import { computeCombatGearBonuses, getEffectiveStatsFromState, getPlayerAcc } from './core/stats';
 import type { StatKey } from './core/types';
@@ -26,7 +26,7 @@ import {
   UiState,
   updateClassCarouselDom,
   updateHandCarouselDom,
-  updateMonsterCarouselDom,
+  updateEnemyCarouselDom,
 } from './ui/render';
 import { startUpdateMonitor } from './updates';
 
@@ -173,7 +173,7 @@ function setCombatTarget(newTarget: number): void {
   if (s.activeHook?.type === 'COMBAT' && !ui.inspectedCard && !ui.inspectedPile && !ui.showDeck) {
     const stats = getEffectiveStatsFromState(s);
     const playerAcc = getPlayerAcc(stats, computeCombatGearBonuses(s.equippedGear).acc);
-    const updated = updateMonsterCarouselDom(root, s.activeHook.combat, ui.targetIndex, playerAcc);
+    const updated = updateEnemyCarouselDom(root, s.activeHook.combat, ui.targetIndex, playerAcc);
     if (!updated) render();
   } else {
     render();
@@ -185,7 +185,7 @@ function navigateCombatTarget(direction: -1 | 1): void {
   const s = store.get();
   if (s.activeHook?.type !== 'COMBAT') return;
   const combat = s.activeHook.combat;
-  const livingIndices = combat.monsters
+  const livingIndices = combat.enemies
     .map((m, idx) => ({ m, idx }))
     .filter(({ m }) => m.hp > 0)
     .map(({ idx }) => idx);
@@ -193,9 +193,9 @@ function navigateCombatTarget(direction: -1 | 1): void {
   if (livingIndices.length <= 1) return;
 
   const currentTarget =
-    combat.monsters[ui.targetIndex] && combat.monsters[ui.targetIndex].hp > 0
+    combat.enemies[ui.targetIndex] && combat.enemies[ui.targetIndex].hp > 0
       ? ui.targetIndex
-      : firstLivingMonsterIndex(combat);
+      : firstLivingEnemyIndex(combat);
   const currentPos = livingIndices.indexOf(currentTarget);
   const validPos = currentPos >= 0 ? currentPos : 0;
   const nextPos = (validPos + direction + livingIndices.length) % livingIndices.length;
@@ -519,14 +519,14 @@ window.addEventListener('keydown', (ev) => {
     }
     if (ev.key === 'a' || ev.key === 'A' || ev.key === 'ArrowLeft') {
       ev.preventDefault();
-      const livingTargets = s.activeHook.combat.monsters.filter((monster) => monster.hp > 0).length;
+      const livingTargets = s.activeHook.combat.enemies.filter((enemy) => enemy.hp > 0).length;
       if (livingTargets <= 1) navigateHand(-1);
       else navigateCombatTarget(-1);
       return;
     }
     if (ev.key === 'd' || ev.key === 'D' || ev.key === 'ArrowRight') {
       ev.preventDefault();
-      const livingTargets = s.activeHook.combat.monsters.filter((monster) => monster.hp > 0).length;
+      const livingTargets = s.activeHook.combat.enemies.filter((enemy) => enemy.hp > 0).length;
       if (livingTargets <= 1) navigateHand(1);
       else navigateCombatTarget(1);
     }

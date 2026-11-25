@@ -18,7 +18,7 @@ import { getAdventureRasterArtPath, getItemRasterArtPath } from '../cardArt';
 import { getResourceIcon, getSlotIcon } from '../icons';
 import { publicAsset } from '../publicAsset';
 import { PendingTrainingAction, UiState } from '../types';
-import { combatCardHtml, voidCardCount } from '../render';
+import { actionCardHtml, voidCardCount } from '../render';
 function signed(n: number): string {
   return n > 0 ? `+${n}` : `${n}`;
 }
@@ -272,7 +272,7 @@ export function villageViewHtml(state: RunState, village: ActiveVillageState, ui
             ? village.trainOptions.map((c) => {
               const cost = getTrainingSkillCost(c);
               const canLearn = res.gold >= cost.gold && res.statPoints >= cost.statPoints;
-              return `<div class="train-card-offer">${combatCardHtml(c, stats, canLearn, 'train-draft', false, state)}<span>${cost.gold} Gold · ${cost.statPoints} SP</span></div>`;
+              return `<div class="train-card-offer">${actionCardHtml(c, stats, canLearn, 'train-draft', false, state)}<span>${cost.gold} Gold · ${cost.statPoints} SP</span></div>`;
             }).join('')
             : '<p class="muted">All pre-drawn training offers have been learned.</p>'}</div>
         </section>
@@ -280,7 +280,7 @@ export function villageViewHtml(state: RunState, village: ActiveVillageState, ui
           <h3>Destroy a card <small>${canRemove ? `(${removalCost} Gold)` : '(deck at minimum size)'}</small></h3>
           <p class="muted">Destroyed cards go to the Void. Costs start at 10 Gold and grow by 50% per destruction, rounded up.</p>
           <div class="train-card-grid">${state.playerMasterDeck
-            .map((c) => `<div class="train-card-offer">${combatCardHtml(c, stats, canRemove && canAffordRemoval, 'train-remove', false, state)}<span>${removalCost} Gold</span></div>`)
+            .map((c) => `<div class="train-card-offer">${actionCardHtml(c, stats, canRemove && canAffordRemoval, 'train-remove', false, state)}<span>${removalCost} Gold</span></div>`)
             .join('')}</div>
         </section>
       </div>
@@ -322,8 +322,8 @@ export function trainingConfirmModal(state: RunState, pending: PendingTrainingAc
   const canAfford = state.playerResources.gold >= goldCost && state.playerResources.statPoints >= spCost;
   const title = pending.kind === 'learn' ? `Learn ${card.name}?` : `Destroy ${card.name}?`;
   const detail = pending.kind === 'learn'
-    ? `This exact card will move from the New Skills offer into your Combat Deck.`
-    : `This card will permanently leave your Combat Deck and move to the Void. The next destruction will cost ${getTrainRemovalCost(state, 1)} Gold.`;
+    ? `This exact card will move from the New Skills offer into your Action Deck.`
+    : `This card will permanently leave your Action Deck and move to the Void. The next destruction will cost ${getTrainRemovalCost(state, 1)} Gold.`;
 
   return `
   <div class="modal-backdrop transaction-confirm-backdrop" data-action="cancel-training-action-backdrop">
@@ -333,7 +333,7 @@ export function trainingConfirmModal(state: RunState, pending: PendingTrainingAc
         <button class="modal-close-btn" data-action="cancel-training-action" aria-label="Cancel">&times;</button>
       </header>
       <div class="training-confirm-body">
-        <div class="training-confirm-card">${combatCardHtml(card, stats, false, 'noop', false, state)}</div>
+        <div class="training-confirm-card">${actionCardHtml(card, stats, false, 'noop', false, state)}</div>
         <div class="training-confirm-copy">
           <p>${detail}</p>
           <div class="training-confirm-balance">

@@ -19,9 +19,9 @@ export function kwTokenHtml(label: string, tooltip: string, extraClass = ''): st
 }
 
 /**
- * Enhances recognized ability keywords on creature cards with interactive glossary tooltips.
+ * Enhances recognized ability keywords on enemy cards with interactive glossary tooltips.
  */
-export function formatMonsterAbilitiesHtml(abilities: string[]): string {
+export function formatEnemyAbilitiesHtml(abilities: string[]): string {
   return abilities
     .map((ability) => {
       if (/^Lifesteal\b/i.test(ability)) {

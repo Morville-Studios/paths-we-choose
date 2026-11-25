@@ -35,15 +35,15 @@ export function parseGameLogEntry(entry: string): ParsedGameLogEntry {
   let actorType: LogActorType = 'system';
   let actorLabel = 'System';
 
-  const isMonsterAbilityStack =
+  const isEnemyAbilityStack =
     /^(?:📑|✅)?\s*(?:.+?'s\s+(?:Harden|Skittish)\s+enters the Stack|(?:Harden|Skittish)\s+fully resolves)/i.test(text);
 
-  const creatureMatch = text.match(
+  const enemyMatch = text.match(
     /^[^\w\s]*\s*([A-Za-z0-9 '\-]+?)(?:\s+(?:uses|attacks|gains|loses|restores|returns|summoned|unleashes|inflicts|hits|gathers|did nothing|drains life|is already)\b|:|'s\b|\s+—\s+)/i
   );
 
   if (
-    !isMonsterAbilityStack &&
+    !isEnemyAbilityStack &&
     (text.includes('Played ') ||
       text.includes('enters the Stack') ||
       text.includes('fully resolves') ||
@@ -119,9 +119,9 @@ export function parseGameLogEntry(entry: string): ParsedGameLogEntry {
   ) {
     actorType = 'system';
     actorLabel = /Encountered\b/i.test(text) ? 'Encounter' : 'System';
-  } else if (isMonsterAbilityStack || (creatureMatch && creatureMatch[1].trim())) {
+  } else if (isEnemyAbilityStack || (enemyMatch && enemyMatch[1].trim())) {
     actorType = 'enemy';
-    actorLabel = creatureMatch && creatureMatch[1].trim() ? creatureMatch[1].trim() : 'Enemy';
+    actorLabel = enemyMatch && enemyMatch[1].trim() ? enemyMatch[1].trim() : 'Enemy';
   } else {
     actorType = 'system';
     actorLabel = 'System';

@@ -134,6 +134,46 @@ describe('saveStorage (5-slot persistence)', () => {
     expect(getSaveSlot(1, observedStorage)?.savedAt).toBe(300);
   });
 
+  it('loads saved runs that still use former monster and creature field names', () => {
+    const storage = createMemoryStorage();
+    const run = startAdventure('fighter', 'old-card-names');
+    const record = autosaveRun(run, storage, 100)!;
+    const oldState = structuredClone(run) as unknown as Record<string, unknown>;
+    for (const [oldKey, newKey] of [
+      ['monsterDeck', 'enemyDeck'],
+      ['monsterDiscard', 'enemyDiscard'],
+      ['monsterVoid', 'enemyVoid'],
+    ]) {
+      oldState[oldKey] = oldState[newKey];
+      delete oldState[newKey];
+    }
+    const oldDeck = oldState.monsterDeck as Array<Record<string, unknown>>;
+    const firstCard = oldDeck[0];
+    firstCard.creatureType = firstCard.enemyType;
+    delete firstCard.enemyType;
+    oldState.activeHook = {
+      type: 'COMBAT',
+      combat: {
+        monsters: [{ monster: {
+          ...firstCard,
+          pattern: [{ label: 'Call', damage: 0, block: 0, summonFromMonsterDeck: 'goblin' }],
+        }, hp: firstCard.maxHp, block: 0, patternIndex: 0 }],
+        combatTurn: 1, playerAp: 3, playerMaxAp: 3,
+        playerBlock: 0, playerEvasionMod: 0,
+        drawPile: [], hand: [], discardPile: [], inPlay: [], combatLog: [],
+      },
+    };
+    storage.setItem(`${SAVE_STORAGE_KEY}:1`, JSON.stringify({ ...record, state: oldState }));
+
+    const migrated = getSaveSlot(1, storage);
+    if (migrated?.state.activeHook.type !== 'COMBAT') throw new Error('Expected migrated combat');
+    expect(migrated.state.activeHook.combat.enemies[0].enemy.pattern[0].summonFromEnemyDeck).toBe('goblin');
+    const loaded = loadSaveSlot(1, storage);
+    expect(loaded?.enemyDeck).toHaveLength(run.enemyDeck.length);
+    expect(loaded?.enemyDeck[0].enemyType).toBe(run.enemyDeck[0].enemyType);
+    expect((loaded as unknown as Record<string, unknown>).monsterDeck).toBeUndefined();
+  });
+
   it('continues saving in the legacy format when migration exceeds storage quota', () => {
     const setup = createMemoryStorage();
     const run = startAdventure('fighter', 'quota-seed');

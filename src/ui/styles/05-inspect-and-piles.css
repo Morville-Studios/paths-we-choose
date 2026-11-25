@@ -439,19 +439,19 @@
   border-color: #10b981;
 }
 
-.pile-card.monster-deck {
+.pile-card.enemy-deck {
   border-color: #d97706;
   background: linear-gradient(145deg, rgba(217, 119, 6, 0.22), rgba(15, 23, 42, 0.9));
 }
-.pile-card.monster-deck:hover {
+.pile-card.enemy-deck:hover {
   border-color: #fbbf24;
   box-shadow: 0 4px 14px rgba(217, 119, 6, 0.4);
 }
-.pile-card.monster-discard {
+.pile-card.enemy-discard {
   border-color: #b45309;
   background: linear-gradient(145deg, rgba(180, 83, 9, 0.14), rgba(15, 23, 42, 0.9));
 }
-.pile-card.monster-discard:hover {
+.pile-card.enemy-discard:hover {
   border-color: #f59e0b;
 }
 
@@ -781,9 +781,9 @@
 .is-mini .tcg-flavor-text {
   display: none !important;
 }
-.deck-pile-modal .tcg-footer:not(.tcg-mini-creature-footer),
-.pile-modal .tcg-footer:not(.tcg-mini-creature-footer),
-.is-mini .tcg-footer:not(.tcg-mini-creature-footer) {
+.deck-pile-modal .tcg-footer:not(.tcg-mini-enemy-footer),
+.pile-modal .tcg-footer:not(.tcg-mini-enemy-footer),
+.is-mini .tcg-footer:not(.tcg-mini-enemy-footer) {
   display: none !important;
 }
 .deck-pile-modal .tcg-item .item-inspect-desc,
@@ -797,8 +797,8 @@
   margin: 0 !important;
 }
 
-/* Minified Creature Cards (Deck & Pile Modals) */
-.tcg-creature.is-mini .tcg-mini-creature-header {
+/* Minified Enemy Cards (Deck & Pile Modals) */
+.tcg-enemy.is-mini .tcg-mini-enemy-header {
   display: flex !important;
   flex-direction: row !important;
   justify-content: space-between !important;
@@ -813,12 +813,12 @@
   box-sizing: border-box !important;
 }
 
-.tcg-creature.is-boss.is-mini .tcg-mini-creature-header {
+.tcg-enemy.is-boss.is-mini .tcg-mini-enemy-header {
   background: rgba(45, 20, 10, 0.9) !important;
   border-bottom: 1px solid rgba(245, 158, 11, 0.35) !important;
 }
 
-.tcg-creature.is-mini .tcg-mini-creature-header .tcg-name {
+.tcg-enemy.is-mini .tcg-mini-enemy-header .tcg-name {
   flex: 1 1 auto !important;
   min-width: 0 !important;
   font-size: 0.82rem !important;
@@ -832,7 +832,7 @@
   margin: 0 !important;
 }
 
-.tcg-creature.is-mini .tcg-mini-creature-header .tcg-level-ribbon {
+.tcg-enemy.is-mini .tcg-mini-enemy-header .tcg-level-ribbon {
   font-size: 0.60rem !important;
   padding: 1px 6px !important;
   border-radius: 4px !important;
@@ -844,12 +844,12 @@
   line-height: 1.3 !important;
 }
 
-.tcg-creature.is-mini .tcg-art-spacer {
+.tcg-enemy.is-mini .tcg-art-spacer {
   min-height: 30px !important;
   flex: 1 1 auto !important;
 }
 
-.tcg-creature.is-mini .tcg-mini-creature-footer {
+.tcg-enemy.is-mini .tcg-mini-enemy-footer {
   display: flex !important;
   flex-direction: row !important;
   justify-content: space-between !important;
@@ -867,12 +867,12 @@
   width: 100% !important;
 }
 
-.tcg-creature.is-boss.is-mini .tcg-mini-creature-footer {
+.tcg-enemy.is-boss.is-mini .tcg-mini-enemy-footer {
   background: rgba(45, 20, 10, 0.9) !important;
   border-top: 1px solid rgba(245, 158, 11, 0.35) !important;
 }
 
-.tcg-creature.is-mini .tcg-mini-subtype {
+.tcg-enemy.is-mini .tcg-mini-subtype {
   font-size: 0.72rem !important;
   font-weight: 800 !important;
   color: #fef08a !important;
@@ -883,26 +883,26 @@
   text-overflow: ellipsis !important;
 }
 
-.tcg-creature.is-mini .tcg-spawn-group {
+.tcg-enemy.is-mini .tcg-spawn-group {
   display: flex !important;
   align-items: center !important;
   gap: 3px !important;
   flex: 0 0 auto !important;
 }
 
-.tcg-creature.is-mini .tcg-spawn-badge {
+.tcg-enemy.is-mini .tcg-spawn-badge {
   width: 16px !important;
   height: 16px !important;
   font-size: 9px !important;
 }
 
-/* Ensure no attack patterns, defeat rewards, or stats row render on mini creature cards */
-.tcg-creature.is-mini .tcg-pattern-table,
-.tcg-creature.is-mini .tcg-art-rewards,
-.tcg-creature.is-mini .creature-stats-row,
-.tcg-creature.is-mini .tcg-textbox,
-.tcg-creature.is-mini .tcg-type-stacked,
-.tcg-creature.is-mini .creature-combat-dock {
+/* Ensure no attack patterns, defeat rewards, or stats row render on mini enemy cards */
+.tcg-enemy.is-mini .tcg-pattern-table,
+.tcg-enemy.is-mini .tcg-art-rewards,
+.tcg-enemy.is-mini .enemy-stats-row,
+.tcg-enemy.is-mini .tcg-textbox,
+.tcg-enemy.is-mini .tcg-type-stacked,
+.tcg-enemy.is-mini .enemy-combat-dock {
   display: none !important;
 }
 

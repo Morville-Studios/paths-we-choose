@@ -1,5 +1,5 @@
 import { getPlayerAcc, getPlayerAtk, getPlayerDef } from '../stats';
-import { CharacterStats, CombatCardDef, CombatGearBonuses } from '../types';
+import { CharacterStats, ActionCardDef, CombatGearBonuses } from '../types';
 
 export interface ComputedCardEffect {
   damage: number;
@@ -9,7 +9,7 @@ export interface ComputedCardEffect {
 }
 
 export function computeCardEffect(
-  card: CombatCardDef,
+  card: ActionCardDef,
   effectiveStats: CharacterStats,
   gearCombatBonuses?: CombatGearBonuses,
   extraAtkBonus = 0,

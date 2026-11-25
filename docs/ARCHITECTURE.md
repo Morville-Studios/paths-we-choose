@@ -7,14 +7,14 @@ Strict TypeScript, Vite, DOM and CSS form the current web application. There is 
 - `src/core/types.ts`: canonical TypeScript contracts; reference this file rather than maintaining a second schema copy.
 - `src/core/rng.ts`: seeded PRNG, shuffles, 1d6 exploration rolls and 3d6 MACG-3D6 combat rolls. The retained d20 helper is not the combat hit system.
 - `src/core/stats.ts`: six effective attributes, derived values, linear SP prices (`base × 10`), equipment previews and vital synchronization.
-- `src/core/deck.ts`: Adventure, Monster, Treasure and Combat deck operations.
-- `src/core/combat/` (re-exported by `src/core/combat.ts`): modular combat subsystems (`constants.ts`, `debuffs.ts`, `cards.ts`, `rolls.ts`, `monsters.ts`, `session.ts`, `playerTurn.ts`, `flee.ts`, `enemyTurn.ts`). Core log timestamps are explicit inputs, not wall-clock reads.
+- `src/core/deck.ts`: Adventure, Enemy, Treasure and Action deck operations.
+- `src/core/combat/` (re-exported by `src/core/combat.ts`): modular combat subsystems (`constants.ts`, `debuffs.ts`, `cards.ts`, `rolls.ts`, `enemies.ts`, `session.ts`, `playerTurn.ts`, `flee.ts`, `enemyTurn.ts`). Core log timestamps are explicit inputs, not wall-clock reads.
 - `src/core/shrine.ts`: automatic eligible boon selection, replacement and map expiry. Compatibility prayer APIs remain but are not the current player flow.
 - `src/core/village.ts`: Rest, Shop stock, buying/selling, equipment, consumables and Train.
 - `src/core/engine.ts`: run start, preparation, movement, exploration, encounter outcomes, boss victory and mission continuation.
 - `src/data/`: declarative content. [CATALOGS.md](CATALOGS.md) is generated from these modules.
 - `src/state/store.ts`: in-memory pub/sub and application clock boundary.
-- `src/state/saveStorage.ts`: 5-slot `localStorage` persistence (Slot 1 per-action autosave + Slots 2–5 manual save/load/delete with schema version validation). Each slot has its own storage key; the original single-key payload migrates on the first write when storage permits, with legacy writes retained if migration exceeds quota.
+- `src/state/saveStorage.ts`: 5-slot `localStorage` persistence (Slot 1 per-action autosave + Slots 2–5 manual save/load/delete with schema version validation). Each slot has its own storage key; the original single-key payload migrates on the first write when storage permits, with legacy writes retained if migration exceeds quota. Loading also normalizes saved card-zone and effect keys that used the former monster/creature field names to the current enemy fields; the storage key stays stable.
 - `src/main.ts`: browser bootstrap, run-seed creation, pointer/keyboard listeners and top-level `data-action` delegation.
 - `src/app/`: application controller modules (`types.ts`, `inspect.ts`, `combatAnimator.ts`, and `actions/{index,combat,villageAndShrine,navigationAndModals}.ts`).
 - `src/ui/render.ts` & `src/ui/{screens,modals,components}/`: `render.ts` handles play area, HUD/sidebars, pile modal, and barrel re-exports; screens live in `src/ui/screens/` (`welcome.ts`, `guide.ts`, `classSelect.ts`, `combatView.ts`, `villageView.ts`), modals in `src/ui/modals/` (`eventModals.ts`, `inspectModals.ts`), and `src/ui/types.ts` holds UI state contracts.
@@ -26,7 +26,7 @@ Strict TypeScript, Vite, DOM and CSS form the current web application. There is 
 - `src/audio/audioManager.ts`: HTML audio and gesture unlock. Inactive tracks do not preload, and initial music sync follows the first visual render. `src/core/audio.ts` determines the track without browser APIs.
 - `src/updates.ts`: production release polling and player-controlled reload.
 - `src/i18n/`: browser language selection, saved player preference, bundled translations, and presentation-only translation. English catalog values and state identifiers remain canonical so switching languages during a run never changes rules or random outcomes.
-- `src/tests/`: core, deck, audio, rendering, release-check and individual-creature coverage. Use `npm test` for current suite totals.
+- `src/tests/`: core, deck, audio, rendering, release-check and individual-enemy coverage. Use `npm test` for current suite totals.
 
 ## Media asset boundary
 
@@ -52,7 +52,7 @@ The application does **not use React, Vue, or any external UI framework runtime*
      - `villageViewHtml(state, village, ui)`: In-place village component replacing the adventure board in `.play-main`.
      - `deckPilesPanelHtml(state, config)`: Unified deck/discard piles viewer (reused in full on the map and sharded in combat).
      - `turnTrackerHtml(state)`: Tabletop physical boardgame turn tracker strip.
-     - `renderActionCardHtml`, `fullCreatureCardHtml`, `renderAdventureCardHtml`: Physical TCG card visual components.
+     - `renderActionCardHtml`, `fullEnemyCardHtml`, `renderAdventureCardHtml`: Physical TCG card visual components.
 2. **Why Native JS/TS Components Over Frameworks?**:
    - **Zero Runtime Overhead**: 0 KB framework baggage ensures lightning-fast startup and instant First Contentful Paint (FCP).
    - **Deterministic & Lightweight Testing**: Components can be unit-tested with standard string assertions without complex test harnesses, virtual DOM shims, or JSDOM ceremony.
@@ -61,26 +61,26 @@ The application does **not use React, Vue, or any external UI framework runtime*
 3. **Unidirectional Data Flow**:
    - State is held immutably in a single store (`RunState`). User interactions trigger top-level **Event Delegation** via `data-action` attributes in `src/main.ts`. Handlers invoke pure core transitions in `src/core/`, which return a new `RunState` and trigger a top-level render re-evaluation. During play, `patchPlayArea` preserves HUD, sidebar, main view, footer, or overlay regions whose source HTML is unchanged; UI-only overlay changes update only the overlay container when shell inputs are unchanged.
 4. **Targeted In-Place DOM Transitions**:
-   - High-frequency animations (such as the 3D Adventurer class carousel and Monster carousel) use targeted in-place DOM updates (`updateClassCarouselDom`, `updateMonsterCarouselDom`) to modify classes and transform styles without destroying nodes, preserving hardware-accelerated CSS transitions.
+   - High-frequency animations (such as the 3D Adventurer class carousel and Enemy carousel) use targeted in-place DOM updates (`updateClassCarouselDom`, `updateEnemyCarouselDom`) to modify classes and transform styles without destroying nodes, preserving hardware-accelerated CSS transitions.
 
 ## Data-oriented deck modeling vs. mutable OOP classes
 
 In tabletop game development, decks and cards are often conceived in classical OOP terms (`class Deck { shuffle() { this.cards.sort(...) } }`). Our architecture deliberately adopts a **Data-Oriented and Functional pattern** instead:
 
 1. **Decks as Plain Typed Arrays (`T[]`)**:
-   - Every card pile in `RunState`—`adventureDeck`, `monsterDeck`, `playerMasterDeck`, `treasureDeck`, `newSkillsDeck`, and the physical `monsterVoid`—is a plain, typed JavaScript array (`T[]`).
+   - Every card pile in `RunState`—`adventureDeck`, `enemyDeck`, `playerMasterDeck`, `treasureDeck`, `newSkillsDeck`, and the physical `enemyVoid`—is a plain, typed JavaScript array (`T[]`).
 2. **Pure Deterministic Operations**:
    - Operations like `shuffleArray(array, rngState)` take array inputs and a numeric PRNG seed, returning `{ shuffled: T[], nextState: number }` without in-place mutation.
    - **100% Seeded Replayability**: Given the same seed, any adventure, card draft, or combat hit check reproduces identically on every platform.
 3. **Frictionless Serialization (Save / Load)**:
    - Because all state objects are plain data structures without class methods or hidden prototype closures, saving and restoring the entire game state is standard `JSON.stringify(state)` and `JSON.parse(string)`.
 4. **Uniform Pile Abstraction (`PileType`)**:
-   - Decks, graveyards, and the Void share a unified `PileType` union (`'adventure_deck' | 'monster_deck' | 'void_deck' | ...`), allowing generic components like `deckPilesPanelHtml` and `pileModal` to inspect and display any card collection uniformly.
+   - Decks, graveyards, and the Void share a unified `PileType` union (`'adventure_deck' | 'enemy_deck' | 'void_deck' | ...`), allowing generic components like `deckPilesPanelHtml` and `pileModal` to inspect and display any card collection uniformly.
 
 ## Composition over inheritance
 
 1. **Type & Data Level**:
-   - TypeScript interface inheritance is used extensively (`interface CombatCardDef extends BaseCard`) to share data contracts while enforcing strict compilation safety.
+   - TypeScript interface inheritance is used extensively (`interface ActionCardDef extends BaseCard`) to share data contracts while enforcing strict compilation safety.
 2. **UI & Presentation Level**:
    - Visual components avoid rigid class inheritance hierarchies (`class Card extends BaseUIComponent`), employing **Functional Composition** instead. Highly customizable base templates (`baseCardHtml`, `deckPilesPanelHtml`, `playerInfoWidgetHtml`) are composed and configured with props and slots to create specialized card faces, modals, and screen sections.
 
@@ -90,7 +90,7 @@ In tabletop game development, decks and cards are often conceived in classical O
 
 ## Reusable card presentation
 
-Full Action cards are rendered only by `renderActionCardHtml`; callers supply interaction, mini/full scale and inspection classes through typed options. `getActionCardText` and `getActionCardEffect` are shared by every Action-card context, preventing deck, confirmation and inspection faces from drifting. Compact Land cards are rendered only by `renderAdventureCardHtml`; map nodes, pile viewers and event modals configure the same template. Terrain labels, plural labels, icons, set codes, badge classes and frame classes come from `getTerrainPresentation` rather than screen-specific conditionals. Creature full cards continue to use `fullCreatureCardHtml`, and item full cards use `renderTcgItemCard`.
+Full Action cards are rendered only by `renderActionCardHtml`; callers supply interaction, mini/full scale and inspection classes through typed options. `getActionCardText` and `getActionCardEffect` are shared by every Action-card context, preventing deck, confirmation and inspection faces from drifting. Compact Land cards are rendered only by `renderAdventureCardHtml`; map nodes, pile viewers and event modals configure the same template. Terrain labels, plural labels, icons, set codes, badge classes and frame classes come from `getTerrainPresentation` rather than screen-specific conditionals. Enemy full cards continue to use `fullEnemyCardHtml`, and item full cards use `renderTcgItemCard`.
 
 Pile viewers use the generic `groupByCount` helper. It groups each physical pile in one stable pass, after which the screen applies its card-type-specific sort and renderer. Adventure-order lookups use a precomputed card-number index rather than repeated linear searches inside the sort comparator.
 
@@ -109,7 +109,7 @@ stateDiagram-v2
     ClassSelect --> Preparation: Embark / seed four decks
     Preparation --> Map: Begin Journey
     Map --> Combat: Encounter tile
-    Map --> EncounterClear: Encounter has no eligible creature
+    Map --> EncounterClear: Encounter has no eligible enemy
     Map --> Exploration: Undiscovered tile / 1d6
     Exploration --> Combat: Confirm combat outcome
     Exploration --> ResolveTile: Confirm safe or treasure outcome
@@ -147,7 +147,7 @@ Exact stat, combat, shrine and village rules belong to [MECHANICS_AND_DATA.md](M
    - Rather than popping up a modal dialog that dims the viewport and re-renders duplicate copies of the hero's vitals, stats, backpack, and action piles, combat renders directly as an in-place component view in `.play-main` (swapping out the board map, mirroring the Village component pattern).
    - The main 3-column dashboard layout remains active and stable:
      - **Left Sidebar (`.play-sidebar` / `.is-combat-hero`)**: Renders the canonical `combatHeroSidebarHtml` containing live Hero HP, Block indicator, active hexes/status debuffs, core 6 attributes, derived combat chips (DEF, ATK, ACC, EVA), and backpack with usable consumables (e.g. Health Potions).
-     - **Center Column (`.play-main` / `.is-combat-main`)**: Houses `combatViewHtml`, containing the 3D monster carousel, intent/HP dock, 3d6 dice outcome banner, player vitals line, combat hand carousel, in-play enchantments, and Flee & End Turn action buttons.
+     - **Center Column (`.play-main` / `.is-combat-main`)**: Houses `combatViewHtml`, containing the 3D enemy carousel, intent/HP dock, 3d6 dice outcome banner, player vitals line, combat hand carousel, in-play enchantments, and Flee & End Turn action buttons.
      - **Right Sidebar (`.play-sidebar-right` / `.is-combat-right`)**: Displays `combatRightSidebarHtml`, presenting the Action Deck draw and discard piles alongside the live stream of the Battle Log.
    - The top HUD remains intact, showing the official game logo, Scenario, Hero Class, Divine Protection, and the boardgame Turn Tracker (1 to 15). Gold and SP are placed in the Character sidebar above the health bar.
 
@@ -155,20 +155,20 @@ Exact stat, combat, shrine and village rules belong to [MECHANICS_AND_DATA.md](M
    - The entire run is chronicled in a single, continuous, ordered array of log entries (`state.gameLog`).
    - Every significant adventure event is recorded with an explicit boundary timestamp `[HH:MM:SS]` and semantic category icon:
      - **Journey & Map**: Initial embarkation, deal of 9 starting Adventure cards, path selection (`🗺️ Turn X: Chose path...`), and new lookahead deals (`🎴 Dealt 3 Adventure cards to the horizon...`).
-     - **Wilderness Exploration**: Undiscovered terrain 1d6 dice rolls, creature ambushes, and discovered treasure items.
+     - **Wilderness Exploration**: Undiscovered terrain 1d6 dice rolls, enemy ambushes, and discovered treasure items.
      - **Village Life**: Arriving at villages, resting at the inn (HP restored & Gold spent), buying/selling gear, equipping/unequipping items, learning skills from trainers, and purging cards to the Void.
      - **Sacred Shrines**: Divine boons granted and Base Stat upgrades purchased with Stat Points.
-     - **Combat & Battle**: Encounter start, Action card draws each round, cards played, 3d6 MACG-3D6™ hit/miss dice rolls, damage dealt, Hero natural DEF absorption, divine protection reductions, shield blocks, applied hexes/debuffs, life drains, monster defeats, combat victory rewards (+SP and +Gold), and flee attempts.
+     - **Combat & Battle**: Encounter start, Action card draws each round, cards played, 3d6 MACG-3D6™ hit/miss dice rolls, damage dealt, Hero natural DEF absorption, divine protection reductions, shield blocks, applied hexes/debuffs, life drains, enemy defeats, combat victory rewards (+SP and +Gold), and flee attempts.
    - Players can review the entire adventure history at any moment by clicking the HUD `📜 Log (N)` button, clicking `View All` in the Game Log widget below the main viewport, or pressing `L` on the keyboard, opening the dedicated full-page **Adventure Chronicle** modal (`gameLogModal`).
 
 ## Four-deck conservation and ownership
 
-These equations count ownership, not UI references. They apply to nonterminal ordinary gameplay transitions, not arbitrary test fixtures or manually inserted cards. GameOver replaces the active combat hook and does not retain its encounter cards; do not apply the live monster equation to that terminal snapshot.
+These equations count ownership, not UI references. They apply to nonterminal ordinary gameplay transitions, not arbitrary test fixtures or manually inserted cards. GameOver replaces the active combat hook and does not retain its encounter cards; do not apply the live enemy equation to that terminal snapshot.
 
 1. Adventure: draw pile + discard + board adventure cards = 30. Exclude the separately created Start Tile. At Turn 0, five adventure cards are on the board, 25 remain in the deck, and discard is empty. Starting the next mission replaces the previous map and deck.
-2. Monsters: monsterDeck + monsterDiscard + monsterVoid + all non-boss cards owned by an active COMBAT encounter = 85. Scenario setup partitions the complete physical supply between Monster Deck and Void using rarity/main-terrain rules. Count both living and defeated participants until encounter resolution; exclude separately spawned bosses. Victory showcase references point to cards already returned to discard, so do not count them twice. Leech moves an existing Zombie from discard to encounter; Creeper revives its own instance without creating a card.
+2. Enemies: enemyDeck + enemyDiscard + enemyVoid + all non-boss cards owned by an active COMBAT encounter = 85. Scenario setup partitions the complete physical supply between Enemy Deck and Void using rarity/main-terrain rules. Count both living and defeated participants until encounter resolution; exclude separately spawned bosses. Victory showcase references point to cards already returned to discard, so do not count them twice. Leech moves an existing Zombie from discard to encounter; Creeper revives its own instance without creating a card.
 3. Player Combat: during combat, draw pile + hand + discard + resolving `stack` + `inPlay` = playerMasterDeck length. The master deck is a definition list, not additional owned copies. A played card remains on the Stack until all costs, draws, AP gains and triggered effects finish; only then does it enter discard or `inPlay`. Battle-long enchantments occupy `inPlay` until destroyed or combat ends; the permanent Flee action is not in any of these piles. Village Train can change master-deck length.
-4. New Skills: `newSkillsDeck` + `newSkillsDiscard` + active Village `trainOptions` + learned non-starter cards in `playerMasterDeck` + destroyed learnable cards in `voidCards` equals two copies of every trainable non-starter class skill. Starter cards are created only in the initial 8/2 starter deck. Static Void upgrade templates, Boss cards, and unselected hero cards are inexhaustible catalog entries; cards destroyed during Training and ordinary cards in `monsterVoid` are physical Void cards.
+4. New Skills: `newSkillsDeck` + `newSkillsDiscard` + active Village `trainOptions` + learned non-starter cards in `playerMasterDeck` + destroyed learnable cards in `voidCards` equals two copies of every trainable non-starter class skill. Starter cards are created only in the initial 8/2 starter deck. Static Void upgrade templates, Boss cards, and unselected hero cards are inexhaustible catalog entries; cards destroyed during Training and ordinary cards in `enemyVoid` are physical Void cards.
 5. Treasure: `treasureDeck` + `treasureDiscard` + `treasureVoid` (inactive scenario supply) + current village `shopStock` + backpack + equipped items + `voidItems` (permanently banished copies) = the physical Treasure supply. The current source has 106 cards; exact item counts come from [CATALOGS.md](CATALOGS.md#shop-and-treasure). Scenario 1 activates Level 1–2 cards and holds Level 3–4 cards in `treasureVoid`. Starting gear is transferred from this supply, not minted. Purchases move stocked cards to inventory; sold cards enter `voidItems`, unbought stock enters `treasureDiscard`, and used potions enter `treasureDiscard`. Stage continuation repartitions surviving, unowned, unbanished cards by level without recreating copies. UI previews and exploration references are not additional copies.
 
 Spell/ability searches use one bounded current-deck pass and return null/fizzled on failure; they recycle only if the search starts empty. Encounter generation instead recycles during the mechanic whenever another draw needs an empty deck and eligible graveyard supply remains. Terrain rejects stay on the bottom and are examined only once per pass; a full pass with only incompatible terrain cards stops without accessing a nonempty deck's graveyard. If the budget cannot be filled, existing draws still fight; an empty encounter enters `ENCOUNTER_CLEAR`, shows the encounter result for acknowledgement, awards no rewards, then retains the Turn 15 boss check. This is unavailable eligible supply, not ability fizzle. Ordinary fixed-count draws recycle normally. See MECHANICS_AND_DATA.md for exact search boundaries and public graveyard/hidden deck-order rules.

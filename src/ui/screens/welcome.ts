@@ -46,7 +46,7 @@ export function renderWelcome(
           <span>Build your hero</span>
         </article>
         <article class="welcome-preview-card welcome-preview-card--right">
-          <img src="${publicAsset('cards/creatures/goblin_chieftain.jpg')}" alt="Grundy creature card artwork" width="765" height="1024" />
+          <img src="${publicAsset('cards/enemies/goblin_chieftain.jpg')}" alt="Grundy enemy card artwork" width="765" height="1024" />
           <span>Face the consequence</span>
         </article>
       </aside>

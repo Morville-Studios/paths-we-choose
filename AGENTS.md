@@ -14,7 +14,7 @@ When modifying code or rules, update **only** the canonical owner for that topic
 | :--- | :--- | :--- |
 | **Project Overview** | [`README.md`](file:///d:/adoni/repos/paths-we-choose/README.md) | High-level summary & quickstart only |
 | **Runtime Types & Contracts** | [`src/core/types.ts`](file:///d:/adoni/repos/paths-we-choose/src/core/types.ts) | Never copy TypeScript interfaces into markdown |
-| **Catalog Data (Classes, Monsters, Items, Decks, Cards)** | `src/data/*.ts` → [`docs/CATALOGS.md`](file:///d:/adoni/repos/paths-we-choose/docs/CATALOGS.md) | Run `npm run docs:sync` after any `src/data/` edit |
+| **Catalog Data (Classes, Enemies, Items, Decks, Cards)** | `data/*.json` → `src/data/*.ts` → [`docs/CATALOGS.md`](file:///d:/adoni/repos/paths-we-choose/docs/CATALOGS.md) | JSON holds entries; TS adapts catalogs and derived composition. Run `npm run docs:sync` after either changes |
 | **Game Loop, Screens, UX & Flows** | [`docs/GAME_DESIGN.md`](file:///d:/adoni/repos/paths-we-choose/docs/GAME_DESIGN.md) | Player-facing rules, screens, and UI behavior |
 | **Math, Formulas & Ability Timing** | [`docs/MECHANICS_AND_DATA.md`](file:///d:/adoni/repos/paths-we-choose/docs/MECHANICS_AND_DATA.md) | Exact formulas, edge cases, and turn timing |
 | **Module Layout, State Machine & Invariants** | [`docs/ARCHITECTURE.md`](file:///d:/adoni/repos/paths-we-choose/docs/ARCHITECTURE.md) | Deck conservation, audio states, Cloudflare cache |
@@ -29,10 +29,10 @@ When modifying code or rules, update **only** the canonical owner for that topic
 Go directly to the domain module you need instead of scanning unrelated code:
 
 - **Core Rules (`src/core/`)** — Pure TypeScript, zero DOM/browser APIs:
-  - `types.ts`: All runtime interfaces (`RunState`, `ActiveCombatState`, `MonsterCard`, etc.).
+  - `types.ts`: All runtime interfaces (`RunState`, `ActiveCombatState`, `EnemyCard`, etc.).
   - `rng.ts`: Seeded PRNG (`roll1D6`, `roll3D6`, `rollInt`, `shuffleArray`).
   - `stats.ts`: Effective stats, derived combat stats, linear SP costs (`base × 10`), `syncVitals`, `previewGearChange`.
-  - `deck.ts`: Adventure, Monster, Treasure, New Skills deck operations & conservation.
+  - `deck.ts`: Adventure, Enemy, Treasure, New Skills deck operations & conservation.
   - `engine.ts`: Run start, Turn 0 preparation, movement, exploration, encounter/boss transitions, mission continuation.
   - `shrine.ts` / `village.ts` / `newSkills.ts` / `grid.ts` / `log.ts` / `audio.ts`: Domain-specific pure transitions.
   - `combat/` (re-exported by `combat.ts`):
@@ -40,9 +40,9 @@ Go directly to the domain module you need instead of scanning unrelated code:
     - `debuffs.ts` (hero hexes & stat debuffs)
     - `cards.ts` (`computeCardEffect`)
     - `rolls.ts` (`computeHitProbability`, `evaluateAttackRoll`)
-    - `monsters.ts` (effective ATK/DEF, `getMonsterIntent`)
-    - `session.ts` (`createCombatSession`, `drawCombatCards`)
-    - `playerTurn.ts` (`playCombatCardFromHand`)
+    - `enemies.ts` (effective ATK/DEF, `getEnemyIntent`)
+    - `session.ts` (`createCombatSession`, `drawActionCards`)
+    - `playerTurn.ts` (`playActionCardFromHand`)
     - `flee.ts` (`attemptCombatFlee`)
     - `enemyTurn.ts` (`endPlayerCombatTurn`)
 - **UI Presentation (`src/ui/`)** — Pure HTML-string templates:
@@ -73,14 +73,15 @@ Follow these exact patterns regardless of which model or agent edits the repo:
 3. **Pure Functional UI (`src/ui/`)**:
    - Templates are pure functions returning HTML strings, wired via `data-action="..."` attributes and delegated in `src/main.ts`.
    - Never rely on `:hover`-only interactions for essential info; support tap/click/long-press/right-click.
-4. **Data-Driven Content (`src/data/`)**:
-   - Classes, terrains, stages, monsters, bosses, shop items, and combat cards live declaratively in `src/data/`, never hardcoded in engine/UI branches.
+4. **Data-Driven Content (`data/`, `src/data/`)**:
+   - Classes, terrains, stages, enemies, bosses, shop items, and action cards have declarative entries in `data/*.json`, adapted by `src/data/*.ts`; never hardcode content in engine/UI branches.
 5. **CSS Discipline (`src/ui/styles/`)**:
    - Add rules to the matching numbered partial (`01`–`08`). Avoid adding new `!important` overrides unless overriding a specific utility class.
 6. **Strict TypeScript & Naming**:
    - `"strict": true`, no implicit `any`. `PascalCase` for types/interfaces, `camelCase` for functions/variables, `UPPER_SNAKE_CASE` for constants.
+   - Call player-owned battle cards **Action Cards** and opposing cards **Enemy Cards** in UI, docs, data, and code; use **Action Deck** and **Enemy Deck** for their piles. Keep specific enemy names and subtypes.
 7. **Documentation & Locale Sync Rule**:
-   - After `src/data/` edits → run `npm run docs:sync`.
+   - After `data/` or `src/data/` edits → run `npm run docs:sync`.
    - After formula/rule/invariant edits → update the **one** canonical doc in the SSOT table (plus inline JSDoc on the changed function). Never copy rules into `AGENTS.md`.
    - After player-facing UI string edits → update localization keys/overrides and verify with `npm run i18n:check`.
 8. **Media Assets**: Keep original images, icon sprites, and music in `assets/raw/`; publish only optimized derivatives to `public/`. Generators must write to `assets/raw/`. After media changes, run the matching `art:optimize`/`art:check` or `audio:optimize`/`audio:check` scripts. Preserve original audio before encoding and use browser measurements to judge load performance. Follow the workflow in [`docs/ARCHITECTURE.md`](file:///d:/adoni/repos/paths-we-choose/docs/ARCHITECTURE.md).

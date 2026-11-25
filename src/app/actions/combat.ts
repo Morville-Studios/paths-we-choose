@@ -1,5 +1,5 @@
 import { attemptFlee, endTurn } from '../../core/engine';
-import type { CombatCardDef } from '../../core/types';
+import type { ActionCardDef } from '../../core/types';
 import type { ActionHandler } from '../types';
 
 export const combatActions: Record<string, ActionHandler> = {
@@ -14,7 +14,7 @@ export const combatActions: Record<string, ActionHandler> = {
     const curState = store.get();
     if (curState.activeHook.type !== 'COMBAT') return;
     const combat = curState.activeHook.combat;
-    const card = combat.hand.find((c: CombatCardDef) => c.instanceId === id);
+    const card = combat.hand.find((c: ActionCardDef) => c.instanceId === id);
     if (card && combat.playerAp >= card.apCost) {
       ui.pendingCardPlay = {
         cardInstanceId: id as string,

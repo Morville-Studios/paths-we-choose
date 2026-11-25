@@ -2,7 +2,7 @@
 
 > *"Every road to Odamyrus is made by the choices taken along it."*
 
-Ordinary creatures come from a finite **85-card physical supply** in the public Void. A scenario pulls three main-terrain bands into its Monster Deck using its level; unused copies remain in the Void. Exact quantities are generated in [CATALOGS.md](CATALOGS.md#ordinary-monsters). Bosses are separate.
+Ordinary enemies come from a finite **85-card physical supply** in the public Void. A scenario pulls three main-terrain bands into its Enemy Deck using its level; unused copies remain in the Void. Exact quantities are generated in [CATALOGS.md](CATALOGS.md#ordinary-enemies). Bosses are separate.
 
 ---
 
@@ -10,9 +10,9 @@ Ordinary creatures come from a finite **85-card physical supply** in the public 
 
 **Paths to Odamyrus** blends the tactical node-pathing and deckbuilding combat of *Slay the Spire* with classic tabletop dungeon-crawl mechanics, the proprietary MACG-3D6™ success-range system, equipment slots, and attribute archetypes (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`). Odamyrus is the mythic destination that draws expeditions across changing terrain; each stage can have its own journey length.
 
-An in-game **How to Play** guide explains the core loop in short, plain-language sections for players age 10 and above. It is available from the title screen before starting and from the persistent `📖 Guide` control in the game HUD. The guide features an AD&D-inspired two-page tome layout with chapter ribbons (I. The Journey, II. Battle, III. Attributes, IV. Classes, V. Shrines & Void, VI. Bestiary, and VII. Armory). **Chapter VI: The Monstrous Compendium** presents full TCG creature cards grouped by territory and Legendary Bosses. **Chapter VII: The Grand Armory** showcases the current equipment and treasure cards (Weapons, Armor, Accessories, and Consumables); clicking any card in either compendium opens the full inspection modal showing complete profiles, scaling formulas, effects, and lore. Exact catalog counts belong to [CATALOGS.md](CATALOGS.md).
+An in-game **How to Play** guide explains the core loop in short, plain-language sections for players age 10 and above. It is available from the title screen before starting and from the persistent `📖 Guide` control in the game HUD. The guide features an AD&D-inspired two-page tome layout with chapter ribbons (I. The Journey, II. Battle, III. Attributes, IV. Classes, V. Shrines & Void, VI. Enemy Cards, and VII. Armory). **Chapter VI: Enemy Cards Compendium** presents full TCG Enemy Cards grouped by territory and Legendary Bosses. **Chapter VII: The Grand Armory** showcases the current equipment and treasure cards (Weapons, Armor, Accessories, and Consumables); clicking any card in either compendium opens the full inspection modal showing complete profiles, scaling formulas, effects, and lore. Exact catalog counts belong to [CATALOGS.md](CATALOGS.md).
 
-Players can switch between English, Traditional Chinese, Simplified Chinese, Japanese, and Korean from the title screen or during play. Browser language sets the first-visit default when supported, and an explicit player choice is saved. Cards, creature lore, combat text, and the handbook follow the chosen language without changing the current run.
+Players can switch between English, Traditional Chinese, Simplified Chinese, Japanese, and Korean from the title screen or during play. Browser language sets the first-visit default when supported, and an explicit player choice is saved. Cards, enemy lore, combat text, and the handbook follow the chosen language without changing the current run.
 
 ### Core Design Pillars
 1. **Morville Adventure Card Game Path Generator™ (MACG-PG™) — 3-Row Pyramid Vision Cone**:
@@ -23,7 +23,7 @@ Players can switch between English, Traditional Chinese, Simplified Chinese, Jap
      3. **Lookahead Row (`Row R + 2`)**: **3 tiles above the next row** (`C - 1.0`, `C`, and `C + 1.0`)—where the central tile `(C, R + 2)` is intrinsically shared by both forward choices below it, naturally creating branching and reconverging paths without crossing line edges.
    - **Lagging Discard & 9-Card Board Footprint**: Stepping to `Row R` sweeps `Row R - 1` into the Adventure Discard pile, preserving a tabletop-friendly 9-card maximum board layout and recycling cards when the Adventure Deck depletes.
 2. **Morville Infinite Deck System™ (MIDS™)**:
-   - Applies to the **Adventure, Paths, Monster, Combat, Treasure, and Skills Decks**.
+   - Applies to the **Adventure, Paths, Enemy, Action, Treasure, and Skills Decks**.
    - Every MIDS™ deck always has a **Deck + Discard Pile** pair.
    - Cards in a MIDS™ deck go to their **Discard Pile** whenever **used, destroyed, or discarded**—except when **Banished** (an effect that sends the card out of the game and into **The Void**).
    - Whenever any rule, process, or effect requires drawing from an empty MIDS™ deck, its **Discard Pile** is automatically shuffled into a fresh deck (all cards previously in discard become the deck) and drawing continues seamlessly as if the cards had always been there.
@@ -36,11 +36,11 @@ Players can switch between English, Traditional Chinese, Simplified Chinese, Jap
      - **Rogue**: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)` -> Starting Effective `STR 3, DEX 3, AGI 4, INT 2, CHA 2, VIT 2` (14 Max HP, 3 ACC, 4 EVA, 2 ATK, 1 DEF, 3 ACT).
    - **Charisma (`CHA`)**: Each point of Effective CHA reduces the prices of purchaseable goods in Village Shops by **5%** (e.g. 1 CHA = 5% off, 2 CHA = 10% off; minimum 1 Gold).
    - **Starting 10 Stat Points & Welcome Preparation Dialog**: Players start with **10 Stat Points (SP)** and are greeted with a preparation dialog on game start featuring the Shrine stat converter widget, requiring allocating starting SP to a Base Stat before taking their first step.
-   - Defeating Monsters rewards **Stat Points (`SP`)** (inscribed directly on the Monster Card).
+   - Defeating Enemies rewards **Stat Points (`SP`)** (inscribed directly on the Enemy Card).
    - **Shrines (`hasShrine: true`)**: Players convert Stat Points into **Base Stats** at Shrines or during initial Turn 0 preparation. Upgrading a Base Stat from current level `B` to `B + 1` costs **`B * 10` Stat Points** (e.g. Base 1 -> 2 costs 10 SP, Base 2 -> 3 costs 20 SP, Base 3 -> 4 costs 30 SP). A Shrine can raise a Base Stat only through **Shrine Level + 1**: Level 1 permits Base `1 -> 2`, Level 2 also permits `2 -> 3`, and Level 3 permits through Base 4. Multiple legal upgrades can be purchased while SP remains. The modal shows the stepped-on Shrine card and the reusable live character/stat panel beside the upgrade controls.
    - **Automatic Shrine Boon**: Upon arrival, the player receives one eligible random boon, replacing the previous blessing (Cleanse, Blessing of {Stat} for `+1` map stat, Divine Protection for `+1 DEF` and `+1 MDEF`, or Revitalize).
 3. **Tabletop 3d6 Combat Rolls & MACG-3D6™ Success Roll Range System**:
-   - **Universal Hit Check**: Anything that performs an attack on a target (player attack cards, hybrid cards with damage, and monster attack intents) performs the **3d6 Success Roll Range** check under the **Morville Adventure Card Game "3d6 Success Roll Range Table Reference" (MACG-3D6™)**.
+   - **Universal Hit Check**: Anything that performs an attack on a target (player attack cards, hybrid cards with damage, and enemy attack intents) performs the **3d6 Success Roll Range** check under the **Morville Adventure Card Game "3d6 Success Roll Range Table Reference" (MACG-3D6™)**.
    - **Sure Hit Rolls (Minimum Success Roll)**: 3d6 rolls range from 3 to 18 (216 combinations), naturally clustering around the center median of **10 and 11** (12.50% each, providing a **25.0% baseline hit chance** called the **Sure Hit Rolls** or **minimum success roll**).
    - **1:1 DEX and AGI Scaling**: 1 point in DEX increases ACC by 1 (`ACC = DEX + gear.acc`), and 1 point in AGI increases EVA by 1 (`EVA = AGI + gear.eva`).
    - **Net ACC Expansion**: Each point of positive Net ACC ($\text{attacker ACC} - \text{target EVA}$) expands the success window symmetrically outward by 1 on each side:
@@ -68,13 +68,13 @@ In tabletop board game strategy, 3d6 produces 216 combinations where rolls natur
 | **Tier 7** | &ge; +3 | **4 – 17** | **99.1%** |
 | **Diabolic Rolls 😈 (Always Miss)** | *Any* | **3 & 18** | **0.9%** |
 
-4. **Four Interlocking Decks (Adventure, Monster, Player Combat & Treasure)**:
+4. **Four Interlocking Decks (Adventure, Enemy, Player Combat & Treasure)**:
    - **Adventure Deck (30 cards per Stage)**: Generates the 1 -> 2 -> 3 pyramid board with full-art physical raster land cards and a 9-card lagging row discard cycle. There is exactly one encounter level per terrain: Grassland 2, Forest 3, Swamp 4, Cave 5, Underground 6, and Underworld 7. The current catalog contains the first three terrains and is sorted by collector card number in the Deck Viewer.
      - **Stage 1 ("The Goblin King")**: 30 cards composed of Grassland (`advgrs-00` x3, `advgrs-01` x8, `advgrs-03` x3, `advgrs-04` x3), Forest (`advfrs-00` x2, `advfrs-01` x5, `advfrs-03` x2, `advfrs-04` x2), and Swamp (`advsmp-00` x1, `advsmp-01` x1).
      - **Stage 2 ("Cult of Trolls")**: 30 cards composed of Forest (`advfrs-00` x3, `advfrs-01` x8, `advfrs-03` x3, `advfrs-04` x3), Swamp (`advsmp-00` x2, `advsmp-01` x5, `advsmp-03` x2, `advsmp-04` x2), and Cave (`advcav-00` x1, `advcav-01` x1).
-   - **Scenario-built Monster Deck**: The 85 ordinary physical creature cards begin in the Void. Common/Uncommon/Rare types supply 6/4/3 copies. A Scenario Level `L` pulls 100% of main-terrain `L`, rounded two-thirds of `L+1`, and rounded one-third of `L+2`; all other copies stay publicly inspectable in the Void. Scenario 1 builds 45 cards from Grassland/Forest/Swamp, Scenario 2 builds 37 from Forest/Swamp/Cave, and Scenario 3 builds 30 from Swamp/Cave/Underground. Encounter draws are still filtered by the card's exact terrain eligibility and encounter level.
+   - **Scenario-built Enemy Deck**: The 85 ordinary physical enemy cards begin in the Void. Common/Uncommon/Rare types supply 6/4/3 copies. A Scenario Level `L` pulls 100% of main-terrain `L`, rounded two-thirds of `L+1`, and rounded one-third of `L+2`; all other copies stay publicly inspectable in the Void. Scenario 1 builds 45 cards from Grassland/Forest/Swamp, Scenario 2 builds 37 from Forest/Swamp/Cave, and Scenario 3 builds 30 from Swamp/Cave/Underground. Encounter draws are still filtered by the card's exact terrain eligibility and encounter level.
    - **Treasure Deck**: Physical item cards circulate through shops, inventory and treasure finds; exact supply and scenario composition are in [CATALOGS.md](CATALOGS.md).
-   - **Player Combat Deck (10 starter cards)**: Drawn `5` cards per combat turn with **`3 + floor(INT/5)` maximum Action Points (AP)** per turn, where every card's power scales directly with the hero's **Effective Stats**.
+   - **Action Deck (10 starter cards)**: Drawn `5` cards per combat turn with **`3 + floor(INT/5)` maximum Action Points (AP)** per turn, where every card's power scales directly with the hero's **Effective Stats**.
 5. **Village Menu, Turn 15 Bosses & Multi-Stage Progression**:
    - Stepping on a **Village Tile** shows its full-art named card and level, then opens a repeatable-services menu: **Rest**, **Shop**, and **Train**. Shop stock and class training offers are deterministically prepared once on entry, so returning to the menu never rerolls them.
    - Reaching **Turn 15** in Stage 1 triggers **Grundy**, the Level 5 Goblin Warlord. Defeating him unlocks the Stage Completion modal, allowing the adventurer to proceed directly to Stage 2: **"Cult of Trolls"**.
@@ -101,21 +101,21 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
     - Class Stat Bonuses: `STR +2, DEX +1, AGI +0, INT +0, CHA +0, VIT +1`
     - **Effective Starting Stats**: `STR 4, DEX 3, AGI 2, INT 2, CHA 2, VIT 3` -> **16 Max HP** (`10 + Effective VIT * 2`), **3 ACC**, **2 EVA**, **3 ATK**, **0 DEF**, **3 ACT**.
     - **Class Passive `[Berzerk]`**: Gain `+1 ATK` bonus when HP is 50% or below Max HP; if 25% or below, gain `+2 ATK` bonus instead.
-    - Starter Combat Deck (`10 cards`): **8x Slash** + **2x Defend**.
+    - Starter Action Deck (`10 cards`): **8x Slash** + **2x Defend**.
     - Starter Gear: **LVL 1 Iron Sword** (+1 ATK) + **LVL 1 Chainmail** (+1 DEF).
   - **Wizard**:
     - Archetype: Primary `INT (+2)`, Secondary `DEX (+1), CHA (+1)`
     - Class Stat Bonuses: `STR +0, DEX +1, AGI +0, INT +2, CHA +1, VIT +0`
     - **Effective Starting Stats**: `STR 2, DEX 3, AGI 2, INT 4, CHA 3, VIT 2` -> **14 Max HP** (`10 + Effective VIT * 2`), **3 ACC**, **2 EVA**, **2 MATK**, **0 MDEF**, **3 ACT**.
     - **Class Passive `[Conserve]`**: When ending turn in battle with unused Action Points, those AP carry over to the next battle turn.
-    - Starter Combat Deck (`10 cards`): **8x Fireball ATK** + **2x Force Field DEF**.
+    - Starter Action Deck (`10 cards`): **8x Fireball ATK** + **2x Force Field DEF**.
     - Starter Gear: **LVL 1 Apprentice Staff** (+1 MATK) + **LVL 1 Robe** (+1 MDEF).
   - **Rogue**:
     - Archetype: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)`
     - Class Stat Bonuses: `STR +1, DEX +1, AGI +2, INT +0, CHA +0, VIT +0`
     - **Effective Starting Stats**: `STR 3, DEX 3, AGI 4, INT 2, CHA 2, VIT 2` -> **14 Max HP** (`10 + Effective VIT * 2`), **3 ACC**, **4 EVA**, **2 ATK**, **1 DEF**, **3 ACT**.
     - **Class Passive `[Steal]`**: Whenever rolling 3d6 to perform an attack hit check and it contains a pair or triples (`1+1, 2+2, 3+3, 4+4, 5+5, 6+6`), immediately gain Gold equal to the matching die number (e.g. `6+6` grants `+6 Gold`, `5+5` grants `+5 Gold`, and `1+1` steals `+1 Gold`).
-    - Starter Combat Deck (`10 cards`): **8x Slash** + **2x Defend**.
+    - Starter Action Deck (`10 cards`): **8x Slash** + **2x Defend**.
     - Starter Gear: **LVL 1 Dagger** (+1 ACC) + **LVL 1 Leather Gear** (+1 EVA).
   - *Physical Supply Rule*: Starting gear is pulled from the physical card set (checking the Void / game box first, otherwise removing those exact copies from the prepared `treasureDeck`), so fewer copies remain to be drawn later.
 - **3-Card Smooth Interactive Carousel**:
@@ -149,7 +149,7 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
      - **Map Equipment Management**: Players can freely equip and unequip gear anytime while navigating the map outside combat. Equipping or unequipping items that modify attributes (like `Beast Ring +1 STR`) dynamically syncs vitals (Max HP) and clamps current HP cleanly.
      - **Combat Lock**: Equipping and unequipping is strictly disabled during active combat (`activeHook.type === 'COMBAT'`).
 3. **Decks & Discards Right Sidebar**:
-   - Centralized, inspectable physical deck cards for **Adventure Cards**, **Paths Cards**, **Monster Cards**, **Player Combat Deck**, **Treasure Cards**, **New Skills**, and **The Void** (the non-deck game box for unused and Banished cards), each with live deck/discard pile counts and click/right-click pile inspection. Redundant legacy header links have been eliminated.
+   - Centralized, inspectable physical deck cards for **Adventure Cards**, **Paths Cards**, **Enemy Cards**, **Action Deck**, **Treasure Cards**, **New Skills**, and **The Void** (the non-deck game box for unused and Banished cards), each with live deck/discard pile counts and click/right-click pile inspection. Redundant legacy header links have been eliminated.
 
 ---
 
@@ -184,7 +184,7 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 3. **Train (Guild Hall — Deck Improvement)**:
    - A sticky resource sidebar shows the hero's current Gold and SP plus the current learning/destruction costs.
    - Class-applicable offers are prepared on village entry by drawing from the visible **New Skills Deck**. Starter cards remain exclusive to the initial eight attack and two defense cards; every other class skill has two physical copies in this deck.
-   - Selecting a skill opens a purchase confirmation before resources are spent. Learning transfers that exact offer into the player's Combat Deck and costs **5 Gold + 1 SP** for a 1 AP card, **10 Gold + 2 SP** for a 2 AP card, or **20 Gold + 4 SP** for a 3 AP card. Unlearned offers enter New Skills Discard on leaving and recycle deterministically only when the deck is empty.
+   - Selecting a skill opens a purchase confirmation before resources are spent. Learning transfers that exact offer into the player's Action Deck and costs **5 Gold + 1 SP** for a 1 AP card, **10 Gold + 2 SP** for a 2 AP card, or **20 Gold + 4 SP** for a 3 AP card. Unlearned offers enter New Skills Discard on leaving and recycle deterministically only when the deck is empty.
    - **Destroy 1 Card** opens a destructive confirmation, then transfers that physical card from `playerMasterDeck` to the public **Void** (minimum deck size `5`). The first destruction costs **10 Gold**; later prices rise by 50% from the original base and round up: **15, 23, 34, 51 Gold**, and so on. Destroyed learnable cards still count toward their two physical copies and are not recreated by content reconciliation.
 
 ### 3.4 Undiscovered Terrains & Exploration Mechanic
@@ -202,9 +202,9 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
      - The eligible item is awarded directly into the player's permanent backpack.
      - The item is already placed in the backpack before the result modal opens. The modal congratulates the player, displays the item as a mini art card, and provides `Return to Map View` only.
   2. **Hostile Ambush (`roll <= card.level`)**:
-     - Hostile creatures ambush the party.
+     - Hostile enemies ambush the party.
      - The modal notifies the player and provides a `Proceed to Battle` action.
-     - On confirmation, combat begins: monsters are drawn from the monster deck according to encounter rules (`encounterLevel = card.level`, matching terrain).
+     - On confirmation, combat begins: enemies are drawn from the enemy deck according to encounter rules (`encounterLevel = card.level`, matching terrain).
   3. **Peaceful Wilderness (all other results)**:
      - The journey through the wilderness is calm and serene.
      - No battle occurs and no treasure is found.
@@ -231,7 +231,7 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 - The **Void** is a visible sidebar card zone containing not-in-play `+` skill templates, every Boss card, and the two hero cards not selected by the current player. It is inexhaustible and is never shuffled into the New Skills Deck.
 - A **Level 2 or higher Shrine** can replace an owned 1 AP card with its matching Void `+` upgrade for **10 Gold and 2 SP**. The upgrade may remain 1 AP when its card definition says so, as with High Strike +.
 - A **Level 3 or higher Shrine** can also replace an owned 2 AP card with its matching 3 AP Void upgrade for **30 Gold and 6 SP**.
-- Only a matching owned base card can be upgraded. The Void card is created for that upgrade and is not consumed, while the old base-card instance is removed from the player Combat Deck.
+- Only a matching owned base card can be upgraded. The Void card is created for that upgrade and is not consumed, while the old base-card instance is removed from the player Action Deck.
 
 ### 4.3 Automatic Sacred Shrine Boons & Single Blessing Invariant
 - **Automatic Boon Upon Arrival**: Visiting a Sacred Shrine automatically bestows a random eligible divine boon upon arrival—players no longer need to click a manual prayer button.
@@ -256,28 +256,28 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 In Stage 1, **Encounter cards have levels 2–4**, as defined in the [Adventure Decks](CATALOGS.md#adventure-decks):
 - Terrains where hostiles appear are called **Encounter cards** (e.g. `Grassland Encounter`, `Forest Encounter`).
 - The card's **Level** represents the **Encounter Level Budget**.
-- When the player steps onto an Encounter card, Monster Cards are drawn from the Monster Deck into the **Battle Area** until the **total level of all monsters >= the encounter level budget**:
-  - Spawning strictly respects the tile's terrain: only monsters with `spawnTerrains.includes(card.terrain)` are drawn.
-  - Eligible types and their levels come from the generated [Ordinary Monsters](CATALOGS.md#ordinary-monsters) spawn-terrain columns. Main terrain determines which copies enter a scenario deck; all listed spawn terrains remain valid when resolving encounters. Goblin includes Swamp; Ramram is Grasslands-only; Phalanx, Cultist Mage and Lurker enter Scenario 2 through its rounded one-third Cave band.
-  - **Creature Draw Rule (Higher Level to Discard)**: If a drawn monster's level is higher than the encounter level (`monster.level > encounterLevel`), it goes straight into the monster discard pile.
-  - **Incompatible Terrain Rule**: Any drawn card from the deck that does not match the tile's terrain goes back to the **bottom of the monster deck immediately instead of the discard pile**.
-  - Drawing a Level 2 or Level 3 monster fulfills the budget quickly or forms multi-creature encounters.
-  - The Turn 15 Boss (**Grundy**) is a separately spawned Level 5 creature and does not consume a Monster Deck card.
-  - If no eligible creature exists after the bounded encounter search, an encounter-result modal shows the stepped-on card and explains that no battle formed. The player acknowledges that result before ordinary tile completion; on Turn 15, only then does the Stage Boss appear.
+- When the player steps onto an Encounter card, Enemy Cards are drawn from the Enemy Deck into the **Battle Area** until the **total level of all enemies >= the encounter level budget**:
+  - Spawning strictly respects the tile's terrain: only enemies with `spawnTerrains.includes(card.terrain)` are drawn.
+  - Eligible types and their levels come from the generated [Ordinary Enemies](CATALOGS.md#ordinary-enemies) spawn-terrain columns. Main terrain determines which copies enter a scenario deck; all listed spawn terrains remain valid when resolving encounters. Goblin includes Swamp; Ramram is Grasslands-only; Phalanx, Cultist Mage and Lurker enter Scenario 2 through its rounded one-third Cave band.
+  - **Enemy Draw Rule (Higher Level to Discard)**: If a drawn enemy's level is higher than the encounter level (`enemy.level > encounterLevel`), it goes straight into the enemy discard pile.
+  - **Incompatible Terrain Rule**: Any drawn card from the deck that does not match the tile's terrain goes back to the **bottom of the enemy deck immediately instead of the discard pile**.
+  - Drawing a Level 2 or Level 3 enemy fulfills the budget quickly or forms multi-enemy encounters.
+  - The Turn 15 Boss (**Grundy**) is a separately spawned Level 5 enemy and does not consume an Enemy Deck card.
+  - If no eligible enemy exists after the bounded encounter search, an encounter-result modal shows the stepped-on card and explains that no battle formed. The player acknowledges that result before ordinary tile completion; on Turn 15, only then does the Stage Boss appear.
 
-### 5.2 Simultaneous Multi-Monster Battle Area
-- All monsters in the battle area are active at once:
-  - Each monster displays its individual **HP**, **Block**, **ACC**, **EVA**, and **Next Action Intent**.
-  - On the monster turn, every living monster acts independently, rolling its own `3d6` against the MACG-3D6 success range calculated from Monster ACC minus Player EVA.
-- The player can tap any living monster in the battle area to designate it as the **Target** for attack cards.
-- **3D Monster Carousel (Single-Row Targeting for 3+ Opponents)**:
-  - When 3 or more monsters appear (such as Blob + Rattler + Scavenger or the 3 Cult of Trolls bosses), enemies are arranged in an interactive 3D perspective carousel (`.monster-carousel-track`) rather than wrapping into multiple vertical rows that break viewport constraints.
+### 5.2 Simultaneous Multi-Enemy Battle Area
+- All enemies in the battle area are active at once:
+  - Each enemy displays its individual **HP**, **Block**, **ACC**, **EVA**, and **Next Action Intent**.
+  - On the enemy turn, every living enemy acts independently, rolling its own `3d6` against the MACG-3D6 success range calculated from Enemy ACC minus Player EVA.
+- The player can tap any living enemy in the battle area to designate it as the **Target** for attack cards.
+- **3D Enemy Carousel (Single-Row Targeting for 3+ Opponents)**:
+  - When 3 or more enemies appear (such as Blob + Rattler + Scavenger or the 3 Cult of Trolls bosses), enemies are arranged in an interactive 3D perspective carousel (`.enemy-carousel-track`) rather than wrapping into multiple vertical rows that break viewport constraints.
   - **Active Center Target**: The selected target is centered (`.is-center`, `scale(1.02)`, full opacity, glowing golden border, floating `🎯 TARGET (Hit X–Y · Z%)` badge with the bounded success range and exact hit probability, and live NEXT intent/HP dock below).
   - **Flanking Opponents**: The adjacent living enemies flank the active target (`.is-prev` and `.is-next`, `scale(0.82)`, dimmed `opacity: 0.62`, clickable). Clicking any flanking card smoothly transitions it to the center.
-  - **Keyboard Traversal & Controls**: Use `A` / `D` or `ArrowLeft` / `ArrowRight` to cycle through living targets. Touch chevrons (`.monster-carousel-nav`) provide one-click traversal on mobile/touch screens.
-  - **Guidance Instructions**: *"Traverse targets with A or D. You can also use the LEFT and RIGHT keys. Tap a monster to target it with attacks."* is displayed directly below the track.
-  - **In-Place Updates (`updateMonsterCarouselDom`)**: Target shifts update DOM attributes in place without re-rendering the full document, preserving 60fps hardware-accelerated CSS transitions.
-- Defeating all monsters in the encounter wins the battle and awards the combined **Stat Points (`SP`)** and **Gold** inscribed across all defeated Monster Cards.
+  - **Keyboard Traversal & Controls**: Use `A` / `D` or `ArrowLeft` / `ArrowRight` to cycle through living targets. Touch chevrons (`.enemy-carousel-nav`) provide one-click traversal on mobile/touch screens.
+  - **Guidance Instructions**: *"Traverse targets with A or D. You can also use the LEFT and RIGHT keys. Tap an enemy to target it with attacks."* is displayed directly below the track.
+  - **In-Place Updates (`updateEnemyCarouselDom`)**: Target shifts update DOM attributes in place without re-rendering the full document, preserving 60fps hardware-accelerated CSS transitions.
+- Defeating all enemies in the encounter wins the battle and awards the combined **Stat Points (`SP`)** and **Gold** inscribed across all defeated Enemy Cards.
 
 ### 5.3 Turn 15 Stage Boss Encounter & Hero Preparation
 - When the player resolves Row 15's tile on **Turn 15**, the game transitions into the **Stage Boss Approach & Preparation View** (`activeHook: BOSS_APPROACH`) rather than immediately jumping into battle.
@@ -286,22 +286,22 @@ In Stage 1, **Encounter cards have levels 2–4**, as defined in the [Adventure 
   - Quaff healing or buff potions directly from the backpack.
   - Inspect items, cards, and live derived stats in real time.
 - **Boss Showcase & Interactive Engagement**: The main play area displays the official TCG Boss Card (e.g. **Grundy**, Level 5 Boss, 30 HP, 3 DEF, 1 MDEF, 3 ACC, 3 EVA, with golden metallic frame). The card displays an interactive target pill `🎯 CLICK TO FIGHT`. Clicking the Boss card, clicking the prominent **⚔️ Fight Boss — Enter Battle →** button, or pressing `Enter` / `Space` engages the boss battle (`COMBAT`).
-- Grundy's cycle is **Call Goblin** (summon a Goblin from the Monster Deck into play and shuffle the deck; on failure, return a discarded Goblin (FIFO) to the top of the Monster Deck), then **Goblin March** (6 physical damage, boosted by Grundy's ATK).
+- Grundy's cycle is **Call Goblin** (summon a Goblin from the Enemy Deck into play and shuffle the deck; on failure, return a discarded Goblin (FIFO) to the top of the Enemy Deck), then **Goblin March** (6 physical damage, boosted by Grundy's ATK).
 - Defeating **Grundy** completes the Stage 1 Adventure in victory!
 
 ### 5.4 Combat Turn Structure (*Slay the Spire* + Tabletop MACG-3D6™)
 1. **Player Turn (Draw 5 & INT-based AP)**:
-   - Reset player temporary `block = 0` and round `bonusEva = 0`, refill **`3 + floor(INT/5)` AP** (Wizard also carries unused AP), discard every remaining hand card, then draw **5 cards** from `combatDrawPile` one at a time. Whenever a draw finds that pile empty, shuffle the action discard pile into a new draw pile and continue the same five-card draw. Played and discarded cards never leave the combat deck; Battle Flag remains in `inPlay` until destroyed.
+   - Reset player temporary `block = 0` and round `bonusEva = 0`, refill **`3 + floor(INT/5)` AP** (Wizard also carries unused AP), discard every remaining hand card, then draw **5 cards** from `combatDrawPile` one at a time. Whenever a draw finds that pile empty, shuffle the action discard pile into a new draw pile and continue the same five-card draw. Played and discarded cards never leave the action deck; Battle Flag remains in `inPlay` until destroyed.
    - **Pre-Play Action Confirmation Modal**: Clicking a card from hand does not immediately execute it. A responsive confirmation popup opens showing the source card and target card side-by-side (`Use {card} on {target}`). On desktop/large screens, a two-column layout places cards on the left and target selection, combat probabilities, and the **Confirm Use** button on the right, keeping all controls visible without scrolling:
      - **Attack Cards**: Roll `3d6` using the **Morville Adventure Card Game "3d6 Success Roll Range Table Reference" (MACG-3D6™)**. With $\text{Net ACC} = \text{Player ACC} - \text{Target EVA}$, use $\text{expansion} = \max(0, \min(6, 3 + \text{Net ACC}))$ and success window $[\max(4, 10 - \text{expansion}) \dots \min(17, 11 + \text{expansion})]$. Rolls of 3 and 18 are Diabolic rolls that always miss. There are no critical hits or 1.5x multipliers; attacks deal predictable card and stat damage. INT-scaled spells are reduced by MDEF; physical attacks apply PEN against natural DEF before remaining DEF and Block. Fighter formulas are **Slash `3 + ATK` normal physical damage**, **High Strike `ATK + ACC`**, **High Strike + `⌈1.5 × (ATK + ACC)⌉`**, **Whirlwind `1 + ATK` to all**, and **Whirlwind + (1 AP) `2 + ⌈1.5 × ATK⌉` to all**. Slash and Defend do not add accuracy or evasion. The modal shows the interactive QTE hit check bar with exact live values and hit odds.
      - **Defense Cards**: Grant their printed temporary **Block** and, only when their card text says so, temporary round **EVA**. **Defend grants `4 + DEF` Block for the turn**, **Fortify grants `3 + DEF` Block**, **Fortify + (1 AP) grants `4 + ⌈1.5 × DEF⌉` Block**, **Parry grants `1 + ⌊(DEX + AGI) / 2⌋` Block and `+1 EVA`**, and **Parry + grants `2 + ⌊(DEX + AGI) / 2⌋` Block and `+2 EVA`**. Defend grants no EVA.
      - **Skills, All-Enemy Attacks & Enchantments**: A confirmation modal presents any required discard selection before AP is committed. Eligible discard choices are compact mini cards showing the action art, name, AP cost, and selected state; the card being played is excluded. Whirlwind confirmation shows every living target and each target's separate hit threshold/probability; resolution rolls independently for each. Battle Flag costs 1 AP without regaining AP on play, remains in the visible **In play** zone for the battle, and triggers its card draw whenever another card's AP-granting effect resolves.
    - **Resolving Stack**: A played action leaves the hand and remains on the Stack until its entire effect finishes. Costs such as Battlecry's selected discards enter discard first; printed draws resolve next; AP gains and Battle Flag draws resolve afterward; only then does the played card move from the Stack to discard (or `inPlay`). A card can never redraw itself during its own resolution.
    - Clicking **Confirm Use** spends the AP and executes the action; **Cancel** returns to card selection without spending AP.
-   - **FLEE Action Button (1 AP)**: A dedicated `Flee (1 AP)` button is positioned alongside `End Turn` directly below the action selection. Clicking it opens a confirmation dialog presenting the full-size `Flee` card, breakdown of Hero EVA vs. Total Living Enemies' ACC, Net Modifier, and MACG-3D6™ Success Roll Range and QTE bar. Upon confirmation, a Tabletop 3d6 hit check is performed: Net Modifier = $\text{Player EVA} - \sum \text{Living Enemies ACC}$ evaluated under the MACG-3D6™ table (e.g. Net $\le -3$ is Tier 1, 25.0% Sure Hit Rolls 10–11; Diabolic Rolls 3 and 18 always fail). On success, the hero escapes to the map with **no rewards** (encountered monsters go to monster discard). On failure, 1 AP is spent and battle continues. Stage Bosses cannot be fled from.
-2. **Monster Turn (`3d6` Attack Roll & Pattern Execution)**:
-   - Each living monster rolls **`3d6`** against the player's EVA. With $\text{Net ACC} = \text{Monster ACC} - \text{Player EVA}$, use $\text{expansion} = \max(0, \min(6, 3 + \text{Net ACC}))$ and success window $[\max(4, 10 - \text{expansion}) \dots \min(17, 11 + \text{expansion})]$.
-   - **Diabolic Rolls (`3` and `18`)**: Automatic miss regardless of Monster ACC.
+   - **FLEE Action Button (1 AP)**: A dedicated `Flee (1 AP)` button is positioned alongside `End Turn` directly below the action selection. Clicking it opens a confirmation dialog presenting the full-size `Flee` card, breakdown of Hero EVA vs. Total Living Enemies' ACC, Net Modifier, and MACG-3D6™ Success Roll Range and QTE bar. Upon confirmation, a Tabletop 3d6 hit check is performed: Net Modifier = $\text{Player EVA} - \sum \text{Living Enemies ACC}$ evaluated under the MACG-3D6™ table (e.g. Net $\le -3$ is Tier 1, 25.0% Sure Hit Rolls 10–11; Diabolic Rolls 3 and 18 always fail). On success, the hero escapes to the map with **no rewards** (encountered enemies go to enemy discard). On failure, 1 AP is spent and battle continues. Stage Bosses cannot be fled from.
+2. **Enemy Turn (`3d6` Attack Roll & Pattern Execution)**:
+   - Each living enemy rolls **`3d6`** against the player's EVA. With $\text{Net ACC} = \text{Enemy ACC} - \text{Player EVA}$, use $\text{expansion} = \max(0, \min(6, 3 + \text{Net ACC}))$ and success window $[\max(4, 10 - \text{expansion}) \dots \min(17, 11 + \text{expansion})]$.
+   - **Diabolic Rolls (`3` and `18`)**: Automatic miss regardless of Enemy ACC.
    - **On Miss**: `0` damage taken (`DODGED!`).
    - **On Hit**: Damage is absorbed first by **Hero Natural DEF** ($\lfloor(\text{STR}+\text{AGI}+\text{VIT})/5\rfloor + \text{gear.def}$), reduced by `divineProtection`, absorbed by temporary `playerBlock`, and any remainder reduces `playerResources.hp`.
    - **Explicit Absorption Logging**: Log entries explicitly state the absorbed damage amount (e.g. `2 absorbed by Hero DEF, 0 blocked, 4 HP damage`).
@@ -309,84 +309,84 @@ In Stage 1, **Encounter cards have levels 2–4**, as defined in the [Adventure 
 3. **Canonical Reusable Hero Character, Vitals & Gear Sidebar (`playerInfoWidgetHtml`)**:
    - The battle view reuses the canonical `playerInfoWidgetHtml` component (`.player-info-widget`, titled *Character & Gear*), ensuring complete consistency between map exploration and active combat:
      - **Left Column**: Displays Hero portrait, prominent HP / Max HP graphical bar with live Block (`(+X 🛡️)`), 6 core stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) with right-click inspection, prominent derived stats chips (**DEF**, **ATK**, **ACC**, **EVA**, **BLK**, **AP**), and Backpack items with active `Use` buttons for consumables.
-     - **Center Column (`.combat-main-col`)**: Active monster row, dice roll banner, player hand, draw/discard piles, and End Turn button.
+     - **Center Column (`.combat-main-col`)**: Active enemy row, dice roll banner, player hand, draw/discard piles, and End Turn button.
      - **Right Column (`.combat-log-sidebar`)**: Scrollable Battle Log with real-time timestamps and Blue (Hero) / Red (Enemy) actor badges.
    - Using a consumable (e.g. `Health Potion`) during battle immediately heals the player and records a timestamped log entry (`🧪 Used Health Potion: restored +X HP`).
-4. **Dynamic Monster Attack Scaling & Flashing Boons**:
-   - When a monster's attack is scaled by an active ability (such as *Bullwark's Chaotic Impulse* randomly granting `+1 ATK` for its next action), the pattern table on the live card and the `NEXT:` status dock display the updated boosted damage (e.g. `8 DMG` instead of base `7 DMG`).
+4. **Dynamic Enemy Attack Scaling & Flashing Boons**:
+   - When an enemy's attack is scaled by an active ability (such as *Bullwark's Chaotic Impulse* randomly granting `+1 ATK` for its next action), the pattern table on the live card and the `NEXT:` status dock display the updated boosted damage (e.g. `8 DMG` instead of base `7 DMG`).
    - The boosted number pulses with a flashing amber animation (`.is-buffed-flashing`).
    - An active boon badge is displayed on the card face (`🔥 Boon: +X ATK`).
-   - Inspecting the monster displays a dedicated `✨ Active Boons & Combat Enhancements` section detailing the active enhancement and updates pattern steps.
+   - Inspecting the enemy displays a dedicated `✨ Active Boons & Combat Enhancements` section detailing the active enhancement and updates pattern steps.
 5. **Combat Victory Modal & Rewards Showcase**:
-   - Defeating all monsters in battle pauses gameplay and immediately opens the dedicated **Victory Modal** (`activeHook.type === 'VICTORY'`) rather than abruptly snapping back to the map.
+   - Defeating all enemies in battle pauses gameplay and immediately opens the dedicated **Victory Modal** (`activeHook.type === 'VICTORY'`) rather than abruptly snapping back to the map.
    - **Showcased Rewards & Loots**:
-     - **Defeated Foes**: Vanquished monster cards with raster art thumbnails, creature subtypes, levels, and individual SP/Gold yields.
+     - **Defeated Foes**: Vanquished enemy cards with raster art thumbnails, enemy subtypes, levels, and individual SP/Gold yields.
      - **Loot Cards Grid**:
-       - **Stat Points (`+X SP`)**: Inscribed directly on Monster Cards, saved to the player's treasury for upgrading Base Stats at Sacred Shrines.
-       - **Gold Spoils (`+Y Gold`)**: Inscribed creature gold plus Rogue `[Steal]` spoils and Goldstar roll (`(1d6 - 1)`), with full breakdown of base spoils and bonus additions.
+       - **Stat Points (`+X SP`)**: Inscribed directly on Enemy Cards, saved to the player's treasury for upgrading Base Stats at Sacred Shrines.
+       - **Gold Spoils (`+Y Gold`)**: Inscribed enemy gold plus Rogue `[Steal]` spoils and Goldstar roll (`(1d6 - 1)`), with full breakdown of base spoils and bonus additions.
    - **Interactive Confirmation Action (`OK &mdash; Return to Map &rarr;`)**:
      - The player reviews their spoils and presses the golden **OK** button to return to map navigation.
      - Smoothly transitions `activeHook` to `'NONE'` and resumes the map area exploration soundtrack (`map-area.mp3`).
      - For Stage Boss victories (e.g. Turn 15 Grundy), the button reads `OK &mdash; Proceed &rarr;`, which transitions smoothly into the Stage Complete screen (`ON_STAGE_COMPLETE`).
    - **RPG Combat Damage Feedback & Defeat Transitions**:
      - **Web Audio API Synthesized Slash**: Every damage impact plays an instant synthesized RPG sword slash SFX.
-     - **Violent Card Shake Animation (`.is-damage-shaking`)**: Struck monster units violently vibrate and shake on impact.
-     - **Floating Damage Combat Numbers (`.combat-floating-damage`)**: Struck monsters burst glowing floating damage numbers (e.g. `-6` or `🛡️ BLOCKED`) that float upward and fade out over 1.1s.
-     - **Defeat & Death Greying Out**: Dead monsters desaturate smoothly with a stamped `DEFEATED` banner, smoothly transferring carousel focus to the next living enemy.
+     - **Violent Card Shake Animation (`.is-damage-shaking`)**: Struck enemy units violently vibrate and shake on impact.
+     - **Floating Damage Combat Numbers (`.combat-floating-damage`)**: Struck enemies burst glowing floating damage numbers (e.g. `-6` or `🛡️ BLOCKED`) that float upward and fade out over 1.1s.
+     - **Defeat & Death Greying Out**: Dead enemies desaturate smoothly with a stamped `DEFEATED` banner, smoothly transferring carousel focus to the next living enemy.
      - **Delayed Victory Modal for Final Foe**: When the final enemy falls, the victory modal is deferred for ~1150ms to allow the full death animation and slash sound to play before revealing the victory spoils.
 6. **Battle State Combat Log Sidebar, Timestamps & Actor Badges**:
    - **Split Layout Architecture**: In battle state, the combat dialog is laid out side-by-side with the main combat stage on the left (`.combat-main-col`) and a dedicated Battle Log sidebar on the right (`.combat-log-sidebar`).
    - **Timestamps**: Every action taken during combat logs a timestamp (`[HH:MM:SS]`) using monospace typography (`.combat-log-time`).
    - **Actor Color Coding**:
      - **Hero ('You')**: Highlighted in **Blue** (`.combat-log-actor.is-hero`, text `#38bdf8`, background `rgba(14, 165, 233, 0.22)`, border `rgba(56, 189, 248, 0.55)`, left border accent `3px solid #38bdf8`).
-     - **Enemies / Hostiles**: Highlighted in **Red** (`.combat-log-actor.is-enemy`, text `#f87171`, background `rgba(239, 68, 68, 0.22)`, border `rgba(248, 113, 113, 0.55)`, left border accent `3px solid #ef4444`). The badge identifies the specific acting creature (e.g. `Pincer`, `Scavenger`, `Bullwark`, `Zombie`).
+     - **Enemies / Hostiles**: Highlighted in **Red** (`.combat-log-actor.is-enemy`, text `#f87171`, background `rgba(239, 68, 68, 0.22)`, border `rgba(248, 113, 113, 0.55)`, left border accent `3px solid #ef4444`). The badge identifies the specific acting enemy (e.g. `Pincer`, `Scavenger`, `Bullwark`, `Zombie`).
      - **System / Encounter**: Neutral slate badge (`.combat-log-actor.is-system`, left border accent `3px solid #64748b`).
    - **Scrollable History**: Entries are listed in reverse chronological order (newest on top) with a scrollable list and live total count indicator.
    - **Mobile Responsiveness**: When screen width is 960px or below, the sidebar stacks smoothly beneath the End Turn button with independent scrolling.
 
 ### 5.5 Official Standard TCG Card Architecture & Unified Full-Art Template
-All game cards (Adventure Lands, Monster Creatures, Player Actions, Items & Equipment, and Hero) follow official physical **Trading Card Game (TCG)** standards with a unified reusable full-art layout:
+All game cards (Adventure Lands, Enemy Cards, Action Cards, Items & Equipment, and Hero) follow official physical **Trading Card Game (TCG)** standards with a unified reusable full-art layout:
 - **Official Sizing & Aspect Ratio**:
   - Strictly follows standard TCG card proportions of **5:7** (equivalent to **2.5" × 3.5"** / 63.5 mm × 88.9 mm) across all card types and viewports.
 - **Unified Reusable Full-Art Card Format Across All Types**:
   1. **Full-Bleed Raster Art Layer (`inset: 0`)**: Digital raster paintings cover the entire card surface edge-to-edge from top to bottom (`.tcg-art-window` with `position: absolute; inset: 0`), replacing legacy cropped rectangular windows. Every card has dedicated unique art.
-  2. **Consolidated Top Header (Meta Line & Card Name)**: Full-size creatures use level at left, inline type/subtype and spawn icons at right on the first row; name and collector number occupy the second row. Other card types retain their type stack and level/AP placement.
+  2. **Consolidated Top Header (Meta Line & Card Name)**: Full-size enemies use level at left, inline type/subtype and spawn icons at right on the first row; name and collector number occupy the second row. Other card types retain their type stack and level/AP placement.
   3. **Floating Target Pill (`.combat-target-badge-top`)**: The active target pill (`🎯 TARGET (Hit X–Y · Z%)`) floats above the card frame in combat, showing the bounded success range and exact hit probability without obscuring card art.
-  4. **Inscribed Rewards (`.tcg-art-rewards`)**: Displayed on the upper-left of creature artwork directly below the header as floating badges with visible numeric values (`+4 Gold`, `+1 SP`) using official raster icons.
+  4. **Inscribed Rewards (`.tcg-art-rewards`)**: Displayed on the upper-left of enemy artwork directly below the header as floating badges with visible numeric values (`+4 Gold`, `+1 SP`) using official raster icons.
   5. **Uninterrupted Artwork Showcase (`.tcg-art-spacer`)**: The middle dividing ribbon is completely eliminated, providing a large, continuous vertical artwork showcase area (`flex: 1 1 auto; min-height: 10px;`) between the top header and the bottom textbox.
-  6. **Rules-Only Compact Textbox (`.tcg-textbox`) & Universal Bottom Docking**: Semi-transparent background (`rgba(..., 0.95)`) docked cleanly to the bottom of the card frame (`margin-top: auto !important; margin-bottom: 0 !important;` when followed by a footer, or `margin-bottom: 6px/8px !important;` when no footer exists), universally eliminating dead space or vertical floating gaps below the rules across ALL card types (Creature, Adventure/Land, Item/Equipment, Action, and Hero). `.tcg-inner-frame` is positioned with `position: absolute !important; inset: 3px !important;` (or `inset: 4px !important;` in inspect cards) to strictly prevent height collapse under `aspect-ratio: 5/7` flex containers. Displays ONLY essential gameplay rules (slot bonuses, damage/block scaling). On creature cards, the textbox displays abilities, the cyclic attack pattern table (`Turn 1: Slash (3 DMG)`), while positive creature stats are consolidated in the bottom dock with raster icons; no derived-stat row appears in the textbox. Monsters have no ATK stat because their damage is defined directly by their attack patterns; empty-pattern creatures skip their turn and log that they did nothing. **Flavor text is omitted from the card face** to maximize art space and prevent visual clutter (lore text remains accessible in the inspect detail modal).
+  6. **Rules-Only Compact Textbox (`.tcg-textbox`) & Universal Bottom Docking**: Semi-transparent background (`rgba(..., 0.95)`) docked cleanly to the bottom of the card frame (`margin-top: auto !important; margin-bottom: 0 !important;` when followed by a footer, or `margin-bottom: 6px/8px !important;` when no footer exists), universally eliminating dead space or vertical floating gaps below the rules across ALL card types (Enemy, Adventure/Land, Item/Equipment, Action, and Hero). `.tcg-inner-frame` is positioned with `position: absolute !important; inset: 3px !important;` (or `inset: 4px !important;` in inspect cards) to strictly prevent height collapse under `aspect-ratio: 5/7` flex containers. Displays ONLY essential gameplay rules (slot bonuses, damage/block scaling). On enemy cards, the textbox displays abilities, the cyclic attack pattern table (`Turn 1: Slash (3 DMG)`), while positive enemy stats are consolidated in the bottom dock with raster icons; no derived-stat row appears in the textbox. Enemies have no ATK stat because their damage is defined directly by their attack patterns; empty-pattern enemies skip their turn and log that they did nothing. **Flavor text is omitted from the card face** to maximize art space and prevent visual clutter (lore text remains accessible in the inspect detail modal).
   7. **Universal Bottom Docking & Footer Architecture**:
      - `.tcg-inner-frame` is anchored across the entire card via `position: absolute !important; inset: 3px !important;` (or `inset: 4px !important;` in inspect cards) with `display: flex; flex-direction: column;`, mathematically guaranteeing it spans from the top border to the bottom border.
      - When a footer is present (`.tcg-footer`), the textbox docks flush to the top edge of the footer (`margin-bottom: 0 !important; border-bottom-left-radius: 0; border-bottom-right-radius: 0;`), while the footer has `margin-top: 0 !important; margin-bottom: 6px/8px !important;`.
      - When no footer is present (e.g. Adventure Lands in inspect modals, mini cards), the textbox docks flush to the bottom edge with its own rounded bottom corners (`border-bottom-left-radius: 5px; border-bottom-right-radius: 5px; margin-bottom: 6px/8px !important;`).
      - Middle spacer (`.tcg-art-spacer`, `.tcg-item-art-spacer`, `.adv-art-spacer`) expands with `flex: 1 1 auto; min-height: 10px;` so central artwork is always unobstructed and maximized.
-  8. **Interactive Combat Status Dock & Flickering Prevention (`.creature-combat-dock`)**: Positioned below creature cards in battle, housing the active `NEXT:` move intent and the live `HP:` progress bar (`${hp} / ${maxHp} HP` with Block indicator), keeping the physical card face clean and authentic.
-     - **Flicker-Free Rendering Invariant**: In 3D perspective carousel containers (`.monster-carousel-track`), `backdrop-filter: blur(...)` is strictly disabled on `.tcg-textbox`, `.tcg-footer`, and `.creature-combat-dock` (using crisp `rgba` fills instead) to eliminate Chromium GPU compositor blur shader thrashing.
-     - **Target Pill & Buff Stability**: `.combat-target-badge-top` uses a stable static golden box-shadow (no continuous `box-shadow` animation), `.is-buffed-flashing` uses stable golden highlighting (no scale transform reflows), and hover jumps are disabled on combat cards (`.combat-monster-unit .tcg-card:hover { transform: none !important; }`) to prevent edge-hover jitter.
+  8. **Interactive Combat Status Dock & Flickering Prevention (`.enemy-combat-dock`)**: Positioned below enemy cards in battle, housing the active `NEXT:` move intent and the live `HP:` progress bar (`${hp} / ${maxHp} HP` with Block indicator), keeping the physical card face clean and authentic.
+     - **Flicker-Free Rendering Invariant**: In 3D perspective carousel containers (`.enemy-carousel-track`), `backdrop-filter: blur(...)` is strictly disabled on `.tcg-textbox`, `.tcg-footer`, and `.enemy-combat-dock` (using crisp `rgba` fills instead) to eliminate Chromium GPU compositor blur shader thrashing.
+     - **Target Pill & Buff Stability**: `.combat-target-badge-top` uses a stable static golden box-shadow (no continuous `box-shadow` animation), `.is-buffed-flashing` uses stable golden highlighting (no scale transform reflows), and hover jumps are disabled on action cards (`.combat-enemy-unit .tcg-card:hover { transform: none !important; }`) to prevent edge-hover jitter.
   9. **Universal Mini Card Rules (`.is-mini`, Deck & Pile Modals)**: Mini cards are streamlined to prioritize illustration artwork and essential identification:
-     - **Mini Creature Cards**:
-       - **Header**: Single-row layout with Monster Name on the left and `Lvl X` ribbon on the right in gold border. Omits type stack or duplicate text.
-       - **Artwork Showcase**: Full unobstructed digital raster painting. Does NOT display rarity/set symbols, attack pattern tables, defeat reward icons/values (`+X Gold`, `+Y SP`), creature derived stats row (`DEF: ?? / EVA: ??`), or textboxes.
-       - **Footer**: Single-row docked bar displaying creature subtype (`Serpent`, `Goblinoid`, `Beast`, `Ooze`, `Insect`, etc.) in gold `#fef08a` text on the left, and circular terrain spawn badges (`🌿`, `🌲`) on the right.
+     - **Mini Enemy Cards**:
+       - **Header**: Single-row layout with Enemy Name on the left and `Lvl X` ribbon on the right in gold border. Omits type stack or duplicate text.
+       - **Artwork Showcase**: Full unobstructed digital raster painting. Does NOT display rarity/set symbols, attack pattern tables, defeat reward icons/values (`+X Gold`, `+Y SP`), enemy derived stats row (`DEF: ?? / EVA: ??`), or textboxes.
+       - **Footer**: Single-row docked bar displaying enemy subtype (`Serpent`, `Goblinoid`, `Beast`, `Ooze`, `Insect`, etc.) in gold `#fef08a` text on the left, and circular terrain spawn badges (`🌿`, `🌲`) on the right.
        - **Multiplier Badge**: Straddles the bottom center of the card frame (`x N`), preventing any obstruction of top header names or level ribbons.
      - **Mini Item & Action Cards**: Render with transparent textboxes to showcase artwork while keeping essential rule text legible.
-  10. **Card Footer**: Full-size creatures show Max HP and positive DEF/MDEF/ACC/EVA values only; their collector number is in the header. Other card types retain their existing footer format.
-  11. **New Paths Set/Rarity Symbol**: Full-size ordinary creature cards show the forked-road New Paths emblem at the lower-right of the artwork. Its metallic finish communicates rarity without written rarity text: bronze is Common, silver is Uncommon, and gold is Rare. Mini cards omit the emblem. The full creature header shows level, subtype, terrain icons, name, and collector number without the redundant `CREATURE` word; Boss cards use `BOSS` only.
+  10. **Card Footer**: Full-size enemies show Max HP and positive DEF/MDEF/ACC/EVA values only; their collector number is in the header. Other card types retain their existing footer format.
+  11. **New Paths Set/Rarity Symbol**: Full-size ordinary enemy cards show the forked-road New Paths emblem at the lower-right of the artwork. Its metallic finish communicates rarity without written rarity text: bronze is Common, silver is Uncommon, and gold is Rare. Mini cards omit the emblem. The full enemy header shows level, subtype, terrain icons, name, and collector number without the redundant `ENEMY` word; Boss cards use `BOSS` only.
 - **Reusable Card Border Templates**:
-  - Grassland creatures and lands feature **vibrant green double borders** (`#2d7a3e` outer frame, `#4ade80` inner trim, `tcg-template-grassland`).
+  - Grassland enemies and lands feature **vibrant green double borders** (`#2d7a3e` outer frame, `#4ade80` inner trim, `tcg-template-grassland`).
   - Forest lands feature **deep pine green borders** (`#059669` outer frame, `#34d399` inner trim, `tcg-template-forest`).
   - The Stage 1 Boss (**Grundy**) features a radiant **gold metallic frame** (`tcg-template-boss`).
   - Action cards feature **crimson/ruby frames** for Attacks (`tcg-template-attack`) and **azure/sapphire frames** for Defenses (`tcg-template-defense`).
   - Item / Equipment cards feature a **rich gold & bronze frame** (`tcg-template-item`).
 - **Card Inspection Modal (Right-Click & 2s Long-Press)**:
   - Right-clicking or pressing and holding for 2 seconds on any card opens the Card Detail Modal.
-  - Formatted for offline tabletop play and card printing: presents the full physical card, generic stat scaling formulas (`Base + ⌊STAT / 2⌋`), live calculations based on the hero's current attributes, cycling monster move patterns, complete flavor text, and land board mechanics.
+  - Formatted for offline tabletop play and card printing: presents the full physical card, generic stat scaling formulas (`Base + ⌊STAT / 2⌋`), live calculations based on the hero's current attributes, cycling enemy move patterns, complete flavor text, and land board mechanics.
 
 ### 9. Right Sidebar Decks & Discard Piles (Multipliers Modal)
 - **Dedicated Right Sidebar (`.play-sidebar-right`)**:
   - Displays four distinct card pile groups:
     1. **Adventure Piles**: Adventure Deck & Adventure Discard pile.
-    2. **Monster Piles**: Monster Deck & Monster Discard pile.
+    2. **Enemy Piles**: Enemy Deck & Enemy Discard pile.
     3. **Treasure Piles**: Treasure Deck & Treasure Discard pile.
     4. **Player Combat Piles**: Player Draw Deck & Player Discard pile.
 - **Card Piles & Unique Multipliers**:
@@ -430,31 +430,31 @@ During an adventure, Slot 1 automatically saves each resolved action and event i
 
 When a new deployment is detected, an unobtrusive notice offers **Reload to update**. Checks run on launch, every minute while the tab is visible, and when returning to the tab. Gameplay continues until the player chooses to reload. Reloading an active adventure requires confirmation and notes that the current adventure is auto-saved; cancelling keeps the adventure running. Network failures do not interrupt play. Normal visits and reloads revalidate cached game files, so players do not need to clear their browser cache. Deployment details and launch verification are documented in ARCHITECTURE.md under Cloudflare releases and cache freshness.
 
-## Leech creature
+## Leech enemy
 
-Leech (`mon3smp-01`, Level 4, Swamp/Cave) alternates **Soul Drain** (8 MATK, heals 50% of actual HP damage rounded down) with **Channel** (regenerate 2 HP, +2 Block). Every third Channel returns one discarded Zombie to battle at full HP; the Zombie acts next round. Leech has 18 HP, 1 DEF, 3 MDEF, 2 ACC, and 2 EVA. Magical attacks use MDEF rather than DEF, with ordinary Block and Divine Protection still applying. Creature cards and inspection show MDEF and label magical pattern damage MATK. The Goblin King deck includes 1 Leech; Rewards: 5 SP and 20 Gold.
+Leech (`mon3smp-01`, Level 4, Swamp/Cave) alternates **Soul Drain** (8 MATK, heals 50% of actual HP damage rounded down) with **Channel** (regenerate 2 HP, +2 Block). Every third Channel returns one discarded Zombie to battle at full HP; the Zombie acts next round. Leech has 18 HP, 1 DEF, 3 MDEF, 2 ACC, and 2 EVA. Magical attacks use MDEF rather than DEF, with ordinary Block and Divine Protection still applying. Enemy cards and inspection show MDEF and label magical pattern damage MATK. The Goblin King deck includes 1 Leech; Rewards: 5 SP and 20 Gold.
 
-Phalanx, Cultist Mage and Lurker are Cave-main creatures. They remain in the Void during Scenario 1 and enter Scenario 2 at its one-third Cave rate (1, 2, and 1 copies respectively). Phalanx's Double Smash rolls and mitigates two attacks separately, while Blinding Web applies its one-turn accuracy/evasion penalties only on a hit. Cultist Mage's Soul Burn deals MATK. Lurker's Shed heals 12 and removes its 2 DEF for one turn; its Acid Retaliation deals 1 Hero HP after each successful nonlethal Hero attack, and ignores DEF/MDEF and Block.
+Phalanx, Cultist Mage and Lurker are Cave-main enemies. They remain in the Void during Scenario 1 and enter Scenario 2 at its one-third Cave rate (1, 2, and 1 copies respectively). Phalanx's Double Smash rolls and mitigates two attacks separately, while Blinding Web applies its one-turn accuracy/evasion penalties only on a hit. Cultist Mage's Soul Burn deals MATK. Lurker's Shed heals 12 and removes its 2 DEF for one turn; its Acid Retaliation deals 1 Hero HP after each successful nonlethal Hero attack, and ignores DEF/MDEF and Block.
 
-## Creeper creature
+## Creeper enemy
 
 Creeper (`mon3smp-02`, Level 3, Swamp only) has 12 HP, 2 DEF, 0 EVA, 1 ACC, and 1 MDEF. It alternates **Submerge** (+3 HP, +3 Block) and **Ambush** (7 physical damage). **Resilient** rolls a seeded 1d6 whenever Creeper is defeated: on 6, it immediately returns with 6 HP before victory resolves. It retains its attack-cycle position and can trigger Resilient on later defeats too. The Goblin King deck includes 1 Creeper; Rewards: 4 SP and 15 Gold.
 
-## Assasin creature and poison
+## Assasin enemy and poison
 
 Assasin (`mon3smp-03`, artwork `assasin.jpg`) inhabits Swamp, Cave, and Underground. Level 3; 13 HP, 1 DEF, 3 EVA, 2 ACC, 1 MDEF. Alternates **Poison Dart** (3 physical damage ignoring up to 3 Hero DEF, plus poison on a successful 3d6 hit) with **Piercing Strike** (7 physical damage ignoring up to 2 Hero DEF).
 
-Poison deals 1 HP damage at each subsequent hero End Turn before monsters act, does not stack, bypasses defenses and Block, persists across battles, and is cured by Shrine Cleanse; Village Rest restores HP only. The first tick occurs on the hero End Turn after poison is applied. Poison can end the run. Underground is a creature spawn tag; this change does not add Underground map tiles. The Goblin King deck includes 2 Assasins; each grants 4 SP and 15 Gold.
+Poison deals 1 HP damage at each subsequent hero End Turn before enemies act, does not stack, bypasses defenses and Block, persists across battles, and is cured by Shrine Cleanse; Village Rest restores HP only. The first tick occurs on the hero End Turn after poison is applied. Poison can end the run. Underground is an enemy spawn tag; this change does not add Underground map tiles. The Goblin King deck includes 2 Assasins; each grants 4 SP and 15 Gold.
 
-## Stalker creature
+## Stalker enemy
 
-Stalker (`mon1grs-06`, Level 2, Grasslands/Forest) has 8 HP, 0 DEF, 2 EVA, and 1 ACC. Alternates **Sprint** (+1 EVA and +1 ACC for two turns, lasting through Pounce) with **Pounce** (6 physical damage). **Skittish** grants an immediate +1 EVA per successful hit for the remainder of the hero turn, including blocked hits. Sprint refreshes without stacking; Skittish bonuses expire at hero End Turn. Current EVA affects subsequent attack rolls and displayed target odds. The Goblin King monster deck includes 1 Stalker; Rewards: 3 SP and 10 Gold.
+Stalker (`mon1grs-06`, Level 2, Grasslands/Forest) has 8 HP, 0 DEF, 2 EVA, and 1 ACC. Alternates **Sprint** (+1 EVA and +1 ACC for two turns, lasting through Pounce) with **Pounce** (6 physical damage). **Skittish** grants an immediate +1 EVA per successful hit for the remainder of the hero turn, including blocked hits. Sprint refreshes without stacking; Skittish bonuses expire at hero End Turn. Current EVA affects subsequent attack rolls and displayed target odds. The Goblin King enemy deck includes 1 Stalker; Rewards: 3 SP and 10 Gold.
 
-Creature types: **Leech — Undead**, **Creeper — Undead**, **Assasin — Human**, **Rattler — Reptile**. These catalog types appear on cards and in inspection and pile views.
+Enemy types: **Leech — Undead**, **Creeper — Undead**, **Assasin — Human**, **Rattler — Reptile**. These catalog types appear on cards and in inspection and pile views.
 
 ## Draw-until effects and graveyards
 
-Spell/ability draw-until effects fizzle when the current deck/pass ends without satisfying their condition; they never force an invalid card or loop. A new draw that starts with an empty deck first reshuffles its graveyard, then gets one bounded search pass. A later draw may reshuffle again; an ongoing failed search may not. Completed ability draws remain in effect. Encounter generation, treasure discovery and shop stocking are recycling game mechanics, not abilities: when another draw needs an empty deck, reshuffle the graveyard and continue while eligible supply remains. Encounter terrain/level restrictions still apply. If only incompatible terrain cards remain in a nonempty monster deck after a full pass, stop without accessing its graveyard. If the encounter budget cannot be completed, fight existing draws; zero-monster encounters show an explicit no-encounter result for acknowledgement, award no rewards, then retain the normal Turn 15 boss check. This is unavailable eligible supply, not ability fizzle.
+Spell/ability draw-until effects fizzle when the current deck/pass ends without satisfying their condition; they never force an invalid card or loop. A new draw that starts with an empty deck first reshuffles its graveyard, then gets one bounded search pass. A later draw may reshuffle again; an ongoing failed search may not. Completed ability draws remain in effect. Encounter generation, treasure discovery and shop stocking are recycling game mechanics, not abilities: when another draw needs an empty deck, reshuffle the graveyard and continue while eligible supply remains. Encounter terrain/level restrictions still apply. If only incompatible terrain cards remain in a nonempty enemy deck after a full pass, stop without accessing its graveyard. If the encounter budget cannot be completed, fight existing draws; zero-enemy encounters show an explicit no-encounter result for acknowledgement, award no rewards, then retain the normal Turn 15 boss check. This is unavailable eligible supply, not ability fizzle.
 
 Graveyards are public. Explicit graveyard searches such as Leech's Zombie revival stop immediately and fizzle if no valid target exists. Deck order is hidden; viewing available card types/counts and card counting are allowed. Existing incompatible-terrain bottom placement is preserved with one examination per card per search. See MECHANICS_AND_DATA.md for exact boundaries.
 
@@ -466,16 +466,16 @@ Undiscovered terrain rewards use `item.level <= terrain.level` as a cap. A Level
 
 Eligible physical copies are conserved; nothing is created to fill stock. If no matching supply exists anywhere in the deck/graveyard (for example no Level 5 items are currently defined, or all matching copies are already owned), stop safely with empty/partial stock or no reward rather than loop forever. This is unavailable supply, not ability failure. A village's stock is generated only once per visit, including empty stock; returning to its menu does not reroll it. The current item catalog has Levels 1–4; Level 3 and 4 stock can be partial when only some matching physical copies exist.
 
-## Battle hand carousel and revised full-size creature template
+## Battle hand carousel and revised full-size enemy template
 
 The battle hand uses one centered, fully readable action card with dimmed flanking previews. Browse using chevrons, numbered selectors, Q/E keys, or horizontal swipes. Browsing updates existing nodes in place and never spends AP. Tapping the center card opens the existing confirmation; Flee is accessed via the dedicated Flee button alongside End Turn below the carousel. A/D and left/right arrows retain enemy targeting. End Turn resets hand selection; selection clamps safely after playing a card. Empty hands retain End Turn. Inspect/confirmation overlays suspend hand navigation; reduced-motion settings disable transitions.
 
-Full-size creature cards in battle and inspection share one header/footer template: first header line is level at left, CREATURE/BOSS CREATURE and subtype inline, with spawn icons at right. Second line holds the name at left and collector number at right. The rules textbox contains abilities and patterns without a duplicate derived-stat row. The bottom dock shows printed Max HP plus icon/value pairs only for positive DEF, MDEF, ACC and EVA; zero-valued combat stats are omitted. Live battle ACC/EVA include temporary buffs and highlight positive bonuses; HP/Block remain live in the external combat dock. Compact pile cards retain their simplified art-first template.
+Full-size enemy cards in battle and inspection share one header/footer template: first header line is level at left, ENEMY/BOSS and subtype inline, with spawn icons at right. Second line holds the name at left and collector number at right. The rules textbox contains abilities and patterns without a duplicate derived-stat row. The bottom dock shows printed Max HP plus icon/value pairs only for positive DEF, MDEF, ACC and EVA; zero-valued combat stats are omitted. Live battle ACC/EVA include temporary buffs and highlight positive bonuses; HP/Block remain live in the external combat dock. Compact pile cards retain their simplified art-first template.
 
 Stalker base EVA is 2. Sprint adds 1 EVA (total 3); an additional Skittish hit bonus raises that total for the current hero turn. Catalog tables have been regenerated.
 
-## Witch and default creature rewards
+## Witch and default enemy rewards
 
 Witch (`mon3smp-04`) is registered with Level 3 Swamp/Cave eligibility, 14 HP, 1 DEF, 3 MDEF, 1 EVA, 1 ACC, 4 SP and 15 Gold. It cycles Blinding Hex (-1 Hero EVA/ACC, 2 turns), Expose weakness (-1 Hero DEF/MDEF, 1 turn), then Smite (7 magical damage), and regenerates 1 HP at the end of each living turn, capped at Max HP. The Goblin King Stage 1 deck includes 1 Witch. See [exact timing](MECHANICS_AND_DATA.md#witch--mon3smp-04).
 
-Default creature rewards scale by level: ordinary monsters grant `level * 5` Gold and `level + 1` SP (LVL 1: 5G/2SP, LVL 2: 10G/3SP, LVL 3: 15G/4SP, LVL 4: 20G/5SP, LVL 5: 25G/6SP, LVL 6: 30G/7SP, LVL 7: 35G/8SP). Boss creatures grant double rewards based on their level (`level * 10` Gold, `(level + 1) * 2` SP: LVL 4 Boss: 40G/10SP, LVL 5 Boss: 50G/12SP, LVL 7 Boss: 70G/16SP).
+Default enemy rewards scale by level: ordinary enemies grant `level * 5` Gold and `level + 1` SP (LVL 1: 5G/2SP, LVL 2: 10G/3SP, LVL 3: 15G/4SP, LVL 4: 20G/5SP, LVL 5: 25G/6SP, LVL 6: 30G/7SP, LVL 7: 35G/8SP). Boss enemies grant double rewards based on their level (`level * 10` Gold, `(level + 1) * 2` SP: LVL 4 Boss: 40G/10SP, LVL 5 Boss: 50G/12SP, LVL 7 Boss: 70G/16SP).

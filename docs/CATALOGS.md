@@ -12,9 +12,9 @@ Effective stats below include the Innate +1 baseline (1 Innate + Base + Class), 
 | Wizard | int | dex, cha | 0 / 1 / 0 / 2 / 1 / 0 | 2 / 3 / 2 / 4 / 3 / 2 | 14 | 8× Fireball ATK, 2× Force Field DEF | Apprentice Staff + Robe | When you end turn in battle with unused Action Points, they carry over to your next battle turn. |
 | Rogue | agi | dex, str | 1 / 1 / 2 / 0 / 0 / 0 | 3 / 3 / 4 / 2 / 2 / 2 | 14 | 8× Slash, 2× Defend | Dagger + Leather Gear | Whenever a 3d6 attack hit check contains a matching pair or triples, immediately gain Gold equal to the matching die face (for example, 6+6 grants +6 Gold, 5+5 grants +5 Gold, and 1+1 grants +1 Gold). |
 
-## Ordinary Monsters
+## Ordinary Enemies
 
-Physical ordinary-creature supply: **85 cards**. Common types have 6 copies, Uncommon types have 4, and Rare types have 3. Scenario setup pulls cards from the Void by main-terrain band: 100% / rounded 2/3 / rounded 1/3. Stage 1 pulls **45** cards and leaves **40** in the Void; Stage 2 pulls **37** and leaves **48**; Stage 3 pulls **30** and leaves **55**. Runtime instance IDs distinguish physical copies; collector numbers identify types.
+Physical ordinary-enemy supply: **85 cards**. Common types have 6 copies, Uncommon types have 4, and Rare types have 3. Scenario setup pulls cards from the Void by main-terrain band: 100% / rounded 2/3 / rounded 1/3. Stage 1 pulls **45** cards and leaves **40** in the Void; Stage 2 pulls **37** and leaves **48**; Stage 3 pulls **30** and leaves **55**. Runtime instance IDs distinguish physical copies; collector numbers identify types.
 
 | Collector ID | Template ID | Name | Type | Rarity | Supply | Main terrain | Stage 1 deck | Stage 2 deck | Stage 3 deck | Level | HP | DEF | MDEF | ACC | EVA | SP | Gold | Terrains | Pattern | Abilities |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -29,7 +29,7 @@ Physical ordinary-creature supply: **85 cards**. Common types have 6 copies, Unc
 | mon2frs-03 | zombie | Zombie | Undead | common | 6 | forest | 4 | 6 | 0 | 2 | 12 | 1 | 1 | 2 | 0 | 3 | 10 | swamp, cave, forest | 1. Life Steal: 6 physical damage; drain 50% HP damage | Regen (2) |
 | mon2frs-04 | ghoul | Ghoul | Undead | uncommon | 4 | forest | 3 | 4 | 0 | 2 | 12 | 0 | 2 | 2 | 3 | 3 | 10 | forest, swamp | 1. Blind: -1 Hero ACC for 2 turns<br>2. Mad Dash: 6 physical damage | None |
 | mon2frs-05 | bullwark | Bullwark | Beast | uncommon | 4 | forest | 3 | 4 | 0 | 3 | 16 | 2 | 2 | 3 | 3 | 4 | 15 | swamp, forest | 1. Heal: +4 HP<br>2. Heavy Charge: 7 physical damage | Harden (1); Skittish (1) |
-| mon3smp-01 | leech | Leech | Undead | uncommon | 4 | swamp | 1 | 3 | 4 | 4 | 18 | 1 | 3 | 3 | 2 | 5 | 20 | swamp, cave | 1. T1: summon one zombie from Monster Deck into play; if summon misses, return one discarded zombie to top of Monster Deck<br>2. T2: 7 magical damage; drain 50% HP damage | Regen (2) |
+| mon3smp-01 | leech | Leech | Undead | uncommon | 4 | swamp | 1 | 3 | 4 | 4 | 18 | 1 | 3 | 3 | 2 | 5 | 20 | swamp, cave | 1. T1: summon one zombie from Enemy Deck into play; if summon misses, return one discarded zombie to top of Enemy Deck<br>2. T2: 7 magical damage; drain 50% HP damage | Regen (2) |
 | mon3smp-02 | creeper | Creeper | Undead | rare | 3 | swamp | 1 | 2 | 3 | 3 | 14 | 2 | 2 | 3 | 3 | 4 | 15 | swamp | 1. T1: +3 Block; +3 HP<br>2. T2: 7 physical damage | Undying (3) |
 | mon3smp-03 | assassin | Assasin | Human | common | 6 | swamp | 2 | 4 | 6 | 3 | 13 | 2 | 1 | 4 | 4 | 4 | 15 | swamp, cave, underground | 1. T1: 5 physical damage; ignore 3 DEF<br>2. T2: +2 ACC on hit roll | Skittish (2) |
 | mon3smp-04 | witch | Witch | Unspecified | uncommon | 4 | swamp | 1 | 3 | 4 | 3 | 14 | 1 | 3 | 4 | 2 | 4 | 15 | swamp, cave | 1. T1: -2 Hero ACC, -2 Hero EVA for 2 turns<br>2. T2: 7 magical damage | Regen (2) |
@@ -45,11 +45,11 @@ Bosses are spawned separately and excluded from ordinary-deck conservation. Stag
 
 | Name | Template | Level | HP | DEF | MDEF | ACC | EVA | SP | Gold | Pattern | Abilities |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Grundy | goblin_chieftain | 5 | 36 | 3 | 2 | 3 | 3 | 12 | 50 | 1. Goblin March: 6 physical damage | Grundy's ATK and DEF increases for each other goblin creatures in play; Summons a Goblin from the Monster Deck at 50% HP and 25% HP |
+| Grundy | goblin_chieftain | 5 | 36 | 3 | 2 | 3 | 3 | 12 | 50 | 1. Goblin March: 6 physical damage | Grundy's ATK and DEF increases for each other goblin enemies in play; Summons a Goblin from the Enemy Deck at 50% HP and 25% HP |
 | Troll Healer | troll_healer | 4 | 25 | 1 | 3 | 3 | 2 | 10 | 40 | 1. Troll Mending: +2 Block | Troll Mending (Heals a random troll for 10 HP each round) |
 | Troll Hexer | troll_hexer | 4 | 25 | 2 | 2 | 3 | 2 | 10 | 40 | 1. Troll Hex: +2 Block<br>2. Cursed Recoil: 2 magical damage; +2 damage per active Hero debuff | Hex Curse (Casts a stacking random 5-turn debuff: -1 ACC, +1 DMG taken, or -1 EVA) |
 | Troll Warrior | troll_brute | 4 | 25 | 3 | 1 | 4 | 2 | 10 | 40 | 1. Troll Smash: 6 physical damage | Relentless Assault (Attacks hero for 6 DMG each round) |
-| Fallen King | king_nezenheim | 7 | 40 | 5 | 5 | 6 | 5 | 16 | 70 | 1. Summon Undead: +2 Block; summon one random Undead from Monster Deck into play; if summon misses, return one discarded Undead to top of Monster Deck<br>2. Corrupted Blade: 7 physical + 7 magical damage | Unholy Aura (Heals all undead allies and himself for 3 HP at turn start) |
+| Fallen King | king_nezenheim | 7 | 40 | 5 | 5 | 6 | 5 | 16 | 70 | 1. Summon Undead: +2 Block; summon one random Undead from Enemy Deck into play; if summon misses, return one discarded Undead to top of Enemy Deck<br>2. Corrupted Blade: 7 physical + 7 magical damage | Unholy Aura (Heals all undead allies and himself for 3 HP at turn start) |
 
 ## Adventure Decks
 
@@ -133,7 +133,7 @@ Treasure deck: two copies per item, 100 cards total. Prices below are before Cha
 | Dagger ++ | lvl3_dagger_plus_plus | weapon | 3 | 225 | 112 | Weapon Slot: +5 PEN and +2 ATK (physical attacks ignore 5 enemy DEF). |
 | Dagger +++ | lvl4_dagger_plus_plus_plus | weapon | 4 | 675 | 337 | Weapon Slot: +6 PEN and +3 ATK (physical attacks ignore 6 enemy DEF). |
 
-## Combat Cards
+## Action Cards
 
 Fields below are base data, not complete effective damage. STR damage also adds floor(DEX/3), weapon ATK and Berzerk; INT damage adds weapon MATK. Gear DEF/MDEF do not directly increase card Block. EVA effects use the multiplier as a flat amount. See MECHANICS_AND_DATA.md for formulas.
 

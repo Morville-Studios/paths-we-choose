@@ -10,19 +10,19 @@ import {
 import {
   ActiveCombatState,
   CombatAttackRollSummary,
-  CombatMonster,
-  MonsterCard,
+  CombatEnemy,
+  EnemyCard,
   RunState,
 } from '../types';
 import { computeCardEffect } from './cards';
 import { getHeroStatDebuffMods } from './debuffs';
-import { firstLivingMonsterIndex, getMonsterEffectiveDef, summonMonsterFromDeckOrDiscard } from './monsters';
+import { firstLivingEnemyIndex, getEnemyEffectiveDef, summonEnemyFromDeckOrDiscard } from './enemies';
 import { evaluateAttackRoll } from './rolls';
-import { drawCombatCards, formatDrawEventsToLog } from './session';
+import { drawActionCards, formatDrawEventsToLog } from './session';
 
 export type CombatVictoryCallback = (
   updatedState: RunState,
-  defeated: MonsterCard[],
+  defeated: EnemyCard[],
   victoryDetails: {
     statPointsEarned: number;
     goldEarned: number;
@@ -34,7 +34,7 @@ export type CombatVictoryCallback = (
   }
 ) => RunState;
 
-export function playCombatCardFromHand(
+export function playActionCardFromHand(
   state: RunState,
   cardInstanceId: string,
   targetIndex: number,
@@ -88,9 +88,9 @@ export function playCombatCardFromHand(
   }
 
   let nextRng = state.rngState;
-  const monsters = combat.monsters.map((m) => ({ ...m }));
-  const monsterDeck = [...state.monsterDeck];
-  const monsterDiscard = [...state.monsterDiscard];
+  const enemies = combat.enemies.map((m) => ({ ...m }));
+  const enemyDeck = [...state.enemyDeck];
+  const enemyDiscard = [...state.enemyDiscard];
   let lastAttackRoll: CombatAttackRollSummary | undefined = undefined;
   const heroAttackRolls: CombatAttackRollSummary[] = [];
   let nextGold = state.playerResources?.gold ?? 0;
@@ -101,22 +101,22 @@ export function playCombatCardFromHand(
 
   if (isAttackAction) {
     const targets = card.targetMode === 'all_enemies'
-      ? monsters.map((monster, index) => monster.hp > 0 ? index : -1).filter((index) => index >= 0)
+      ? enemies.map((enemy, index) => enemy.hp > 0 ? index : -1).filter((index) => index >= 0)
       : [
-        monsters[targetIndex] && monsters[targetIndex].hp > 0
+        enemies[targetIndex] && enemies[targetIndex].hp > 0
           ? targetIndex
-          : firstLivingMonsterIndex(combat)
+          : firstLivingEnemyIndex(combat)
       ];
 
     for (const target of targets) {
       if (nextHeroHp <= 0) break;
-      if (target >= 0 && monsters[target]) {
-        const t = monsters[target];
+      if (target >= 0 && enemies[target]) {
+        const t = enemies[target];
         const cardAccBonus = card.accBonus ?? 0;
         const playerAccMod = (combat.playerAccMod ?? 0) + getHeroStatDebuffMods(combat).acc;
         const playerAcc = getPlayerAcc(effectiveStats, gearCombat.acc) + cardAccBonus + playerAccMod;
-        const monsterEva = (t.monster.eva ?? 0) + (t.evaBonus ?? 0);
-        const attackRoll = evaluateAttackRoll(nextRng, playerAcc, monsterEva);
+        const enemyEva = (t.enemy.eva ?? 0) + (t.evaBonus ?? 0);
+        const attackRoll = evaluateAttackRoll(nextRng, playerAcc, enemyEva);
         nextRng = attackRoll.nextState;
 
         // Rogue: [Steal] passive triggers on ANY pair or triples in 3d6, gaining Gold equal to the matching die face
@@ -146,13 +146,13 @@ export function playCombatCardFromHand(
         if (attackRoll.isHit) {
           const finalDmg = effect.damage;
           const isMagicalAttack = card.damageScalingStat === 'int';
-          const naturalMonsterDef = Math.max(0, isMagicalAttack
-            ? (t.monster.mdef ?? 0)
-            : getMonsterEffectiveDef(t, monsters));
-          const penetration = isMagicalAttack ? 0 : Math.min(gearCombat.pen, naturalMonsterDef);
-          const monsterDef = Math.max(0, naturalMonsterDef - penetration);
+          const naturalEnemyDef = Math.max(0, isMagicalAttack
+            ? (t.enemy.mdef ?? 0)
+            : getEnemyEffectiveDef(t, enemies));
+          const penetration = isMagicalAttack ? 0 : Math.min(gearCombat.pen, naturalEnemyDef);
+          const enemyDef = Math.max(0, naturalEnemyDef - penetration);
           damagePenetrated = Math.min(penetration, finalDmg);
-          damageDefReduced = Math.min(monsterDef, finalDmg);
+          damageDefReduced = Math.min(enemyDef, finalDmg);
           const afterDef = finalDmg - damageDefReduced;
           damageBlocked = Math.min(t.block, afterDef);
           damageDealt = afterDef - damageBlocked;
@@ -161,24 +161,24 @@ export function playCombatCardFromHand(
 
           const netSign = attackRoll.netAcc >= 0 ? '+' : '';
           const absorbParts: string[] = [];
-          if (damagePenetrated > 0) absorbParts.push(`${damagePenetrated} ${t.monster.name} DEF bypassed by PEN`);
-          if (damageDefReduced > 0) absorbParts.push(`${damageDefReduced} absorbed by ${t.monster.name} ${isMagicalAttack ? 'MDEF' : 'DEF'}`);
+          if (damagePenetrated > 0) absorbParts.push(`${damagePenetrated} ${t.enemy.name} DEF bypassed by PEN`);
+          if (damageDefReduced > 0) absorbParts.push(`${damageDefReduced} absorbed by ${t.enemy.name} ${isMagicalAttack ? 'MDEF' : 'DEF'}`);
           if (damageBlocked > 0) absorbParts.push(`${damageBlocked} blocked`);
           logEntries.push(
-            `[${createTimestamp(state.logTimestamp)}] ⚔️ Played ${card.name} on ${t.monster.name}: rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc}${accBonusNote}) -> 🎯 HIT! ${finalDmg} DMG${berzerkNote}${
+            `[${createTimestamp(state.logTimestamp)}] ⚔️ Played ${card.name} on ${t.enemy.name}: rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc}${accBonusNote}) -> 🎯 HIT! ${finalDmg} DMG${berzerkNote}${
               absorbParts.length > 0 ? ` (${absorbParts.join(', ')})` : ''
-            } -> ${damageDealt} HP damage to ${t.monster.name}${t.hp <= 0 ? ' — Defeated!' : ''}.`
+            } -> ${damageDealt} HP damage to ${t.enemy.name}${t.hp <= 0 ? ' — Defeated!' : ''}.`
           );
 
-          if (t.hp > 0 && t.monster.hardenDefOnHit) {
-            const defGain = t.monster.hardenDefOnHit;
+          if (t.hp > 0 && t.enemy.hardenDefOnHit) {
+            const defGain = t.enemy.hardenDefOnHit;
             t.hardenDefBonus = (t.hardenDefBonus ?? 0) + defGain;
             t.defBonus = (t.defBonus ?? 0) + defGain;
-            logEntries.push(`[${createTimestamp(state.logTimestamp)}] 📑 ${t.monster.name}'s Harden enters the Stack.`);
-            logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Harden: gains +${defGain} DEF for 1 turn.`);
+            logEntries.push(`[${createTimestamp(state.logTimestamp)}] 📑 ${t.enemy.name}'s Harden enters the Stack.`);
+            logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.enemy.name} — Harden: gains +${defGain} DEF for 1 turn.`);
             logEntries.push(`[${createTimestamp(state.logTimestamp)}] ✅ Harden fully resolves and moves out of the Stack.`);
           }
-          const resilient = t.monster.resilient;
+          const resilient = t.enemy.resilient;
           if (t.hp <= 0 && (t.undyingTokensRemaining ?? 0) > 0) {
             while (t.hp <= 0 && (t.undyingTokensRemaining ?? 0) > 0) {
               t.undyingTokensRemaining = (t.undyingTokensRemaining ?? 0) - 1;
@@ -186,74 +186,74 @@ export function playCombatCardFromHand(
               const revival = roll1D6(nextRng);
               nextRng = revival.nextState;
               if (revival.roll <= threshold) {
-                t.hp = t.monster.maxHp;
+                t.hp = t.enemy.maxHp;
                 t.block = 0;
                 logEntries.push(
-                  `[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Undying: consumed 1 token (${t.undyingTokensRemaining} left), rolled 1d6 = ${revival.roll} (needed 1–${threshold}). Revives with full HP (${t.hp}/${t.monster.maxHp})!`
+                  `[${createTimestamp(state.logTimestamp)}] ${t.enemy.name} — Undying: consumed 1 token (${t.undyingTokensRemaining} left), rolled 1d6 = ${revival.roll} (needed 1–${threshold}). Revives with full HP (${t.hp}/${t.enemy.maxHp})!`
                 );
                 break;
               }
               logEntries.push(
-                `[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Undying: consumed 1 token (${t.undyingTokensRemaining} left), rolled 1d6 = ${revival.roll} (needed 1–${threshold}). Revival failed.`
+                `[${createTimestamp(state.logTimestamp)}] ${t.enemy.name} — Undying: consumed 1 token (${t.undyingTokensRemaining} left), rolled 1d6 = ${revival.roll} (needed 1–${threshold}). Revival failed.`
               );
             }
           } else if (t.hp <= 0 && resilient) {
             const revival = roll1D6(nextRng);
             nextRng = revival.nextState;
             if (revival.roll === resilient.requiredRoll) {
-              t.hp = Math.min(t.monster.maxHp, resilient.reviveHp);
+              t.hp = Math.min(t.enemy.maxHp, resilient.reviveHp);
               t.block = 0;
-              logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Resilient: rolled 1d6 = ${revival.roll}. Returns to life with ${t.hp} HP!`);
+              logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.enemy.name} — Resilient: rolled 1d6 = ${revival.roll}. Returns to life with ${t.hp} HP!`);
             } else {
-              logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Resilient: rolled 1d6 = ${revival.roll} (needs ${resilient.requiredRoll}). Remains defeated.`);
+              logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.enemy.name} — Resilient: rolled 1d6 = ${revival.roll} (needs ${resilient.requiredRoll}). Remains defeated.`);
             }
           }
           const effectiveAttackRange: 'melee' | 'ranged' =
             card.attackRange ??
             state.equippedGear?.weapon?.weaponRange ??
             (card.damageScalingStat === 'int' ? 'ranged' : 'melee');
-          const retaliationDamage = t.monster.retaliationDamageOnHeroAttack ?? 0;
+          const retaliationDamage = t.enemy.retaliationDamageOnHeroAttack ?? 0;
           if (retaliationDamage > 0 && t.hp > 0 && effectiveAttackRange === 'melee') {
             const hpDamage = retaliationDamage;
             nextHeroHp = Math.max(0, nextHeroHp - hpDamage);
             logEntries.push(
-              `[${createTimestamp(state.logTimestamp)}] 🌵 ${t.monster.name} — Thorn (${retaliationDamage}): Hero loses ${hpDamage} HP (ignores DEF and Block).`,
+              `[${createTimestamp(state.logTimestamp)}] 🌵 ${t.enemy.name} — Thorn (${retaliationDamage}): Hero loses ${hpDamage} HP (ignores DEF and Block).`,
             );
-            if (nextHeroHp <= 0) heroKilledBy = `${t.monster.name}'s Thorn`;
+            if (nextHeroHp <= 0) heroKilledBy = `${t.enemy.name}'s Thorn`;
           }
         } else {
           const netSign = attackRoll.netAcc >= 0 ? '+' : '';
           const diabolicNote = attackRoll.isDiabolic ? ' [😈 DIABOLIC ROLL! Automatic Miss]' : '';
           logEntries.push(
-            `[${createTimestamp(state.logTimestamp)}] ⚔️ Played ${card.name} on ${t.monster.name}: rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc}${accBonusNote})${diabolicNote} -> 💨 Missed ${t.monster.name} (rolled ${attackRoll.total}${attackRoll.isDiabolic ? ' - Diabolic miss!' : ' outside range'})!`
+            `[${createTimestamp(state.logTimestamp)}] ⚔️ Played ${card.name} on ${t.enemy.name}: rolled 3d6 = [${attackRoll.die1}, ${attackRoll.die2}, ${attackRoll.die3}] = ${attackRoll.total} (Hit Range: [${attackRoll.minHitRoll}–${attackRoll.maxHitRoll}], Net ACC ${netSign}${attackRoll.netAcc}${accBonusNote})${diabolicNote} -> 💨 Missed ${t.enemy.name} (rolled ${attackRoll.total}${attackRoll.isDiabolic ? ' - Diabolic miss!' : ' outside range'})!`
           );
         }
 
-        if (t.hp > 0 && t.monster.skittishEvaOnHit) {
-          const bonus = t.monster.skittishEvaOnHit;
+        if (t.hp > 0 && t.enemy.skittishEvaOnHit) {
+          const bonus = t.enemy.skittishEvaOnHit;
           t.skittishEvaBonus = (t.skittishEvaBonus ?? 0) + bonus;
           t.evaBonus = (t.evaBonus ?? 0) + bonus;
-          logEntries.push(`[${createTimestamp(state.logTimestamp)}] 📑 ${t.monster.name}'s Skittish enters the Stack.`);
-          logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.monster.name} — Skittish: gains +${bonus} EVA for this turn.`);
+          logEntries.push(`[${createTimestamp(state.logTimestamp)}] 📑 ${t.enemy.name}'s Skittish enters the Stack.`);
+          logEntries.push(`[${createTimestamp(state.logTimestamp)}] ${t.enemy.name} — Skittish: gains +${bonus} EVA for this turn.`);
           logEntries.push(`[${createTimestamp(state.logTimestamp)}] ✅ Skittish fully resolves and moves out of the Stack.`);
         }
 
-        if (t.hp > 0 && t.monster.templateId === 'goblin_chieftain' && t.monster.maxHp > 0) {
+        if (t.hp > 0 && t.enemy.templateId === 'goblin_chieftain' && t.enemy.maxHp > 0) {
           const triggered = [...(t.triggeredHpThresholds ?? [])];
           for (const pct of [50, 25]) {
-            if (!triggered.includes(pct) && t.hp <= Math.floor(t.monster.maxHp * (pct / 100))) {
+            if (!triggered.includes(pct) && t.hp <= Math.floor(t.enemy.maxHp * (pct / 100))) {
               triggered.push(pct);
               t.triggeredHpThresholds = triggered;
               logEntries.push(
-                `[${createTimestamp(state.logTimestamp)}] 📯 ${t.monster.name} drops to ${pct}% HP or below and bellows for reinforcements!`
+                `[${createTimestamp(state.logTimestamp)}] 📯 ${t.enemy.name} drops to ${pct}% HP or below and bellows for reinforcements!`
               );
-              nextRng = summonMonsterFromDeckOrDiscard({
+              nextRng = summonEnemyFromDeckOrDiscard({
                 templateId: 'goblin',
                 fallbackTemplateId: 'goblin',
-                summonerName: t.monster.name,
-                monsterDeck,
-                monsterDiscard,
-                monsters,
+                summonerName: t.enemy.name,
+                enemyDeck,
+                enemyDiscard,
+                enemies,
                 rngState: nextRng,
                 logTimestamp: state.logTimestamp,
                 logEntries,
@@ -264,7 +264,7 @@ export function playCombatCardFromHand(
 
         lastAttackRoll = {
           attackerName: 'Hero',
-          targetName: t.monster.name,
+          targetName: t.enemy.name,
           targetIndex: target,
           actionName: card.name,
           die1: attackRoll.die1,
@@ -301,7 +301,7 @@ export function playCombatCardFromHand(
   const flagDraws = apGained > 0 ? inPlay.filter((inPlayCard) => inPlayCard.drawOnApGain).length : 0;
   const discardAfterCosts = [...combat.discardPile, ...selectedDiscards];
   const printedDraw = (card.drawCards ?? 0) > 0
-    ? drawCombatCards(combat.drawPile, discardAfterCosts, card.drawCards ?? 0, nextRng)
+    ? drawActionCards(combat.drawPile, discardAfterCosts, card.drawCards ?? 0, nextRng)
     : { drawn: [], events: [], drawPile: combat.drawPile, discardPile: discardAfterCosts, nextState: nextRng };
   nextRng = printedDraw.nextState;
   if (printedDraw.events.length > 0) {
@@ -311,7 +311,7 @@ export function playCombatCardFromHand(
     logEntries.push(`[${createTimestamp(state.logTimestamp)}] ⚡ ${card.name}: regained +${apGained} AP.`);
   }
   const triggeredDraw = flagDraws > 0
-    ? drawCombatCards(printedDraw.drawPile, printedDraw.discardPile, flagDraws, nextRng)
+    ? drawActionCards(printedDraw.drawPile, printedDraw.discardPile, flagDraws, nextRng)
     : { drawn: [], events: [], drawPile: printedDraw.drawPile, discardPile: printedDraw.discardPile, nextState: nextRng };
   nextRng = triggeredDraw.nextState;
   if (triggeredDraw.events.length > 0) {
@@ -332,7 +332,7 @@ export function playCombatCardFromHand(
 
   const updatedCombat: ActiveCombatState = {
     ...combat,
-    monsters,
+    enemies,
     playerAp: combat.playerAp - card.apCost + apGained,
     playerBlock: combat.playerBlock + effect.block,
     playerEvasionMod: combat.playerEvasionMod + effect.evasionBonus,
@@ -360,28 +360,28 @@ export function playCombatCardFromHand(
     });
   }
 
-  const defeatedSummons: MonsterCard[] = [];
-  const remainingMonsters: CombatMonster[] = [];
-  for (const cm of monsters) {
+  const defeatedSummons: EnemyCard[] = [];
+  const remainingEnemies: CombatEnemy[] = [];
+  for (const cm of enemies) {
     if (cm.hp <= 0 && cm.isSummon) {
-      defeatedSummons.push(cm.monster);
+      defeatedSummons.push(cm.enemy);
       logEntries.push(
-        `[${createTimestamp(state.logTimestamp)}] 💀 Summoned ${cm.monster.name} was defeated and returned immediately to the Monster Discard pile (awards no SP or Gold).`
+        `[${createTimestamp(state.logTimestamp)}] 💀 Summoned ${cm.enemy.name} was defeated and returned immediately to the Enemy Discard pile (awards no SP or Gold).`
       );
     } else {
-      remainingMonsters.push(cm);
+      remainingEnemies.push(cm);
     }
   }
-  monsters.length = 0;
-  monsters.push(...remainingMonsters);
+  enemies.length = 0;
+  enemies.push(...remainingEnemies);
 
-  const nextDiscard = [...monsterDiscard, ...defeatedSummons];
+  const nextDiscard = [...enemyDiscard, ...defeatedSummons];
 
-  if (monsters.every((m) => m.hp <= 0)) {
-    const defeated = monsters.map((m) => m.monster);
-    const rewardMonsters = monsters.filter((m) => !m.isSummon).map((m) => m.monster);
-    const totalSp = rewardMonsters.reduce((sum, m) => sum + m.statPointReward, 0);
-    const baseGold = rewardMonsters.reduce((sum, m) => sum + m.goldReward, 0);
+  if (enemies.every((m) => m.hp <= 0)) {
+    const defeated = enemies.map((m) => m.enemy);
+    const rewardEnemies = enemies.filter((m) => !m.isSummon).map((m) => m.enemy);
+    const totalSp = rewardEnemies.reduce((sum, m) => sum + m.statPointReward, 0);
+    const baseGold = rewardEnemies.reduce((sum, m) => sum + m.goldReward, 0);
     const goldPercent = state.equippedGear.accessory?.goldEarnedBonusPercent ?? 0;
     const hasLuckyCharm = goldPercent > 0 || Boolean(state.equippedGear.accessory?.luckyCharmGoldBonus);
     let luckyCharmGold = 0;
@@ -404,8 +404,8 @@ export function playCombatCardFromHand(
         statPoints: state.playerResources.statPoints + totalSp,
         gold: nextGold + totalGold,
       },
-      monsterDeck,
-      monsterDiscard: [...nextDiscard, ...defeated.filter((m) => !m.isBoss && !defeatedSummons.some(s => s.id === m.id))],
+      enemyDeck,
+      enemyDiscard: [...nextDiscard, ...defeated.filter((m) => !m.isBoss && !defeatedSummons.some(s => s.id === m.id))],
       gameLog: appendGameLog(state, logEntries),
       bannerMessage: `Defeated ${defeated.map((m) => m.name).join(' + ')}! Earned +${totalSp} Stat Point${
         totalSp === 1 ? '' : 's'
@@ -428,8 +428,8 @@ export function playCombatCardFromHand(
   return {
     ...state,
     rngState: nextRng,
-    monsterDeck,
-    monsterDiscard: nextDiscard,
+    enemyDeck,
+    enemyDiscard: nextDiscard,
     playerResources: state.playerResources
       ? { ...state.playerResources, hp: nextHeroHp, gold: nextGold }
       : state.playerResources,

@@ -13,27 +13,27 @@ import {
   renderCombatLogEntries,
   cardInspectModal,
   hasBlockingUiOverlay,
-  getMonsterCarouselClass,
-  updateMonsterCarouselDom,
+  getEnemyCarouselClass,
+  updateEnemyCarouselDom,
   victoryModal,
   renderQteHitCheckBarHtml,
-  getBestiaryMonstersForTerrain,
+  getBestiaryEnemiesForTerrain,
   renderGuideModal,
 } from '../ui/render';
-import { MONSTER_TEMPLATES } from '../data/monsters';
+import { ENEMY_TEMPLATES } from '../data/enemies';
 import { SHOP_ITEM_CATALOG } from '../data/shopItems';
-import { createCombatCardInstance } from '../data/combatCards';
+import { createActionCardInstance } from '../data/actionCards';
 import { getTreasureDeckSummary } from '../ui/components/guideHelpers';
 import { ADVENTURE_CARD_CATALOG } from '../data/stages';
 import { getActionRasterArtPath } from '../ui/cardArt';
-import { AdventureCard, CombatVictoryState, MonsterCard, RunState } from '../core/types';
+import { AdventureCard, CombatVictoryState, EnemyCard, RunState } from '../core/types';
 
 describe('Render Play Area and Shop Layout', () => {
   it('treats every modal UI state as blocking gameplay carousel input', () => {
     const base: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0 };
     expect(hasBlockingUiOverlay(base)).toBe(false);
     expect(hasBlockingUiOverlay({ ...base, inspectedStat: 'str' })).toBe(true);
-    expect(hasBlockingUiOverlay({ ...base, inspectedCard: { kind: 'action', card: createCombatCardInstance('melee_atk', 'blocking') } })).toBe(true);
+    expect(hasBlockingUiOverlay({ ...base, inspectedCard: { kind: 'action', card: createActionCardInstance('melee_atk', 'blocking') } })).toBe(true);
     expect(hasBlockingUiOverlay({ ...base, inspectedPile: 'player_deck' })).toBe(true);
     expect(hasBlockingUiOverlay({ ...base, pendingCardPlay: { cardInstanceId: 'card', targetIndex: 0 } })).toBe(true);
     expect(hasBlockingUiOverlay({ ...base, pendingFlee: true })).toBe(true);
@@ -54,7 +54,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Undiscovered Lands');
     expect(renderGuideModal(true, 2)).toContain('Battles in one minute');
     const battleGuide = renderWelcome(true, 2);
-    expect(battleGuide).toContain('Player Combat Deck');
+    expect(battleGuide).toContain('Action Deck');
     expect(battleGuide).toContain('Player Combat Discard Pile');
     expect(battleGuide).toContain('one single card at a time');
     expect(battleGuide).toContain('refreshes');
@@ -109,8 +109,8 @@ describe('Render Play Area and Shop Layout', () => {
     expect(page1Html).toContain('SCENARIO 1: THE GOBLIN KING');
     expect(page1Html).toContain('SCENARIO 2: CULT OF TROLLS');
     expect(page1Html).toContain('Adventure Deck (30 Cards)');
-    expect(page1Html).toContain('Monster Deck (45 Cards in Deck');
-    expect(page1Html).toContain('Monster Deck (37 Cards in Deck');
+    expect(page1Html).toContain('Enemy Deck (45 Cards in Deck');
+    expect(page1Html).toContain('Enemy Deck (37 Cards in Deck');
     expect(page1Html).toContain(`Treasure Deck (${getTreasureDeckSummary().totalCards} Cards)`);
     expect(page1Html).not.toContain('guide-book-page is-active" data-page="2"');
     expect(page1Html).toContain('Turn to Ch. II: Battle &rarr;');
@@ -144,47 +144,47 @@ describe('Render Play Area and Shop Layout', () => {
     expect(page5Html).toContain('guide-book-page is-active" data-page="5"');
     expect(page5Html).toContain('data-action="guide-jump-page" data-page="6"');
 
-    // Page 6: Monstrous Compendium / Bestiary
+    // Page 6: Enemy Cards Compendium
     const page6Html = renderWelcome(true, 6);
     expect(page6Html).toContain('PAGE 6 OF 11');
     expect(page6Html).toContain('guide-book-page is-active" data-page="6"');
-    expect(page6Html).toContain('CHAPTER VI: THE MONSTROUS COMPENDIUM');
+    expect(page6Html).toContain('CHAPTER VI: ENEMY CARDS COMPENDIUM');
     expect(page6Html).toContain('Grasslands Dwellers');
     expect(page6Html).toContain('Forest Predators');
     expect(page6Html).toContain('Swamp Horrors');
     expect(page6Html).toContain('Cave Denizens');
     expect(page6Html).toContain('Legendary Bosses');
-    expect(page6Html).toContain('data-action="inspect-monster"');
-    expect(page6Html).toContain('data-inspect-kind="monster"');
-    expect(page6Html).toContain('data-monster-id="goblin"');
-    expect(page6Html).toMatch(/src="\/cards\/creatures\/goblin\.jpg"[^>]*loading="lazy"/);
-    expect(page6Html).toContain('data-monster-id="stalker"');
-    expect(page6Html).toContain('data-monster-id="goblin_chieftain"');
+    expect(page6Html).toContain('data-action="inspect-enemy"');
+    expect(page6Html).toContain('data-inspect-kind="enemy"');
+    expect(page6Html).toContain('data-enemy-id="goblin"');
+    expect(page6Html).toMatch(/src="\/cards\/enemies\/goblin\.jpg"[^>]*loading="lazy"/);
+    expect(page6Html).toContain('data-enemy-id="stalker"');
+    expect(page6Html).toContain('data-enemy-id="goblin_chieftain"');
     expect(page6Html).toContain('Inspect Info');
     expect(page6Html).toContain('data-action="guide-jump-page" data-page="7"');
     expect(page6Html).toContain('Turn to Ch. VII: Armory &rarr;');
 
     // Verify lowest territory symbol grouping: Stalker (grasslands/forest) is in Grasslands Dwellers, not Cave Denizens
     const grasslandsSection = page6Html.match(/Grasslands Dwellers[\s\S]*?Forest Predators/)?.[0] ?? '';
-    expect(grasslandsSection).toContain('data-monster-id="stalker"');
-    expect(grasslandsSection).toContain('data-monster-id="pink_slime"');
-    expect(grasslandsSection).toContain('data-monster-id="goblin"');
+    expect(grasslandsSection).toContain('data-enemy-id="stalker"');
+    expect(grasslandsSection).toContain('data-enemy-id="pink_slime"');
+    expect(grasslandsSection).toContain('data-enemy-id="goblin"');
 
     const caveSection = page6Html.match(/Cave Denizens[\s\S]*?Legendary Bosses/)?.[0] ?? '';
-    expect(caveSection).not.toContain('data-monster-id="stalker"');
-    expect(caveSection).not.toContain('data-monster-id="witch"');
-    expect(caveSection).not.toContain('data-monster-id="assassin"');
-    expect(caveSection).toContain('data-monster-id="phalanx"');
-    expect(caveSection).toContain('data-monster-id="cultist_mage"');
-    expect(caveSection).toContain('data-monster-id="lurker"');
+    expect(caveSection).not.toContain('data-enemy-id="stalker"');
+    expect(caveSection).not.toContain('data-enemy-id="witch"');
+    expect(caveSection).not.toContain('data-enemy-id="assassin"');
+    expect(caveSection).toContain('data-enemy-id="phalanx"');
+    expect(caveSection).toContain('data-enemy-id="cultist_mage"');
+    expect(caveSection).toContain('data-enemy-id="lurker"');
 
-    // Inspecting a monster card from the guide opens the card-inspect-modal
+    // Inspecting an enemy card from the guide opens the card-inspect-modal
     const inspectedGuideHtml = renderWelcome(true, 6, {
-      kind: 'monster',
-      monster: { ...MONSTER_TEMPLATES.goblin, id: 'inspect_goblin' },
+      kind: 'enemy',
+      enemy: { ...ENEMY_TEMPLATES.goblin, id: 'inspect_goblin' },
     });
     expect(inspectedGuideHtml).toContain('card-inspect-modal');
-    expect(inspectedGuideHtml).toContain('Goblin (Monster Card Reference)');
+    expect(inspectedGuideHtml).toContain('Goblin (Enemy Card Reference)');
     expect(inspectedGuideHtml).toContain('Back to Game');
 
     // Page 8: Realm Terrains (Adventure Cards)
@@ -294,7 +294,7 @@ describe('Render Play Area and Shop Layout', () => {
 
   it('shows training Gold/SP in a sidebar and confirms learning or destroying cards', () => {
     const state = startAdventure('fighter', 'training-confirm-ui');
-    const offer = createCombatCardInstance('battlecry', 'training-offer');
+    const offer = createActionCardInstance('battlecry', 'training-offer');
     state.activeHook = {
       type: 'VILLAGE',
       village: { coord: { col: 0, row: 1 }, turn: 1, subView: 'train', trainOptions: [offer], shopStock: [] },
@@ -324,15 +324,15 @@ describe('Render Play Area and Shop Layout', () => {
 
   it('shows every living target and its independent hit chance for Whirlwind', () => {
     const state = startAdventure('fighter', 'whirlwind-target-ui');
-    const whirlwind = createCombatCardInstance('whirlwind', 'all-targets');
-    const goblin = { ...MONSTER_TEMPLATES.goblin, id: 'whirlwind-goblin' };
-    const rattler = { ...MONSTER_TEMPLATES.rattler, id: 'whirlwind-rattler' };
+    const whirlwind = createActionCardInstance('whirlwind', 'all-targets');
+    const goblin = { ...ENEMY_TEMPLATES.goblin, id: 'whirlwind-goblin' };
+    const rattler = { ...ENEMY_TEMPLATES.rattler, id: 'whirlwind-rattler' };
     state.activeHook = {
       type: 'COMBAT',
       combat: {
-        monsters: [
-          { monster: goblin, hp: goblin.maxHp, block: 0, patternIndex: 0 },
-          { monster: rattler, hp: rattler.maxHp, block: 0, patternIndex: 0 },
+        enemies: [
+          { enemy: goblin, hp: goblin.maxHp, block: 0, patternIndex: 0 },
+          { enemy: rattler, hp: rattler.maxHp, block: 0, patternIndex: 0 },
         ],
         combatTurn: 1, playerAp: 3, playerMaxAp: 3, playerBlock: 0, playerEvasionMod: 0,
         drawPile: [], hand: [whirlwind], discardPile: [], stack: [], inPlay: [], combatLog: [],
@@ -342,27 +342,27 @@ describe('Render Play Area and Shop Layout', () => {
       selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0,
       pendingCardPlay: { cardInstanceId: whirlwind.instanceId, targetIndex: 0 },
     });
-    expect(html).toContain('All Target Creatures · Separate Hit Checks');
+    expect(html).toContain('All Target Enemies · Separate Hit Checks');
     expect(html).toContain('Every living enemy makes its own hit check');
     expect(html).toContain('Goblin');
     expect(html).toContain('Rattler');
     expect(html.match(/confirm-all-target-card/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('renders TCG monster cards with grassland frame, spawn terrain icons, art, and card number', () => {
+  it('renders TCG enemy cards with grassland frame, spawn terrain icons, art, and card number', () => {
     let state = startAdventure('fighter', 'test-seed');
-    const goblinCard: MonsterCard = {
-      ...MONSTER_TEMPLATES['goblin'],
-      id: 'monster_goblin_01',
+    const goblinCard: EnemyCard = {
+      ...ENEMY_TEMPLATES['goblin'],
+      id: 'enemy_goblin_01',
     };
     state = {
       ...state,
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [
+          enemies: [
             {
-              monster: goblinCard,
+              enemy: goblinCard,
               hp: goblinCard.maxHp,
               block: 0,
               patternIndex: 0,
@@ -388,8 +388,8 @@ describe('Render Play Area and Shop Layout', () => {
     };
 
     const html = renderPlayArea(state, ui);
-    // TCG creature card structure & reusable template
-    expect(html).toContain('tcg-card tcg-creature');
+    // TCG enemy card structure & reusable template
+    expect(html).toContain('tcg-card tcg-enemy');
     expect(html).toContain('tcg-template-grassland');
     expect(html).toContain('tcg-inner-frame');
     expect(html).toContain('tcg-header');
@@ -409,11 +409,11 @@ describe('Render Play Area and Shop Layout', () => {
     // Kid-friendly full-bleed raster art illustration
     expect(html).toContain('tcg-art-window');
     expect(html).toContain('tcg-art-raster');
-    expect(html).toContain('/cards/creatures/goblin.jpg');
+    expect(html).toContain('/cards/enemies/goblin.jpg');
 
-    // Header with level and subtype, without the now-redundant CREATURE word
+    // Header with level and subtype, without the now-redundant ENEMY word
     expect(html).toContain('tcg-header-meta');
-    expect(html).not.toContain('<span class="tcg-type-main">CREATURE</span>');
+    expect(html).not.toContain('<span class="tcg-type-main">ENEMY</span>');
     expect(html).toContain('Goblinoid');
     expect(html).toContain('Lvl 1');
     expect(html).toContain('tcg-header-title');
@@ -426,28 +426,28 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('+2');
     expect(html).toContain('+5');
 
-    // Physical Card Face: pattern table, abilities, and creature stats row (DEF, EVA)
+    // Physical Card Face: pattern table, abilities, and enemy stats row (DEF, EVA)
     expect(html).toContain('tcg-textbox');
     expect(html).toContain('tcg-pattern-table');
     expect(html).toContain('T1:');
     expect(html).toContain('T2:');
     expect(html).not.toContain('Cautious Poke');
-    expect(html).toContain('creature-stat-footer');
-    expect(html).not.toContain('creature-stats-row');
-    expect(html).not.toContain('data-creature-stat="def"');
+    expect(html).toContain('enemy-stat-footer');
+    expect(html).not.toContain('enemy-stats-row');
+    expect(html).not.toContain('data-enemy-stat="def"');
     expect(html).toContain('aria-label="EVA: 3"');
 
     // Interactive Combat Status Dock below card (NEXT move & live HP bar)
-    expect(html).toContain('creature-combat-dock');
+    expect(html).toContain('enemy-combat-dock');
     expect(html).toContain('dock-intent-row');
-    expect(html).toContain('hp-bar creature-hp-bar dock-hp-bar');
+    expect(html).toContain('hp-bar enemy-hp-bar dock-hp-bar');
     expect(html).toContain('6 / 6 HP');
 
     // Card footer & card number & PT badge
     expect(html).toContain('tcg-footer');
     expect(html).toContain('tcg-card-num');
     expect(html).toContain('mon1grs-01');
-    expect(html).toContain('creature-footer-hp');
+    expect(html).toContain('enemy-footer-hp');
     expect(html).toContain('icons/vit.png');
     expect(html).toContain('<b>6</b>');
     expect(html).toContain('Health Points (HP)');
@@ -462,18 +462,18 @@ describe('Render Play Area and Shop Layout', () => {
 
   it('renders Pincer with full untruncated name in header and HP in PT badge', () => {
     let state = startAdventure('fighter', 'test-seed');
-    const beetleCard: MonsterCard = {
-      ...MONSTER_TEMPLATES['fighting_beetle'],
-      id: 'monster_fighting_beetle_01',
+    const beetleCard: EnemyCard = {
+      ...ENEMY_TEMPLATES['fighting_beetle'],
+      id: 'enemy_fighting_beetle_01',
     };
     state = {
       ...state,
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [
+          enemies: [
             {
-              monster: beetleCard,
+              enemy: beetleCard,
               hp: beetleCard.maxHp,
               block: 0,
               patternIndex: 0,
@@ -502,38 +502,38 @@ describe('Render Play Area and Shop Layout', () => {
     // Full untruncated name in the header
     expect(html).toContain('<span class="tcg-name">Pincer</span>');
     expect(html).not.toContain('tcg-hp-pill');
-    // Live HP bar in combat dock and creature stats (DEF, EVA) with icons
-    expect(html).toContain('hp-bar creature-hp-bar');
+    // Live HP bar in combat dock and enemy stats (DEF, EVA) with icons
+    expect(html).toContain('hp-bar enemy-hp-bar');
     expect(html).toContain('6 / 6 HP');
-    expect(html).toContain('creature-stat-footer');
-    expect(html).not.toContain('creature-stats-row');
+    expect(html).toContain('enemy-stat-footer');
+    expect(html).not.toContain('enemy-stats-row');
     expect(html).toContain('aria-label="DEF: 1"');
     expect(html).toContain('aria-label="EVA: 1"');
-    expect(html).not.toContain('data-creature-stat="mdef"');
+    expect(html).not.toContain('data-enemy-stat="mdef"');
     expect(html).toContain('+2');
     expect(html).toContain('+5');
     // Live HP in the lower-right PT badge
-    expect(html).toContain('creature-footer-hp');
+    expect(html).toContain('enemy-footer-hp');
     expect(html).toContain('icons/vit.png');
     expect(html).toContain('<b>6</b>');
     // Raster art for Pincer
-    expect(html).toContain('/cards/creatures/fighting_beetle.jpg');
+    expect(html).toContain('/cards/enemies/fighting_beetle.jpg');
   });
 
-  it('renders damaged creature HP bar showing HP/MAXHP progress and block shield', () => {
+  it('renders damaged enemy HP bar showing HP/MAXHP progress and block shield', () => {
     let state = startAdventure('fighter', 'test-seed');
-    const ramramCard: MonsterCard = {
-      ...MONSTER_TEMPLATES['ramram'],
-      id: 'monster_ramram_01',
+    const ramramCard: EnemyCard = {
+      ...ENEMY_TEMPLATES['ramram'],
+      id: 'enemy_ramram_01',
     };
     state = {
       ...state,
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [
+          enemies: [
             {
-              monster: ramramCard,
+              enemy: ramramCard,
               hp: 4,
               block: 3,
               patternIndex: 0,
@@ -561,13 +561,13 @@ describe('Render Play Area and Shop Layout', () => {
     const html = renderPlayArea(state, ui);
     expect(html).toContain('Ramram');
     // HP bar showing 4 / 8 HP with block shield indicator
-    expect(html).toContain('hp-bar creature-hp-bar');
+    expect(html).toContain('hp-bar enemy-hp-bar');
     expect(html).toContain('4 / 8 HP (+3 &#128737;)');
     expect(html).toContain('style="width: 50%"');
-    // Creature stats: DEF 0, EVA 1
-    expect(html).toContain('creature-stat-footer');
-    expect(html).not.toContain('creature-stats-row');
-    expect(html).not.toContain('data-creature-stat="def"');
+    // Enemy stats: DEF 0, EVA 1
+    expect(html).toContain('enemy-stat-footer');
+    expect(html).not.toContain('enemy-stats-row');
+    expect(html).not.toContain('data-enemy-stat="def"');
     expect(html).toContain('aria-label="EVA: 1"');
     // Floating rewards: +2 SP and +5 Gold
     expect(html).toContain('+2');
@@ -615,29 +615,29 @@ describe('Render Play Area and Shop Layout', () => {
     expect(finalSmashHtml).toContain('6 Base DMG + 2 × ATK');
     expect(finalSmashHtml).not.toContain('ATK / 1');
 
-    // Inspecting a monster card
-    const dogCard: MonsterCard = { ...MONSTER_TEMPLATES['wild_dog'], id: 'monster_wild_dog_01' };
-    const uiMonster: UiState = {
+    // Inspecting an enemy card
+    const dogCard: EnemyCard = { ...ENEMY_TEMPLATES['wild_dog'], id: 'enemy_wild_dog_01' };
+    const uiEnemy: UiState = {
       selectedClass: 'fighter',
       showDeck: false,
       villageTab: 'buy',
       targetIndex: 0,
-      inspectedCard: { kind: 'monster', monster: dogCard, currentHp: 6 },
+      inspectedCard: { kind: 'enemy', enemy: dogCard, currentHp: 6 },
     };
-    const monsterHtml = renderPlayArea(state, uiMonster);
-    expect(monsterHtml).toContain('Scavenger (Monster Card Reference)');
-    expect(monsterHtml).toContain('Encounter &amp; Spawn Profile');
-    expect(monsterHtml).toContain('Grasslands 🌿, Forests 🌲');
-    expect(monsterHtml).toContain('+2 Stat Points');
-    expect(monsterHtml).toContain('+5 Gold');
-    expect(monsterHtml).toContain('Cycling AI Attack Pattern');
-    expect(monsterHtml).toContain('T1:');
-    expect(monsterHtml).toContain('T2:');
-    expect(monsterHtml).not.toContain('Savage Bite');
-    expect(monsterHtml).not.toContain('Lunging Bite');
-    expect(monsterHtml).toContain('3d6 QTE Combat Rules');
-    expect(monsterHtml).toContain('Swift hunter of the plains grass');
-    expect(monsterHtml).toContain('mon1grs-04');
+    const enemyHtml = renderPlayArea(state, uiEnemy);
+    expect(enemyHtml).toContain('Scavenger (Enemy Card Reference)');
+    expect(enemyHtml).toContain('Encounter &amp; Spawn Profile');
+    expect(enemyHtml).toContain('Grasslands 🌿, Forests 🌲');
+    expect(enemyHtml).toContain('+2 Stat Points');
+    expect(enemyHtml).toContain('+5 Gold');
+    expect(enemyHtml).toContain('Cycling AI Attack Pattern');
+    expect(enemyHtml).toContain('T1:');
+    expect(enemyHtml).toContain('T2:');
+    expect(enemyHtml).not.toContain('Savage Bite');
+    expect(enemyHtml).not.toContain('Lunging Bite');
+    expect(enemyHtml).toContain('3d6 QTE Combat Rules');
+    expect(enemyHtml).toContain('Swift hunter of the plains grass');
+    expect(enemyHtml).toContain('mon1grs-04');
   });
 
   it('renders adventure board cards as raster art MTG full-art land cards', () => {
@@ -707,13 +707,13 @@ describe('Render Play Area and Shop Layout', () => {
 
   it('renders Ramram with grasslands-only icon and Rattler with forest-only icon', () => {
     let state = startAdventure('fighter', 'test-seed');
-    const ramramCard: MonsterCard = { ...MONSTER_TEMPLATES['ramram'], id: 'monster_ramram_01' };
+    const ramramCard: EnemyCard = { ...ENEMY_TEMPLATES['ramram'], id: 'enemy_ramram_01' };
     state = {
       ...state,
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [{ monster: ramramCard, hp: 6, block: 0, patternIndex: 0 }],
+          enemies: [{ enemy: ramramCard, hp: 6, block: 0, patternIndex: 0 }],
           combatTurn: 1,
           playerBlock: 0,
           playerEvasionMod: 0,
@@ -729,18 +729,18 @@ describe('Render Play Area and Shop Layout', () => {
     const ui: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0 };
     const ramramHtml = renderPlayArea(state, ui);
     expect(ramramHtml).toContain('Ramram');
-    expect(ramramHtml).toContain('/cards/creatures/ramram.jpg');
+    expect(ramramHtml).toContain('/cards/enemies/ramram.jpg');
     expect(ramramHtml).toContain('tcg-spawn-badge grass');
     expect(ramramHtml).not.toContain('tcg-spawn-badge forest'); // Grasslands only
 
     // Now test Rattler
-    const rattlerCard: MonsterCard = { ...MONSTER_TEMPLATES['rattler'], id: 'monster_rattler_01' };
+    const rattlerCard: EnemyCard = { ...ENEMY_TEMPLATES['rattler'], id: 'enemy_rattler_01' };
     state = {
       ...state,
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [{ monster: rattlerCard, hp: 6, block: 0, patternIndex: 0 }],
+          enemies: [{ enemy: rattlerCard, hp: 6, block: 0, patternIndex: 0 }],
           combatTurn: 1,
           playerBlock: 0,
           playerEvasionMod: 0,
@@ -755,7 +755,7 @@ describe('Render Play Area and Shop Layout', () => {
     };
     const rattlerHtml = renderPlayArea(state, ui);
     expect(rattlerHtml).toContain('Rattler');
-    expect(rattlerHtml).toContain('/cards/creatures/rattler.jpg');
+    expect(rattlerHtml).toContain('/cards/enemies/rattler.jpg');
     expect(rattlerHtml).toContain('tcg-spawn-badge forest');
     expect(rattlerHtml).not.toContain('tcg-spawn-badge grass'); // Forest only!
   });
@@ -794,7 +794,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(wizardHtml).toContain('wizard-base');
   });
 
-  it('renders right sidebar with adventure, monster, and player deck and discard piles', () => {
+  it('renders right sidebar with adventure, enemy, and player deck and discard piles', () => {
     const state = startAdventure('fighter', 'sidebar-test-seed');
     const ui: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0 };
     const html = renderPlayArea(state, ui);
@@ -808,11 +808,11 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('data-pile="adventure_deck"');
     expect(html).toContain('data-pile="adventure_discard"');
 
-    // 2. Monster Deck & Discard
-    expect(html).toContain('data-pile="monster_deck"');
-    expect(html).toContain('data-pile="monster_discard"');
+    // 2. Enemy Deck & Discard
+    expect(html).toContain('data-pile="enemy_deck"');
+    expect(html).toContain('data-pile="enemy_discard"');
 
-    // 3. Player Combat Deck & Discard
+    // 3. Action Deck & Discard
     expect(html).toContain('data-pile="player_deck"');
     expect(html).toContain('data-pile="player_discard"');
   });
@@ -879,26 +879,26 @@ describe('Render Play Area and Shop Layout', () => {
     }
   });
 
-  it('renders monster deck modal with unique monsters and multiplier badges', () => {
+  it('renders enemy deck modal with unique enemies and multiplier badges', () => {
     const state = startAdventure('fighter', 'pile-test-seed');
     const ui: UiState = {
       selectedClass: 'fighter',
       showDeck: false,
       villageTab: 'buy',
       targetIndex: 0,
-      inspectedPile: 'monster_deck',
+      inspectedPile: 'enemy_deck',
     };
     const html = renderPlayArea(state, ui);
 
     expect(html).toContain('modal pile-modal');
-    expect(html).toContain('Monster Deck');
+    expect(html).toContain('Enemy Deck');
     expect(html).toContain('pile-modal-grid');
     expect(html).toContain('pile-multiplier-badge');
     expect(html).toContain('Goblin');
     expect(html).toContain('Blob');
   });
 
-  it('renders player combat deck modal with unique action cards and multipliers (8x Slash, 2x Defend)', () => {
+  it('renders action deck modal with unique action cards and multipliers (8x Slash, 2x Defend)', () => {
     const state = startAdventure('fighter', 'pile-test-seed');
     const ui: UiState = {
       selectedClass: 'fighter',
@@ -917,7 +917,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('&times;2');
     expect(html).toContain('Slash');
     expect(html).toContain('Defend');
-    // Reference cards should be readable, even though they cannot trigger combat actions.
+    // Reference cards should be readable, even though they cannot trigger actions.
     expect(html).not.toMatch(/data-card-id="(?:melee_atk|shield_def)"[^>]*disabled/);
     expect(html).not.toContain('data-action="play-card"');
   });
@@ -960,7 +960,7 @@ describe('Render Play Area and Shop Layout', () => {
 
   it('renders tabletop 3d6 combat dice modal and QTE bar when pendingDiceRolls is present', () => {
     let state = startAdventure('fighter', 'test-seed');
-    const goblinCard = { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
+    const goblinCard = { ...ENEMY_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
 
     const roll = {
       attackerName: 'Hero',
@@ -983,7 +983,7 @@ describe('Render Play Area and Shop Layout', () => {
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [{ monster: goblinCard, hp: 8, block: 0, patternIndex: 0 }],
+          enemies: [{ enemy: goblinCard, hp: 8, block: 0, patternIndex: 0 }],
           combatTurn: 1,
           playerBlock: 0,
           playerEvasionMod: 0,
@@ -1025,7 +1025,7 @@ describe('Render Play Area and Shop Layout', () => {
 
   it('renders card confirmation modal for attack card (Slash on Goblin) with source/target cards, stats, probability and confirm button', () => {
     let state = startAdventure('fighter', 'test-seed');
-    const goblinCard = { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
+    const goblinCard = { ...ENEMY_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
     const meleeCard = state.playerMasterDeck[0]; // Slash
 
     state = {
@@ -1033,7 +1033,7 @@ describe('Render Play Area and Shop Layout', () => {
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [{ monster: goblinCard, hp: 8, block: 0, patternIndex: 0 }],
+          enemies: [{ enemy: goblinCard, hp: 8, block: 0, patternIndex: 0 }],
           combatTurn: 1,
           playerBlock: 0,
           playerEvasionMod: 0,
@@ -1069,11 +1069,11 @@ describe('Render Play Area and Shop Layout', () => {
 
     // Source Card and Target Card comparison
     expect(html).toContain('Source Action (1 AP)');
-    expect(html).toContain('Target Creature');
+    expect(html).toContain('Target Enemy');
     expect(html).toContain('Slash');
     expect(html).toContain('Goblin');
 
-    // In case of attack on creature: show ACC and EVA stats and bonuses
+    // In case of attack on enemy: show ACC and EVA stats and bonuses
     expect(html).toContain('Hero ACC');
     expect(html).toContain('Target EVA');
     expect(html).toContain('Net ACC');
@@ -1098,7 +1098,7 @@ describe('Render Play Area and Shop Layout', () => {
 
   it('renders card confirmation modal for Defend with Block but no EVA bonus', () => {
     let state = startAdventure('fighter', 'test-seed');
-    const goblinCard = { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
+    const goblinCard = { ...ENEMY_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
     const shieldCard = state.playerMasterDeck.find((c) => c.cardType === 'defense')!;
 
     state = {
@@ -1106,7 +1106,7 @@ describe('Render Play Area and Shop Layout', () => {
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [{ monster: goblinCard, hp: 8, block: 0, patternIndex: 0 }],
+          enemies: [{ enemy: goblinCard, hp: 8, block: 0, patternIndex: 0 }],
           combatTurn: 1,
           playerBlock: 0,
           playerEvasionMod: 0,
@@ -1147,17 +1147,17 @@ describe('Render Play Area and Shop Layout', () => {
 
   it('renders visual mini-card choices when Battlecry selects cards to discard', () => {
     let state = startAdventure('fighter', 'battlecry-selection-seed');
-    const goblinCard = { ...MONSTER_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
-    const battlecry = createCombatCardInstance('battlecry', 'test');
-    const melee = createCombatCardInstance('melee_atk', 'discard');
-    const shield = createCombatCardInstance('shield_def', 'discard');
+    const goblinCard = { ...ENEMY_TEMPLATES.goblin, id: 'test_goblin', instanceId: 'test_goblin' };
+    const battlecry = createActionCardInstance('battlecry', 'test');
+    const melee = createActionCardInstance('melee_atk', 'discard');
+    const shield = createActionCardInstance('shield_def', 'discard');
 
     state = {
       ...state,
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [{ monster: goblinCard, hp: 8, block: 0, patternIndex: 0 }],
+          enemies: [{ enemy: goblinCard, hp: 8, block: 0, patternIndex: 0 }],
           combatTurn: 1,
           playerBlock: 0,
           playerEvasionMod: 0,
@@ -1486,20 +1486,20 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Start Adventure');
   });
 
-  it('unifies full-art TCG card template across action and creature cards with name on top-left and art spacer', () => {
+  it('unifies full-art TCG card template across action and enemy cards with name on top-left and art spacer', () => {
     let state = startAdventure('fighter', 'test-seed');
-    const goblinCard: MonsterCard = {
-      ...MONSTER_TEMPLATES['goblin'],
-      id: 'monster_goblin_01',
+    const goblinCard: EnemyCard = {
+      ...ENEMY_TEMPLATES['goblin'],
+      id: 'enemy_goblin_01',
     };
     state = {
       ...state,
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [
+          enemies: [
             {
-              monster: goblinCard,
+              enemy: goblinCard,
               hp: goblinCard.maxHp,
               block: 0,
               patternIndex: 0,
@@ -1526,12 +1526,12 @@ describe('Render Play Area and Shop Layout', () => {
 
     const html = renderPlayArea(state, ui);
 
-    // 1. Creature card has full-bleed art window, meta stack in header, name in title row, art spacer, and no middle ribbon
-    expect(html).toContain('tcg-card tcg-creature');
+    // 1. Enemy card has full-bleed art window, meta stack in header, name in title row, art spacer, and no middle ribbon
+    expect(html).toContain('tcg-card tcg-enemy');
     expect(html).toContain('tcg-art-spacer');
     expect(html).toContain('tcg-header-meta');
     expect(html).toContain('<span class="tcg-name">Goblin</span>');
-    expect(html).toContain('creature-header-top');
+    expect(html).toContain('enemy-header-top');
 
     // 2. Action card has full-bleed art window, meta stack with AP bubble, and art spacer
     expect(html).toContain('tcg-card tcg-action');
@@ -1600,11 +1600,11 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('10 Stat Points');
   });
 
-  it('renders creature cards without duplicate Creature text, with visible inscribed rewards, and docked info box', () => {
+  it('renders enemy cards without duplicate Enemy text, with visible inscribed rewards, and docked info box', () => {
     const state = startAdventure('fighter', 'test-seed');
-    const ramramCard: MonsterCard = {
-      ...MONSTER_TEMPLATES['ramram'],
-      id: 'monster_ramram_01',
+    const ramramCard: EnemyCard = {
+      ...ENEMY_TEMPLATES['ramram'],
+      id: 'enemy_ramram_01',
     };
 
     const ui: UiState = {
@@ -1613,17 +1613,17 @@ describe('Render Play Area and Shop Layout', () => {
       villageTab: 'buy',
       targetIndex: 0,
       inspectedCard: {
-        kind: 'monster',
-        monster: ramramCard,
+        kind: 'enemy',
+        enemy: ramramCard,
       },
     };
 
     const html = renderPlayArea(state, ui);
 
-    // 1. Subtype stands alone; the obvious Creature label is omitted.
-    expect(html).not.toContain('<span class="tcg-type-main">CREATURE</span>');
+    // 1. Subtype stands alone; the obvious Enemy label is omitted.
+    expect(html).not.toContain('<span class="tcg-type-main">ENEMY</span>');
     expect(html).toContain('<span class="tcg-type-sub">Beast</span>');
-    expect(html).not.toContain('<span class="tcg-type-sub">Creature — Beast</span>');
+    expect(html).not.toContain('<span class="tcg-type-sub">Enemy — Beast</span>');
     expect(html).toContain('/icons/new-paths-rare.svg');
 
     // 2. Inscribed rewards contain SP and Gold badges with numeric values
@@ -1633,54 +1633,54 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('tcg-art-reward-badge gold');
     expect(html).toContain('tcg-art-reward-badge sp');
 
-    // 3. Textbox is marked with tcg-creature-textbox to dock to the bottom
-    expect(html).toContain('tcg-textbox tcg-creature-textbox');
+    // 3. Textbox is marked with tcg-enemy-textbox to dock to the bottom
+    expect(html).toContain('tcg-textbox tcg-enemy-textbox');
   });
 
-  it('renders minified creature cards in monster pile modal without pattern, reward badges, or stats rows, with footer subtype and spawn icons', () => {
+  it('renders minified enemy cards in enemy pile modal without pattern, reward badges, or stats rows, with footer subtype and spawn icons', () => {
     const state = startAdventure('fighter', 'test-seed');
-    const html = pileModal('monster_deck', state);
+    const html = pileModal('enemy_deck', state);
 
-    // 1. Minified creature cards must have header with name and level
-    expect(html).toContain('tcg-mini-creature-header');
+    // 1. Minified enemy cards must have header with name and level
+    expect(html).toContain('tcg-mini-enemy-header');
     expect(html).toContain('Lvl 1');
     expect(html).toContain('Lvl 2');
     expect(html).toContain('Rattler');
     expect(html).toContain('Goblin');
 
-    // 2. Minified creature cards must have footer with subtype and spawn terrain icons
-    expect(html).toContain('tcg-mini-creature-footer');
+    // 2. Minified enemy cards must have footer with subtype and spawn terrain icons
+    expect(html).toContain('tcg-mini-enemy-footer');
     expect(html).toContain('tcg-mini-subtype');
     expect(html).toContain('Reptile');
     expect(html).toContain('Goblinoid');
     expect(html).toContain('Beast');
     expect(html).toContain('tcg-spawn-badge');
 
-    // 3. Minified creature cards must NOT show pattern tables, rewards, or creature stats row
+    // 3. Minified enemy cards must NOT show pattern tables, rewards, or enemy stats row
     expect(html).not.toContain('tcg-pattern-table');
     expect(html).not.toContain('tcg-art-rewards');
-    expect(html).not.toContain('creature-stats-row');
+    expect(html).not.toContain('enemy-stats-row');
     expect(html).not.toContain('DEF:');
     expect(html).not.toContain('tcg-set-symbol');
     expect(html).not.toContain('/icons/new-paths-');
   });
 
-  it('renders Bullwark, Basilisk, and Zombie in monster deck modal with correct artwork, levels, and spawn badges', () => {
+  it('renders Bullwark, Basilisk, and Zombie in enemy deck modal with correct artwork, levels, and spawn badges', () => {
     const state = startAdventure('fighter', 'test-seed');
-    const html = pileModal('monster_deck', state);
+    const html = pileModal('enemy_deck', state);
 
     expect(html).toContain('Bullwark');
-    expect(html).toContain('/cards/creatures/bullwark.jpg');
+    expect(html).toContain('/cards/enemies/bullwark.jpg');
     expect(html).toContain('Lvl 3');
     expect(html).toContain('tcg-spawn-badge swamp');
     expect(html).toContain('tcg-spawn-badge forest');
 
     expect(html).toContain('Basilisk');
-    expect(html).toContain('/cards/creatures/tree_snapper.jpg');
+    expect(html).toContain('/cards/enemies/tree_snapper.jpg');
     expect(html).toContain('Reptile');
 
     expect(html).toContain('Zombie');
-    expect(html).toContain('/cards/creatures/zombie.jpg');
+    expect(html).toContain('/cards/enemies/zombie.jpg');
     expect(html).toContain('Undead');
     expect(html).toContain('tcg-spawn-badge cave');
   });
@@ -1718,7 +1718,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(htmlForestInspect).toContain('Lvl 3');
     expect(htmlForestInspect).toContain('ADV · #009');
     expect(htmlForestInspect).toContain('Encounter Zone (Level 3):');
-    expect(htmlForestInspect).toContain('total creature level &ge; 4');
+    expect(htmlForestInspect).toContain('total enemy level &ge; 4');
 
     // Inspect view for ADV #011 (Level 3 Swamp Encounter)
     const swampLvl3Encounter: AdventureCard = {
@@ -1975,8 +1975,8 @@ describe('Render Play Area and Shop Layout', () => {
 
   it('renders Combat Modal with split layout: main area on left and dedicated combat log sidebar on right', () => {
     let state = startAdventure('fighter', 'test-seed');
-    const beetle: MonsterCard = {
-      ...MONSTER_TEMPLATES['fighting_beetle'],
+    const beetle: EnemyCard = {
+      ...ENEMY_TEMPLATES['fighting_beetle'],
       id: 'beetle_01',
     };
     state = {
@@ -1985,9 +1985,9 @@ describe('Render Play Area and Shop Layout', () => {
         type: 'COMBAT',
         combat: {
           combatTurn: 1,
-          monsters: [
+          enemies: [
             {
-              monster: beetle,
+              enemy: beetle,
               hp: 11,
               block: 0,
               patternIndex: 0,
@@ -2053,9 +2053,9 @@ describe('Render Play Area and Shop Layout', () => {
         type: 'COMBAT',
         combat: {
           combatTurn: 1,
-          monsters: [
+          enemies: [
             {
-              monster: { ...MONSTER_TEMPLATES['fighting_beetle'], id: 'b_01' },
+              enemy: { ...ENEMY_TEMPLATES['fighting_beetle'], id: 'b_01' },
               hp: 11,
               block: 0,
               patternIndex: 0,
@@ -2102,16 +2102,16 @@ describe('Render Play Area and Shop Layout', () => {
 
   it('renders Bullwark boosted attack damage flashing on card face, dock, and inspect modal with active boons', () => {
     let state = startAdventure('fighter', 'test-seed');
-    const bullwarkCard = { ...MONSTER_TEMPLATES['bullwark'], id: 'bullwark_01' };
+    const bullwarkCard = { ...ENEMY_TEMPLATES['bullwark'], id: 'bullwark_01' };
     state = {
       ...state,
       activeHook: {
         type: 'COMBAT',
         combat: {
           combatTurn: 2,
-          monsters: [
+          enemies: [
             {
-              monster: bullwarkCard,
+              enemy: bullwarkCard,
               hp: 20,
               block: 0,
               patternIndex: 1, // Turn 2: Heavy Charge
@@ -2145,15 +2145,15 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('<b>8</b> DMG');
     expect(html).toContain('🔥 Boon: +1 ATK');
 
-    // 2. Monster inspect button exists
-    expect(html).toContain('combat-monster-info-btn');
-    expect(html).toContain('data-action="inspect-monster"');
+    // 2. Enemy inspect button exists
+    expect(html).toContain('combat-enemy-info-btn');
+    expect(html).toContain('data-action="inspect-enemy"');
 
     // 3. Inspect modal rendering with active boons
     const inspectHtml = cardInspectModal(
       {
-        kind: 'monster',
-        monster: bullwarkCard,
+        kind: 'enemy',
+        enemy: bullwarkCard,
         currentHp: 20,
         attackBonus: 1,
         activeBoons: [
@@ -2174,7 +2174,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(inspectHtml).toContain('Base 7 + 1 Boon');
   });
 
-  it('renders dice banner and outcome when monster damage is absorbed by Hero natural DEF', () => {
+  it('renders dice banner and outcome when enemy damage is absorbed by Hero natural DEF', () => {
     let state = startAdventure('fighter', 'test-seed');
     state = {
       ...state,
@@ -2182,9 +2182,9 @@ describe('Render Play Area and Shop Layout', () => {
         type: 'COMBAT',
         combat: {
           combatTurn: 2,
-          monsters: [
+          enemies: [
             {
-              monster: { ...MONSTER_TEMPLATES['bullwark'], id: 'bullwark_01' },
+              enemy: { ...ENEMY_TEMPLATES['bullwark'], id: 'bullwark_01' },
               hp: 15,
               block: 0,
               patternIndex: 0,
@@ -2273,13 +2273,13 @@ describe('Render Play Area and Shop Layout', () => {
     expect(actionInspectHtml).toContain('tcg-textbox action-text');
     expect(actionInspectHtml).toContain('tcg-footer');
 
-    // 3. Creature inspect card (e.g. Pincer)
-    const beetle: MonsterCard = { ...MONSTER_TEMPLATES['fighting_beetle'], id: 'm_test_1' };
-    const creatureInspectHtml = cardInspectModal({ kind: 'monster', monster: beetle, currentHp: 11 }, state);
-    expect(creatureInspectHtml).toContain('tcg-inner-frame');
-    expect(creatureInspectHtml).toContain('tcg-art-spacer');
-    expect(creatureInspectHtml).toContain('tcg-textbox tcg-creature-textbox');
-    expect(creatureInspectHtml).toContain('tcg-footer');
+    // 3. Enemy inspect card (e.g. Pincer)
+    const beetle: EnemyCard = { ...ENEMY_TEMPLATES['fighting_beetle'], id: 'm_test_1' };
+    const enemyInspectHtml = cardInspectModal({ kind: 'enemy', enemy: beetle, currentHp: 11 }, state);
+    expect(enemyInspectHtml).toContain('tcg-inner-frame');
+    expect(enemyInspectHtml).toContain('tcg-art-spacer');
+    expect(enemyInspectHtml).toContain('tcg-textbox tcg-enemy-textbox');
+    expect(enemyInspectHtml).toContain('tcg-footer');
 
     // 4. Item inspect card (e.g. Iron Sword)
     const sword = SHOP_ITEM_CATALOG.find((i) => i.id === 'lvl1_iron_sword')!;
@@ -2292,12 +2292,12 @@ describe('Render Play Area and Shop Layout', () => {
 
   it('renders Zombie with 1 DEF, 0 EVA, and Regenerate healing in combat and inspect modal', () => {
     const state = startAdventure('fighter', 'test-seed-zombie');
-    const zombieCard: MonsterCard = { ...MONSTER_TEMPLATES.zombie, id: 'm_zombie_test' };
+    const zombieCard: EnemyCard = { ...ENEMY_TEMPLATES.zombie, id: 'm_zombie_test' };
 
     // Inspect view
-    const inspectHtml = cardInspectModal({ kind: 'monster', monster: zombieCard, currentHp: 7 }, state);
+    const inspectHtml = cardInspectModal({ kind: 'enemy', enemy: zombieCard, currentHp: 7 }, state);
     expect(inspectHtml).toContain('aria-label="DEF: 1"');
-    expect(inspectHtml).not.toContain('data-creature-stat="eva"');
+    expect(inspectHtml).not.toContain('data-enemy-stat="eva"');
     expect(inspectHtml).toContain('Regen (2)');
     expect(inspectHtml).toContain('LSTEAL (<b>6</b>)');
     expect(inspectHtml).toContain('aria-label="MDEF: 1"');
@@ -2318,9 +2318,9 @@ describe('Render Play Area and Shop Layout', () => {
       activeHook: {
         type: 'COMBAT',
         combat: {
-          monsters: [
+          enemies: [
             {
-              monster: zombieCard,
+              enemy: zombieCard,
               hp: 7,
               block: 0,
               patternIndex: 0, // Regenerate
@@ -2344,42 +2344,42 @@ describe('Render Play Area and Shop Layout', () => {
     expect(combatHtml).toContain('<b>6</b> DMG');
     expect(combatHtml).toContain('aria-label="MDEF: 1"');
     expect(combatHtml).toContain('aria-label="DEF: 1"');
-    expect(combatHtml).not.toContain('data-creature-stat="eva"');
+    expect(combatHtml).not.toContain('data-enemy-stat="eva"');
   });
 
-  it('computes correct 3D carousel positioning classes for 1, 2, 3, and 4 monsters', () => {
-    // 1 monster
-    expect(getMonsterCarouselClass(0, 0, 1)).toBe('is-center');
+  it('computes correct 3D carousel positioning classes for 1, 2, 3, and 4 enemies', () => {
+    // 1 enemy
+    expect(getEnemyCarouselClass(0, 0, 1)).toBe('is-center');
 
-    // 2 monsters: target = 0
-    expect(getMonsterCarouselClass(0, 0, 2)).toBe('is-center');
-    expect(getMonsterCarouselClass(1, 0, 2)).toBe('is-next');
-    // 2 monsters: target = 1
-    expect(getMonsterCarouselClass(1, 1, 2)).toBe('is-center');
-    expect(getMonsterCarouselClass(0, 1, 2)).toBe('is-prev');
+    // 2 enemies: target = 0
+    expect(getEnemyCarouselClass(0, 0, 2)).toBe('is-center');
+    expect(getEnemyCarouselClass(1, 0, 2)).toBe('is-next');
+    // 2 enemies: target = 1
+    expect(getEnemyCarouselClass(1, 1, 2)).toBe('is-center');
+    expect(getEnemyCarouselClass(0, 1, 2)).toBe('is-prev');
 
-    // 3 monsters: target = 0 (Blob, Rattler, Scavenger)
-    expect(getMonsterCarouselClass(0, 0, 3)).toBe('is-center');
-    expect(getMonsterCarouselClass(2, 0, 3)).toBe('is-prev');
-    expect(getMonsterCarouselClass(1, 0, 3)).toBe('is-next');
+    // 3 enemies: target = 0 (Blob, Rattler, Scavenger)
+    expect(getEnemyCarouselClass(0, 0, 3)).toBe('is-center');
+    expect(getEnemyCarouselClass(2, 0, 3)).toBe('is-prev');
+    expect(getEnemyCarouselClass(1, 0, 3)).toBe('is-next');
 
-    // 3 monsters: target = 1 (Rattler)
-    expect(getMonsterCarouselClass(1, 1, 3)).toBe('is-center');
-    expect(getMonsterCarouselClass(0, 1, 3)).toBe('is-prev');
-    expect(getMonsterCarouselClass(2, 1, 3)).toBe('is-next');
+    // 3 enemies: target = 1 (Rattler)
+    expect(getEnemyCarouselClass(1, 1, 3)).toBe('is-center');
+    expect(getEnemyCarouselClass(0, 1, 3)).toBe('is-prev');
+    expect(getEnemyCarouselClass(2, 1, 3)).toBe('is-next');
 
-    // 4 monsters: target = 0
-    expect(getMonsterCarouselClass(0, 0, 4)).toBe('is-center');
-    expect(getMonsterCarouselClass(3, 0, 4)).toBe('is-prev');
-    expect(getMonsterCarouselClass(1, 0, 4)).toBe('is-next');
-    expect(getMonsterCarouselClass(2, 0, 4)).toBe('is-hidden');
+    // 4 enemies: target = 0
+    expect(getEnemyCarouselClass(0, 0, 4)).toBe('is-center');
+    expect(getEnemyCarouselClass(3, 0, 4)).toBe('is-prev');
+    expect(getEnemyCarouselClass(1, 0, 4)).toBe('is-next');
+    expect(getEnemyCarouselClass(2, 0, 4)).toBe('is-hidden');
   });
 
-  it('renders Monster Carousel with keyboard A, D or LEFT RIGHT instructions and navigation controls', () => {
-    const s = startAdventure('fighter', 'test-3-monsters');
-    const slime = { ...MONSTER_TEMPLATES['pink_slime'], id: 'm0' };
-    const rattler = { ...MONSTER_TEMPLATES['rattler'], id: 'm1' };
-    const dog = { ...MONSTER_TEMPLATES['wild_dog'], id: 'm2' };
+  it('renders Enemy Carousel with keyboard A, D or LEFT RIGHT instructions and navigation controls', () => {
+    const s = startAdventure('fighter', 'test-3-enemies');
+    const slime = { ...ENEMY_TEMPLATES['pink_slime'], id: 'm0' };
+    const rattler = { ...ENEMY_TEMPLATES['rattler'], id: 'm1' };
+    const dog = { ...ENEMY_TEMPLATES['wild_dog'], id: 'm2' };
 
     const combatState: RunState = {
       ...s,
@@ -2387,10 +2387,10 @@ describe('Render Play Area and Shop Layout', () => {
         type: 'COMBAT',
         combat: {
           combatTurn: 1,
-          monsters: [
-            { monster: slime, hp: 9, block: 0, patternIndex: 0 },
-            { monster: rattler, hp: 14, block: 0, patternIndex: 0 },
-            { monster: dog, hp: 7, block: 0, patternIndex: 0 },
+          enemies: [
+            { enemy: slime, hp: 9, block: 0, patternIndex: 0 },
+            { enemy: rattler, hp: 14, block: 0, patternIndex: 0 },
+            { enemy: dog, hp: 7, block: 0, patternIndex: 0 },
           ],
           playerAp: 3,
           playerMaxAp: 3,
@@ -2416,20 +2416,20 @@ describe('Render Play Area and Shop Layout', () => {
     const html = renderPlayArea(combatState, ui);
 
     // Carousel structure
-    expect(html).toContain('monster-carousel');
-    expect(html).toContain('monster-carousel-track');
-    expect(html).toContain('monster-carousel-nav prev');
-    expect(html).toContain('monster-carousel-nav next');
+    expect(html).toContain('enemy-carousel');
+    expect(html).toContain('enemy-carousel-track');
+    expect(html).toContain('enemy-carousel-nav prev');
+    expect(html).toContain('enemy-carousel-nav next');
 
     // Instructions displaying A, D, LEFT, RIGHT
     expect(html).toContain('Traverse targets with <b>A</b> or <b>D</b>');
     expect(html).toContain('<b>LEFT</b> and <b>RIGHT</b> keys');
-    expect(html).toContain('Tap a monster to target it with attacks');
+    expect(html).toContain('Tap an enemy to target it with attacks');
 
-    // Check positioning classes on monster units
-    expect(html).toMatch(/combat-monster-unit\s+is-center\s+is-selected-unit\s+selected[^"]*" data-id="0"/);
-    expect(html).toMatch(/combat-monster-unit\s+is-next[^"]*" data-id="1"/);
-    expect(html).toMatch(/combat-monster-unit\s+is-prev[^"]*" data-id="2"/);
+    // Check positioning classes on enemy units
+    expect(html).toMatch(/combat-enemy-unit\s+is-center\s+is-selected-unit\s+selected[^"]*" data-id="0"/);
+    expect(html).toMatch(/combat-enemy-unit\s+is-next[^"]*" data-id="1"/);
+    expect(html).toMatch(/combat-enemy-unit\s+is-prev[^"]*" data-id="2"/);
 
     // Verify in-place DOM updater function
     const makeUnitMock = (_id: string, initialClasses: string[]) => {
@@ -2443,7 +2443,7 @@ describe('Render Play Area and Shop Layout', () => {
           remove: (...cs: string[]) => cs.forEach((c) => classList.delete(c)),
         },
         querySelector: (sel: string) => {
-          if (sel === '.tcg-creature') {
+          if (sel === '.tcg-enemy') {
             return {
               classList: {
                 remove: (...cs: string[]) => cs.forEach((c) => cardClassList.delete(c)),
@@ -2458,28 +2458,28 @@ describe('Render Play Area and Shop Layout', () => {
       };
     };
 
-    const unit0 = makeUnitMock('0', ['combat-monster-unit', 'is-center', 'is-selected-unit']);
-    const unit1 = makeUnitMock('1', ['combat-monster-unit', 'is-next']);
-    const unit2 = makeUnitMock('2', ['combat-monster-unit', 'is-prev']);
+    const unit0 = makeUnitMock('0', ['combat-enemy-unit', 'is-center', 'is-selected-unit']);
+    const unit1 = makeUnitMock('1', ['combat-enemy-unit', 'is-next']);
+    const unit2 = makeUnitMock('2', ['combat-enemy-unit', 'is-prev']);
 
     const track = {
       querySelector: (sel: string) => {
-        if (sel === '.combat-monster-unit[data-id="0"]') return unit0;
-        if (sel === '.combat-monster-unit[data-id="1"]') return unit1;
-        if (sel === '.combat-monster-unit[data-id="2"]') return unit2;
+        if (sel === '.combat-enemy-unit[data-id="0"]') return unit0;
+        if (sel === '.combat-enemy-unit[data-id="1"]') return unit1;
+        if (sel === '.combat-enemy-unit[data-id="2"]') return unit2;
         return null;
       },
     };
 
     const container = {
       querySelector: (sel: string) => {
-        if (sel === '.monster-carousel-track') return track;
+        if (sel === '.enemy-carousel-track') return track;
         return null;
       },
     } as unknown as HTMLElement;
 
     if (combatState.activeHook.type === 'COMBAT') {
-      const updated = updateMonsterCarouselDom(container, combatState.activeHook.combat, 1, 1);
+      const updated = updateEnemyCarouselDom(container, combatState.activeHook.combat, 1, 1);
       expect(updated).toBe(true);
 
       expect(unit1.classList.contains('is-center')).toBe(true);
@@ -2489,10 +2489,10 @@ describe('Render Play Area and Shop Layout', () => {
     }
   });
 
-  it('renders monster card inspect modal with proper 2-column layout and balanced DOM tags', () => {
+  it('renders enemy card inspect modal with proper 2-column layout and balanced DOM tags', () => {
     const state = startAdventure('fighter', 'test-tree-snapper');
-    const treeSnapper = { ...MONSTER_TEMPLATES['tree_snapper'], id: 'm_snapper' };
-    const html = cardInspectModal({ kind: 'monster', monster: treeSnapper, currentHp: 18 }, state);
+    const treeSnapper = { ...ENEMY_TEMPLATES['tree_snapper'], id: 'm_snapper' };
+    const html = cardInspectModal({ kind: 'enemy', enemy: treeSnapper, currentHp: 18 }, state);
 
     // Verify modal and body structure
     expect(html).toContain('card-inspect-modal');
@@ -2538,20 +2538,20 @@ describe('Render Play Area and Shop Layout', () => {
     expect(css).not.toContain('animation: badge-pulse');
     expect(css).not.toContain('animation: buffPulse');
 
-    // 3. Dock and combat card textboxes have backdrop-filter: none to prevent compositor blur shader thrashing
-    expect(css).toContain('.creature-combat-dock {\n  width: 100%;\n  max-width: 215px;\n  margin-top: 6px;\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n  background: rgba(15, 23, 42, 0.96) !important;\n  border: 1px solid rgba(148, 163, 184, 0.3);\n  border-radius: 7px;\n  padding: 5px 7px;\n  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);\n  backdrop-filter: none !important;\n  -webkit-backdrop-filter: none !important;\n  box-sizing: border-box;\n}');
-    expect(css).toContain('.combat-monster-unit .tcg-card:hover');
+    // 3. Dock and Action Card textboxes have backdrop-filter: none to prevent compositor blur shader thrashing
+    expect(css).toContain('.enemy-combat-dock {\n  width: 100%;\n  max-width: 215px;\n  margin-top: 6px;\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n  background: rgba(15, 23, 42, 0.96) !important;\n  border: 1px solid rgba(148, 163, 184, 0.3);\n  border-radius: 7px;\n  padding: 5px 7px;\n  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);\n  backdrop-filter: none !important;\n  -webkit-backdrop-filter: none !important;\n  box-sizing: border-box;\n}');
+    expect(css).toContain('.combat-enemy-unit .tcg-card:hover');
   });
 
   describe('Victory Modal Rendering', () => {
     it('renders victory modal with defeated foes, SP, Gold spoils breakdown, and OK action button', () => {
       const mockVictory: CombatVictoryState = {
-        defeatedMonsters: [
+        defeatedEnemies: [
           {
             id: 'test_goblin',
             templateId: 'goblin',
             name: 'Goblin',
-            creatureType: 'goblinoid',
+            enemyType: 'goblinoid',
             level: 1,
             maxHp: 6,
             goldReward: 2,
@@ -2585,7 +2585,7 @@ describe('Render Play Area and Shop Layout', () => {
 
     it('renders boss victory action button with Proceed text', () => {
       const mockVictory: CombatVictoryState = {
-        defeatedMonsters: [],
+        defeatedEnemies: [],
         statPointsEarned: 10,
         goldEarned: 25,
         baseGold: 25,
@@ -2663,8 +2663,8 @@ describe('Render Play Area and Shop Layout', () => {
       expect(html).toContain('token-hit');
     });
 
-    it('includes underground monsters in Bestiary', () => {
-      const underground = getBestiaryMonstersForTerrain('underground');
+    it('includes underground enemies in Bestiary', () => {
+      const underground = getBestiaryEnemiesForTerrain('underground');
       expect(underground).toEqual(['dark_orc', 'orc_shaman']);
       const guideHtml = renderGuideModal(false, 6);
       expect(guideHtml).toContain('Dark Orc');
