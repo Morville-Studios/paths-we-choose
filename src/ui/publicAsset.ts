@@ -3,7 +3,7 @@ declare const __BUILD_ID__: string;
 /**
  * Resolve a file from Vite's public directory against the deployed app base.
  *
- * Production hosts the game below /games/paths-to-odamyrus/, while tests and
+ * Production hosts the game at odamyrus.morvillestudios.com, while tests and
  * local development commonly use /. Keeping this rule here prevents cards,
  * icons, audio, and brand assets from silently pointing at the website root.
  * In production builds, appends `?v=<buildId>` so updated media busts Cloudflare

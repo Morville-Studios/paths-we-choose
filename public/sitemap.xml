@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
-    <loc>https://morvillestudios.com/games/paths-to-odamyrus/</loc>
+    <loc>https://odamyrus.morvillestudios.com/</loc>
     <image:image>
-      <image:loc>https://morvillestudios.com/games/paths-to-odamyrus/seo/paths-to-odamyrus-share-1200x630.jpg</image:loc>
+      <image:loc>https://odamyrus.morvillestudios.com/seo/paths-to-odamyrus-share-1200x630.jpg</image:loc>
     </image:image>
     <image:image>
-      <image:loc>https://morvillestudios.com/games/paths-to-odamyrus/brand/paths-to-odamyrus-logo.webp</image:loc>
+      <image:loc>https://odamyrus.morvillestudios.com/brand/paths-to-odamyrus-logo.webp</image:loc>
     </image:image>
   </url>
 </urlset>

@@ -26,7 +26,7 @@ function tagValue(tagName, keyAttribute, keyValue, valueAttribute) {
   return value;
 }
 
-assert.ok(route.startsWith('/games/') && route.endsWith('/'), 'Canonical route must be a game directory');
+assert.equal(route, '/', 'Standalone game must use the subdomain root');
 assert.equal(new URL(canonical).pathname, route, 'Publication URL and route differ');
 assert.equal(tagValue('link', 'rel', 'canonical', 'href'), canonical);
 assert.equal(tagValue('meta', 'property', 'og:url', 'content'), canonical);

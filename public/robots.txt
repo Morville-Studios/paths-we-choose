@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://morvillestudios.com/games/paths-to-odamyrus/sitemap.xml
+Sitemap: https://odamyrus.morvillestudios.com/sitemap.xml

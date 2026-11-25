@@ -1,7 +1,7 @@
 import { publicAsset } from './publicAsset';
 
 export const MORVILLE_STUDIOS_URL = 'https://morvillestudios.com/';
-export const GAME_CANONICAL_URL = 'https://morvillestudios.com/games/paths-to-odamyrus/';
+export const GAME_CANONICAL_URL = 'https://odamyrus.morvillestudios.com/';
 export const GAME_LOGO_ART = '/brand/paths-to-odamyrus-logo.webp';
 
 export interface StudioBrandOptions {

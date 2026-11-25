@@ -2,7 +2,7 @@
 
 A Morville Studios Games browser dungeon crawl and path building card adventure inspired by tabletop RPGs and deck builders. Built with strict TypeScript, Vite, DOM and CSS.
 
-Canonical public route: [morvillestudios.com/games/paths-to-odamyrus](https://morvillestudios.com/games/paths-to-odamyrus/).
+Canonical public route: [morvillestudios.com/games/paths-to-odamyrus](https://odamyrus.morvillestudios.com/).
 
 ## Current game
 

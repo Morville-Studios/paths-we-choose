@@ -24,8 +24,8 @@ device, approximate it with CSS, or generate it with an image model.
 - Search topics to describe naturally in visible copy: `Paths to Odamyrus`, `fantasy card game`, `browser game`, `dungeon crawler`, `branching path`, `deckbuilding`, and `3d6 combat`. Game-specific mechanic names belong in the guide and detailed descriptions where they help explain play.
 - Character Names: `Fighter`, `Wizard`, `Rogue`
 - Core Concepts: Tabletop card adventure, Morville Adventure Card Game Path Generator™ (MACG-PG™), Morville Adventure Card Game 3d6 Success Roll Range Table Reference™ (MACG-3D6™), 3d6 Quick Time Event hit check bar, Diabolic rolls (3 & 18 always miss), 3-row pyramid vision cone, Shrines, Village Haven, Stage Bosses (Grundy, Cult of Trolls)
-- Canonical route: `/games/paths-to-odamyrus/`
-- Canonical URL: `https://morvillestudios.com/games/paths-to-odamyrus/`
+- Canonical route: `/` on `odamyrus.morvillestudios.com`
+- Canonical URL: `https://odamyrus.morvillestudios.com/`
 - Current publication status: playable prototype
 
 ## Proprietary Trademark: Morville Adventure Card Game Path Generator™ (MACG-PG™)
@@ -137,36 +137,32 @@ SEO copy must describe implemented behavior only. Do not claim multiplayer,
 accounts, saved cloud progress, native releases, awards, reviews, player counts,
 or completed stages that are not present in the build.
 
-## Subdirectory hosting
+## Standalone game subdomain
 
-The game is a relocatable Vite build. Runtime public files are resolved through
-`src/ui/publicAsset.ts`, so cards, icons, audio and brand files follow
-`import.meta.env.BASE_URL` rather than the domain root. Keep `vite.config.ts`
-using `base: './'` unless the deployment pipeline deliberately chooses a fixed
-base. Upload the complete `dist/` directory beneath the canonical route.
-
-The Morville portal integration must preserve these generated files:
+The game is a standalone Vite build served at the root of
+`odamyrus.morvillestudios.com`. Runtime public files are resolved through
+`src/ui/publicAsset.ts`; keep `vite.config.ts` using `base: './'` unless the
+deployment pipeline deliberately chooses a fixed base. Publish the complete
+`dist/` directory, including:
 
 - `index.html` and hashed `assets/`
 - `version.json` and `_headers`
 - `background/`, `brand/`, `cards/`, `icons/`, `audio/`, and `seo/`
 - `favicon.svg`, `manifest.webmanifest`, `robots.txt`, and `sitemap.xml`
 
-At the shared-domain level, the portal owns `/robots.txt` and `/sitemap.xml`.
-Those root files must reference the game even though the game build also carries
-standalone discovery files for independent previews.
+The game subdomain serves its own `/robots.txt` and `/sitemap.xml`. The Morville
+portal owns the catalogue page, approved game-logo and share derivatives, and
+links to the game. The portal must not advertise an unserved game URL.
 
-The portal may link to the canonical game before the game artifact is deployed,
-but production launch is complete only when Cloudflare routes that URL to this
-repository's full `dist/` output. Do not copy a stale build into portal source;
-publish the game artifact independently or make the portal pipeline build this
-repository from its pinned revision.
+Publish the game at its new subdomain before changing the portal launch link.
+Do not copy a stale game build into portal source; deploy the game independently.
 
-The portal owns the old `/games/the-paths-we-choose/` route. When publishing the
-renamed game, issue a permanent server-side redirect from that route to
-`/games/paths-to-odamyrus/` and update the
-portal's game listing, root sitemap, and any cross-site links. The game build
-cannot redirect a path that is no longer mounted to it.
+The portal can permanently redirect the old `/games/the-paths-we-choose/` path
+to `https://odamyrus.morvillestudios.com/`. The existing
+`pathswechoose.morvillestudios.com` subdomain needs a separate Cloudflare
+redirect after migration. Browser `localStorage` does not cross hostnames, so
+existing saves on the old subdomain need an explicit transfer path before that
+host is retired; retaining the same storage key alone cannot migrate them.
 After publishing, submit the new canonical URL and sitemap in Search Console,
 inspect the rendered page and structured data, and check that the old URL
 redirects directly to the new one.
@@ -181,9 +177,8 @@ Cloudflare must not require manual cache clearing after releases:
   `max-age=0, must-revalidate` policy.
 - social preview images: one day with stale-while-revalidate.
 
-`public/_headers` contains rules for both standalone preview paths and the
-canonical `/games/paths-to-odamyrus/` mount. If the parent portal owns the
-final combined `_headers`, it must preserve the canonical-route equivalents.
+`public/_headers` contains rules for the game subdomain root and its static
+assets. Verify those response headers on the deployed game host.
 
 Do not add a service worker until its update and rollback behavior is specified
 and tested against the in-game release notice.
