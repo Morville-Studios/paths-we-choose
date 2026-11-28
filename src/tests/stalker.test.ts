@@ -28,21 +28,20 @@ describe('Stalker', () => {
   it('uses the supplied stats, art, terrain and Skittish rule', () => {
     expect(stalker).toMatchObject({ statPointReward: 3, goldReward: 10, level: 2, cardNumber: 'mon1grs-06', maxHp: 10, def: 0, eva: 4, acc: 3, spawnTerrains: ['grasslands', 'forest'] });
     const html = cardInspectModal({ kind: 'enemy', enemy: stalker, currentHp: 10 }, setup());
-    for (const value of ['/cards/enemies/stalker.jpg', 'T1:', 'T2:', 'Skittish', '2 turns']) expect(html).toContain(value);
+    for (const value of ['/cards/enemies/stalker.jpg', 'T1:', 'T2:', 'Skittish']) expect(html).toContain(value);
     expect(html).not.toContain('Pounce');
+    expect(stalker.pattern.map((step) => step.label)).toEqual(['Pounce', 'Sprint']);
+    expect(stalker.pattern[1]).not.toHaveProperty('evaBonus');
   });
 
-  it('keeps EVA (1, 2) for two turns including Pounce while ACC (1) lasts 1 turn, then refreshes', () => {
+  it('attacks with Pounce on T1 and gains ACC (1) without EVA on T2 Sprint, then expires', () => {
     let state = endPlayerCombatTurn(setup());
-    expect(battle(state).enemies[0]).toMatchObject({ evaBonus: 1, accBonus: 1, evaBonusTurns: 2, accBonusTurns: 1 });
-    state = endPlayerCombatTurn(state);
-    expect(battle(state).enemies[0]).toMatchObject({ evaBonus: 1, accBonus: 0, evaBonusTurns: 1, accBonusTurns: 0 });
     expect(battle(state).lastAttackRoll).toMatchObject({ actionName: 'Attack', netAcc: 1 });
+    expect(battle(state).enemies[0]).toMatchObject({ evaBonus: 0, accBonus: 0, evaBonusTurns: 0, accBonusTurns: 0 });
     state = endPlayerCombatTurn(state);
-    expect(battle(state).enemies[0]).toMatchObject({ evaBonus: 1, accBonus: 1, evaBonusTurns: 2, accBonusTurns: 1 });
-    // Remove further Sprint casts to observe expiration rather than refresh.
-    battle(state).enemies[0].enemy = { ...stalker, pattern: [{ label: 'Idle', damage: 0, block: 0 }] };
-    state = endPlayerCombatTurn(endPlayerCombatTurn(state));
+    expect(battle(state).enemies[0]).toMatchObject({ evaBonus: 0, accBonus: 1, evaBonusTurns: 0, accBonusTurns: 1 });
+    state = endPlayerCombatTurn(state);
+    expect(battle(state).lastAttackRoll).toMatchObject({ actionName: 'Attack', netAcc: 1 });
     expect(battle(state).enemies[0]).toMatchObject({ evaBonus: 0, accBonus: 0, evaBonusTurns: 0, accBonusTurns: 0 });
   });
 
@@ -71,13 +70,13 @@ describe('Stalker', () => {
     expect(battle(next).enemies[0]).toMatchObject({ hp: 10, evaBonus: 1 });
   });
 
-  it('expires Skittish at End Turn while retaining EVA (1, 2) through Pounce', () => {
+  it('expires Skittish at End Turn without adding EVA from T1 Pounce', () => {
     const state = endPlayerCombatTurn(setup());
     battle(state).hand = [attack];
-    state.rngState = seedFor(true, 5);
+    state.rngState = seedFor(true, 4);
     const hit = playCard(state, 'test', 0);
-    expect(battle(hit).enemies[0].evaBonus).toBe(2);
+    expect(battle(hit).enemies[0].evaBonus).toBe(1);
     const next = endPlayerCombatTurn(hit);
-    expect(battle(next).enemies[0]).toMatchObject({ evaBonus: 1, accBonus: 0, skittishEvaBonus: 0 });
+    expect(battle(next).enemies[0]).toMatchObject({ evaBonus: 0, accBonus: 1, skittishEvaBonus: 0 });
   });
 });

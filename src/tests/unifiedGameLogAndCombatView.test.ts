@@ -110,6 +110,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
 
     // Open training
     state = villageOpenTrain(state);
+    state = { ...state, playerResources: { ...state.playerResources!, gold: 100 } };
     const offer = state.playerMasterDeck[0];
     if (state.activeHook.type === 'VILLAGE') {
       state.activeHook.village.trainOptions = [offer];
@@ -147,7 +148,7 @@ describe('Unified Game Log & In-Place Combat Component', () => {
   it('appends shrine visits and base stat upgrades to gameLog', () => {
     let state = startAdventure('fighter', 'seed-shrine-log');
     state = grantShrineBoonOnEnter(state, { col: 0, row: 1 }, 1);
-    expect(state.gameLog!.some((entry) => entry.includes('Visited Sacred Shrine'))).toBe(true);
+    expect(state.gameLog!.some((entry) => entry.includes('Discovered the Shrine of'))).toBe(true);
 
     state = upgradeBaseStat(state, 'str');
     expect(state.gameLog!.some((entry) => entry.includes('Upgraded Base STR'))).toBe(true);

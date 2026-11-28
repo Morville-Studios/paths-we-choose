@@ -414,9 +414,11 @@ export function villageOpenTrain(state: RunState): RunState {
   };
 }
 
-export function getTrainingSkillCost(card: { apCost: number }): TrainingSkillCost {
-  const factor = 2 ** Math.max(0, card.apCost - 1);
-  return { gold: 5 * factor, statPoints: factor };
+/** Gold scales as 10 × 2^level (20 / 40 / 80g) and SP scales as 5 × 2^level (10 / 20 / 40 SP) for Lvl 1 / 2 / 3. */
+export function getTrainingSkillCost(card: { apCost?: number; level?: number }): TrainingSkillCost {
+  const level = Math.max(1, card.level ?? 1);
+  const factor = 2 ** level;
+  return { gold: 10 * factor, statPoints: 5 * factor };
 }
 
 /** Price for the current or a future removal; round the unrounded exponential once. */

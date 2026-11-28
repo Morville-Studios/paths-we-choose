@@ -38,8 +38,8 @@ $$\text{Final Price} = \max\Big(1, \text{round}\big(\text{Base Price} \times (1 
   - `2 CHA` (Wizard default): $10\%$ discount (e.g. 20g item costs 18g; 10g costs 9g; 8g costs 7g).
   - `4 CHA`: $20\%$ discount (e.g. 20g item costs 16g; 10g costs 8g).
 
-### 1.4 Starting 10 Stat Points & Welcome Preparation Dialog
-- Players start every adventure with **10 Stat Points (`statPoints: 10`)**.
+### 1.4 Starting 20 Stat Points & Welcome Preparation Dialog
+- Players start every adventure with **20 Stat Points (`statPoints: 20`)**.
 - On game start (Turn 0), players are greeted with a preparation modal dialog welcoming the adventurer and providing the exact same Stat Point converter widget used in Shrines.
 - Players must allocate their 10 SP toward Base Stats (e.g., upgrading Base VIT from 1 to 2 costs 10 SP, immediately raising Effective VIT and Max HP by +2) before stepping onto the path. The **Begin Journey** button remains disabled until the 10 starting SP is spent.
 
@@ -131,7 +131,7 @@ When entering a Village:
 
 Purchases transfer a physical card currently in Village stock, matched by its instance ID or exact catalog ID. Unknown item IDs do not purchase a substitute card.
 
-Adventurers start every adventure with **`20 Gold`**. All items feature dedicated standard 5:7 physical card raster paintings in `/cards/items/*.jpg` and can be inspected via right-click or long-press.
+Adventurers start every adventure with **`50 Gold`**. All items feature dedicated standard 5:7 physical card raster paintings in `/cards/items/*.jpg` and can be inspected via right-click or long-press.
 
 See the generated [Shop and Treasure catalog](CATALOGS.md#shop-and-treasure) for current items, levels, canonical names, prices, supply and bonuses.
 
@@ -157,7 +157,7 @@ Base card fields, class train pools and starter lists are in [CATALOGS.md](CATAL
 
 - **Combat hand cycle**: A battle opens and each later player turn begins with five cards. At End Turn, every remaining hand card moves to the action discard pile. The engine then draws five cards one at a time; if an individual draw finds the draw pile empty, it deterministically shuffles the action discard pile into a new draw pile and continues. Played cards and cards paid as discard costs likewise go to action discard, while battle-long enchantments remain in `inPlay`. The permanent Flee action is not a physical combat-deck card.
 
-- Village training offers are prepared once per Village entry by drawing `2 + villageLevel` cards (Lvl 1 = 3, Lvl 2 = 4, Lvl 3 = 5) from the class's **New Skills Deck**, filtered to skills with `level <= villageLevel` (Lvl 1 Villages offer LVL 1 skills only; Lvl 2 Villages offer LVL 2 and below; Lvl 3 Villages offer LVL 3 and below, etc.). Higher-level cards skipped during a lower-level Village draw are returned to `newSkillsDiscard` without loss. The Training screen keeps the player's current Gold and SP visible in a sticky resource sidebar. Each starter Action Card remains exclusive to the initial 8 attacks / 2 defenses; each non-starter class skill has exactly two physical New Skills copies. Selecting an offer opens a purchase confirmation before resources are spent. Learning transfers its exact card to `playerMasterDeck`; unlearned offers go to `newSkillsDiscard` when leaving and are deterministically reshuffled only after `newSkillsDeck` empties. Learning a 1/2/3 AP card costs respectively `5/10/20 Gold` and `1/2/4 SP`.
+- Village training offers are prepared once per Village entry by drawing `2 + villageLevel` cards (Lvl 1 = 3, Lvl 2 = 4, Lvl 3 = 5) from the class's **New Skills Deck**, filtered to skills with `level <= villageLevel` (Lvl 1 Villages offer LVL 1 skills only; Lvl 2 Villages offer LVL 2 and below; Lvl 3 Villages offer LVL 3 and below, etc.). Higher-level cards skipped during a lower-level Village draw are returned to `newSkillsDiscard` without loss. The Training screen keeps the player's current Gold and SP visible in a sticky resource sidebar. Each starter Action Card remains exclusive to the initial 8 attacks / 2 defenses; each non-starter class skill has exactly two physical New Skills copies. Selecting an offer opens a purchase confirmation before resources are spent. Learning transfers its exact card to `playerMasterDeck`; unlearned offers go to `newSkillsDiscard` when leaving and are deterministically reshuffled only after `newSkillsDeck` empties. Learning costs `10 × 2^level` Gold (`20/40/80 Gold` for LVL 1/2/3) and `5 × 2^level` SP (`10/20/40 SP` for LVL 1/2/3).
 - **Destroying cards**: Training says **Destroy**, never Remove. Selecting a player card opens a destructive confirmation showing the card, current resources, and price. Confirmation transfers that physical card from `playerMasterDeck` into `voidCards`. With `trainRemovalCount` prior destructions, the Gold cost is `ceil(10 × 1.5^trainRemovalCount)`: 10, 15, 23, 34, 51, then 76 Gold. Round the base exponential once for each price, not the previously displayed price. The minimum deck size is 5, and a successful destruction increments `trainRemovalCount` for the run.
 - **Content-update reconciliation**: when a release adds learnable skills, an active run is reconciled before Village training and when the New Skills deck is inspected. Existing cards in the deck, discard, active offers, master deck, and physical destroyed cards in `voidCards` count first; only missing copies are added and shuffled into the New Skills Deck. Players therefore keep their run and the invariant remains exactly two copies of every non-starter class skill.
 
@@ -459,7 +459,7 @@ Underground is recognized as an enemy spawn tag and visible badge; no Undergroun
 
 Level 2; Grasslands and Forest; 8 HP, 0 DEF, 2 EVA, 1 ACC. Artwork: `/cards/enemies/stalker.jpg`. As an Uncommon Grassland enemy, Scenario 1 pulls all 4 copies; Rewards: 3 SP and 10 Gold.
 
-Alternates Sprint (+1 EVA and +1 ACC for 2 turns) and Pounce (6 physical damage with a normal 3d6 hit check under MACG-3D6™). Sprint applies during its enemy turn and lasts through the next Pounce and the following hero action turn; it expires at the start of the enemy turn after that. A new Sprint refreshes the bonuses without stacking. Existing one-turn enemy buffs retain their original duration.
+Alternates **Pounce** (T1: 6 physical damage with a normal 3d6 hit check under MACG-3D6™) and **Sprint** (T2: +1 ACC for 1 turn, without granting EVA). Existing one-turn enemy buffs retain their original duration.
 
 Skittish: each successful hit against a living Stalker immediately grants +1 EVA for the rest of the current hero turn. Repeated hits add another +1 each; fully blocked hits still trigger it, misses do not. The incoming attack rolls against EVA before its own Skittish bonus. All Skittish bonuses expire at hero End Turn, independently of Sprint. Lethal hits do not buff a dead enemy. Live card stats, target roll labels, and confirmation odds include current EVA bonuses.
 

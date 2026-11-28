@@ -769,6 +769,9 @@ function heroTargetCardHtml(state: RunState, combat: ActiveCombatState, stats: C
 export function combatDiceRollModal(pending: PendingDiceRoll): string {
   const { roll, settled } = pending;
   const isFlee = roll.actionName === 'Flee';
+  const incomingDmg = roll.incomingDamage
+    ?? (roll.damageDealt + roll.damageBlocked + (roll.damageDefReduced ?? 0) + (roll.damageProtReduced ?? 0));
+  const dmgKindLabel = roll.defenseType === 'MDEF' ? 'MATK' : 'ATK';
   const outcomeText = roll.isDiabolic
     ? `😈 DIABOLIC ROLL [${roll.total}] (GUARANTEED ${isFlee ? 'FAILURE' : 'MISS'})!`
     : isFlee
@@ -803,7 +806,7 @@ export function combatDiceRollModal(pending: PendingDiceRoll): string {
         </div>
         <div class="dice-modal-matchup">
           <span class="dice-actor attacker">${roll.attackerName}</span>
-          <span class="dice-action-badge">${roll.actionName}</span>
+          <span class="dice-action-badge">${roll.actionName}${!isFlee && incomingDmg > 0 ? ` (${incomingDmg} ${dmgKindLabel})` : ''}</span>
           <span class="dice-arrow">&rarr;</span>
           <span class="dice-actor target">${roll.targetName}</span>
         </div>

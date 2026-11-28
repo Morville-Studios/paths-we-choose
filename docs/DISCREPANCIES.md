@@ -1,6 +1,6 @@
 # Documentation and Implementation Discrepancy Register
 
-Audit refreshed: **2026-11-24 (Asia/Manila)**. Status: **37 resolved, 0 pending** (37 findings).
+Audit refreshed: **2026-11-28 (Asia/Manila)**. Status: **37 resolved, 7 pending** (44 findings).
 
 This records the discrepancies identified in the current local working tree, including staged and unstaged work. It is an evidence register, not a replacement specification. Implementation is evidence of current behavior, not automatic authority. No gameplay decision is approved by this document. Source locations use file/section or symbol names so ordinary line shifts do not break the references.
 
@@ -64,6 +64,13 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 | [D035](#d035) | Village rest healing and price | Gameplay decision | Resolved |
 | [D036](#d036) | Expanded Treasure supply versus older prose | Content decision | Resolved |
 | [D037](#d037) | Sold gear destination and Treasure conservation | Gameplay decision | Resolved |
+| [D038](#d038) | Combat Flee button click handler requires 2 AP while cost is 1 AP | Runtime bug | Pending |
+| [D039](#d039) | Attached Village Shrine ignores Base Stat upgrade level cap | Runtime bug | Pending |
+| [D040](#d040) | Combat gear equipping (1 AP) versus documented Combat Lock | Gameplay / documentation conflict | Pending |
+| [D041](#d041) | Temporary ACC modifiers omitted from Flee net ACC and target carousel DOM updater | Runtime / UI calculation drift | Pending |
+| [D042](#d042) | Stale player-facing UI copy in inspection modals, shop header, Flee card, and Guide | UI copy / mechanics conflict | Pending |
+| [D043](#d043) | Catalog sync script reports 100 Treasure cards instead of 106 and omits Paths Deck | Generator / catalog drift | Pending |
+| [D044](#d044) | Specification drift across Turn 0 Village start, Shrine Prayer/Meditate, Paths Deck, Enemy profiles, and Audio states | Documentation conflict | Pending |
 
 ## Findings
 
@@ -511,6 +518,98 @@ Cloudflare release monitoring and conservative revalidation are implemented and 
 - **Status:** Resolved by user decision (2026-11-24).
 - **Conflict:** `src/core/village.ts:sellItem`, tests, and `docs/GAME_DESIGN.md` banish sold gear to `voidItems`. `docs/MECHANICS_AND_DATA.md` says sold gear goes to `treasureDiscard`. The Treasure conservation equation in `docs/ARCHITECTURE.md` omits banished items and misstates the Scenario 1 level partition.
 - **Accepted decision:** Keep permanent banishment. The mechanics spec now sends sold gear to `voidItems`, and the architecture invariant includes `voidItems` and inactive `treasureVoid` in the physical supply.
+
+<a id="d038"></a>
+### D038 — Combat Flee button click handler requires 2 AP while cost is 1 AP
+
+- **Status:** Pending (2026-11-28)
+- **Classification:** Runtime bug
+- **Implementation locations:** `src/core/combat/constants.ts:FLEE_AP_COST`; `src/core/combat/flee.ts:attemptCombatFlee`; `src/ui/screens/combatView.ts:combatScreen`; `src/app/actions/combat.ts:handleCombatAction`.
+- **Audit observation:** `FLEE_AP_COST` is `1`. `combatView.ts` renders `🏃 Flee (1 AP)` and enables the button when `combat.playerAp >= 1`. `attemptCombatFlee` checks `combat.playerAp < FLEE_AP_COST` (1 AP). However, the `'flee-card'` action handler in `src/app/actions/combat.ts` gates opening the flee confirmation modal with `curState.activeHook.combat.playerAp >= 2`.
+- **Impact:** When the player has exactly `1 AP` remaining, the Flee button appears enabled (`Flee (1 AP)`), but clicking it silently does nothing.
+- **Reconciliation target:** Replace `curState.activeHook.combat.playerAp >= 2` in `src/app/actions/combat.ts` with `curState.activeHook.combat.playerAp >= FLEE_AP_COST` (or `>= 1`).
+
+<a id="d039"></a>
+### D039 — Attached Village Shrine ignores Base Stat upgrade level cap
+
+- **Status:** Pending (2026-11-28)
+- **Classification:** Runtime bug
+- **Implementation locations:** `src/core/stats.ts:getActiveShrineBaseStatCap`; `src/core/shrine.ts:getShrineLevel`; `src/core/engine.ts:startAdventure, startNextMission, villageVisitShrine`; `src/ui/modals/eventModals.ts:statUpgradeWidgetHtml`.
+- **Audit observation:** At Turn 0 (and at the start of Missions 2 and 3), Row 0 `(0,0)` holds a Village card (`node.card`, where `hasVillage: true` and `hasShrine: false`) alongside an `attachedShrineCard` (`advgrs-04` Lvl 1, `advfrs-04` Lvl 2, or `advsmp-04` Lvl 3). When the player clicks "Visit Village Shrine", `villageVisitShrine` transitions `activeHook` to `SHRINE` with `shrine.shrineCard` set to `attachedShrineCard`, while `board['0.0,0'].card` remains the Village card. `getShrineLevel(state)` in `src/core/shrine.ts` checks `state.activeHook.shrine.shrineCard ?? node?.card`, whereas `getActiveShrineBaseStatCap(state)` in `src/core/stats.ts` checks only `state.board[coordToKey(state.activeHook.shrine.coord)]?.card` and returns `null` when `!card?.hasShrine`.
+- **Impact:** At any Village's attached Shrine, `getActiveShrineBaseStatCap` returns `null` (no cap), allowing Base Stats to be upgraded past `Shrine Level + 1` (e.g., Base 1 → 2 → 3 at the Turn 0 Level 1 Grassland Village Shrine using starting 20 SP) and hiding the Shrine level cap banner in `statUpgradeWidgetHtml`.
+- **Reconciliation target:** Resolve the active shrine card in `getActiveShrineBaseStatCap` via `state.activeHook.shrine.shrineCard ?? state.board[coordToKey(state.activeHook.shrine.coord)]?.attachedShrineCard ?? state.board[coordToKey(state.activeHook.shrine.coord)]?.card`.
+
+<a id="d040"></a>
+### D040 — Combat gear equipping (1 AP) versus documented Combat Lock
+
+- **Status:** Pending (2026-11-28)
+- **Classification:** Gameplay / documentation conflict
+- **Documentation locations:** `docs/GAME_DESIGN.md` §1.5 Equipment & Inventory Rules; `docs/MECHANICS_AND_DATA.md` §1.7 Inventory & Equipment Rules.
+- **Implementation locations:** `src/core/village.ts:equipItem, unequipItem`; `src/ui/render.ts:renderInventoryList`.
+- **Audit observation:** `docs/GAME_DESIGN.md` and `docs/MECHANICS_AND_DATA.md` state: *"Combat Lock: Equipping and unequipping is strictly disabled during active combat (`activeHook.type === 'COMBAT'`)."* However, `equipItem` in `src/core/village.ts` and `renderInventoryList` in `src/ui/render.ts` allow equipping backpack items during active combat for `1 AP` (`Equip (1 AP)`), while `unequipItem` remains blocked during combat.
+- **Decision / reconciliation needed:** Confirm whether equipping from the backpack during combat for `1 AP` (while blocking direct unequip) is the intended design; if so, update `docs/GAME_DESIGN.md` and `docs/MECHANICS_AND_DATA.md` to document the 1 AP combat equip rule, or remove the combat equip branch if a strict Combat Lock is intended.
+
+<a id="d041"></a>
+### D041 — Temporary ACC modifiers omitted from Flee net ACC and target carousel DOM updater
+
+- **Status:** Pending (2026-11-28)
+- **Classification:** Runtime / UI calculation drift
+- **Implementation locations:** `src/core/combat/flee.ts:computeFleeNetAcc`; `src/ui/screens/combatView.ts:fleeConfirmModal`; `src/main.ts:setCombatTarget`; `src/app/combatAnimator.ts`.
+- **Audit observation:**
+  1. `computeFleeNetAcc` (`src/core/combat/flee.ts`) and `fleeConfirmModal` (`src/ui/screens/combatView.ts`) sum `(m.enemy.acc ?? 0)` instead of `((m.enemy.acc ?? 1) + (m.accBonus ?? 0))`, ignoring temporary enemy ACC buffs (such as Stalker's Sprint `+1 ACC`).
+  2. When updating the enemy carousel in place (`updateEnemyCarouselDom`), `setCombatTarget` (`src/main.ts`) and `combatAnimator.ts` compute `playerAcc = getPlayerAcc(stats, combatGear.acc)` without adding `(combat.playerAccMod ?? 0) + getHeroStatDebuffMods(combat).acc`, whereas `combatView.ts` includes both modifiers on full render.
+- **Impact:** Enemy temporary ACC buffs do not reduce Flee escape odds, and switching enemy targets while the hero has an active ACC buff/debuff (such as Witch's Blind or Phalanx's Web) briefly displays un-modified hit odds on the target pill until the next full render.
+- **Reconciliation target:** Include `(m.accBonus ?? 0)` in Flee enemy ACC sums and include `(combat.playerAccMod ?? 0) + getHeroStatDebuffMods(combat).acc` when calling `updateEnemyCarouselDom`.
+
+<a id="d042"></a>
+### D042 — Stale player-facing UI copy in inspection modals, shop header, Flee card, and Guide
+
+- **Status:** Pending (2026-11-28)
+- **Classification:** UI copy / mechanics conflict
+- **Implementation locations:** `src/data/actionCards.ts:createFleeCard`; `src/core/stats.ts:getFleeThreshold`; `src/ui/modals/inspectModals.ts`; `src/ui/modals/eventModals.ts:statUpgradeWidgetHtml`; `src/ui/screens/villageView.ts`; `src/ui/screens/guide.ts`.
+- **Audit observation:**
+  1. **Flee Card & Guide Page 3 AGI Copy:** `createFleeCard` (`src/data/actionCards.ts`) and Guide Page 3 (`src/ui/screens/guide.ts`) still describe the retired `1d6 ≤ ⌊AGI / 2⌋` escape roll (and `getFleeThreshold` in `src/core/stats.ts` is unused legacy code), whereas actual Flee resolution uses MACG-3D6™ (`Player EVA − sum(Living Enemies ACC)`).
+  2. **Village Adventure Card Inspection (`src/ui/modals/inspectModals.ts`):** Still states *"Resting restores 2 HP per 1 Gold (up to full HP). Shop stocks ${5 + card.level} items from the Treasure Deck (Levels ${Math.max(1, card.level - 1)}–${card.level})... Training offers 3 skills..."* whereas actual rules are `1 HP per (1 + Village Level) Gold`, `3 + Village Level` exact-level items (`item.level === village.level`), and `2 + Village Level` skill offers.
+  3. **Village Shop Header (`src/ui/screens/villageView.ts`):** Displays `"Level ${shopLevel} store · Supplies Levels ${shopLevel - 1}–${shopLevel} items"` even though Village shops stock only exact-level items (`item.level === village.level`).
+  4. **Shrine Adventure Card Inspection & Guide Page 5 (`src/ui/modals/inspectModals.ts`, `src/ui/screens/guide.ts`):** Still claim Shrines *"Automatically grants 1 eligible divine boon on arrival"*, whereas `enterShrine` (`src/core/shrine.ts`) discovers a presiding Deity and `offeredBoon` (excluding `revitalize`) and waits for the player to click **Pray** (restoring full HP and applying the boon) or **Meditate** (opening Base Stat and Void Skill upgrades).
+  5. **Item Inspection `+STR` Description (`src/ui/modals/inspectModals.ts`):** States `+STR` items grant `"+${item.statBonus.str * 2} Max HP"`, which is false (`VIT` grants Max HP, not `STR`).
+  6. **Stat Upgrade Widget `AGI` Preview (`src/ui/modals/eventModals.ts`):** Displays `DEF +floor(eff.agi / 3)` instead of the shared physical defense formula `floor((STR + AGI + VIT) / 5)`.
+  7. **Undiscovered Terrain ID Fallback (`src/core/engine.ts:isUndiscoveredTerrain`):** Hardcodes `advgrs-00`, `advfrs-00`, `advsmp-00` in its ID fallback list, omitting `advcav-00` and `advund-00` (which currently match via `card.isUndiscovered`).
+- **Reconciliation target:** Update the player-facing copy across `actionCards.ts`, `inspectModals.ts`, `eventModals.ts`, `villageView.ts`, and `guide.ts`, remove unused `getFleeThreshold`, include `advcav-00`/`advund-00` in `isUndiscoveredTerrain`, and regenerate/verify locale coverage (`npm run i18n:check`).
+
+<a id="d043"></a>
+### D043 — Catalog sync script reports 100 Treasure cards instead of 106 and omits Paths Deck
+
+- **Status:** Pending (2026-11-28)
+- **Classification:** Generator / catalog drift
+- **Implementation locations:** `scripts/sync-doc-catalogs.cjs`; `docs/CATALOGS.md`; `src/data/shopItems.ts:getTreasureSupplyCount`; `src/data/paths.ts:PATHS_CARD_CATALOG`.
+- **Audit observation:** `buildPhysicalTreasureSupply()` and `getTreasureSupplyCount()` produce **106 physical cards** across 50 item types (46 equipment items × 2 copies = 92, plus Health Potions Lvl 1×5, Lvl 2×4, Lvl 3×3, Lvl 4×2 = 14). However, `scripts/sync-doc-catalogs.cjs` computes `'Treasure deck: two copies per item, ' + (SHOP_ITEM_CATALOG.length * 2) + ' cards total.'`, causing `docs/CATALOGS.md` to state `100 cards total` instead of `106 cards total` and omitting per-item copy counts. Additionally, the 17-card Paths Deck (`data/paths.json` / `src/data/paths.ts`) is not emitted into `docs/CATALOGS.md`.
+- **Reconciliation target:** Update `scripts/sync-doc-catalogs.cjs` to compute total physical Treasure copies from `item.copies ?? 2` (106 total), include a Paths Deck catalog table from `PATHS_CARD_CATALOG`, and run `npm run docs:sync`.
+
+<a id="d044"></a>
+### D044 — Specification drift across Turn 0 Village start, Shrine Prayer/Meditate, Paths Deck, Enemy profiles, and Audio states
+
+- **Status:** Pending (2026-11-28)
+- **Classification:** Documentation conflict
+- **Documentation locations:** `docs/GAME_DESIGN.md`; `docs/MECHANICS_AND_DATA.md`; `docs/ARCHITECTURE.md`; `docs/ROADMAP.md`.
+- **Implementation locations:** `src/core/engine.ts`; `src/core/shrine.ts`; `src/core/audio.ts`; `src/data/paths.ts`; `data/enemies.json`; `data/paths.json`.
+- **Audit observation:** Several specification sections describe retired mechanics or pre-rebalance enemy profiles:
+  1. **Turn 0 Start & Preparation vs. Starting Village + Attached Shrine:** `GAME_DESIGN.md` (§1.3, §2), `MECHANICS_AND_DATA.md` (§1.4), and `ARCHITECTURE.md` (State Machine & Conservation) still describe Turn 0 as opening a Welcome Preparation Dialog (`welcomePreparing: true`) with a separate non-deck Start Tile and 25 cards remaining in `adventureDeck`. In `startAdventure` (`src/core/engine.ts`), `welcomePreparing` is `false`; the engine pulls 1 level-matched Village card (`advgrs-03` / `advfrs-03` / `advsmp-03`) and 1 attached Shrine card (`advgrs-04` / `advfrs-04` / `advsmp-04`) from the 30-card Adventure Deck to form Row 0 `(0,0)`, deals 5 forward/lookahead cards (leaving **23** in `adventureDeck` and **7** physical Adventure cards on the board across 6 nodes), and starts directly in the Turn 0 `VILLAGE` view with **20 SP** and **50 Gold**.
+  2. **Shrine Flow (Deity Prayer + Full Heal & Meditate Workspace):** `GAME_DESIGN.md` (§1.3, §4.1, §4.3), `MECHANICS_AND_DATA.md` (§1.6), `ARCHITECTURE.md`, and `ROADMAP.md` still state that Shrines automatically grant a random boon on arrival (including `revitalize`) and have no soundtrack. In `src/core/shrine.ts` and `src/core/audio.ts`, entering a Shrine plays `shrine.mp3` (`audioScene: 'shrine'`), discovers a presiding Deity (`SHRINE_DEITIES`) and `offeredBoon` (filtering out `revitalize`), and lets the player choose **Pray** (`shrinePray`: restores full HP and applies `offeredBoon`, overriding any prior blessing) and/or **Meditate** (`shrineMeditate`: opens Base Stat and Void Skill upgrade panels).
+  3. **Undiscovered Terrains & 17-Card Paths Deck (MIDS™) vs. Legacy 1d6 Roll:** `GAME_DESIGN.md` (§3.4), `MECHANICS_AND_DATA.md` (§5.2.1), `ARCHITECTURE.md` (State Machine & Four-Deck Conservation), and `ROADMAP.md` still describe stepping on an Undiscovered Terrain as rolling 1d6 (`EXPLORATION` hook: 6 = treasure, `<= level` = ambush, else safe) and omit the **Paths Deck** from conservation laws. In implementation, stepping on an Undiscovered Terrain draws from the **17-card Paths Deck** (`data/paths.json`, `activeHook.type === 'PATH_CHALLENGE'`) across 8 templates (`Enemy Camp` ×5, `Merchant` ×2, `Sanctuary` ×2, `Ambush` ×2, `Magical Chest` ×1, `Trapped Chest` ×1, `Gold Stash` ×2, `Spring Trap` ×2).
+  4. **Enemy Profiles & Mechanics Drift (`GAME_DESIGN.md` §7.2 & `MECHANICS_AND_DATA.md` §4):**
+     - **Grundy (`goblin_chieftain`):** Docs say 30 HP, 1 MDEF, 3 ACC, 2-turn cycle (`Call Goblin`, `Goblin March`). Implementation (`data/enemies.json`) has **36 HP, 2 MDEF, 4 ACC**, 1-turn pattern (`Goblin March`: 6 DMG), and passive `Summon (Goblin)` on turn start + `Emergency (Goblin)` at 50% and 25% HP thresholds + `Inspired (Goblin)` + `Co-defended (Goblin)`.
+     - **Cult of Trolls:** Docs say 1 DEF / 2 MDEF / 2 ACC / 1 EVA for Healer & Hexer, and 2 DEF / 0 MDEF / 3 ACC / 1 EVA for Warrior. Implementation has Healer (1 DEF, 3 MDEF, 3 ACC, 2 EVA, +2 Block on T1), Hexer (2 DEF, 2 MDEF, 3 ACC, 2 EVA, +2 Block on T1), Warrior (3 DEF, 1 MDEF, 4 ACC, 2 EVA).
+     - **Leech (`mon3smp-01`):** Docs say alternates Soul Drain (8 MATK) with Channel (+2 HP, +2 Block, every 3rd Channel revives a discarded Zombie). Implementation has `Regen (2)` on turn start, T1 `Summon (Zombie)` from Enemy Deck (or FIFO discard to top of deck on miss), T2 `7 MATK` with `LSteal` (50% drain rounded up).
+     - **Creeper (`mon3smp-02`):** Docs say 12 HP, 0 EVA, 1 ACC, 1 MDEF, `Resilient` (1d6 = 6 revives at 6 HP). Implementation has **14 HP, 2 DEF, 2 MDEF, 3 ACC, 3 EVA**, and **`Undying (3)`** (3 tokens; on defeat consumes 1 token and rolls 1d6 `<= 1 + remainingTokens` to revive at full 14 HP).
+     - **Assasin (`mon3smp-03`):** Docs say 1 DEF, 3 EVA, 2 ACC, alternates Poison Dart (3 DMG, PEN 3, persistent 1 HP poison) and Piercing Strike (7 DMG, PEN 2). Implementation has **2 DEF, 4 EVA, 4 ACC, `Skittish (2)`**, T1 `5 DMG, PEN (3)`, T2 `+2 ACC, Poison (4, 2)` (timed poison tested against Hero VIT via MACG-3D6™ at end of turn for 4 damage over 2 turns).
+     - **Stalker (`mon1grs-06`):** Docs say 8 HP, 2 EVA, 1 ACC, Sprint adds +1 EVA. Implementation has **10 HP, 4 EVA, 3 ACC**, T1 Pounce (6 DMG), T2 Sprint (+1 ACC for 1 turn, no EVA).
+     - **Witch (`mon3smp-04`):** Docs say 1 EVA, 1 ACC, 3-turn cycle (Blinding Hex -1 ACC/-1 EVA, Expose Weakness -1 DEF/-1 MDEF, Smite 7 MATK) and 1 HP end-of-turn regen. Implementation has **2 EVA, 4 ACC, `Regen (2)` on turn start**, and a 2-turn cycle: T1 `Blind (2, 2), Ensnare (2, 2)` (-2 Hero ACC, -2 Hero EVA for 2 turns), T2 `7 MATK`.
+     - **Phalanx, Cultist Mage, Lurker:** Docs say Phalanx has 2 EVA / 1 ACC, Blinding Web (6 DMG + on-hit -1 ACC/-2 EVA), Double Smash (8 DMG ×2); Cultist Mage has 1 DEF / 2 MDEF / 3 ACC / 2 EVA; Lurker has 2 DEF / 1 MDEF, Acid Retaliation on any attack. Implementation: Phalanx has **5 EVA, 4 ACC, `Skittish (2)`**, T1 non-damaging `-3 EVA, -2 ACC (1t)`, T2 `7 DMG + 6 offhand DMG`; Cultist Mage has **2 DEF, 3 MDEF, 5 ACC, 4 EVA, `Channel (1, 3)`**; Lurker has **4 DEF, 3 MDEF, 4 ACC, 4 EVA, `Thorn (1)` (melee-only retaliation), `Harden (1)`**.
+  5. **Divine Protection & Blessing of DEX/AGI Table (`MECHANICS_AND_DATA.md` §1.6):** Rows still state DEX/AGI blessings only increase ACC/EVA on even numbers and Divine Protection reduces incoming attack damage by 1, whereas DEX/AGI scale 1:1 and Divine Protection grants `+1 DEF` and `+1 MDEF`.
+  6. **Audio State Machine Table (`MECHANICS_AND_DATA.md` §15 & `GAME_DESIGN.md` §13):** Lists Village, Shrine, and Victory as silent (`none` / `null`), whereas `src/core/audio.ts` plays `village.mp3`, `shrine.mp3`, and `victory.mp3` (already noted in `ARCHITECTURE.md`).
+  7. **Adventure Card Catalog Summary (`GAME_DESIGN.md` §1.4 & `MECHANICS_AND_DATA.md` §5.1):** Omits `advcav-03`, `advcav-04`, `advund-00`, and `advund-01`.
+- **Reconciliation target:** Synchronize `docs/GAME_DESIGN.md`, `docs/MECHANICS_AND_DATA.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md` with the current catalog and runtime behavior.
 
 ## Reconciliation batch validation
 

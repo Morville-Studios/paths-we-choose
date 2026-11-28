@@ -73,9 +73,10 @@ const reliableAttack: ActionCardDef = {
 
 describe('cave enemy catalog and combat mechanics', () => {
   it('stores all requested balance changes in the canonical enemy catalog', () => {
-    expect(ENEMY_TEMPLATES.fighting_beetle.pattern[0]).toMatchObject({
-      label: 'Shell Guard', damage: 0, block: 0, defBonus: 1, defDuration: 2,
-    });
+    expect(ENEMY_TEMPLATES.fighting_beetle.pattern).toEqual([
+      { label: 'Horn Charge', damage: 4, block: 0 },
+    ]);
+    expect(ENEMY_TEMPLATES.fighting_beetle).toMatchObject({ def: 2, hardenDefOnHit: 1, abilities: ['Harden (1)'] });
     expect(ENEMY_TEMPLATES.rattler).toMatchObject({ maxHp: 10, def: 1 });
     expect(ENEMY_TEMPLATES.pink_slime).toMatchObject({ mdef: 1 });
     expect(ENEMY_TEMPLATES.zombie).toMatchObject({ mdef: 1 });

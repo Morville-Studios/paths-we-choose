@@ -67,6 +67,26 @@ export function formatEnemyAbilitiesHtml(abilities: string[]): string {
       if (/^Bloodlust\b/i.test(ability)) {
         return kwTokenHtml('Bloodlust', GLOSSARY_TOOLTIP_TEMPLATES.bloodlust());
       }
+      if (/^Summon\s*\(([^)]+)\)/i.test(ability)) {
+        const m = ability.match(/^Summon\s*\(([^)]+)\)/i);
+        const name = (m?.[1] ?? 'Enemy').trim();
+        return kwTokenHtml(`Summon (${name})`, GLOSSARY_TOOLTIP_TEMPLATES.summon(name));
+      }
+      if (/^Emergency\s*\(([^)]+)\)/i.test(ability)) {
+        const m = ability.match(/^Emergency\s*\(([^)]+)\)/i);
+        const name = (m?.[1] ?? 'Enemy').trim();
+        return kwTokenHtml(`Emergency (${name})`, GLOSSARY_TOOLTIP_TEMPLATES.emergency(name));
+      }
+      if (/^Inspired\s*\(([^)]+)\)/i.test(ability)) {
+        const m = ability.match(/^Inspired\s*\(([^)]+)\)/i);
+        const name = (m?.[1] ?? 'Enemy').trim();
+        return kwTokenHtml(`Inspired (${name})`, GLOSSARY_TOOLTIP_TEMPLATES.inspired(name));
+      }
+      if (/^Co-defended\s*\(([^)]+)\)/i.test(ability)) {
+        const m = ability.match(/^Co-defended\s*\(([^)]+)\)/i);
+        const name = (m?.[1] ?? 'Enemy').trim();
+        return kwTokenHtml(`Co-defended (${name})`, GLOSSARY_TOOLTIP_TEMPLATES.coDefended(name));
+      }
       if (/^Acid Retaliation:/i.test(ability)) {
         return kwTokenHtml('Thorn (1)', GLOSSARY_TOOLTIP_TEMPLATES.thorn(1));
       }

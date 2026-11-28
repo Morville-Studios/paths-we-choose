@@ -430,11 +430,11 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('tcg-textbox');
     expect(html).toContain('tcg-pattern-table');
     expect(html).toContain('T1:');
-    expect(html).toContain('T2:');
+    expect(html).not.toContain('T2:');
     expect(html).not.toContain('Cautious Poke');
     expect(html).toContain('enemy-stat-footer');
     expect(html).not.toContain('enemy-stats-row');
-    expect(html).not.toContain('data-enemy-stat="def"');
+    expect(html).toContain('aria-label="DEF: 1"');
     expect(html).toContain('aria-label="EVA: 3"');
 
     // Interactive Combat Status Dock below card (NEXT move & live HP bar)
@@ -507,7 +507,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('6 / 6 HP');
     expect(html).toContain('enemy-stat-footer');
     expect(html).not.toContain('enemy-stats-row');
-    expect(html).toContain('aria-label="DEF: 1"');
+    expect(html).toContain('aria-label="DEF: 2"');
     expect(html).toContain('aria-label="EVA: 1"');
     expect(html).not.toContain('data-enemy-stat="mdef"');
     expect(html).toContain('+2');
@@ -1301,7 +1301,7 @@ describe('Render Play Area and Shop Layout', () => {
   it('renders starting Village view directly on game start with Visit Village Shrine option', () => {
     const state = startAdventure('fighter', 'test-welcome');
     expect(state.welcomePreparing).toBe(false);
-    expect(state.playerResources?.statPoints).toBe(10);
+    expect(state.playerResources?.statPoints).toBe(20);
 
     const ui: UiState = {
       selectedClass: 'fighter',
@@ -1321,7 +1321,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('DEF');
     expect(html).toContain('MATK');
     expect(html).toContain('MDEF');
-    expect(html).toContain('20 Gold');
+    expect(html).toContain('50 Gold');
     expect(html).toContain('/icons/cha.png');
     expect(html).toContain('/icons/atk.png');
     expect(html).toContain('/icons/def.png');
@@ -1353,14 +1353,14 @@ describe('Render Play Area and Shop Layout', () => {
     const headerHtml = html.split('</header>')[0];
     expect(headerHtml).not.toContain('hud-res-chip');
     expect(headerHtml).not.toContain('20 Gold');
-    expect(headerHtml).not.toContain('10 SP');
+    expect(headerHtml).not.toContain('20 SP');
 
     // 3. Gold and SP appear in Character sidebar above health bar
     expect(html).toContain('hero-sidebar-resources');
     expect(html).toContain('hero-res-chip gold');
     expect(html).toContain('hero-res-chip sp');
-    expect(html).toContain('20 Gold');
-    expect(html).toContain('10 SP');
+    expect(html).toContain('50 Gold');
+    expect(html).toContain('20 SP');
     const resourcesIndex = html.indexOf('hero-sidebar-resources');
     const hpTrackIndex = html.indexOf('hero-sidebar-hp-track');
     expect(resourcesIndex).toBeLessThan(hpTrackIndex);
@@ -1597,7 +1597,7 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('Physical Attack (ATK):');
     expect(html).toContain('Physical Defense (DEF):');
     expect(html).toContain('currentBase &times; 10');
-    expect(html).toContain('10 Stat Points');
+    expect(html).toContain('20 Stat Points');
   });
 
   it('renders enemy cards without duplicate Enemy text, with visible inscribed rewards, and docked info box', () => {
@@ -1821,6 +1821,7 @@ describe('Render Play Area and Shop Layout', () => {
           },
           replacedBoonName: null,
           prayed: true,
+          meditating: true,
           chosenOptionId: 'blessing_str',
         },
       },
@@ -1836,13 +1837,14 @@ describe('Render Play Area and Shop Layout', () => {
     const html = renderPlayArea(state, ui);
     // 1. Shows granted boon box and eliminated prayer button
     expect(html).toContain('shrine-granted-box');
-    expect(html).toContain('Visiting this Sacred Shrine has granted you: <b>Blessing of Strength</b>!');
+    expect(html).toContain('You prayed at the Shrine of <b>the Sacred Shrine</b> and received <b>Blessing of Strength</b> (full HP restored)!');
     expect(html).toContain('Only 1 shrine blessing can be active at a time');
     expect(html).not.toContain('Pray to the Gods');
     expect(html).toContain('Leave Shrine &rarr;');
     expect(html).toContain('Grassland Shrine');
     expect(html).toContain('/cards/adventure/grassland_shrine.jpg');
-    expect(html).toContain('Current Character');
+    expect(html).toContain('Character & Gear');
+    expect(html).not.toContain('Current Character');
     expect(html).toContain('This Level 1 Shrine can raise a Base Stat only as high as <b>Base 2</b>');
 
     // 2. Stat converter options include right-click inspection attributes
@@ -1850,13 +1852,13 @@ describe('Render Play Area and Shop Layout', () => {
     expect(html).toContain('data-inspect-stat="dex"');
     expect(html).toContain('data-inspect-stat="agi"');
     expect(html).toContain('stat-info-pill');
-    expect(html.match(/class="player-info-widget"/g)).toHaveLength(2); // Map + Shrine use the same component.
+    expect(html.match(/class="player-info-widget"/g)).toHaveLength(1); // Map + Shrine use the same component.
     expect(html).toContain('shrine-lore-panel');
-    expect(html).toContain('data-action="select-shrine-stat"');
+    expect(html).toContain('data-action="request-shrine-stat-upgrade"');
     expect(html).toContain('data-action="request-leave-shrine"');
   });
 
-  it('selects Shrine stat rows before enabling one contextual upgrade action', () => {
+  it('enables or disables direct Shrine Upgrade buttons based on available SP', () => {
     let state = startAdventure('fighter', 'shrine-selection-seed');
     state = {
       ...state,
@@ -1868,23 +1870,22 @@ describe('Render Play Area and Shop Layout', () => {
           card: { ...ADVENTURE_CARD_CATALOG['advgrs-04'], id: 'shrine-selection-card', revealed: true },
         },
       },
-      activeHook: { type: 'SHRINE', shrine: { coord: { col: 0, row: 0 }, turn: 1, prayed: true } },
+      activeHook: { type: 'SHRINE', shrine: { coord: { col: 0, row: 0 }, turn: 1, prayed: true, meditating: true } },
     };
     const ui: UiState = {
-      selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0, selectedShrineStat: 'agi',
+      selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0,
     };
 
     const insufficient = renderPlayArea(state, ui);
-    const selectedAgi = insufficient.match(/<button[^>]*class="[^"]*shrine-stat-option[^"]*is-selected[^"]*"[\s\S]*?data-stat="agi"[\s\S]*?<\/button>/)?.[0] ?? '';
-    expect(selectedAgi).toContain('aria-pressed="true"');
-    expect(selectedAgi).not.toContain('disabled');
-    expect(insufficient).toContain('Needs 8 SP to upgrade AGI.');
-    expect(insufficient).not.toContain('data-action="request-shrine-stat-upgrade"');
+    const agiBtnInsufficient = insufficient.match(/<button[^>]*data-action="request-shrine-stat-upgrade" data-stat="agi"[^>]*>/)?.[0] ?? '';
+    expect(agiBtnInsufficient).toContain('disabled');
+    expect(insufficient).not.toContain('Select a stat to review its upgrade.');
 
     state = { ...state, playerResources: { ...state.playerResources!, statPoints: 10 } };
     const affordable = renderPlayArea(state, ui);
-    expect(affordable).toContain('data-action="request-shrine-stat-upgrade" data-stat="agi"');
-    expect(affordable).toContain('Upgrade AGI (10 SP)');
+    const agiBtnAffordable = affordable.match(/<button[^>]*data-action="request-shrine-stat-upgrade" data-stat="agi"[^>]*>/)?.[0] ?? '';
+    expect(agiBtnAffordable).not.toContain('disabled');
+    expect(affordable).toContain('Upgrade (10 SP)');
   });
 
   it('renders confirmations before a Shrine stat upgrade or leaving', () => {
@@ -1898,7 +1899,7 @@ describe('Render Play Area and Shop Layout', () => {
           card: { ...ADVENTURE_CARD_CATALOG['advgrs-04'], id: 'shrine-confirm-card', revealed: true },
         },
       },
-      activeHook: { type: 'SHRINE', shrine: { coord: { col: 0, row: 0 }, turn: 1, prayed: true } },
+      activeHook: { type: 'SHRINE', shrine: { coord: { col: 0, row: 0 }, turn: 1, prayed: true, meditating: true } },
     };
     const baseUi: UiState = { selectedClass: 'fighter', showDeck: false, villageTab: 'buy', targetIndex: 0, selectedShrineStat: 'agi' };
 

@@ -6,7 +6,7 @@ This is a current implementation/status map, not a historical milestone archive.
 
 - Strict TypeScript/Vite web application with separated core, content catalogs, DOM/CSS UI and automated tests.
 - Fighter, Wizard and Rogue; six Base Stats (`STR`, `DEX`, `AGI`, `INT`, `CHA`, `VIT`) of 1; Primary +2 and two Secondary +1 class bonuses; Berzerk, Conserve and Steal passives.
-- Effective starting HP: Fighter 16, Wizard 14, Rogue 14 before upgrades, gear or blessings; 10-card starter decks, class starting gear (Fighter: Iron Sword + Chainmail; Rogue: Dagger + Leather Gear; Wizard: Apprentice Staff + Robe), 20 Gold and 10 preparation SP.
+- Effective starting HP: Fighter 16, Wizard 14, Rogue 14 before upgrades, gear or blessings; 10-card starter decks, class starting gear (Fighter: Iron Sword + Chainmail; Rogue: Dagger + Leather Gear; Wizard: Apprentice Staff + Robe), 50 Gold and 20 preparation SP.
 - Base-stat upgrades priced `B * 10` at Turn 0 preparation and Shrines. One automatic eligible shrine boon, single active blessing, map expiry.
 - Three missions with 30-card Adventure Decks: The Goblin King, Cult of Trolls, and Tomb of the Fallen King, each with a Turn 15 boss encounter.
 - Grasslands, Forest, Swamp, Cave and Underground map cards, undiscovered exploration rolls, treasure finds, three-row lookahead and deck recycling.

@@ -60,7 +60,7 @@ export const KEYWORD_GLOSSARY: GlossaryEntry[] = [
     syntax: 'ACC (X[, D])',
     category: 'Defense & Recovery',
     ruleText: 'Grants +X immediate ACC for this attack. If a duration D is specified (e.g. ACC (1, 2)), it also persists up to the next turn(s).',
-    example: 'Scavenger T2: ATK (4), ACC (2); Stalker T1: EVA (1, 2), ACC (1).',
+    example: 'Scavenger T2: ATK (4), ACC (2); Stalker T2: ACC (1).',
   },
   {
     id: 'eva',
@@ -68,7 +68,7 @@ export const KEYWORD_GLOSSARY: GlossaryEntry[] = [
     syntax: 'EVA (X[, D])',
     category: 'Defense & Recovery',
     ruleText: 'Grants +X EVA for 1 turn, or up to the given duration D when a second parameter is specified.',
-    example: 'Stalker T1: EVA (1, 2), ACC (1) grants +1 EVA for 2 turns.',
+    example: 'EVA (1, 2) grants +1 EVA for 2 turns.',
   },
   {
     id: 'lsteal',
@@ -163,8 +163,32 @@ export const KEYWORD_GLOSSARY: GlossaryEntry[] = [
     term: 'Summon',
     syntax: 'Summon (Name)',
     category: 'Enemy Traits',
-    ruleText: 'Summons the named enemy from the Enemy Deck into battle (or returns one from discard on miss).',
-    example: 'Grundy Call Goblin: Summon (Goblin).',
+    ruleText: 'At the start of its turn, summons the named enemy from the Enemy Deck into battle (or returns one from discard on miss).',
+    example: 'Grundy Passive: Summon (Goblin).',
+  },
+  {
+    id: 'emergency',
+    term: 'Emergency',
+    syntax: 'Emergency (Name)',
+    category: 'Enemy Traits',
+    ruleText: 'Summons the named enemy from the Enemy Deck when dropping to 50% HP and 25% HP (or returns one from discard on miss).',
+    example: 'Grundy Passive: Emergency (Goblin).',
+  },
+  {
+    id: 'inspired',
+    term: 'Inspired',
+    syntax: 'Inspired (Name)',
+    category: 'Enemy Traits',
+    ruleText: 'Grants +1 ATK for each other living enemy of the named type in play.',
+    example: 'Grundy Passive: Inspired (Goblin).',
+  },
+  {
+    id: 'co_defended',
+    term: 'Co-defended',
+    syntax: 'Co-defended (Name)',
+    category: 'Enemy Traits',
+    ruleText: 'Grants +1 DEF for each other living enemy of the named type in play.',
+    example: 'Grundy Passive: Co-defended (Goblin).',
   },
 ];
 
@@ -232,7 +256,13 @@ export const GLOSSARY_TOOLTIP_TEMPLATES = {
   bloodlust: (): string =>
     'Grants +1 ATK when HP is below 50% Max HP, and +2 ATK when HP is below 25% Max HP.',
   summon: (name: string): string =>
-    `Summons ${name} from the Enemy Deck into battle (or returns one from discard on miss).`,
+    `At the start of its turn, summons ${name} from the Enemy Deck into battle (or returns one from discard on miss).`,
+  emergency: (name: string): string =>
+    `Summons ${name} from the Enemy Deck when dropping to 50% HP and 25% HP (or returns one from discard on miss).`,
+  inspired: (name: string): string =>
+    `Grants +1 ATK for each other living ${name} in play.`,
+  coDefended: (name: string): string =>
+    `Grants +1 DEF for each other living ${name} in play.`,
   hex: (summary: string): string =>
     `Applies a temporary Hero debuff: ${summary}.`,
   buff: (summary: string): string =>

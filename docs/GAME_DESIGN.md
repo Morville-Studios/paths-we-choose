@@ -35,7 +35,7 @@ Players can switch between English, Traditional Chinese, Simplified Chinese, Jap
      - **Wizard**: Primary `INT (+2)`, Secondary `DEX (+1), CHA (+1)` -> Starting Effective `STR 2, DEX 3, AGI 2, INT 4, CHA 3, VIT 2` (14 Max HP, 3 ACC, 2 EVA, 2 MATK, 0 MDEF, 3 ACT).
      - **Rogue**: Primary `AGI (+2)`, Secondary `DEX (+1), STR (+1)` -> Starting Effective `STR 3, DEX 3, AGI 4, INT 2, CHA 2, VIT 2` (14 Max HP, 3 ACC, 4 EVA, 2 ATK, 1 DEF, 3 ACT).
    - **Charisma (`CHA`)**: Each point of Effective CHA reduces the prices of purchaseable goods in Village Shops by **5%** (e.g. 1 CHA = 5% off, 2 CHA = 10% off; minimum 1 Gold).
-   - **Starting 10 Stat Points & Welcome Preparation Dialog**: Players start with **10 Stat Points (SP)** and are greeted with a preparation dialog on game start featuring the Shrine stat converter widget, requiring allocating starting SP to a Base Stat before taking their first step.
+   - **Starting 20 Stat Points & Welcome Preparation Dialog**: Players start with **20 Stat Points (SP)** and are greeted with a preparation dialog on game start featuring the Shrine stat converter widget, requiring allocating starting SP to a Base Stat before taking their first step.
    - Defeating Enemies rewards **Stat Points (`SP`)** (inscribed directly on the Enemy Card).
    - **Shrines (`hasShrine: true`)**: Players convert Stat Points into **Base Stats** at Shrines or during initial Turn 0 preparation. Upgrading a Base Stat from current level `B` to `B + 1` costs **`B * 10` Stat Points** (e.g. Base 1 -> 2 costs 10 SP, Base 2 -> 3 costs 20 SP, Base 3 -> 4 costs 30 SP). A Shrine can raise a Base Stat only through **Shrine Level + 1**: Level 1 permits Base `1 -> 2`, Level 2 also permits `2 -> 3`, and Level 3 permits through Base 4. Multiple legal upgrades can be purchased while SP remains. The modal shows the stepped-on Shrine card and the reusable live character/stat panel beside the upgrade controls.
    - **Automatic Shrine Boon**: Upon arrival, the player receives one eligible random boon, replacing the previous blessing (Cleanse, Blessing of {Stat} for `+1` map stat, Divine Protection for `+1 DEF` and `+1 MDEF`, or Revitalize).
@@ -167,7 +167,7 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
    - A rest-slider tick restores **1 HP** and costs **1 + Village Level Gold**. The last selectable tick is labelled **Full** and heals the final missing HP.
    - Rest is disabled at full HP and when the selected duration costs more Gold than the hero has. It restores HP only; it does not cleanse status ailments.
 2. **Shop (Village Merchant — Buy / Sell Equipment & Consumables)**:
-   - **Starting Gold**: Adventurers start every run with **20 Gold** (`gold: 20`).
+   - **Starting Gold**: Adventurers start every run with **50 Gold** (`gold: 50`).
    - **Treasure Deck & Dynamic Shop Stock**:
      - The physical item supply is generated from `data/treasures.json`. Each scenario activates its eligible levels in the Treasure Deck and keeps other levels in the public Void; see [CATALOGS.md](CATALOGS.md#shop-and-treasure) for current supply.
      - The shop no longer sells the entire catalog at once. On entering a Village, up to **`3 + Village Level` unique item cards** (Grassland 4, Forest 5, Swamp 6, Cave 7) are drawn from the top of the Treasure Deck and placed into `shopStock`. Eligible stock must match the Village's exact level (`item.level === village.level`), and any drawn card whose item is already in `shopStock` is discarded to `treasureDiscard` instead of creating a duplicate option. Wrong-level draws also go to `treasureDiscard`.
@@ -184,7 +184,7 @@ Welcome → Class Selection → Turn 0 Preparation → Map. Map tiles open Explo
 3. **Train (Guild Hall — Deck Improvement)**:
    - A sticky resource sidebar shows the hero's current Gold and SP plus the current learning/destruction costs.
    - Class-applicable offers are prepared on village entry by drawing from the visible **New Skills Deck**. Starter cards remain exclusive to the initial eight attack and two defense cards; every other class skill has two physical copies in this deck.
-   - Selecting a skill opens a purchase confirmation before resources are spent. Learning transfers that exact offer into the player's Action Deck and costs **5 Gold + 1 SP** for a 1 AP card, **10 Gold + 2 SP** for a 2 AP card, or **20 Gold + 4 SP** for a 3 AP card. Unlearned offers enter New Skills Discard on leaving and recycle deterministically only when the deck is empty.
+   - Selecting a skill opens a purchase confirmation before resources are spent. Learning transfers that exact offer into the player's Action Deck and costs **10 × 2^LVL Gold** (**20 Gold** for LVL 1, **40 Gold** for LVL 2, **80 Gold** for LVL 3) plus **5 × 2^LVL SP** (**10 SP** for LVL 1, **20 SP** for LVL 2, **40 SP** for LVL 3). Unlearned offers enter New Skills Discard on leaving and recycle deterministically only when the deck is empty.
    - **Destroy 1 Card** opens a destructive confirmation, then transfers that physical card from `playerMasterDeck` to the public **Void** (minimum deck size `5`). The first destruction costs **10 Gold**; later prices rise by 50% from the original base and round up: **15, 23, 34, 51 Gold**, and so on. Destroyed learnable cards still count toward their two physical copies and are not recreated by content reconciliation.
 
 ### 3.4 Undiscovered Terrains & Exploration Mechanic
@@ -448,7 +448,7 @@ Poison deals 1 HP damage at each subsequent hero End Turn before enemies act, do
 
 ## Stalker enemy
 
-Stalker (`mon1grs-06`, Level 2, Grasslands/Forest) has 8 HP, 0 DEF, 2 EVA, and 1 ACC. Alternates **Sprint** (+1 EVA and +1 ACC for two turns, lasting through Pounce) with **Pounce** (6 physical damage). **Skittish** grants an immediate +1 EVA per successful hit for the remainder of the hero turn, including blocked hits. Sprint refreshes without stacking; Skittish bonuses expire at hero End Turn. Current EVA affects subsequent attack rolls and displayed target odds. The Goblin King enemy deck includes 1 Stalker; Rewards: 3 SP and 10 Gold.
+Stalker (`mon1grs-06`, Level 2, Grasslands/Forest) has 10 HP, 0 DEF, 4 EVA, and 3 ACC. Alternates **Pounce** (T1: 6 physical damage) with **Sprint** (T2: +1 ACC for 1 turn, no EVA bonus). **Skittish** grants an immediate +1 EVA per attack attempt against it for the remainder of the hero turn, including misses and blocked hits. Skittish bonuses expire at hero End Turn. Current EVA affects subsequent attack rolls and displayed target odds. The Goblin King enemy deck includes 1 Stalker; Rewards: 3 SP and 10 Gold.
 
 Enemy types: **Leech — Undead**, **Creeper — Undead**, **Assasin — Human**, **Rattler — Reptile**. These catalog types appear on cards and in inspection and pile views.
 

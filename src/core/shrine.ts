@@ -73,6 +73,18 @@ export const PRAYER_OPTION_CATALOG: Record<ShrinePrayerOptionId, ShrinePrayerOpt
   },
 };
 
+export const SHRINE_DEITIES: Record<ShrinePrayerOptionId, string> = {
+  cleanse: 'Seraphina, Purifier of Waters',
+  blessing_str: 'Kaelor, God of Might',
+  blessing_dex: 'Vaelis, Goddess of Precision',
+  blessing_agi: 'Zephyra, Spirit of the Gale',
+  blessing_int: 'Aurelius, Keeper of the Arcane',
+  blessing_cha: 'Lyra, Patron of Fortune',
+  blessing_vit: 'Tarran, Warden of Vitality',
+  divine_protection: 'Solarius, Shield of Dawn',
+  revitalize: 'Elowen, Mother of Renewal',
+};
+
 export function createShrineState(
   coord: GridCoord,
   turn: number,
@@ -209,13 +221,47 @@ export function rollShrinePrayerOptions(
 }
 
 /**
- * Player chooses to pray at the altar. Generates 3 random eligible options.
+ * Player chooses to pray at the altar.
+ * If the shrine offers a deity blessing, praying grants that boon (overriding any prior blessing) and heals to full HP.
+ * Falls back to rolling 3 options only for legacy shrines without a pre-assigned offeredBoon.
  */
 export function shrinePray(state: RunState): RunState {
   if (state.activeHook.type !== 'SHRINE') return state;
   const shrine = state.activeHook.shrine;
-  if (shrine.prayed || shrine.prayOptions) return state;
+  if (shrine.prayed) return state;
 
+  if (shrine.offeredBoon) {
+    const boon = shrine.offeredBoon;
+    const { nextState: withBoon, replacedBoonName } = applySingleShrineBoon(state, boon.id);
+    const healedState: RunState = withBoon.playerResources
+      ? { ...withBoon, playerResources: { ...withBoon.playerResources, hp: withBoon.playerResources.maxHp } }
+      : withBoon;
+    const deity = shrine.deityName ?? 'the Shrine';
+    const banner = replacedBoonName
+      ? `Prayed at the Shrine of ${deity}: received ${boon.name} (replaced ${replacedBoonName}) and restored full HP!`
+      : `Prayed at the Shrine of ${deity}: received ${boon.name} and restored full HP!`;
+
+    return {
+      ...healedState,
+      activeHook: {
+        type: 'SHRINE',
+        shrine: {
+          ...shrine,
+          grantedBoon: boon,
+          replacedBoonName,
+          prayed: true,
+          chosenOptionId: boon.id,
+        },
+      },
+      gameLog: appendGameLog(
+        state,
+        `[${createTimestamp(state.logTimestamp)}] 🙏 Prayed at the Shrine of ${deity}: received ${boon.name} and restored full HP.`
+      ),
+      bannerMessage: banner,
+    };
+  }
+
+  if (shrine.prayOptions) return state;
   const { options, nextRng } = rollShrinePrayerOptions(state);
   return {
     ...state,
@@ -228,6 +274,21 @@ export function shrinePray(state: RunState): RunState {
       },
     },
     bannerMessage: 'The shrine answers your prayer with 3 divine boons. Choose one.',
+  };
+}
+
+/** Opens the Meditation workspace at a Shrine to convert Stat Points or master skills via the Void. */
+export function shrineMeditate(state: RunState): RunState {
+  if (state.activeHook.type !== 'SHRINE') return state;
+  const shrine = state.activeHook.shrine;
+  if (shrine.meditating) return state;
+  return {
+    ...state,
+    activeHook: {
+      type: 'SHRINE',
+      shrine: { ...shrine, meditating: true },
+    },
+    bannerMessage: 'You enter deep meditation. Convert Stat Points into Base Stats or master skills through the Void.',
   };
 }
 
@@ -308,43 +369,41 @@ export function applySingleShrineBoon(
 }
 
 /**
- * Automatically grants a random boon upon visiting a Sacred Shrine.
- * Replaces any previous shrine blessing (only 1 active blessing allowed).
+ * Enters a Sacred Shrine and discovers its presiding deity and offered blessing without automatically changing the player's active blessing.
  */
-export function grantShrineBoonOnEnter(
+export function enterShrine(
   state: RunState,
   coord: GridCoord,
   turn: number
 ): RunState {
-  const eligible = getEligiblePrayerOptions(state);
+  const eligible = getEligiblePrayerOptions(state).filter((opt) => opt.id !== 'revitalize');
   const { shuffled, nextState: nextRng } = shuffleArray(eligible, state.rngState);
-  const grantedBoon = shuffled[0];
-
-  const { nextState, replacedBoonName } = applySingleShrineBoon(
-    { ...state, rngState: nextRng },
-    grantedBoon.id
-  );
+  const offeredBoon = shuffled[0] ?? PRAYER_OPTION_CATALOG.divine_protection;
+  const deityName = SHRINE_DEITIES[offeredBoon.id];
 
   const shrineState: ActiveShrineState = {
     coord,
     turn,
-    grantedBoon,
-    replacedBoonName,
-    prayed: true,
-    chosenOptionId: grantedBoon.id,
+    deityName,
+    offeredBoon,
+    prayed: false,
+    meditating: false,
   };
-
-  const banner = replacedBoonName
-    ? `The Sacred Shrine grants you ${grantedBoon.name}! (Replaced ${replacedBoonName})`
-    : `The Sacred Shrine grants you ${grantedBoon.name}!`;
 
   return {
-    ...nextState,
+    ...state,
+    rngState: nextRng,
     activeHook: { type: 'SHRINE', shrine: shrineState },
-    gameLog: appendGameLog(state, `[${createTimestamp(state.logTimestamp)}] ✦ Visited Sacred Shrine: granted boon ${grantedBoon.name}!`),
-    bannerMessage: banner,
+    gameLog: appendGameLog(
+      state,
+      `[${createTimestamp(state.logTimestamp)}] ✦ Discovered the Shrine of ${deityName} (${offeredBoon.name}).`
+    ),
+    bannerMessage: `You discover the Shrine of ${deityName}, who grants ${offeredBoon.name} to travellers.`,
   };
 }
+
+/** @deprecated Use enterShrine. */
+export const grantShrineBoonOnEnter = enterShrine;
 
 /**
  * Selects 1 of the offered prayer options and applies its blessing.

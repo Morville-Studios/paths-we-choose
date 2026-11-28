@@ -279,6 +279,7 @@ export function playActionCardFromHand(
           isTriples: false,
           damageDealt,
           damageBlocked,
+          incomingDamage: effect.damage,
           defenseType: card.damageScalingStat === 'int' ? 'MDEF' : 'DEF',
           damageDefReduced,
           damagePenetrated,

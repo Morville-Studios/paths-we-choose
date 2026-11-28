@@ -27,6 +27,7 @@ import {
   rollPathGoldStash,
   shrineChoosePrayerOption,
   shrineDoChoosePrayer,
+  shrineMeditate,
   shrinePray,
   shrineUpgradeStat,
   startAdventure,
@@ -141,12 +142,12 @@ describe('stats', () => {
   it('fighter and wizard start with the documented effective stats and HP', () => {
     const f = start('fighter');
     expect(f.playerResources?.maxHp).toBe(16);
-    expect(f.playerResources?.statPoints).toBe(10);
+    expect(f.playerResources?.statPoints).toBe(20);
     expect(f.welcomePreparing).toBe(false);
 
     const w = start('wizard');
     expect(w.playerResources?.maxHp).toBe(14);
-    expect(w.playerResources?.statPoints).toBe(10);
+    expect(w.playerResources?.statPoints).toBe(20);
     expect(w.welcomePreparing).toBe(false);
   });
 
@@ -377,10 +378,12 @@ describe('movement and conservation', () => {
     const combat = s.activeHook.combat;
     s = {
       ...s,
+      playerResources: s.playerResources ? { ...s.playerResources, hp: s.playerResources.maxHp } : s.playerResources,
       activeHook: {
         type: 'COMBAT',
         combat: {
           ...combat,
+          hand: [{ id: 'test_finish', instanceId: 'test_finish', name: 'Finish', classId: 'fighter', cardType: 'attack', apCost: 1, baseDamage: 20, baseBlock: 0, accBonus: 20 }],
           enemies: combat.enemies.map((m) => ({ ...m, hp: 1, block: 0 })),
         },
       },
@@ -583,6 +586,13 @@ describe('village', () => {
   it('rounds each removal price from the original 10 Gold base', () => {
     expect(Array.from({ length: 6 }, (_, trainRemovalCount) => getTrainRemovalCost({ trainRemovalCount })))
       .toEqual([10, 15, 23, 34, 51, 76]);
+  });
+
+  it('prices Action Card learning at 10 * 2^level Gold and 5 * 2^level SP', () => {
+    expect(getTrainingSkillCost({ apCost: 1 })).toEqual({ gold: 20, statPoints: 10 });
+    expect(getTrainingSkillCost({ apCost: 1, level: 1 })).toEqual({ gold: 20, statPoints: 10 });
+    expect(getTrainingSkillCost({ apCost: 2, level: 2 })).toEqual({ gold: 40, statPoints: 20 });
+    expect(getTrainingSkillCost({ apCost: 3, level: 3 })).toEqual({ gold: 80, statPoints: 40 });
   });
 });
 
@@ -835,11 +845,28 @@ describe('shrine', () => {
     expect(s.activeHook.type).toBe('SHRINE');
     if (s.activeHook.type !== 'SHRINE') throw new Error('expected shrine');
 
-    // Shrine automatically granted a boon upon enter
-    expect(s.activeHook.shrine.grantedBoon).toBeDefined();
+    // Shrine discovers a deity & offered boon without changing active blessing automatically
+    expect(s.activeHook.shrine.deityName).toBeDefined();
+    expect(s.activeHook.shrine.offeredBoon).toBeDefined();
+    expect(s.activeHook.shrine.grantedBoon).toBeUndefined();
+    expect(s.activeHook.shrine.prayed).toBe(false);
+    expect(s.activeBlessingId).toBeNull();
+    expect(s.bannerMessage).toContain(s.activeHook.shrine.deityName!);
+    expect(s.bannerMessage).toContain(s.activeHook.shrine.offeredBoon!.name);
+
+    // Praying grants the boon and heals to full HP
+    s = { ...s, playerResources: { ...s.playerResources!, hp: 4 } };
+    s = shrinePray(s);
+    if (s.activeHook.type !== 'SHRINE') throw new Error('expected shrine');
     expect(s.activeHook.shrine.prayed).toBe(true);
-    expect(s.activeBlessingId).toBe(s.activeHook.shrine.grantedBoon?.id);
-    expect(s.bannerMessage).toContain(s.activeHook.shrine.grantedBoon!.name);
+    expect(s.activeHook.shrine.grantedBoon).toEqual(s.activeHook.shrine.offeredBoon);
+    expect(s.activeBlessingId).toBe(s.activeHook.shrine.offeredBoon?.id);
+    expect(s.playerResources?.hp).toBe(s.playerResources?.maxHp);
+
+    // Meditating opens stat conversion / Void mastery
+    s = shrineMeditate(s);
+    if (s.activeHook.type !== 'SHRINE') throw new Error('expected shrine');
+    expect(s.activeHook.shrine.meditating).toBe(true);
   });
 
   it('only 1 shrine blessing can be active at a time; getting another replaces the previous one', () => {
@@ -1185,15 +1212,14 @@ describe('new enemy mechanics: Bullwark impulse and Zombie lifesteal', () => {
     expect(treeSnapper.pattern).toEqual([{ label: 'Snapping Jaws', damage: 6, block: 0 }]);
   });
 
-  it('Blob Ooze Bump deals 3 DMG and restores 1 HP', () => {
+  it('Blob Ooze Bump deals 4 DMG and restores 2 HP', () => {
     const slime = { ...ENEMY_TEMPLATES.pink_slime, id: 'm_slime' };
-    expect(slime.maxHp).toBe(8);
+    expect(slime.maxHp).toBe(10);
     expect(slime.goldReward).toBe(5);
     expect(slime.statPointReward).toBe(2);
     expect(slime.acc).toBe(0);
-    expect(slime.def).toBe(1);
-    expect(slime.pattern[0]).toEqual({ label: 'Ooze Bump', damage: 3, block: 0, heal: 1 });
-    expect(slime.pattern[1]).toEqual({ label: 'Acid Glob', damage: 4, block: 0 });
+    expect(slime.def).toBe(0);
+    expect(slime.pattern).toEqual([{ label: 'Ooze Bump', damage: 4, block: 0, heal: 2 }]);
 
     const cm: CombatEnemy = {
       enemy: slime,
@@ -1225,8 +1251,8 @@ describe('new enemy mechanics: Bullwark impulse and Zombie lifesteal', () => {
     const next = endTurn(s);
     if (next.activeHook.type === 'COMBAT') {
       const mon = next.activeHook.combat.enemies[0];
-      expect(mon.hp).toBe(3); // Healed +1 HP from 2
-      expect(next.activeHook.combat.combatLog.some((l) => l.includes('Blob restores +1 HP'))).toBe(true);
+      expect(mon.hp).toBe(4); // Healed +2 HP from 2
+      expect(next.activeHook.combat.combatLog.some((l) => l.includes('Blob restores +2 HP'))).toBe(true);
     }
   });
 
@@ -1614,10 +1640,10 @@ describe('Charisma (CHA) price discounts and goods pricing', () => {
   });
 });
 
-describe('Starting Village Shrine and 10 starting Stat Points', () => {
-  it('players start with 10 stat points and can immediately upgrade Base Stats at the starting Village Shrine', () => {
+describe('Starting Village Shrine and 20 starting Stat Points', () => {
+  it('players start with 20 stat points and can immediately upgrade Base Stats at the starting Village Shrine', () => {
     const s = start('fighter');
-    expect(s.playerResources?.statPoints).toBe(10);
+    expect(s.playerResources?.statPoints).toBe(20);
     expect(s.welcomePreparing).toBe(false);
     expect(s.playerBaseStats.str).toBe(1);
     expect(s.playerResources?.maxHp).toBe(16);
@@ -1629,19 +1655,19 @@ describe('Starting Village Shrine and 10 starting Stat Points', () => {
     // Upgrade VIT right away at the village shrine: Base 1 -> 2 costs 1 * 10 = 10 SP
     const upgraded = shrineUpgradeStat(atShrine, 'vit');
     expect(upgraded.playerBaseStats.vit).toBe(2);
-    expect(upgraded.playerResources?.statPoints).toBe(0); // 10 - 10 = 0
+    expect(upgraded.playerResources?.statPoints).toBe(10); // 20 - 10 = 10
     expect(upgraded.playerResources?.maxHp).toBe(beforeMaxHp + 2);
     expect(upgraded.playerResources?.hp).toBe(beforeMaxHp + 2);
   });
 });
 
-describe('Starting 20 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () => {
-  it('players start with 20 Gold on adventure start', () => {
+describe('Starting 50 Gold, New Shop Items, and DEF/MATK/MDEF Combat Stats', () => {
+  it('players start with 50 Gold on adventure start', () => {
     const fighter = start('fighter');
-    expect(fighter.playerResources?.gold).toBe(20);
+    expect(fighter.playerResources?.gold).toBe(50);
 
     const wizard = start('wizard');
-    expect(wizard.playerResources?.gold).toBe(20);
+    expect(wizard.playerResources?.gold).toBe(50);
   });
 
   it('shop catalog contains all 50 items with clean names, correct levels, prices, and bonuses', () => {
@@ -3304,7 +3330,7 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
     it('subtracts enemy DEF from hero damage before block and HP', () => {
       let s = start('fighter');
       const beetle = { ...ENEMY_TEMPLATES.fighting_beetle, id: 'beetle_def_test' };
-      expect(beetle.def).toBe(1);
+      expect(beetle.def).toBe(2);
       s = {
         ...s,
         activeHook: {
@@ -3342,9 +3368,9 @@ describe('Hero Passives, Rogue Class, and Level 2 Equipment', () => {
         if (after.activeHook.type !== 'COMBAT') continue;
         const roll = after.activeHook.combat.lastAttackRoll!;
         if (!roll.isHit) continue;
-        expect(roll.damageDefReduced).toBe(1);
-        expect(roll.damageDealt).toBe(3);
-        expect(after.activeHook.combat.enemies[0].hp).toBe(2);
+        expect(roll.damageDefReduced).toBe(2);
+        expect(roll.damageDealt).toBe(2);
+        expect(after.activeHook.combat.enemies[0].hp).toBe(3);
         return;
       }
       throw new Error('No non-crit hit seed found');
@@ -3597,9 +3623,15 @@ describe("The Goblin King enemy deck", () => {
       expect(s.activeHook.type).toBe('SHRINE');
       if (s.activeHook.type !== 'SHRINE') return;
       expect(s.activeHook.shrine.shrineCard?.cardNumber).toBe('advgrs-04');
+      expect(s.activeHook.shrine.offeredBoon).toBeDefined();
+      expect(s.activeHook.shrine.prayed).toBe(false);
+      expect(s.activeHook.shrine.alreadyVisited).toBeUndefined();
+
+      // Pray to receive the offered boon
+      s = shrinePray(s);
+      if (s.activeHook.type !== 'SHRINE') return;
       const firstBoon = s.activeHook.shrine.grantedBoon;
       expect(firstBoon).toBeDefined();
-      expect(s.activeHook.shrine.alreadyVisited).toBeUndefined();
 
       // Upgrade a stat while at the village shrine
       s = { ...s, playerResources: { ...s.playerResources!, statPoints: 20 } };

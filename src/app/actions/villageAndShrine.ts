@@ -4,6 +4,7 @@ import {
   leaveShrine,
   sellItem,
   shrineDoChoosePrayer,
+  shrineMeditate,
   shrinePray,
   shrineUpgradeSkill,
   shrineUpgradeStat,
@@ -47,6 +48,10 @@ export const villageAndShrineActions: Record<string, ActionHandler> = {
 
   'shrine-pray': ({ store }) => {
     store.update(shrinePray);
+  },
+
+  'shrine-meditate': ({ store }) => {
+    store.update(shrineMeditate);
   },
 
   'shrine-choose-prayer': ({ store }, { id }) => {

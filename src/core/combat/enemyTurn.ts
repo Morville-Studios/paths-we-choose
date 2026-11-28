@@ -102,6 +102,19 @@ export function endPlayerCombatTurn(state: RunState): RunState {
       cm.hp += regenAmt;
       logEntries.push(`[${createTimestamp(state.logTimestamp)}] 💚 ${cm.enemy.name} — Regen: gains +${regenAmt} HP on activation (${cm.hp}/${cm.enemy.maxHp} HP).`);
     }
+    if (cm.enemy.summonOnTurnStart && cm.hp > 0) {
+      rngState = summonEnemyFromDeckOrDiscard({
+        templateId: cm.enemy.summonOnTurnStart,
+        fallbackTemplateId: cm.enemy.summonOnTurnStart,
+        summonerName: cm.enemy.name,
+        enemyDeck,
+        enemyDiscard,
+        enemies,
+        rngState,
+        logTimestamp: state.logTimestamp,
+        logEntries,
+      });
+    }
     const activeNegativeEffectCount = activeHexes.filter((effect) => effect.turnsRemaining > 0).length
       + (state.statusEffects?.length ?? 0)
       + (currentEvaDebuffTurns > 0 ? 1 : 0);
@@ -468,6 +481,7 @@ export function endPlayerCombatTurn(state: RunState): RunState {
           isTriples: false,
           damageDealt,
           damageBlocked,
+          incomingDamage: hitDmg + (intent.magicDamage ?? 0),
           defenseType,
           damageDefReduced: defReduction,
           damageProtReduced: 0,

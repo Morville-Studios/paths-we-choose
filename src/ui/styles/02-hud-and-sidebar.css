@@ -2,9 +2,7 @@
    HUD & Tabletop Boardgame Turn Tracker
    =========================================================================== */
 .hud {
-  position: sticky;
-  top: 8px;
-  z-index: 40;
+  position: static;
   background: linear-gradient(180deg, rgba(20, 27, 41, 0.96) 0%, rgba(13, 18, 28, 0.98) 100%);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);

@@ -15,7 +15,6 @@ import {
   AdventureCard,
   CombatVictoryState,
   RunState,
-  StatKey,
   STATS,
 } from '../../core/types';
 import { renderAdventureCardHtml } from '../adventureCard';
@@ -27,21 +26,22 @@ import { PendingShrineAction, UiState } from '../types';
 import {
   actionCardHtml,
   formatEnemySubtype,
-  playerInfoWidgetHtml,
   renderTcgItemCard,
   renderTcgPathCard,
   voidCardCount,
 } from '../render';
-function shrinePrayerSection(shrine: ActiveShrineState): string {
+function shrinePrayerSection(state: RunState, shrine: ActiveShrineState): string {
   const boon = shrine.grantedBoon ?? (shrine.chosenOptionId ? PRAYER_OPTION_CATALOG[shrine.chosenOptionId] : null);
-  if (boon) {
+  const deity = shrine.deityName ?? 'the Sacred Shrine';
+
+  if (shrine.prayed && boon) {
     const replacedNotice = shrine.replacedBoonName
       ? `<div class="shrine-replaced-note">Note: Only 1 shrine blessing can be active at a time. Previous blessing (<b>${shrine.replacedBoonName}</b>) was replaced.</div>`
-      : `<div class="shrine-replaced-note">Note: Only 1 shrine blessing can be active at a time. Visiting another shrine will replace this boon.</div>`;
+      : `<div class="shrine-replaced-note">Note: Only 1 shrine blessing can be active at a time. Praying at another shrine will replace this boon.</div>`;
 
     const heading = shrine.alreadyVisited
-      ? `You already received your blessing of <b>${boon.name}</b> from this shrine.`
-      : `Visiting this Sacred Shrine has granted you: <b>${boon.name}</b>!`;
+      ? `You already prayed at the Shrine of <b>${deity}</b> and received <b>${boon.name}</b>.`
+      : `You prayed at the Shrine of <b>${deity}</b> and received <b>${boon.name}</b> (full HP restored)!`;
     const eyebrow = shrine.alreadyVisited ? 'Already Blessed' : 'Sacred Blessing Granted';
 
     return `
@@ -55,6 +55,29 @@ function shrinePrayerSection(shrine: ActiveShrineState): string {
       </div>
       <p class="shrine-granted-desc">${boon.description}</p>
       ${replacedNotice}
+    </div>`;
+  }
+
+  if (shrine.offeredBoon) {
+    const currentBoon = state.activeBlessingId ? PRAYER_OPTION_CATALOG[state.activeBlessingId] : null;
+    const overrideNote = currentBoon
+      ? `<div class="shrine-replaced-note">Praying will override your current blessing (<b>${currentBoon.name}</b>) and restore your HP to full.</div>`
+      : `<div class="shrine-replaced-note">Praying grants this blessing and restores your HP to full.</div>`;
+
+    return `
+    <div class="shrine-granted-box">
+      <div class="shrine-granted-header">
+        <span class="shrine-granted-icon">&#10024;</span>
+        <div class="shrine-granted-title">
+          <span class="shrine-granted-eyebrow">Shrine of ${deity}</span>
+          <h3>You arrive and discover the Shrine of <b>${deity}</b>, who grants <b>${shrine.offeredBoon.name}</b> to travellers.</h3>
+        </div>
+      </div>
+      <p class="shrine-granted-desc">${shrine.offeredBoon.description}</p>
+      ${overrideNote}
+      <div class="shrine-prayer-actions">
+        <button class="btn primary" data-action="shrine-pray">🙏 Pray</button>
+      </div>
     </div>`;
   }
 
@@ -131,12 +154,11 @@ function shrineSkillUpgradeSection(state: RunState): string {
 export function statUpgradeWidgetHtml(
   state: RunState,
   action = 'shrine-upgrade',
-  selectedStat: StatKey | null = null,
 ): string {
   const res = state.playerResources!;
   const eff = getEffectiveStatsFromState(state);
   const shrineCap = action === 'shrine-upgrade' ? getActiveShrineBaseStatCap(state) : null;
-  const isShrineSelection = action === 'shrine-upgrade';
+  const buttonAction = action === 'shrine-upgrade' ? 'request-shrine-stat-upgrade' : action;
 
   const rows = STATS.map((s) => {
     const base = state.playerBaseStats[s];
@@ -165,68 +187,24 @@ export function statUpgradeWidgetHtml(
           <small>Base ${base} &rarr; ${base + 1} &middot; cost ${cost} SP</small>
         </span>
         <span class="stat-info-pill" title="View stat breakdown">&#9432;</span>
-      </span>
-      ${isShrineSelection ? `<span class="shrine-stat-option-status">${atShrineCap ? `Max Base ${shrineCap}` : `${cost} SP`}</span>` : ''}`;
-
-    if (isShrineSelection) {
-      return `
-      <button type="button" class="shop-row shrine-stat-option inspectable-stat ${selectedStat === s ? 'is-selected' : ''} ${atShrineCap ? 'is-capped' : ''}"
-        data-action="select-shrine-stat" data-stat="${s}" data-inspect-stat="${s}"
-        aria-pressed="${selectedStat === s ? 'true' : 'false'}"
-        title="Select ${s.toUpperCase()} for upgrading. Right-click for the full stat breakdown.">
-        ${rowContents}
-      </button>`;
-    }
+      </span>`;
 
     return `
     <div class="shop-row inspectable-stat"
       data-action="inspect-stat" data-stat="${s}" data-inspect-stat="${s}"
       title="Click or right-click to view full ${s.toUpperCase()} computation & next SP breakdown">
       ${rowContents}
-      <button class="btn mini" data-action="${action}" data-stat="${s}" ${can ? '' : 'disabled'}>
+      <button class="btn mini primary" data-action="${buttonAction}" data-stat="${s}" ${can ? '' : 'disabled'}>
         ${atShrineCap ? `Max Base ${shrineCap}` : `Upgrade (${cost} SP)`}
       </button>
     </div>`;
   }).join('');
 
-  let shrineActionHtml = '';
-  if (isShrineSelection) {
-    if (!selectedStat) {
-      shrineActionHtml = '<div class="shrine-stat-action-message">Select a stat to review its upgrade.</div>';
-    } else {
-      const selectedBase = state.playerBaseStats[selectedStat];
-      const selectedCost = getBaseStatUpgradeCost(selectedBase);
-      const selectedAtCap = shrineCap !== null && selectedBase >= shrineCap;
-      const missingSp = Math.max(0, selectedCost - res.statPoints);
-      shrineActionHtml = selectedAtCap
-        ? `<div class="shrine-stat-action-message is-capped">${selectedStat.toUpperCase()} is already at this Shrine's maximum Base ${shrineCap}.</div>`
-        : missingSp > 0
-          ? `<div class="shrine-stat-action-message is-needed">Needs ${missingSp} SP to upgrade ${selectedStat.toUpperCase()}.</div>`
-          : `<button class="btn primary big shrine-stat-upgrade-btn" data-action="request-shrine-stat-upgrade" data-stat="${selectedStat}">
-              Upgrade ${selectedStat.toUpperCase()} (${selectedCost} SP)
-            </button>`;
-    }
-  }
-
-  const rowsAndAction = `
-    <div class="shop-list shrine-stat-options">${rows}</div>
-    ${isShrineSelection ? `<div class="shrine-stat-action-area">${shrineActionHtml}</div>` : ''}`;
-
   return `
   <div class="shrine-section stat-converter-section">
     <h3>Convert Stat Points into Base Stats</h3>
-    <p class="muted">${getResourceIcon('sp', 'chip-icon')} Stat Points: <b>${res.statPoints} SP</b></p>
     ${shrineCap !== null ? `<p class="shrine-stat-cap">This Level ${shrineCap - 1} Shrine can raise a Base Stat only as high as <b>Base ${shrineCap}</b>.</p>` : ''}
-    ${isShrineSelection
-      ? `<div class="shrine-stat-workspace">
-          ${playerInfoWidgetHtml(state, {
-            title: 'Current Character',
-            description: 'Select a stat on the right to preview its upgrade.',
-            showGear: false,
-          })}
-          <div class="shrine-stat-choice-panel">${rowsAndAction}</div>
-        </div>`
-      : rowsAndAction}
+    <div class="shop-list shrine-stat-options">${rows}</div>
   </div>`;
 }
 
@@ -796,18 +774,26 @@ export function victoryModal(
   </div>`;
 }
 
-export function shrineModal(state: RunState, ui: UiState): string {
+export function shrineModal(state: RunState, _ui: UiState): string {
   const shrine = state.activeHook.type === 'SHRINE' ? state.activeHook.shrine : null;
-  const prayerHtml = shrine ? shrinePrayerSection(shrine) : '';
+  const prayerHtml = shrine ? shrinePrayerSection(state, shrine) : '';
   const node = shrine ? state.board[coordToKey(shrine.coord)] : null;
   const shrineCard = shrine?.shrineCard ?? node?.attachedShrineCard ?? node?.card ?? null;
   const shrineLevel = shrineCard?.level ?? 0;
   const leaveLabel = shrine?.returnToVillage ? 'Back to Village &rarr;' : 'Leave Shrine &rarr;';
+  const isMeditating = Boolean(shrine?.meditating);
+  const meditateHtml = isMeditating
+    ? `${statUpgradeWidgetHtml(state, 'shrine-upgrade')}
+       ${shrineSkillUpgradeSection(state)}`
+    : `<section class="shrine-section shrine-meditate-prompt">
+        <h3>🧘 Meditate</h3>
+        <p class="muted">Be reborn stronger—convert your Stat Points to increase Base Stats or master skills through the Void.</p>
+        <button class="btn primary" data-action="shrine-meditate">🧘 Meditate</button>
+      </section>`;
 
   return `
-  <div class="modal-backdrop">
-    <div class="modal shrine-modal">
-      <header class="shrine-modal-heading">
+  <section class="shrine-view shrine-component modal shrine-modal" aria-label="Sacred Shrine">
+    <header class="shrine-modal-heading">
         <div>
           <span class="shrine-heading-eyebrow">Sacred Shrine · Level ${shrineLevel}</span>
           <h2>&#10022; ${shrineCard?.name ?? 'Sacred Shrine'}</h2>
@@ -825,16 +811,14 @@ export function shrineModal(state: RunState, ui: UiState): string {
         </aside>
         <div class="shrine-services-column">
           ${prayerHtml}
-          ${statUpgradeWidgetHtml(state, 'shrine-upgrade', ui.selectedShrineStat ?? null)}
-          ${shrineSkillUpgradeSection(state)}
+          ${meditateHtml}
         </div>
       </div>
 
       <div class="modal-actions">
         <button class="btn primary big" data-action="request-leave-shrine">${leaveLabel}</button>
       </div>
-    </div>
-  </div>`;
+  </section>`;
 }
 
 export function shrineConfirmModal(state: RunState, pending: PendingShrineAction): string {

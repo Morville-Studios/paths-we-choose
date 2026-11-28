@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createCombatSession,
+  endPlayerCombatTurn,
   getEnemyEffectiveAtk,
   getEnemyEffectiveDef,
   getEnemyIntent,
@@ -48,13 +49,29 @@ function grundyBattle(
 describe('Grundy boss rules', () => {
   it('uses the Level 5 stats, passive summon abilities, and reward inscription', () => {
     expect(createBossEnemyCard()).toMatchObject({
-      name: 'Grundy', level: 5, maxHp: 36, def: 3, mdef: 2, acc: 3, eva: 3,
+      name: 'Grundy', level: 5, maxHp: 36, def: 3, mdef: 2, acc: 4, eva: 3,
       goldReward: 50, statPointReward: 12,
+      summonOnTurnStart: 'goblin',
       abilities: [
-        "Grundy's ATK and DEF increases for each other goblin enemies in play",
-        'Summons a Goblin from the Enemy Deck at 50% HP and 25% HP',
+        'Summon (Goblin)',
+        'Emergency (Goblin)',
+        'Inspired (Goblin)',
+        'Co-defended (Goblin)',
       ],
     });
+  });
+
+  it('summons a Goblin from the Enemy Deck at the start of each of his turns', () => {
+    const goblinOne = enemy('goblin', 'turn-goblin-1');
+    const goblinTwo = enemy('goblin', 'turn-goblin-2');
+    const state = grundyBattle([goblinOne, goblinTwo]);
+    const afterTurn1 = endPlayerCombatTurn(state);
+    if (afterTurn1.activeHook.type !== 'COMBAT') throw new Error('expected combat');
+    expect(afterTurn1.activeHook.combat.enemies.map(entry => entry.enemy.id)).toEqual([
+      'boss_goblin_chieftain', 'turn-goblin-1',
+    ]);
+    expect(afterTurn1.activeHook.combat.enemies[1].isSummon).toBe(true);
+    expect(afterTurn1.enemyDeck.map(card => card.id)).toEqual(['turn-goblin-2']);
   });
 
   it('attacks immediately with Goblin March (6 physical damage)', () => {

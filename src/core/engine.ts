@@ -69,9 +69,10 @@ import {
 } from './village';
 import {
   clearMapBlessings,
-  grantShrineBoonOnEnter,
+  enterShrine,
   upgradeShrineSkill,
   shrineChoosePrayerOption,
+  shrineMeditate,
   shrinePray,
 } from './shrine';
 import {
@@ -267,7 +268,7 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     currentMission: 1,
     missionName: STAGE_1_MISSION_NAME,
     scenarioLevel: STAGE_1_SCENARIO_LEVEL,
-    playerResources: { hp: maxHp, maxHp, statPoints: 10, gold: 20 },
+    playerResources: { hp: maxHp, maxHp, statPoints: 20, gold: 50 },
     playerMasterDeck: buildStarterCombatDeck(classId),
     newSkillsDeck: skills.deck,
     newSkillsDiscard: [],
@@ -288,7 +289,7 @@ export function startAdventure(classId: ClassId, seed: string): RunState {
     pathHistory: [startCoord],
     gameLog: [
       `[${createTimestamp(undefined)}] 🗺️ Embarked on Scenario 1: ${STAGE_1_MISSION_NAME} as a ${classDef.name}.`,
-      `[${createTimestamp(undefined)}] 🎴 Dealt initial adventure board (9 cards). Starting with 10 Stat Points and 20 Gold.`,
+      `[${createTimestamp(undefined)}] 🎴 Dealt initial adventure board (9 cards). Starting with 20 Stat Points and 50 Gold.`,
     ],
     bannerMessage: `Embarked on ${STAGE_1_MISSION_NAME}. You begin at ${starting.villageCard.name ?? 'the starting village'}.`,
     welcomePreparing: false,
@@ -420,7 +421,7 @@ export function chooseCard(state: RunState, coord: GridCoord): RunState {
       bannerMessage: `You arrive at ${card.name ?? 'a village'}. Services are available while you visit.`,
     }, chosen.coord, turn);
   } else if (card.hasShrine) {
-    next = grantShrineBoonOnEnter(next, chosen.coord, turn);
+    next = enterShrine(next, chosen.coord, turn);
   } else if (isUndiscoveredTerrain(card)) {
     const drawnPath = drawPathCardWithReshuffle(
       next.pathsDeck ?? [],
@@ -1509,7 +1510,7 @@ export function shrineUpgradeSkill(state: RunState, sourceInstanceId: string): R
 
 export const shrinePrayAction = shrinePray;
 export const shrineChoosePrayerAction = shrineChoosePrayerOption;
-export { shrinePray, shrineChoosePrayerOption, clearMapBlessings, calculateRestCost };
+export { shrinePray, shrineMeditate, shrineChoosePrayerOption, clearMapBlessings, calculateRestCost };
 
 export function villageVisitShrine(state: RunState): RunState {
   if (state.activeHook.type !== 'VILLAGE') return state;
@@ -1539,7 +1540,7 @@ export function villageVisitShrine(state: RunState): RunState {
     });
   }
 
-  const entered = grantShrineBoonOnEnter(state, village.coord, village.turn);
+  const entered = enterShrine(state, village.coord, village.turn);
   if (entered.activeHook.type !== 'SHRINE') return entered;
   return syncAudioState({
     ...entered,

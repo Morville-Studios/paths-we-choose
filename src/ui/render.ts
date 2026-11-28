@@ -1222,7 +1222,7 @@ export function renderPlayAreaOverlays(state: RunState, ui: UiState): string {
   return `
     ${ui.inspectedPile ? pileModal(ui.inspectedPile, state) : ''}
     ${ui.showDeck ? pileModal('player_deck', state) : ''}
-    ${renderHook(state, ui)}
+    ${renderHook(state)}
     ${ui.pendingCardPlay && state.activeHook.type === 'COMBAT' ? combatConfirmModal(state, state.activeHook.combat, ui.pendingCardPlay, stats) : ''}
     ${ui.pendingDiceRolls && ui.pendingDiceRolls.length > 0 ? combatDiceRollModal(ui.pendingDiceRolls[0]) : ''}
     ${ui.pendingFlee && state.activeHook.type === 'COMBAT' ? fleeConfirmModal(state, state.activeHook.combat, stats) : ''}
@@ -1251,6 +1251,8 @@ export function renderPlayArea(state: RunState, ui: UiState): string {
     ? combatViewHtml(state, state.activeHook.combat, ui, stats)
     : state.activeHook.type === 'VILLAGE'
     ? villageViewHtml(state, state.activeHook.village, ui)
+    : state.activeHook.type === 'SHRINE'
+    ? shrineModal(state, ui)
     : state.activeHook.type === 'BOSS_APPROACH'
     ? bossApproachViewHtml(state, state.activeHook.bossEnemies)
     : `
@@ -1356,7 +1358,7 @@ export function deckModal(deck: ActionCardDef[], state: RunState): string {
 // Hooks (combat / village / shrine / end states)
 // ---------------------------------------------------------------------------
 
-function renderHook(state: RunState, ui: UiState): string {
+function renderHook(state: RunState): string {
   const hook = state.activeHook;
   switch (hook.type) {
     case 'COMBAT':
@@ -1366,7 +1368,7 @@ function renderHook(state: RunState, ui: UiState): string {
     case 'BOSS_APPROACH':
       return ''; // Rendered inline in .play-main replacing the maps/board component
     case 'SHRINE':
-      return shrineModal(state, ui);
+      return ''; // Rendered inline in .play-main replacing the maps/board component
     case 'EXPLORATION':
       return explorationModal(hook.exploration, state);
     case 'PATH_CHALLENGE':

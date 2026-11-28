@@ -240,6 +240,7 @@ export interface EnemyCard {
   undyingTokens?: number;
   resilient?: { requiredRoll: number; reviveHp: number };
   regenOnStart?: number;
+  summonOnTurnStart?: EnemyTemplateId;
   endTurnRegen?: number;
   /** Passive Channel: gains +amount MATK at end of turn (optional duration in turns; permanent if omitted). */
   channel?: { amount: number; duration?: number };
@@ -301,6 +302,7 @@ export interface CombatAttackRollSummary {
   isTriples?: boolean;
   damageDealt: number;
   damageBlocked: number;
+  incomingDamage?: number;
   defenseType?: 'DEF' | 'MDEF';
   damageDefReduced?: number;
   /** Natural target DEF actually bypassed by the hero's physical PEN. */
@@ -387,9 +389,12 @@ export interface ActiveShrineState {
   coord: GridCoord;
   turn: number;
   shrineCard?: AdventureCard;
+  deityName?: string;
+  offeredBoon?: ShrinePrayerOption;
   grantedBoon?: ShrinePrayerOption;
   replacedBoonName?: string | null;
   prayed?: boolean;
+  meditating?: boolean;
   prayOptions?: ShrinePrayerOption[];
   chosenOptionId?: ShrinePrayerOptionId;
   returnToVillage?: ActiveVillageState;

@@ -290,7 +290,7 @@ export function villageViewHtml(state: RunState, village: ActiveVillageState, ui
         <div class="training-resource-value">${getResourceIcon('sp', 'chip-icon')} <span><b>${res.statPoints}</b> SP</span></div>
         <hr />
         <h4>Learning costs</h4>
-        <ul><li>1 AP: 5 Gold + 1 SP</li><li>2 AP: 10 Gold + 2 SP</li><li>3 AP: 20 Gold + 4 SP</li></ul>
+        <ul><li>Gold: 10 &times; 2<sup>LVL</sup> (20 / 40 / 80g)</li><li>SP: 5 &times; 2<sup>LVL</sup> (10 / 20 / 40 SP)</li></ul>
         <h4>Destroy cost</h4>
         <p><b>${removalCost} Gold</b> now<br/><small>Next: ${getTrainRemovalCost(state, 1)} Gold</small></p>
         <button class="void-inspect-link" data-action="open-pile" data-pile="void_deck">Inspect Void (${voidCardCount(state)})</button>

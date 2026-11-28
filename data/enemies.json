@@ -5,8 +5,8 @@
     "name": "Goblin",
     "level": 1,
     "maxHp": 6,
-    "def": 0,
-    "acc": 2,
+    "def": 1,
+    "acc": 4,
     "eva": 3,
     "statPointReward": 2,
     "goldReward": 5,
@@ -24,13 +24,8 @@
     "pattern": [
       {
         "label": "Slash",
-        "damage": 4,
+        "damage": 5,
         "block": 0
-      },
-      {
-        "label": "Cautious Poke",
-        "damage": 3,
-        "block": 2
       }
     ]
   },
@@ -39,8 +34,8 @@
     "templateId": "pink_slime",
     "name": "Blob",
     "level": 1,
-    "maxHp": 8,
-    "def": 1,
+    "maxHp": 10,
+    "def": 0,
     "mdef": 1,
     "acc": 0,
     "eva": 0,
@@ -58,14 +53,9 @@
     "pattern": [
       {
         "label": "Ooze Bump",
-        "damage": 3,
-        "block": 0,
-        "heal": 1
-      },
-      {
-        "label": "Acid Glob",
         "damage": 4,
-        "block": 0
+        "block": 0,
+        "heal": 2
       }
     ]
   },
@@ -75,12 +65,15 @@
     "name": "Pincer",
     "level": 1,
     "maxHp": 6,
-    "def": 1,
+    "def": 2,
     "acc": 1,
     "eva": 1,
     "statPointReward": 2,
     "goldReward": 5,
-    "abilities": [],
+    "hardenDefOnHit": 1,
+    "abilities": [
+      "Harden (1)"
+    ],
     "cardNumber": "mon1grs-03",
     "mainTerrain": "grasslands",
     "spawnTerrains": [
@@ -90,13 +83,6 @@
     "enemyType": "Insect",
     "flavorText": "A heavy-shelled brawler with hardened pincers and a fearless charge.",
     "pattern": [
-      {
-        "label": "Shell Guard",
-        "damage": 0,
-        "block": 0,
-        "defBonus": 1,
-        "defDuration": 2
-      },
       {
         "label": "Horn Charge",
         "damage": 4,
@@ -504,19 +490,17 @@
     ],
     "pattern": [
       {
-        "label": "Sprint",
-        "damage": 0,
-        "block": 0,
-        "evaBonus": 1,
-        "evaDuration": 2,
-        "accBonus": 1,
-        "accDuration": 1
-      },
-      {
         "label": "Pounce",
         "damage": 6,
         "damageType": "physical",
         "block": 0
+      },
+      {
+        "label": "Sprint",
+        "damage": 0,
+        "block": 0,
+        "accBonus": 1,
+        "accDuration": 1
       }
     ]
   },
@@ -777,13 +761,16 @@
     "maxHp": 36,
     "def": 3,
     "mdef": 2,
-    "acc": 3,
+    "acc": 4,
     "eva": 3,
     "statPointReward": 12,
     "goldReward": 50,
+    "summonOnTurnStart": "goblin",
     "abilities": [
-      "Grundy's ATK and DEF increases for each other goblin enemies in play",
-      "Summons a Goblin from the Enemy Deck at 50% HP and 25% HP"
+      "Summon (Goblin)",
+      "Emergency (Goblin)",
+      "Inspired (Goblin)",
+      "Co-defended (Goblin)"
     ],
     "cardNumber": "GRS · #BOSS-01",
     "mainTerrain": "grasslands",

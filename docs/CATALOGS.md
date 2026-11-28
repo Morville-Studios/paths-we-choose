@@ -18,12 +18,12 @@ Physical ordinary-enemy supply: **85 cards**. Common types have 6 copies, Uncomm
 
 | Collector ID | Template ID | Name | Type | Rarity | Supply | Main terrain | Stage 1 deck | Stage 2 deck | Stage 3 deck | Level | HP | DEF | MDEF | ACC | EVA | SP | Gold | Terrains | Pattern | Abilities |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| mon1grs-01 | goblin | Goblin | Goblinoid | common | 6 | grasslands | 6 | 0 | 0 | 1 | 6 | 0 | 0 | 2 | 3 | 2 | 5 | grasslands, forest, swamp | 1. Slash: 4 physical damage<br>2. Cautious Poke: 3 physical damage; +2 Block | None |
-| mon1grs-02 | pink_slime | Blob | Ooze | uncommon | 4 | grasslands | 4 | 0 | 0 | 1 | 8 | 1 | 1 | 0 | 0 | 2 | 5 | grasslands, forest | 1. Ooze Bump: 3 physical damage; +1 HP<br>2. Acid Glob: 4 physical damage | None |
-| mon1grs-03 | fighting_beetle | Pincer | Insect | uncommon | 4 | grasslands | 4 | 0 | 0 | 1 | 6 | 1 | 0 | 1 | 1 | 2 | 5 | grasslands, forest | 1. Shell Guard: +1 DEF for 1 turn(s)<br>2. Horn Charge: 4 physical damage | None |
+| mon1grs-01 | goblin | Goblin | Goblinoid | common | 6 | grasslands | 6 | 0 | 0 | 1 | 6 | 1 | 0 | 4 | 3 | 2 | 5 | grasslands, forest, swamp | 1. Slash: 5 physical damage | None |
+| mon1grs-02 | pink_slime | Blob | Ooze | uncommon | 4 | grasslands | 4 | 0 | 0 | 1 | 10 | 0 | 1 | 0 | 0 | 2 | 5 | grasslands, forest | 1. Ooze Bump: 4 physical damage; +2 HP | None |
+| mon1grs-03 | fighting_beetle | Pincer | Insect | uncommon | 4 | grasslands | 4 | 0 | 0 | 1 | 6 | 2 | 0 | 1 | 1 | 2 | 5 | grasslands, forest | 1. Horn Charge: 4 physical damage | Harden (1) |
 | mon1grs-04 | wild_dog | Scavenger | Beast | uncommon | 4 | grasslands | 4 | 0 | 0 | 1 | 6 | 0 | 0 | 2 | 3 | 2 | 5 | grasslands, forest | 1. Savage Bite: 5 physical damage<br>2. Lunging Bite: 4 physical damage; +2 ACC on hit roll | None |
 | mon1grs-05 | ramram | Ramram | Beast | rare | 3 | grasslands | 3 | 0 | 0 | 1 | 8 | 0 | 0 | 3 | 1 | 2 | 5 | grasslands | 1. Headbutt: 5 physical damage<br>2. Horn Pierce: 4 physical damage; ignore 2 DEF | None |
-| mon1grs-06 | stalker | Stalker | Unspecified | uncommon | 4 | grasslands | 4 | 0 | 0 | 2 | 10 | 0 | 0 | 3 | 4 | 3 | 10 | grasslands, forest | 1. Sprint: +1 EVA for 1 turn(s); +1 ACC on hit roll<br>2. Pounce: 6 physical damage | Skittish: Grants +1 EVA every time it gets hit for 1 turn. |
+| mon1grs-06 | stalker | Stalker | Unspecified | uncommon | 4 | grasslands | 4 | 0 | 0 | 2 | 10 | 0 | 0 | 3 | 4 | 3 | 10 | grasslands, forest | 1. Pounce: 6 physical damage<br>2. Sprint: +1 ACC on hit roll | Skittish: Grants +1 EVA every time it gets hit for 1 turn. |
 | mon2frs-01 | rattler | Rattler | Reptile | rare | 3 | forest | 2 | 3 | 0 | 2 | 10 | 1 | 1 | 4 | 2 | 3 | 10 | forest | 1. Venom Strike: 5 physical damage<br>2. Coil & Strike: 4 physical damage; +2 Block | Harden (1) |
 | mon2frs-02 | tree_snapper | Basilisk | Reptile | uncommon | 4 | forest | 3 | 4 | 0 | 2 | 12 | 2 | 0 | 2 | 2 | 3 | 10 | swamp, forest | 1. Snapping Jaws: 6 physical damage | Harden (1) |
 | mon2frs-03 | zombie | Zombie | Undead | common | 6 | forest | 4 | 6 | 0 | 2 | 12 | 1 | 1 | 2 | 0 | 3 | 10 | swamp, cave, forest | 1. Life Steal: 6 physical damage; drain 50% HP damage | Regen (2) |
@@ -45,7 +45,7 @@ Bosses are spawned separately and excluded from ordinary-deck conservation. Stag
 
 | Name | Template | Level | HP | DEF | MDEF | ACC | EVA | SP | Gold | Pattern | Abilities |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Grundy | goblin_chieftain | 5 | 36 | 3 | 2 | 3 | 3 | 12 | 50 | 1. Goblin March: 6 physical damage | Grundy's ATK and DEF increases for each other goblin enemies in play; Summons a Goblin from the Enemy Deck at 50% HP and 25% HP |
+| Grundy | goblin_chieftain | 5 | 36 | 3 | 2 | 4 | 3 | 12 | 50 | 1. Goblin March: 6 physical damage | Summon (Goblin); Emergency (Goblin); Inspired (Goblin); Co-defended (Goblin) |
 | Troll Healer | troll_healer | 4 | 25 | 1 | 3 | 3 | 2 | 10 | 40 | 1. Troll Mending: +2 Block | Troll Mending (Heals a random troll for 10 HP each round) |
 | Troll Hexer | troll_hexer | 4 | 25 | 2 | 2 | 3 | 2 | 10 | 40 | 1. Troll Hex: +2 Block<br>2. Cursed Recoil: 2 magical damage; +2 damage per active Hero debuff | Hex Curse (Casts a stacking random 5-turn debuff: -1 ACC, +1 DMG taken, or -1 EVA) |
 | Troll Warrior | troll_brute | 4 | 25 | 3 | 1 | 4 | 2 | 10 | 40 | 1. Troll Smash: 6 physical damage | Relentless Assault (Attacks hero for 6 DMG each round) |
